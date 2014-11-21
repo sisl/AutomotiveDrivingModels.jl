@@ -8,19 +8,18 @@ module CarEM
 using BinMaps
 
 export EM
+export export_to_text
 
 immutable EM
-
 	labels   :: Vector{Symbol}          # node labels
 	n        :: Int                     # number of nodes
 	G        :: BitMatrix               # adjacency matrix. G[i,j] is true iff [i] is a parent of [j]
 	r        :: Vector{Int}             # bincounts. r[i] is the number of discrete values node i can take on
-	N        :: Vector{Matrix{Int}}     # sufficient statistics. N[i] is a r[i]×q[i] matrix
+	N        :: Vector{Matrix{Int}}     # sufficient statistics. N[i] is an r[i]×q[i] matrix
 	binmaps  :: Vector{AbstractBinMap}  # bin mappers
-
-	EM() = new()
 end
 
+include("io.jl")
 
 
 end # module
