@@ -19,3 +19,5 @@ type Vehicle
 	length :: Float64  # [m]
 	width  :: Float64  # [m]
 end
+
+typealias Scene Vector{Vehicle}

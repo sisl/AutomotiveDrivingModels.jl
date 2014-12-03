@@ -7,11 +7,13 @@ push!(LOAD_PATH, "/home/tim/Documents/code/wheelerworkspace/Bosch/model/")
 using BinMaps
 using BayesNets
 using Features
+import Base: get
 
 export EM
-export Roadway, PointSE2, Vehicle
+export Roadway, PointSE2, Vehicle, Scene
 export encounter_model
 export export_to_text
+export get, clearmeta
 
 immutable EM
 	BN       :: BayesNet
@@ -20,11 +22,11 @@ immutable EM
 	istarget :: BitVector # whether a feature is a target or an indicator
 end
 
-function encounter_model( 
+function encounter_model{A<:AbstractBinMap, B<:AbstractFeature, C<:AbstractFeature}( 
 	BN         :: BayesNet, 
-	binmapdict :: Dict{Symbol, AbstractBinMap}, 
-	targets    :: Vector{AbstractFeature}, 
-	indicators :: Vector{AbstractFeature}
+	binmapdict :: Dict{Symbol, A}, 
+	targets    :: Vector{B}, 
+	indicators :: Vector{C}
 	)
 
 	features = AbstractFeature[symbol2feature(sym) for sym in BN.names]
@@ -44,6 +46,7 @@ end
 include("common.jl")
 include("io.jl")
 include("sim.jl")
+include("feature_extract.jl")
 
 
 end # module
