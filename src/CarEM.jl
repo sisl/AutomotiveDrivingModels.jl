@@ -11,9 +11,10 @@ import Base: get
 
 export EM
 export Roadway, PointSE2, Vehicle, Scene
-export encounter_model
+export encounter_model, get_targets, get_indicators
 export export_to_text
 export get, clearmeta
+export SEC_PER_FRAME, set_sec_per_frame
 
 immutable EM
 	BN       :: BayesNet
@@ -41,6 +42,16 @@ function encounter_model{A<:AbstractBinMap, B<:AbstractFeature, C<:AbstractFeatu
 	end
 
 	EM(BN, features, binmaps, istarget)
+end
+
+
+get_targets(em::EM) = em.features[em.istarget]
+get_indicators(em::EM) = em.features[!(em.istarget)]
+
+SEC_PER_FRAME = 0.25 # [sec]
+function set_sec_per_frame(Δt::Float64)
+	@assert(Δt > 0.0)
+	global SEC_PER_FRAME = Δt
 end
 
 include("common.jl")
