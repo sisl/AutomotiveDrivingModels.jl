@@ -44,6 +44,16 @@ function get(F::Features.Feature_VelFy, log::Matrix{Float64}, road::Roadway, car
 	ϕ = log[frameind, base + LOG_COL_ϕ]
 	v * sin(ϕ)
 end
+function _get(F::Features.Feature_TurnRate, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+	if frameind <= 1
+		return NA_ALIAS
+	end
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	curr = log[frameind, indϕ]
+	past = log[frameind-1, indϕ]
+	Features.deltaangle(curr, past) / SEC_PER_FRAME
+end
 
 function _get(F::Features.Feature_CL, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
 	posFy = get(POSFY, log, road, carind, frameind)
@@ -73,6 +83,16 @@ function _get(F::Features.Feature_D_MR, log::Matrix{Float64}, road::Roadway, car
 	end
 	0.5road.lanewidth + d_cl
 end
+function  get(::Features.Feature_TimeToCrossing_Left, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+	d_ml = get(D_ML, log, road, carind, frameind)
+	velFy = get(VELFY, log, road, carind, frameind)
+	d_ml > 0.0 && velFy > 0.0 ? min(d_ml / velFy,THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
+end
+function  get(::Features.Feature_TimeToCrossing_Right, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+	d_mr = get(D_MR, log, road, carind, frameind)
+	velFy = get(VELFY, log, road, carind, frameind)
+	d_mr > 0.0 && velFy < 0.0 ? min(d_mr / velFy, Features.THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
+end
 
 function _get(F::Features.Feature_N_LANE_L, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
 	lane = get(CL, log, road, carind, frameind)
@@ -80,16 +100,6 @@ function _get(F::Features.Feature_N_LANE_L, log::Matrix{Float64}, road::Roadway,
 end
 function _get(F::Features.Feature_N_LANE_R, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
 	get(CL, log, road, carind, frameind) - 1.0
-end
-function _get(F::Features.Feature_TurnRate, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
-	if frameind <= 1
-		return NA_ALIAS
-	end
-
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
-	curr = log[frameind, indϕ]
-	past = log[frameind-1, indϕ]
-	Features.deltaangle(curr, past) / SEC_PER_FRAME
 end
 function _get(F::Features.Feature_AccFx, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
 	if frameind <= 1
@@ -250,3 +260,278 @@ end
 		get(INDREAR, log, road, carind, frameind)
 		meta[(carind, :v_y_rear)]
 	end
+
+# LEFT
+	function _get(F::Features.Feature_IndLeft, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+		
+		base = logindexbase(carind)
+		mylane = get(CL, log, road, carind, frameind)
+		myFx = log[frameind, base+LOG_COL_X]
+		myFy = log[frameind, base+LOG_COL_Y]
+		myϕ  = log[frameind, base+LOG_COL_ϕ]
+		myV  = log[frameind, base+LOG_COL_V]
+		myVx = myV * cos(myϕ)
+		myVy = myV * sin(myϕ)
+
+		d_y_left = 0.0
+		v_x_left = 0.0
+		v_y_left = 0.0
+		yaw_left = 0.0
+
+		leftcar_ind = 0
+		leftcar_dist = Inf
+		for i = 1 : ncars(log)
+			if i == carind
+				continue
+			end
+
+			base2 = logindexbase(i)
+			dy = abs(log[frameind, base2+LOG_COL_Y] - myFy)
+			their_lane = get(CL, log, road, i, frameind) - mylane
+			if isapprox(their_lane, mylane+1)
+				dx = log[frameind, base2+LOG_COL_X] - myFx
+				if abs(dx) < abs(leftcar_dist)
+					leftcar_ind = i
+					leftcar_dist = dx
+					d_y_left = log[frameind, base2+LOG_COL_Y] - myFy
+					v_left   = log[frameind, base2+LOG_COL_V]
+					yaw_left = log[frameind, base2+LOG_COL_ϕ]
+					v_x_left = v_left * cos(yaw_left) - myVx
+					v_y_left = v_left * sin(yaw_left) - myVy
+				end
+			end
+		end
+
+		if leftcar_ind != 0
+			@assert(leftcar_ind != carind)
+
+			meta[(carind, :d_x_left)] = leftcar_dist
+			meta[(carind, :d_y_left)] = d_y_left
+			meta[(carind, :v_x_left)] = v_x_left
+			meta[(carind, :v_y_left)] = v_y_left
+			meta[(carind, :yaw_left)] = yaw_left
+			return float64(leftcar_ind)
+		end
+
+		meta[(carind, :d_x_left)] = Features.NA_ALIAS
+		meta[(carind, :d_y_left)] = Features.NA_ALIAS
+		meta[(carind, :v_x_left)] = Features.NA_ALIAS
+		meta[(carind, :v_y_left)] = Features.NA_ALIAS
+		meta[(carind, :yaw_left)] = Features.NA_ALIAS
+		return Features.NA_ALIAS
+	end
+	function _get(F::Features.Feature_D_X_LEFT, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+		get(INDLEFT, log, road, carind, frameind)
+		meta[(carind, :d_x_left)]
+	end
+	function _get(F::Features.Feature_D_Y_LEFT, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+		get(INDLEFT, log, road, carind, frameind)
+		meta[(carind, :d_y_left)]
+	end
+	function _get(F::Features.Feature_V_X_LEFT, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+		get(INDLEFT, log, road, carind, frameind)
+		meta[(carind, :v_x_left)]
+	end
+	function _get(F::Features.Feature_V_Y_LEFT, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+		get(INDLEFT, log, road, carind, frameind)
+		meta[(carind, :v_y_left)]
+	end
+	function _get(F::Features.Feature_YAW_LEFT, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+		get(INDLEFT, log, road, carind, frameind)
+		meta[(carind, :yaw_left)]
+	end
+
+function get(::Features.Feature_MaxAccFx100ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 100
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = get(VELFX, log, road, carind, frameind)
+	for i = 1 : ms_actual
+		val2 = get(VELFX, log, road, carind, frameind-i)
+		accFx = (val2 - val) / SEC_PER_FRAME
+		if abs(accFx) > retval
+			retval = accFx
+		end
+		val = val2
+	end
+	
+	retval
+end
+function get(::Features.Feature_MaxAccFx500ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 500
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = get(VELFX, log, road, carind, frameind)
+	for i = 1 : ms_actual
+		val2 = get(VELFX, log, road, carind, frameind-i)
+		accFx = (val2 - val) / SEC_PER_FRAME
+		if abs(accFx) > retval
+			retval = accFx
+		end
+		val = val2
+	end
+	
+	retval
+end
+function get(::Features.Feature_MaxAccFy250ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 250
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = get(VELFY, log, road, carind, frameind)
+	for i = 1 : ms_actual
+		val2 = get(VELFY, log, road, carind, frameind-i)
+		accFy = (val2 - val) / SEC_PER_FRAME
+		if abs(accFy) > retval
+			retval = accFy
+		end
+		val = val2
+	end
+	
+	retval
+end
+function get(::Features.Feature_MaxTurnRate100ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 150
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = log[frameind, indϕ]
+	for i = 1 : ms_actual
+		val2 = log[frameind-i, indϕ]
+		turnrate = Features.deltaangle(val, val2) / SEC_PER_FRAME
+		if abs(turnrate) > retval
+			retval = turnrate
+		end
+		val = val2
+	end
+	
+	retval
+end
+function get(::Features.Feature_MeanAccFx100ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 150
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = get(VELFX, log, road, carind, frameind)
+	for i = 1 : ms_actual
+		val2 = get(VELFX, log, road, carind, frameind-i)
+		retval += (val2 - val) / SEC_PER_FRAME
+		val = val2
+	end
+	
+	retval / ms_actual
+end
+function get(::Features.Feature_MeanTurnRate150ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 150
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = log[frameind, indϕ]
+	for i = 1 : ms_actual
+		val2 = log[frameind-i, indϕ]
+		retval += Features.deltaangle(val, val2) / SEC_PER_FRAME
+		val = val2
+	end
+	
+	retval / ms_actual
+end
+function get(::Features.Feature_MeanTurnRate200ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 200
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	val = log[frameind, indϕ]
+	for i = 1 : ms_actual
+		val2 = log[frameind-i, indϕ]
+		retval += Features.deltaangle(val, val2) / SEC_PER_FRAME
+		val = val2
+	end
+	
+	retval / ms_actual
+end
+function get(::Features.Feature_StdAccFx150ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 150
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	arr = zeros(Float64, ms_actual)
+	val = get(VELFX, log, road, carind, frameind)
+	for i = 1 : ms_actual
+		val2 = get(VELFX, log, road, carind, frameind-i)
+		arr[i] = (val2 - val) / SEC_PER_FRAME
+		val = val2
+	end
+	
+	std(arr)
+end
+function get(::Features.Feature_StdAccFy200ms, log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int)
+
+	ms = 200
+	ms_actual = convert(Int, ceil(ms / SEC_PER_FRAME))
+
+	if frameind <= ms_actual
+		return NA_ALIAS
+	end	
+
+	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	retval = 0.0
+	arr = zeros(Float64, ms_actual)
+	val = get(VELFY, log, road, carind, frameind)
+	for i = 1 : ms_actual
+		val2 = get(VELFY, log, road, carind, frameind-i)
+		arr[i] = (val2 - val) / SEC_PER_FRAME
+		val = val2
+	end
+	
+	std(arr)
+end

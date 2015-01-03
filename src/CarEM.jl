@@ -16,13 +16,17 @@ export export_to_text
 export get, clearmeta
 export SEC_PER_FRAME, set_sec_per_frame
 
+const N_EULER_STEPS = 10
+const Δt = 0.125 # [sec]
+const SEC_PER_FRAME = Δt
+const δt = Δt / N_EULER_STEPS
+
 immutable EM
 	BN       :: BayesNet
 	features :: Vector{AbstractFeature}
 	binmaps  :: Vector{AbstractBinMap}
 	istarget :: BitVector # whether a feature is a target or an indicator
 end
-
 function encounter_model{A<:AbstractBinMap, B<:AbstractFeature, C<:AbstractFeature}( 
 	BN         :: BayesNet, 
 	binmapdict :: Dict{Symbol, A}, 
@@ -44,20 +48,12 @@ function encounter_model{A<:AbstractBinMap, B<:AbstractFeature, C<:AbstractFeatu
 	EM(BN, features, binmaps, istarget)
 end
 
-
 get_targets(em::EM) = em.features[em.istarget]
 get_indicators(em::EM) = em.features[!(em.istarget)]
 
-SEC_PER_FRAME = 0.25 # [sec]
-function set_sec_per_frame(Δt::Float64)
-	@assert(Δt > 0.0)
-	global SEC_PER_FRAME = Δt
-end
-
 include("common.jl")
 include("io.jl")
-include("sim.jl")
 include("feature_extract.jl")
-
+include("sim.jl")
 
 end # module

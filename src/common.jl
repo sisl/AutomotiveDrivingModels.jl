@@ -1,13 +1,21 @@
-export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_NCOLS_PER_CAR
-export ncars, logindexbase, onroad
+export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR
+export CAR_LENGTH, CAR_WIDTH
+export onroad, lanecenters
+export ncars, logindexbase, create_log
 
 # a log is represented as a Matrix{Float64}
-#  columns are car_1_x, car_1_y, car_1_ϕ, car_1_v, car_2_x, ...
-const LOG_COL_X    = 1
-const LOG_COL_Y    = 2
-const LOG_COL_ϕ    = 3
-const LOG_COL_V    = 4
-const LOG_NCOLS_PER_CAR = 4
+#  columns are car_1_x, car_1_y, car_1_ϕ, car_1_v, car_1_a, car_1_t, car_2_x, ...
+#  actions at time t produce state at time t+1
+const LOG_COL_X = 1
+const LOG_COL_Y = 2
+const LOG_COL_ϕ = 3
+const LOG_COL_V = 4
+const LOG_COL_A = 5 # acceleration input
+const LOG_COL_T = 6 # turnrate input
+const LOG_NCOLS_PER_CAR = 6
+
+const CAR_LENGTH = 4.6 # [m]
+const CAR_WIDTH  = 2.0 # [m]
 
 immutable Roadway
 	nlanes    :: Int
@@ -35,7 +43,9 @@ typealias Scene Vector{Vehicle}
 function onroad(posFy::Real, road::Roadway)
 	
 	-road.lanewidth < posFy <  (road.nlanes - 0.5)*road.lanewidth
-end
+end 
+lanecenters(road::Roadway) = [0:(road.nlanes-1)].*road.lanewidth # [0,w,2w,...]
 
+create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
 ncars(log::Matrix{Float64}) = div(size(log,2), LOG_NCOLS_PER_CAR)
-logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*cind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
+logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
