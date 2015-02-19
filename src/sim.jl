@@ -1,165 +1,169 @@
+export SimParams, SamplingParams
 export simulate!, compute_log_metrics, SimParams
+export SEC_PER_FRAME, set_sec_per_frame
 
 import BinMaps: encode
 import Graphs: topological_sort_by_dfs, in_degree, in_neighbors
 
-const PRIOR_VARS = [YAW,VELFX,D_CL]
+# TODO: change sampling scheme to a class object and use decode(bmap, scheme, x)
 
-type SimParams
-	sample_scheme_a :: Symbol # :vanilla, :zero, or :towards
-	sample_scheme_ϕ :: Symbol # :vanilla, :zero, :towards, or :along
-	prior_threshold_a :: Int  # min number of samples before prior to allow a prior override
-	prior_threshold_ϕ :: Int
-	smoothing_a :: Symbol # :none, :SMA, or :WMA
-	smoothing_param_a :: Int # number of previous counts to use
-	smoothing_ϕ :: Symbol
-	smoothing_param_ϕ :: Int
+immutable SamplingParams
+	sampling_scheme  :: Symbol # :vanilla, :zero, :towards (or :along for ϕ)
+	smoothing        :: Symbol # :none, :SMA, :WMA
+	smoothing_counts :: Int    # number of previous counts to use
 
-	SimParams() = new(:vanilla, :vanilla, 0, 0, :none, 0, :none, 0)
+	function SamplingParams(
+		sampling_scheme :: Symbol = :vanilla,
+		smoothing :: Symbol = :none,
+		smoothing_counts :: Int = 0
+		)
+		@assert(smoothing_counts ≥ 0)
+		new(sampling_scheme, smoothing, smoothing_counts)
+	end
+end
+immutable SimParams
+	sampling_a    :: SamplingParams
+	sampling_ϕ    :: SamplingParams
+	sec_per_frame :: Float64
+	n_euler_steps :: Int
+	n_frames      :: Int
+
+	function SimParams(
+		sampling_a :: SamplingParams = SamplingParams(),
+		sampling_ϕ :: SamplingParams = SamplingParams(),
+		sec_per_frame :: Float64     = 0.125,
+		n_euler_steps :: Int         = 10,
+		n_frames      :: Int         = 100
+		)
+
+		@assert(sec_per_frame > 0.0)
+		@assert(n_euler_steps > 0)
+		@assert(n_frames      > 0)
+		new(sampling_a, sampling_ϕ, sec_per_frame, n_euler_steps, n_frames)
+	end
 end
 
 function simulate!(
 	initial_scene :: Scene,
-	road          :: Roadway,
-	log           :: Matrix{Float64},
+	road          :: StraightRoadway,
 	em            :: EM,
-	# choose_from_prior_accel, 
-	# choose_from_prior_turnrate,
-	params        :: SimParams = SimParams()
+	params        :: SimParams = SimParams(),
+	log           :: Matrix{Float64} = create_log(length(initial_scene), params.n_frames)
 	)
 	
-	frameind = 1
-	ncars = CarEM.ncars(log)
-	@assert(ncars == length(initial_scene))
-	indicators = unique(append!(get_indicators(em), PRIOR_VARS))
+	numcars = ncars(log)
+	@assert(numcars == length(initial_scene))
+	@assert(nframes(log) == params.n_frames)
+	init_log!(log, initial_scene)
 
-	init_log!(log, initial_scene) # zero out, then write in the scene into the first frame
+	indicators = get_indicators(em)
+	frameind = 1
+
+	n_euler_steps = params.n_euler_steps
+	δt = params.sec_per_frame / n_euler_steps
 
 	bmap_a = em.binmaps[findfirst(em.BN.names, :f_accel_250ms)]
 	bmap_ϕ = em.binmaps[findfirst(em.BN.names, :f_turnrate_250ms)]
 
-	# propagate a single step in order to get a nice history
-	for carind in 1 : ncars
-		propagate!(log, carind, frameind, [:f_accel_250ms=>0.0, :f_turnrate_250ms=>0.0])
-	end
-
-	n_prior_samples_a = 0
-	n_prior_samples_ϕ = 0
-
-	parents_accel = Array(Symbol, in_degree(1, em.BN.dag))
-	for (i,neighbor) in enumerate(in_neighbors(1, em.BN.dag))
-		parents_accel[i] = em.BN.names[neighbor]
-	end
-
-	parents_turnrate = Array(Symbol, in_degree(2, em.BN.dag))
-	for (i,neighbor) in enumerate(in_neighbors(2, em.BN.dag))
-		parents_turnrate[i] = em.BN.names[neighbor]
+	# NOTE(tim): propagate a single step in order to get a non-empty history
+	for carind in 1 : numcars
+		propagate!(log, carind, frameind, 
+			[:f_accel_250ms=>0.0, :f_turnrate_250ms=>0.0],
+			n_euler_steps, δt)
 	end
 
 	while !isdone(log, frameind)
 		frameind += 1
 		clearmeta()
 
-		for carind in 1 : ncars
+		for carind in 1 : numcars
 			base = logindexbase(carind)
 
-			observations = observe(log, road, carind, frameind, indicators) # TODO(tim): pre-allocate observations?
+			# TODO(tim): pre-allocate observations?
+			observations = observe(log, road, carind, frameind, indicators, params.sec_per_frame)
 			assignment = encode(observations, em)
-
-			# println(observations)
-
 			sample!(em, assignment)
 			action = draw_action(assignment, em)
-			action_p = action_prior(observations, road)
 
 			# handle acceleration first
-			if params.sample_scheme_a == :zero
-				ind = bmap_a.bin2i[assignment[:f_accel_250ms]]
-				lo  = bmap_a.binedges[ind]
-				hi  = bmap_a.binedges[ind+1]
-				if lo < 0.0 < hi
-					action[:f_accel_250ms] = 0.0
-				end
-			elseif params.sample_scheme_a == :towards
-				ind = bmap_a.bin2i[assignment[:f_accel_250ms]]
-				lo  = bmap_a.binedges[ind]
-				hi  = bmap_a.binedges[ind+1]
-				need = action_p[:f_accel_250ms]
-				if lo < need < hi
-					action[:f_accel_250ms] = need
-				end
-			end
-
-			# assignment_accel = [sym=>assignment[sym] for sym in parents_accel]
-			# if in(assignment_accel, choose_from_prior_accel)
-			# 	action[:f_accel_250ms] = action_p[:f_accel_250ms]
-			# 	n_prior_samples_a += 1
+			# TODO(tim): clean this up
+			# action_p = action_prior(observations, road)
+			# if params.sample_scheme_a == :zero
+			# 	ind = bmap_a.bin2i[assignment[:f_accel_250ms]]
+			# 	lo  = bmap_a.binedges[ind]
+			# 	hi  = bmap_a.binedges[ind+1]
+			# 	if lo < 0.0 < hi
+			# 		action[:f_accel_250ms] = 0.0
+			# 	end
+			# elseif params.sample_scheme_a == :towards
+			# 	ind = bmap_a.bin2i[assignment[:f_accel_250ms]]
+			# 	lo  = bmap_a.binedges[ind]
+			# 	hi  = bmap_a.binedges[ind+1]
+			# 	need = action_p[:f_accel_250ms]
+			# 	if lo < need < hi
+			# 		action[:f_accel_250ms] = need
+			# 	end
 			# end
+
 
 			log[frameind, base + LOG_COL_A] = action[:f_accel_250ms]
 
-			if params.smoothing_a == :SMA
-				n_frames = frameind > params.smoothing_param_a ? params.smoothing_param_a : frameind
-				lo = frameind-(n_frames-1)
-				action[:f_accel_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_A]) / n_frames
-			elseif params.smoothing_a == :WMA
-				n_frames = frameind > params.smoothing_param_a ? params.smoothing_param_a : frameind
-				lo = frameind-(n_frames-1)
-				action[:f_accel_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_A] .* [1:n_frames]) / (0.5n_frames*(n_frames+1))
-			end
+			# TODO(tim): moving into a function
+			# if params.smoothing_a == :SMA
+			# 	n_frames = frameind > params.smoothing_param_a ? params.smoothing_param_a : frameind
+			# 	lo = frameind-(n_frames-1)
+			# 	action[:f_accel_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_A]) / n_frames
+			# elseif params.smoothing_a == :WMA
+			# 	n_frames = frameind > params.smoothing_param_a ? params.smoothing_param_a : frameind
+			# 	lo = frameind-(n_frames-1)
+			# 	action[:f_accel_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_A] .* [1:n_frames]) / (0.5n_frames*(n_frames+1))
+			# end
 
 			# handle turnrate
-			if params.sample_scheme_ϕ == :zero
-				ind = bmap_ϕ.bin2i[assignment[:f_turnrate_250ms]]
-				lo  = bmap_ϕ.binedges[ind]
-				hi  = bmap_ϕ.binedges[ind+1]
-				if lo < 0.0 < hi
-					action[:f_turnrate_250ms] = 0.0
-				end
-			elseif params.sample_scheme_ϕ == :towards
-				ind = bmap_ϕ.bin2i[assignment[:f_turnrate_250ms]]
-				lo  = bmap_ϕ.binedges[ind]
-				hi  = bmap_ϕ.binedges[ind+1]
-				need = action_p[:f_turnrate_250ms_towards]
-				if lo < need < hi
-					action[:f_turnrate_250ms] = need
-				end
-			elseif params.sample_scheme_ϕ == :along
-				ind = bmap_ϕ.bin2i[assignment[:f_turnrate_250ms]]
-				lo  = bmap_ϕ.binedges[ind]
-				hi  = bmap_ϕ.binedges[ind+1]
-				need = action_p[:f_turnrate_250ms_along]
-				if lo < need < hi
-					action[:f_turnrate_250ms] = need
-				end
-			end
-
-			# assignment_turnrate = [sym=>assignment[sym] for sym in parents_turnrate]
-			# if in(assignment_turnrate, choose_from_prior_turnrate)
-			# 	action[:f_turnrate_250ms] = action_p[:f_turnrate_250ms_towards]
-			# 	n_prior_samples_ϕ += 1
+			# if params.sample_scheme_ϕ == :zero
+			# 	ind = bmap_ϕ.bin2i[assignment[:f_turnrate_250ms]]
+			# 	lo  = bmap_ϕ.binedges[ind]
+			# 	hi  = bmap_ϕ.binedges[ind+1]
+			# 	if lo < 0.0 < hi
+			# 		action[:f_turnrate_250ms] = 0.0
+			# 	end
+			# elseif params.sample_scheme_ϕ == :towards
+			# 	ind = bmap_ϕ.bin2i[assignment[:f_turnrate_250ms]]
+			# 	lo  = bmap_ϕ.binedges[ind]
+			# 	hi  = bmap_ϕ.binedges[ind+1]
+			# 	need = action_p[:f_turnrate_250ms_towards]
+			# 	if lo < need < hi
+			# 		action[:f_turnrate_250ms] = need
+			# 	end
+			# elseif params.sample_scheme_ϕ == :along
+			# 	ind = bmap_ϕ.bin2i[assignment[:f_turnrate_250ms]]
+			# 	lo  = bmap_ϕ.binedges[ind]
+			# 	hi  = bmap_ϕ.binedges[ind+1]
+			# 	need = action_p[:f_turnrate_250ms_along]
+			# 	if lo < need < hi
+			# 		action[:f_turnrate_250ms] = need
+			# 	end
 			# end
 
 			log[frameind, base + LOG_COL_T] = action[:f_turnrate_250ms]
 
-			if params.smoothing_ϕ == :SMA
-				n_frames = frameind > params.smoothing_param_ϕ ? params.smoothing_param_ϕ : frameind
-				lo = frameind-(n_frames-1)
-				action[:f_turnrate_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_T]) / n_frames
-			elseif params.smoothing_ϕ == :WMA
-				n_frames = frameind > params.smoothing_param_ϕ ? params.smoothing_param_ϕ : frameind
-				lo = frameind-(n_frames-1)
-				action[:f_turnrate_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_T] .* [1:n_frames]) / (0.5n_frames*(n_frames+1))
-			end
+			# if params.smoothing_ϕ == :SMA
+			# 	n_frames = frameind > params.smoothing_param_ϕ ? params.smoothing_param_ϕ : frameind
+			# 	lo = frameind-(n_frames-1)
+			# 	action[:f_turnrate_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_T]) / n_frames
+			# elseif params.smoothing_ϕ == :WMA
+			# 	n_frames = frameind > params.smoothing_param_ϕ ? params.smoothing_param_ϕ : frameind
+			# 	lo = frameind-(n_frames-1)
+			# 	action[:f_turnrate_250ms] = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_T] .* [1:n_frames]) / (0.5n_frames*(n_frames+1))
+			# end
 
-			propagate!(log, carind, frameind, action)
+			propagate!(log, carind, frameind, action, n_euler_steps, δt)
 		end
 	end
 
-	metrics = compute_log_metrics(log, road)
-	metrics[:n_prior_samples_a] = n_prior_samples_a
-	metrics[:n_prior_samples_ϕ] = n_prior_samples_ϕ
-	metrics
+	# metrics = compute_log_metrics(log, road)
+	# metrics
+	log
 end
 
 function isdone(log::Matrix{Float64}, frameind::Int)
@@ -183,7 +187,14 @@ function add_to_log!(log::Matrix{Float64}, s::Scene, frameind::Int)
 	end
 end
 
-function propagate!{S<:Any}(log::Matrix{Float64}, carind::Int, frameind::Int, action::Dict{Symbol,S})
+function propagate!{S<:Any}(
+	log::Matrix{Float64},
+	carind::Int,
+	frameind::Int,
+	action::Dict{Symbol,S},
+	n_euler_steps :: Int,
+	δt :: Float64
+	)
 	# run physics on the given car at time frameind
 	# place results in log for that car in frameind + 1
 
@@ -196,7 +207,7 @@ function propagate!{S<:Any}(log::Matrix{Float64}, carind::Int, frameind::Int, ac
 	ϕ = log[frameind, b + LOG_COL_ϕ]
 	v = log[frameind, b + LOG_COL_V]
 
-	for j = 1 : N_EULER_STEPS
+	for j = 1 : n_euler_steps
 		v += a*δt
 		ϕ += ω*δt
 		x += v*cos(ϕ)*δt
@@ -208,10 +219,10 @@ function propagate!{S<:Any}(log::Matrix{Float64}, carind::Int, frameind::Int, ac
 	log[frameind+1, b + LOG_COL_ϕ] = ϕ
 	log[frameind+1, b + LOG_COL_V] = v
 end
-function observe(log::Matrix{Float64}, road::Roadway, carind::Int, frameind::Int, features::Vector{AbstractFeature})
+function observe(log::Matrix{Float64}, road::StraightRoadway, carind::Int, frameind::Int, features::Vector{AbstractFeature}, timestep::Float64)
 	observations = Dict{Symbol,Any}()
 	for f in features
-		observations[symbol(f)] = get(f, log, road, carind, frameind)
+		observations[symbol(f)] = get(f, log, road, timestep, carind, frameind)
 	end
 	observations
 end
@@ -238,22 +249,12 @@ function sample!(em::EM, assignment::Dict{Symbol, Int})
 	ordering = topological_sort_by_dfs(em.BN.dag)
 	for name in em.BN.names[ordering]
 		if !haskey(assignment, name)
-
 			assignment[name] = BayesNets.rand(BayesNets.cpd(em.BN, name), assignment)
-
-			# if name == :f_turnrate_250ms
-			# 	bin_probs = BayesNets.cpd(em.BN, name).parameterFunction(assignment)
-			# 	@printf("[")
-			# 	for p in bin_probs
-			# 		@printf("%.3f, ", p)
-			# 	end
-			# 	@printf("] %d\n", assignment[name])
-			# end
 		end
 	end
 	assignment
 end
-function action_prior(observations::Dict{Symbol, Any}, road::Roadway)
+function action_prior(observations::Dict{Symbol, Any}, road::StraightRoadway)
 
 	# car avoids driving off roadway
 	# if off-roadway, car heads back to road
@@ -308,7 +309,9 @@ function draw_action(emsample::Dict{Symbol, Int}, em::EM)
 	action_dict
 end
 
-function compute_log_metrics(log::Matrix{Float64}, road::Roadway)
+function compute_log_metrics(log::Matrix{Float64}, road::StraightRoadway, params::SimParams)
+
+	Δt = params.sec_per_frame
 
 	has_collision_ego = false # whether ego car collides with another car
 	n_lanechanges_ego = 0 # whether ego car makes a lange change

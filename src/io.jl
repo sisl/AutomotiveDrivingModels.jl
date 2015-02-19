@@ -1,3 +1,4 @@
+export export_to_text
 
 function export_to_text(em::EM, filename::String)
 	# export a bayesian network to an encounter definition file 
