@@ -123,5 +123,4 @@ function counts(em::EM, targetind::Int, assignments::Dict{Symbol, Int}, binsizes
     counts(em, targetind, parentindeces, parentassignments, binsizes)
 end
 
-
 edges(varindex::Int, em::EM) = em.binmaps[varindex].binedges

@@ -23,9 +23,11 @@ end
 # NOTE(tim): get() is used for fast lookups
 #            _get() is used for caching calculations
 function get(F::Features.Feature_PosFx, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
 	log[frameind, logindexbase(carind) + LOG_COL_X]
 end
 function get(F::Features.Feature_PosFy, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
 	log[frameind, logindexbase(carind) + LOG_COL_Y]
 end
 function get(F::Features.Feature_Yaw, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
@@ -33,6 +35,9 @@ function get(F::Features.Feature_Yaw, log::Matrix{Float64}, road::StraightRoadwa
 end
 function get(F::Features.Feature_Speed, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	log[frameind, logindexbase(carind) + LOG_COL_V]
+end
+function get(F::Features.Feature_Delta_Speed_Limit, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	log[frameind, logindexbase(carind) + LOG_COL_V] - 29.06 # TODO(tim): make this less arbitrary?
 end
 function get(F::Features.Feature_VelFx, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	base = logindexbase(carind)
@@ -95,17 +100,43 @@ function  get(::Features.Feature_TimeToCrossing_Right, log::Matrix{Float64}, roa
 	velFy = get(VELFY, log, road, timestep, carind, frameind)
 	d_mr > 0.0 && velFy < 0.0 ? min(d_mr / velFy, Features.THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
 end
+function get(F::Features.Feature_D_Merge, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+	100.0 # NOTE(tim): make this less arbitrary - saturation point for StreetMap d_merge
+end
+function get(F::Features.Feature_D_Split, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+	100.0 # NOTE(tim): make this less arbitrary - saturation point for StreetMap d_split
+end
 
 function _get(F::Features.Feature_N_LANE_L, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	lane = get(CL, log, road, timestep, carind, frameind)
 	float64(road.nlanes - lane)
 end
+function _get(F::Features.Feature_HAS_LANE_L, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+	float64(_get(N_LANE_L, log, road, timestep, carind, frameind) > 0.0)
+end
 function _get(F::Features.Feature_N_LANE_R, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
 	get(CL, log, road, timestep, carind, frameind) - 1.0
+end
+function _get(F::Features.Feature_HAS_LANE_R, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+	float64(_get(N_LANE_R, log, road, timestep, carind, frameind) > 0.0)
+end
+function _get(F::Features.Feature_Acc, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	if frameind <= 1
+		return 0.0
+	end
+
+	curr = get(SPEED, log, road, timestep, carind, frameind)
+	past = get(SPEED, log, road, timestep, carind, frameind-1)
+	(curr - past) / timestep
 end
 function _get(F::Features.Feature_AccFx, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	if frameind <= 1
-		return NA_ALIAS
+		return 0.0
 	end
 
 	curr = get(VELFX, log, road, timestep, carind, frameind)
@@ -114,7 +145,7 @@ function _get(F::Features.Feature_AccFx, log::Matrix{Float64}, road::StraightRoa
 end
 function _get(F::Features.Feature_AccFy, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	if frameind <= 1
-		return NA_ALIAS
+		return 0.0
 	end
 
 	curr = get(VELFY, log, road, timestep, carind, frameind)
@@ -174,16 +205,22 @@ end
 			othVx = othv * cos(othϕ)
 			othVy = othv * sin(othϕ)
 
+			meta[(carind, :hasfront)] = 1.0
 			meta[(carind, :d_x_front)] = frontcar_dist
 			meta[(carind, :v_x_front)] = othVx - myVx
 			meta[(carind, :v_y_front)] = othVy - myVy
 			return float64(frontcar_ind)
 		end
 
+		meta[(carind, :hasfront)] = 0.0
 		meta[(carind, :d_x_front)] = Features.NA_ALIAS
 		meta[(carind, :v_x_front)] = Features.NA_ALIAS
 		meta[(carind, :v_y_front)] = Features.NA_ALIAS
 		return Features.NA_ALIAS
+	end
+	function _get(::Features.Feature_HAS_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+		get(INDFRONT, log, road, timestep, carind, frameind)
+		meta[(carind, :has_front)]
 	end
 	function _get(::Features.Feature_D_X_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		get(INDFRONT, log, road, timestep, carind, frameind)
@@ -213,7 +250,38 @@ end
 
 		min(-dx / dv, Features.THRESHOLD_TIME_TO_COLLISION)
 	end
+	function _get(::Features.Feature_A_REQ_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+		ind_front = get(INDFRONT, log, road, timestep, carind, frameind)
+		if ind_front == NA_ALIAS
+			return NA_ALIAS
+		end
 
+		dx = get(D_X_FRONT, log, road, timestep, carind, frameind) # distance between cars
+		dv = get(V_X_FRONT, log, road, timestep, carind, frameind) # v_front - v_back
+
+		if dv >= 0.0 # they are pulling away; we are good
+			return NA_ALIAS
+		end
+
+		-min(dv*dv / (2dx), THRESHOLD_A_REQ)
+	end
+	function _get(::Features.Feature_TimeGap_X_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+		ind_front = get(INDFRONT, log, road, timestep, carind, frameind)
+		if ind_front == NA_ALIAS
+			return Features.THRESHOLD_TIMEGAP
+		end
+
+		dx = get(D_X_FRONT, log, road, timestep, carind, frameind) # distance between cars
+		 v = get(VELFX,     log, road, timestep, carind, frameind)
+
+		if v <= 0.0
+			return Features.THRESHOLD_TIMEGAP
+		end
+
+		min(dx / v, Features.THRESHOLD_TIMEGAP)
+	end
 
 # REAR
 	function _get(F::Features.Feature_IndRear, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
@@ -256,16 +324,22 @@ end
 			othVx = othv * cos(othϕ)
 			othVy = othv * sin(othϕ)
 
+			meta[(carind, :has_rear)] = 1.0
 			meta[(carind, :d_x_rear)] = abs(rearcar_dist)
 			meta[(carind, :v_x_rear)] = othVx - myVx
 			meta[(carind, :v_y_rear)] = othVy - myVy
 			return float64(rearcar_ind)
 		end
 
+		meta[(carind, :has_rear)] = 0.0
 		meta[(carind, :d_x_rear)] = Features.NA_ALIAS
 		meta[(carind, :v_x_rear)] = Features.NA_ALIAS
 		meta[(carind, :v_y_rear)] = Features.NA_ALIAS
 		return Features.NA_ALIAS
+	end
+	function _get(F::Features.Feature_HAS_REAR, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+		get(INDREAR, log, road, timestep, carind, frameind)
+		meta[(carind, :has_rear)]
 	end
 	function _get(F::Features.Feature_D_X_REAR, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		get(INDREAR, log, road, timestep, carind, frameind)
@@ -278,6 +352,42 @@ end
 	function _get(F::Features.Feature_V_Y_REAR, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		get(INDREAR, log, road, timestep, carind, frameind)
 		meta[(carind, :v_y_rear)]
+	end
+	function _get(::Features.Feature_TTC_X_REAR, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+		ind_rear = get(INDREAR, log, road, timestep, carind, frameind)
+		if ind_rear == NA_ALIAS
+			return NA_ALIAS
+		end
+
+		dx = get(D_X_FRONT, log, road, timestep, carind, frameind) # distance between cars
+		dv = get(V_X_FRONT, log, road, timestep, carind, frameind) # v_front - v_back
+
+		if dv <= 0.0
+			return NA_ALIAS
+		end
+
+		if dv <= 0.0
+			return NA_ALIAS
+		end
+
+		min(dx / dv, THRESHOLD_TIME_TO_COLLISION)
+	end
+	function _get( ::Features.Feature_A_REQ_REAR, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+		
+		ind_rear = get(INDREAR, log, road, timestep, carind, frameind)
+		if ind_rear == NA_ALIAS
+			return NA_ALIAS
+		end
+
+		dx = get(D_X_REAR, log, road, timestep, carind, frameind) # distance between cars
+		dv = get(V_X_REAR, log, road, timestep, carind, frameind) # v_rear - v_back
+
+		if dv <= 0.0 # they are pulling away; we are good
+			return NA_ALIAS
+		end
+
+		min(dv*dv / (2dx), THRESHOLD_A_REQ)
 	end
 
 # LEFT
@@ -457,6 +567,111 @@ end
 
 		min(dv*dv / (2*abs(dx)), Features.THRESHOLD_A_REQ)
 	end
+
+function get(::Features.Feature_PastTurnrate100ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+
+	ms = 100
+	ms_actual = convert(Int, ceil(ms / timestep))
+
+	if frameind <= ms_actual
+		return 0.0
+	end	
+
+	get(TURNRATE, log, road, timestep, carind, frameind-ms_actual)
+end
+function get(::Features.Feature_PastAcc500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+
+	ms = 500
+	ms_actual = convert(Int, ceil(ms / timestep))
+
+	if frameind <= ms_actual
+		return 0.0
+	end	
+
+	get(ACC, log, road, timestep, carind, frameind-ms_actual)
+end
+
+function _get(::Features.Feature_Time_Consecutive_Brake, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	# scan backward until the car is no longer braking
+	# NOTE(tim): returns positive time values
+
+	const THRESHOLD_BRAKING = -0.05 # [m/s²]
+
+	if frameind == 1
+		meta[(carind, :time_consecutive_accel)] = 0.0
+		return 0.0
+	end
+
+	cur_accel = get(ACC, log, road, timestep, carind, frameind)
+	if cur_accel > THRESHOLD_BRAKING
+		return 0.0
+	end
+
+	meta[(carind, :time_consecutive_accel)] = 0.0
+
+	past_frameind = frameind
+	done = false
+	while !done
+		past_frameind -= 1
+		if past_frameind > 1
+			past_accel = get(ACC, log, road, timestep, carind, past_frameind)
+			if past_accel > THRESHOLD_BRAKING
+				return timestep * (frameind - past_frameind - 1)
+			end
+
+			Δt = timestep * (frameind - past_frameind)
+			if Δt > Features.THRESHOLD_TIMECONSECUTIVEBRAKE
+				return Features.THRESHOLD_TIMECONSECUTIVEBRAKE
+			end
+		else
+			return timestep * (frameind - past_frameind - 1)
+		end
+	end
+
+	error("INVALID CODEPATH")
+	return 0.0
+end
+function _get(::Features.Feature_Time_Consecutive_Accel, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	# scan backward until the car is no longer braking
+	# NOTE(tim): returns positive time values
+
+	const THRESHOLD_ACCELERATION = 0.05 # [m/s²]
+
+	if frameind == 1
+		meta[(carind, :time_consecutive_brake)] = 0.0
+		return 0.0 # default
+	end
+
+	cur_accel = get(ACC, log, road, timestep, carind, frameind)
+	if cur_accel < THRESHOLD_ACCELERATION
+		return 0.0
+	end
+
+	meta[(carind, :time_consecutive_brake)] = 0.0
+
+	past_frameind = frameind
+	done = false
+	while !done
+		past_frameind -= 1
+		if past_frameind > 1
+
+			past_accel = get(ACC, log, road, timestep, carind, past_frameind)
+			if past_accel < THRESHOLD_ACCELERATION
+				return timestep * (frameind - past_frameind - 1)
+			end
+
+			Δt = timestep * (frameind - past_frameind)
+			if Δt > Features.THRESHOLD_TIMECONSECUTIVEBRAKE
+				return Features.THRESHOLD_TIMECONSECUTIVEBRAKE
+			end
+		else
+			return timestep * (frameind - past_frameind - 1)
+		end
+	end
+
+	error("INVALID CODEPATH")
+	return 0.0
+end
 
 function get(::Features.Feature_MaxAccFx100ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 
