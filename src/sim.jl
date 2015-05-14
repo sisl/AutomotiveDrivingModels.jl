@@ -1,5 +1,5 @@
 export SimParams, SamplingParams
-export simulate!, compute_log_metrics, SimParams
+export simulate!, propagate!, init_log!, compute_log_metrics, SimParams
 export set_sec_per_frame
 export SampleMethod, SampleUniform, SampleBinCenter, SampleUniformZeroBin, 
        SampleTurnrateTowardsLaneCenter, SampleTurnrateAlongLane
@@ -12,49 +12,6 @@ abstract SampleMethod
 immutable SampleUniform <: SampleMethod end # always draw uniform random from bin
 immutable SampleBinCenter <: SampleMethod end # always draw from bin center
 immutable SampleUniformZeroBin <: SampleMethod end # draw 0.0 if bin contains zero, otherwise uniform random
-type SampleTurnrateTowardsLaneCenter <: SampleMethod
-
-	# if bin contains ω_des use it
-	# otherwise sample uniform random
-
-	# C = centerline_scalar
-	# κ = proportional_scalar
-	# ψ_max = max_abs_desired_yaw
-	# ψ_des = clamp(-d_cl*C, ±ψ_max)
-	# ω_des = κ*(ψ_des - ψ)/Δt
-
-	max_abs_desired_yaw :: Float64 # [rad]
-	centerline_scalar   :: Float64 # [rad / m]
-	proportional_scalar :: Float64 # [1/s]
-
-	function SampleTurnrateTowardsLaneCenter()
-		self = new()
-		self.max_abs_desired_yaw = 0.01
-		self.centerline_scalar = 0.01
-		self.proportional_scalar = 0.25
-		self
-	end
-end
-type SampleTurnrateAlongLane <: SampleMethod
-
-	# if bin contains ω_des use it
-	# otherwise sample uniform random
-
-	# κ = proportional_scalar
-	# ψ_des = 0
-	# ω_max = max_abs_omega
-	# ω_des = κ*(ψ_des - ψ)/Δt
-
-	max_abs_omega       :: Float64 # [rad]
-	proportional_scalar :: Float64 # [1/s]
-
-	function SampleTurnrateAlongLane()
-		self = new()
-		self.max_abs_omega = 0.01
-		self.proportional_scalar = 1.0
-		self
-	end
-end
 
 type SamplingParams
 	sampling_scheme  :: SampleMethod
@@ -116,17 +73,41 @@ immutable SimParams
 end
 
 function simulate!(
-	initial_scene :: Scene,
+	simlog        :: Matrix{Float64}, # initialized appropriately
+	behaviors     :: Vector{AbstractVehicleBehavior},
+	road          :: StraightRoadway,
+	frameind      :: Int # starting index within simlog
+	params        :: SimParams = SimParams(),
+	)
+
+	numcars = ncars(simlog)
+	@assert(nframes(simlog) == params.n_frames)
+	@assert(length(behaviors) == numcars)
+
+	while !isdone(log, frameind)
+
+		clearmeta()
+
+		for (carind,behavior) in enumerate(behaviors)
+			tick!(simlog, carind, behavior, road, frameind, params)
+		end
+
+		frameind += 1
+	end
+
+	log
+end
+
+function simulate!(
+	log           :: Matrix{Float64},
 	road          :: StraightRoadway,
 	em            :: EM,
-	params        :: SimParams = SimParams(),
-	log           :: Matrix{Float64} = create_log(length(initial_scene), params.n_frames)
+	params        :: SimParams = SimParams();
+	frameind      :: Int = 1
 	)
 	
 	numcars = ncars(log)
-	@assert(numcars == length(initial_scene))
 	@assert(nframes(log) == params.n_frames)
-	init_log!(log, initial_scene)
 
 	sec_per_frame = params.sec_per_frame
 	n_euler_steps = params.n_euler_steps
@@ -138,97 +119,278 @@ function simulate!(
 	sample_lon = params.sampling_lon
 	samplemethod_lat = sample_lat.sampling_scheme
 	samplemethod_lon = sample_lon.sampling_scheme
+	smoothing_lat = sample_lat.smoothing
+	smoothing_lon = sample_lon.smoothing
+	smoothcounts_lat = sample_lat.smoothing_counts
+	smoothcounts_lon = sample_lon.smoothing_counts
+
 	bmap_lat = em.binmaps[findfirst(em.BN.names, symbol_lat)]
 	bmap_lon = em.binmaps[findfirst(em.BN.names, symbol_lon)]
 
-	# NOTE(tim): propagate a single step in order to get a non-empty history
-	frameind = 1
-	for carind in 1 : numcars
-		propagate!(log, carind, frameind, 0.0, 0.0,
-				   n_euler_steps, δt, params)
-	end
-
 	indicators = get_indicators(em)
-	if isa(samplemethod_lat, SampleTurnrateTowardsLaneCenter)
-		error("avoid this")
-		# for f in [YAW, D_CL]
-		# 	if !in(f, indicators)
-		# 		push!(indicators, f)
-		# 	end
-		# end
-	elseif isa(samplemethod_lat, SampleTurnrateAlongLane)
-		error("avoid this")
-		# if !in(YAW, indicators)
-		# 	push!(indicators, YAW)
-		# end
-	end
 
 	while !isdone(log, frameind)
-		frameind += 1
 		clearmeta()
 
 		for carind in 1 : numcars
 			base = logindexbase(carind)
 
-			# TODO(tim): pre-allocate observations?
-			observations = observe(log, road, carind, frameind, indicators, sec_per_frame)
-			assignment   = encode(observations, em)
-			sample!(em, assignment)
+			a, ω = 0.0, 0.0
 
-			action_lat = decode(samplemethod_lat, bmap_lat, assignment[symbol_lat], observations, sec_per_frame)
-			action_lon = decode(samplemethod_lon, bmap_lon, assignment[symbol_lon], observations, sec_per_frame)
+			if carind == 1
 
-			a = get_input_acceleration(symbol_lon, action_lon, log, frameind, base)
-			ω = get_input_turnrate(    symbol_lat, action_lat, log, frameind, base)
+				# TODO(tim): pre-allocate observations?
+				observations = observe(log, road, carind, frameind, indicators, sec_per_frame)
+				assignment   = encode(observations, em)
+				assignment, logPs  = sample_and_logP!(em, assignment)
 
-			log[frameind, base + LOG_COL_A] = a
-			log[frameind, base + LOG_COL_T] = ω
+				action_lat = decode(samplemethod_lat, bmap_lat, assignment[symbol_lat], observations, sec_per_frame)
+				action_lon = decode(samplemethod_lon, bmap_lon, assignment[symbol_lon], observations, sec_per_frame)
 
-			# TODO(tim): put this into a function
-			if sample_lat == :SMA
-				n_frames = frameind > sample_lat.smoothing_counts ? sample_lat.smoothing_counts : frameind
-				lo = frameind-(n_frames-1)
-				log[frameind, base + LOG_COL_A] = a = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_A]) / n_frames
-			elseif sample_lat == :WMA
-				n_frames = frameind > sample_lat.smoothing_counts ? sample_lat.smoothing_counts : frameind
-				lo = frameind-(n_frames-1)
-				log[frameind, base + LOG_COL_A] = a = (sum(log[lo:frameind, logindexbase(carind) + LOG_COL_A] .* [1:n_frames]) + a) / (0.5n_frames*(n_frames+1))
+				a = get_input_acceleration(symbol_lon, action_lon, log, frameind, base)
+				ω = get_input_turnrate(    symbol_lat, action_lat, log, frameind, base)
+
+				logPa = logPs[symbol_lon]
+				logPω = logPs[symbol_lat]
+
+				if smoothing_lat == :SMA
+					n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+					lo = frameind-(n_frames-1)
+					ω = (sum(log[lo:frameind-1, base + LOG_COL_T]) + ω) / n_frames
+				elseif smoothing_lat == :WMA
+					n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+					lo = frameind-(n_frames-1)
+					ω = (sum(log[lo:frameind-1, base + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+				end
+
+				if smoothing_lon == :SMA
+					n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+					lo = frameind-(n_frames-1)
+					a = (sum(log[lo:frameind-1, base + LOG_COL_A])+a) / n_frames
+				elseif smoothing_lon == :WMA
+					n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+					lo = frameind-(n_frames-1)
+					a = (sum(log[lo:frameind-1, base + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+				end
 			end
 
-			if sample_lon == :SMA
-				n_frames = frameind > sample_lon.smoothing_counts ? sample_lon.smoothing_counts : frameind
-				lo = frameind-(n_frames-1)
-				log[frameind, base + LOG_COL_T] = ω = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_T]) / n_frames
-			elseif sample_lon == :WMA
-				n_frames = frameind > sample_lon.smoothing_counts ? sample_lon.smoothing_counts : frameind
-				lo = frameind-(n_frames-1)
-				log[frameind, base + LOG_COL_T] = ω = sum(log[lo:frameind, logindexbase(carind) + LOG_COL_T] .* [1:n_frames]) / (0.5n_frames*(n_frames+1))
-			end
-
-			propagate!(log, frameind, base, a, ω, n_euler_steps, δt, params)
+			propagate!(log, frameind, base, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
 		end
+
+		frameind += 1
 	end
 
 	log
 end
+function simulate!(
+	log              :: Matrix{Float64},
+	road             :: StraightRoadway,
+	scenarioselector :: ScenarioSelector,
+	params           :: SimParams = SimParams();
+	frameind         :: Int = 1
+	)
+	
+	numcars = ncars(log)
+	@assert(nframes(log) == params.n_frames)
+
+	sec_per_frame = params.sec_per_frame
+	n_euler_steps = params.n_euler_steps
+	δt            = sec_per_frame / n_euler_steps
+
+	symbol_lat = params.symbol_lat
+	symbol_lon = params.symbol_lon
+	sample_lat = params.sampling_lat
+	sample_lon = params.sampling_lon
+	samplemethod_lat = sample_lat.sampling_scheme
+	samplemethod_lon = sample_lon.sampling_scheme
+	smoothing_lat = sample_lat.smoothing
+	smoothing_lon = sample_lon.smoothing
+	smoothcounts_lat = sample_lat.smoothing_counts
+	smoothcounts_lon = sample_lon.smoothing_counts
+
+	while !isdone(log, frameind)
+		
+		clearmeta()
+
+		for carind in 1 : numcars
+			base = logindexbase(carind)
+
+			# if carind == 1
+
+				em_id = select_encounter_model(scenarioselector, log, road, carind, frameind, sec_per_frame)
+				em = get(scenarioselector, em_id)
+
+				indicators = get_indicators(em)
+				bmap_lat = em.binmaps[findfirst(em.BN.names, symbol_lat)]
+				bmap_lon = em.binmaps[findfirst(em.BN.names, symbol_lon)]
+
+				observations = observe(log, road, carind, frameind, indicators, sec_per_frame)
+				assignment   = encode(observations, em)
+				assignment, logPs  = sample_and_logP!(em, assignment)
+
+				action_lat = decode(samplemethod_lat, bmap_lat, assignment[symbol_lat], observations, sec_per_frame)
+				action_lon = decode(samplemethod_lon, bmap_lon, assignment[symbol_lon], observations, sec_per_frame)
+
+				a = get_input_acceleration(symbol_lon, action_lon, log, frameind, base)
+				ω = get_input_turnrate(    symbol_lat, action_lat, log, frameind, base)
+
+				logPa = logPs[symbol_lon]
+				logPω = logPs[symbol_lat]
+
+				if smoothing_lat == :SMA
+					n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+					lo = frameind-(n_frames-1)
+					ω = (sum(log[lo:frameind-1, base + LOG_COL_T]) + ω) / n_frames
+				elseif smoothing_lat == :WMA
+					n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+					lo = frameind-(n_frames-1)
+					ω = (sum(log[lo:frameind-1, base + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+				end
+
+				if smoothing_lon == :SMA
+					n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+					lo = frameind-(n_frames-1)
+					a = (sum(log[lo:frameind-1, base + LOG_COL_A])+a) / n_frames
+				elseif smoothing_lon == :WMA
+					n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+					lo = frameind-(n_frames-1)
+					a = (sum(log[lo:frameind-1, base + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+				end
+
+				propagate!(log, frameind, base, a, ω, logPa, logPω, em_id, n_euler_steps, δt)
+			# else
+			# 	log[frameind, base + LOG_COL_A] = 0.0
+			# 	log[frameind, base + LOG_COL_T] = 0.0
+			# 	propagate!(log, frameind, base, 0.0, 0.0, n_euler_steps, δt, params)				
+			# end
+		end
+
+		frameind += 1
+	end
+
+	log
+end
+function simulate!(
+	scene         :: Scene,
+	road          :: StraightRoadway,
+	em            :: Any,
+	params        :: SimParams = SimParams();
+	frameind      :: Int = 1
+	)
+	
+	runlog = create_log(length(scene), params.n_frames)
+    init_log!(runlog, scene, params)
+    simulate!(runlog, road, em, params, frameind=2)
+	
+	runlog
+end
+
+function tick!(
+	simlog    :: Matrix{Float64}, # initialized appropriately
+	carind    :: Int,
+	behavior  :: VehicleBehaviorNone,
+	road      :: StraightRoadway,
+	frameind  :: Int,
+	params    :: SimParams = SimParams()
+	)
+
+	nothing
+end
+function tick!(
+	simlog    :: Matrix{Float64}, # initialized appropriately
+	carind    :: Int,
+	behavior  :: VehicleBehaviorEM,
+	road      :: StraightRoadway,
+	frameind  :: Int,
+	params    :: SimParams = SimParams()
+	)
+
+	# propagate the simulation by one step for the given vehicle
+
+	em = behavior.em
+
+	sec_per_frame = params.sec_per_frame
+	n_euler_steps = params.n_euler_steps
+	δt            = sec_per_frame / n_euler_steps
+
+	symbol_lat = params.symbol_lat
+	symbol_lon = params.symbol_lon
+	sample_lat = params.sampling_lat
+	sample_lon = params.sampling_lon
+	samplemethod_lat = sample_lat.sampling_scheme
+	samplemethod_lon = sample_lon.sampling_scheme
+	smoothing_lat = sample_lat.smoothing
+	smoothing_lon = sample_lon.smoothing
+	smoothcounts_lat = sample_lat.smoothing_counts
+	smoothcounts_lon = sample_lon.smoothing_counts
+
+	bmap_lat = em.binmaps[findfirst(em.BN.names, symbol_lat)]
+	bmap_lon = em.binmaps[findfirst(em.BN.names, symbol_lon)]
+
+	base = logindexbase(carind)
+
+	a, ω = 0.0, 0.0
+
+	observations = observe(simlog, road, carind, frameind, behavior.indicators, sec_per_frame)
+	assignment   = encode(observations, em)
+	assignment, logPs  = sample_and_logP!(em, assignment)
+
+	action_lat = decode(samplemethod_lat, bmap_lat, assignment[symbol_lat], observations, sec_per_frame)
+	action_lon = decode(samplemethod_lon, bmap_lon, assignment[symbol_lon], observations, sec_per_frame)
+
+	a = get_input_acceleration(symbol_lon, action_lon, simlog, frameind, base)
+	ω = get_input_turnrate(    symbol_lat, action_lat, simlog, frameind, base)
+
+	logPa = logPs[symbol_lon]
+	logPω = logPs[symbol_lat]
+
+	if smoothing_lat == :SMA
+		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+		lo = frameind-(n_frames-1)
+		ω = (sum(simlog[lo:frameind-1, base + LOG_COL_T]) + ω) / n_frames
+	elseif smoothing_lat == :WMA
+		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+		lo = frameind-(n_frames-1)
+		ω = (sum(simlog[lo:frameind-1, base + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+	end
+
+	if smoothing_lon == :SMA
+		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+		lo = frameind-(n_frames-1)
+		a = (sum(simlog[lo:frameind-1, base + LOG_COL_A])+a) / n_frames
+	elseif smoothing_lon == :WMA
+		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+		lo = frameind-(n_frames-1)
+		a = (sum(simlog[lo:frameind-1, base + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+	end
+
+	propagate!(simlog, frameind, base, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
+
+	## MAYBE TRY RUNNING THIS?
+end
 
 function isdone(log::Matrix{Float64}, frameind::Int)
-	if frameind >= size(log, 1)-1
+	if frameind >= size(log, 1)
 		return true
 	end
 	false
 end
-function init_log!(log::Matrix{Float64}, initial_scene::Scene)
+function init_log!(log::Matrix{Float64}, initial_scene::Scene, params::SimParams)
 	fill!(log, 0.0)
-	add_to_log!(log, initial_scene, 1)
-end
-function add_to_log!(log::Matrix{Float64}, s::Scene, frameind::Int)
 	ind = 0
-	for (i,car) in enumerate(s)
-		log[frameind, ind+LOG_COL_X] = car.pos.x
-		log[frameind, ind+LOG_COL_Y] = car.pos.y
-		log[frameind, ind+LOG_COL_ϕ] = car.pos.ϕ
-		log[frameind, ind+LOG_COL_V] = car.speed
+
+	Δt = params.sec_per_frame
+
+	for (i,car) in enumerate(initial_scene)
+		log[2, ind+LOG_COL_X] = car.posFx
+		log[2, ind+LOG_COL_Y] = car.posFy
+		log[2, ind+LOG_COL_ϕ] = car.yaw
+		log[2, ind+LOG_COL_V] = car.speed
+
+		log[1, ind+LOG_COL_X] = car.posFx - car.speed*cos(car.yaw) * Δt
+		log[1, ind+LOG_COL_Y] = car.posFy - car.speed*sin(car.yaw) * Δt
+		log[1, ind+LOG_COL_ϕ] = car.yaw   - car.turnrate * Δt
+		log[1, ind+LOG_COL_V] = car.speed - car.accel    * Δt
 		ind += LOG_NCOLS_PER_CAR
 	end
 end
@@ -265,27 +427,29 @@ function propagate!(
 	baseind       :: Int,
 	a             :: Float64,
 	ω             :: Float64,
+	logPa         :: Float64,
+	logPω         :: Float64,
+	em_id         :: Int,
 	n_euler_steps :: Int,
 	δt            :: Float64,
-	params        :: SimParams
 	)
+
 	# run physics on the given car at time frameind
 	# place results in log for that car in frameind + 1
-
-	# const Kp = 0.2
-
-	# a = action[params.accel_sym]    # [m/s²]
-	# ω = action[params.turnrate_sym] # [rad/s]
-	# phi_des = action[params.turnrate_sym]
 	
-	
+
+	log[frameind, baseind + LOG_COL_A] = a
+	log[frameind, baseind + LOG_COL_T] = ω
+	log[frameind, baseind + LOG_COL_logprobweight_A] = logPa
+	log[frameind, baseind + LOG_COL_logprobweight_T] = logPω
+	log[frameind, baseind + LOG_COL_em] = float64(em_id)
+
 	x = log[frameind, baseind + LOG_COL_X]
 	y = log[frameind, baseind + LOG_COL_Y]
 	ϕ = log[frameind, baseind + LOG_COL_ϕ]
 	v = log[frameind, baseind + LOG_COL_V]
 
 	for j = 1 : n_euler_steps
-		# ω = (phi_des - ϕ)*Kp
 		v += a*δt
 		ϕ += ω*δt
 		x += v*cos(ϕ)*δt
@@ -297,6 +461,185 @@ function propagate!(
 	log[frameind+1, baseind + LOG_COL_ϕ] = ϕ
 	log[frameind+1, baseind + LOG_COL_V] = v
 end
+function propagate!(
+	log           :: Matrix{Float64},
+	frameind      :: Int,
+	carind        :: Int,
+	a             :: Float64,
+	ω             :: Float64,
+	logPa         :: Float64,
+	logPω         :: Float64,
+	em_id         :: Int,
+	params        :: SimParams	
+	)
+	
+	sec_per_frame = params.sec_per_frame
+	n_euler_steps = params.n_euler_steps
+	δt            = sec_per_frame / n_euler_steps
+
+	propagate!(log, frameind, logindexbase(carind), a, ω, logPa, logPω, em_id, n_euler_steps, δt)
+end
+function propagate!(
+	log           :: Matrix{Float64},
+	frameind      :: Int,
+	a             :: Float64,
+	ω             :: Float64,
+	logPa         :: Float64,
+	logPω         :: Float64,
+	em_id         :: Int,
+	params        :: SimParams	
+	)
+	
+	sec_per_frame = params.sec_per_frame
+	n_euler_steps = params.n_euler_steps
+	δt            = sec_per_frame / n_euler_steps
+
+	for carind in ncars(log)
+		propagate!(log, frameind, logindexbase(carind), a, ω, logPa, logPω, em_id, n_euler_steps, δt)
+	end
+end
+function propagate!(
+	log           :: Matrix{Float64},
+	frameind      :: Int,
+	em            :: EM,
+	road          :: StraightRoadway,
+	params        :: SimParams = SimParams();
+	em_id         :: Int = EM_ID_UNKNOWN
+	)
+
+	sec_per_frame = params.sec_per_frame
+	n_euler_steps = params.n_euler_steps
+	δt            = sec_per_frame / n_euler_steps
+
+	symbol_lat = params.symbol_lat
+	symbol_lon = params.symbol_lon
+	sample_lat = params.sampling_lat
+	sample_lon = params.sampling_lon
+	samplemethod_lat = sample_lat.sampling_scheme
+	samplemethod_lon = sample_lon.sampling_scheme
+	smoothing_lat = sample_lat.smoothing
+	smoothing_lon = sample_lon.smoothing
+	smoothcounts_lat = sample_lat.smoothing_counts
+	smoothcounts_lon = sample_lon.smoothing_counts
+
+	bmap_lat = em.binmaps[findfirst(em.BN.names, symbol_lat)]
+	bmap_lon = em.binmaps[findfirst(em.BN.names, symbol_lon)]
+
+	indicators = get_indicators(em)
+
+	clearmeta()
+
+	for carind in 1 : ncars(log)
+		base = logindexbase(carind)
+
+		# TODO(tim): pre-allocate observations?
+		observations = observe(log, road, carind, frameind, indicators, sec_per_frame)
+		assignment   = encode(observations, em)
+		assignment, logPs  = sample_and_logP!(em, assignment)
+
+		action_lat = decode(samplemethod_lat, bmap_lat, assignment[symbol_lat], observations, sec_per_frame)
+		action_lon = decode(samplemethod_lon, bmap_lon, assignment[symbol_lon], observations, sec_per_frame)
+
+		a = get_input_acceleration(symbol_lon, action_lon, log, frameind, base)
+		ω = get_input_turnrate(    symbol_lat, action_lat, log, frameind, base)
+
+		logPa = logPs[symbol_lon]
+		logPω = logPs[symbol_lat]
+
+		if smoothing_lat == :SMA
+			n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+			lo = frameind-(n_frames-1)
+			ω = (sum(log[lo:frameind-1, base + LOG_COL_T]) + ω) / n_frames
+		elseif smoothing_lat == :WMA
+			n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+			lo = frameind-(n_frames-1)
+			ω = (sum(log[lo:frameind-1, base + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+		end
+
+		if smoothing_lon == :SMA
+			n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+			lo = frameind-(n_frames-1)
+			a = (sum(log[lo:frameind-1, base + LOG_COL_A])+a) / n_frames
+		elseif smoothing_lon == :WMA
+			n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+			lo = frameind-(n_frames-1)
+			a = (sum(log[lo:frameind-1, base + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+		end
+
+		propagate!(log, frameind, base, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
+	end
+end
+function propagate!(
+	log           :: Matrix{Float64},
+	frameind      :: Int,
+	carind        :: Int,
+	em            :: EM,
+	road          :: StraightRoadway,
+	params        :: SimParams = SimParams();
+	em_id         :: Int = EM_ID_UNKNOWN
+	)
+
+	sec_per_frame = params.sec_per_frame
+	n_euler_steps = params.n_euler_steps
+	δt            = sec_per_frame / n_euler_steps
+
+	symbol_lat = params.symbol_lat
+	symbol_lon = params.symbol_lon
+	sample_lat = params.sampling_lat
+	sample_lon = params.sampling_lon
+	samplemethod_lat = sample_lat.sampling_scheme
+	samplemethod_lon = sample_lon.sampling_scheme
+	smoothing_lat = sample_lat.smoothing
+	smoothing_lon = sample_lon.smoothing
+	smoothcounts_lat = sample_lat.smoothing_counts
+	smoothcounts_lon = sample_lon.smoothing_counts
+
+	bmap_lat = em.binmaps[findfirst(em.BN.names, symbol_lat)]
+	bmap_lon = em.binmaps[findfirst(em.BN.names, symbol_lon)]
+
+	indicators = get_indicators(em)
+
+	clearmeta()
+
+	base = logindexbase(carind)
+
+	# TODO(tim): pre-allocate observations?
+	observations = observe(log, road, carind, frameind, indicators, sec_per_frame)
+	assignment   = encode(observations, em)
+	assignment, logPs  = sample_and_logP!(em, assignment)
+
+	action_lat = decode(samplemethod_lat, bmap_lat, assignment[symbol_lat], observations, sec_per_frame)
+	action_lon = decode(samplemethod_lon, bmap_lon, assignment[symbol_lon], observations, sec_per_frame)
+
+	a = get_input_acceleration(symbol_lon, action_lon, log, frameind, base)
+	ω = get_input_turnrate(    symbol_lat, action_lat, log, frameind, base)
+
+	logPa = logPs[symbol_lon]
+	logPω = logPs[symbol_lat]
+
+	if smoothing_lat == :SMA
+		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+		lo = frameind-(n_frames-1)
+		ω = (sum(log[lo:frameind-1, base + LOG_COL_T]) + ω) / n_frames
+	elseif smoothing_lat == :WMA
+		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
+		lo = frameind-(n_frames-1)
+		ω = (sum(log[lo:frameind-1, base + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+	end
+
+	if smoothing_lon == :SMA
+		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+		lo = frameind-(n_frames-1)
+		a = (sum(log[lo:frameind-1, base + LOG_COL_A])+a) / n_frames
+	elseif smoothing_lon == :WMA
+		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
+		lo = frameind-(n_frames-1)
+		a = (sum(log[lo:frameind-1, base + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+	end
+
+	propagate!(log, frameind, base, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
+end
+
 function observe(log::Matrix{Float64}, road::StraightRoadway, carind::Int, frameind::Int, features::Vector{AbstractFeature}, timestep::Float64)
 	observations = Dict{Symbol,Any}()
 	for f in features
@@ -336,6 +679,31 @@ function sample!(em::EM, assignment::Dict{Symbol, Int})
 		end
 	end
 	assignment
+end
+function sample_and_logP!(em::EM, assignment::Dict{Symbol, Int})
+	
+	logPs = Dict{Symbol, Float64}()
+
+	# TODO(tim): precompute and store ordering?
+	ordering = topological_sort_by_dfs(em.BN.dag)
+	for name in em.BN.names[ordering]
+		if !haskey(assignment, name)
+			cpd = BayesNets.cpd(em.BN, name)
+
+			p = cpd.parameterFunction(assignment)
+			n = length(p)
+			i = 1
+			c = p[1]
+			u = rand()
+			while c < u && i < n
+				c += p[i += 1]
+			end
+			assignment[name] = cpd.domain[i]
+			logPs[name] = log(p[i])
+		end
+	end
+
+	assignment, logPs
 end
 function action_prior(observations::Dict{Symbol, Any}, road::StraightRoadway, params::SimParams)
 
@@ -410,45 +778,8 @@ function decode{T,S}(::SampleUniformZeroBin, bmap::BinMap{T,S}, x::S, observatio
 		lo + (hi-lo)*rand()
 	end
 end
-function decode{T,S}(samplemethod::SampleTurnrateTowardsLaneCenter, bmap::BinMap{T,S}, x::S, observations::Dict{Symbol, Any}, Δt::Float64)
-	d_cl = observations[:d_cl]
-	ψ = observations[:yaw]
-
-	C = samplemethod.centerline_scalar
-	κ = samplemethod.proportional_scalar
-	ψ_max = samplemethod.max_abs_desired_yaw
-	ψ_des = clamp(-d_cl*C, -ψ_max, ψ_max)
-	ω_des = κ*(ψ_des - ψ)/Δt
-
-	ind = bmap.bin2i[x]
-	lo  = bmap.binedges[ind]
-	hi  = bmap.binedges[ind+1]
-	if lo ≤ ω_des ≤ hi
-		ω_des
-	else
-		lo + (hi-lo)*rand()
-	end
-end
-function decode{T,S}(samplemethod::SampleTurnrateAlongLane, bmap::BinMap{T,S}, x::S, observations::Dict{Symbol, Any}, Δt::Float64)
-	
-	ψ = observations[:yaw]
-
-	κ = samplemethod.proportional_scalar
-	ω_max = samplemethod.max_abs_omega
-	ω_des = clamp(-ψ*κ/Δt, -ω_max, ω_max)
-
-	ind = bmap.bin2i[x]
-	lo  = bmap.binedges[ind]
-	hi  = bmap.binedges[ind+1]
-	if lo ≤ ω_des ≤ hi
-		ω_des
-	else
-		lo + (hi-lo)*rand()
-	end
-end
 
 decode{T,S}(s::SampleMethod, bmap::DataBinMap{T,S}, x::S, ::Dict{Symbol, Any}, Δt::Float64) = error("unsupporterd sample method $s")
-# decode{T,S}(s::SampleMethod, bmap::DataBinMap{T,S}, x::NAtype, ::Dict{Symbol, Any}, Δt::Float64) = decode(bmap, x)
 decode{T,S}(::SampleUniform, bmap::DataBinMap{T,S}, x::S, ::Dict{Symbol, Any}, Δt::Float64) = decode(bmap, x)
 function decode{T,S}(::SampleBinCenter, bmap::DataBinMap{T,S}, x::S, ::Dict{Symbol, Any}, Δt::Float64)
 	ind = bmap.bin2i[x]
@@ -466,54 +797,18 @@ function decode{T,S}(::SampleUniformZeroBin, bmap::DataBinMap{T,S}, x::S, ::Dict
 		lo + (hi-lo)*rand()
 	end
 end
-function decode{T,S}(samplemethod::SampleTurnrateTowardsLaneCenter, bmap::DataBinMap{T,S}, x::S, observations::Dict{Symbol, Any}, Δt::Float64)
-	
-	d_cl = observations[:d_cl]
-	ψ = observations[:yaw]
-
-	C = samplemethod.centerline_scalar
-	κ = samplemethod.proportional_scalar
-	ψ_max = samplemethod.max_abs_desired_yaw
-	ψ_des = clamp(-d_cl*C, -ψ_max, ψ_max)
-	ω_des = κ*(ψ_des - ψ)/Δt
-
-	ind = bmap.bin2i[x]
-	lo  = bmap.binedges[ind]
-	hi  = bmap.binedges[ind+1]
-	if lo ≤ ω_des ≤ hi
-		ω_des
-	else
-		lo + (hi-lo)*rand()
-	end
-end
-function decode{T,S}(samplemethod::SampleTurnrateAlongLane, bmap::DataBinMap{T,S}, x::S, observations::Dict{Symbol, Any}, Δt::Float64)
-	
-	ψ = observations[:yaw]
-
-	κ = samplemethod.proportional_scalar
-	ω_max = samplemethod.max_abs_omega
-	ω_des = clamp(-ψ*κ/Δt, -ω_max, ω_max)
-
-	ind = bmap.bin2i[x]
-	lo  = bmap.binedges[ind]
-	hi  = bmap.binedges[ind+1]
-	if lo ≤ ω_des ≤ hi
-		ω_des
-	else
-		lo + (hi-lo)*rand()
-	end
-end
 
 function compute_log_metrics(log::Matrix{Float64}, road::StraightRoadway, params::SimParams)
 
 	Δt = params.sec_per_frame
+
+	n = size(log,1)
 
 	has_collision_ego = false # whether ego car collides with another car
 	n_lanechanges_ego = 0 # whether ego car makes a lange change
 	elapsed_time = size(log, 1) * Δt
 	has_other_cars = size(log,2) > LOG_NCOLS_PER_CAR
 
-	df_ego = log[1]
 	mean_speed_ego = mean(log[:,LOG_COL_V]) # mean ego speed
 	mean_centerline_offset_ego = 0.0
 	std_speed_ego  = std(log[:,LOG_COL_V])  # stdev of ego speed
@@ -531,9 +826,18 @@ function compute_log_metrics(log::Matrix{Float64}, road::StraightRoadway, params
 	abs_jerk_mean_y = mean(abs_arr_j_y)
 	abs_jerk_std_y = stdm(abs_arr_j_y, abs_jerk_mean_y)
 
+	numcars = ncars(log)
+	if numcars > 1
+		mean_headway = mean(log[:,LOG_NCOLS_PER_CAR+LOG_COL_X] - log[:,LOG_COL_X])
+		mean_timegap = mean((log[:,LOG_NCOLS_PER_CAR+LOG_COL_X] - log[:,LOG_COL_X]) ./ log[:,LOG_COL_V])
+	else
+		mean_headway = 0.0
+		mean_timegap = 0.0
+	end
+
 	lane_centers = lanecenters(road) # [0,lw,2lw,...]
 
-	for i = 1 : size(log,1)
+	for i = 1 : n
 		# check for lange change (by ego car)
 		lane_dists = abs(lane_centers .- log[i,  LOG_COL_Y])
 		cl_cur = indmin(lane_dists)
@@ -564,7 +868,7 @@ function compute_log_metrics(log::Matrix{Float64}, road::StraightRoadway, params
 		end
 	end
 
-	mean_centerline_offset_ego /= size(log,1)
+	mean_centerline_offset_ego /= n
 
 	[
 	 :has_collision_ego=>has_collision_ego,
@@ -582,7 +886,14 @@ function compute_log_metrics(log::Matrix{Float64}, road::StraightRoadway, params
 	 :jerk_std_y=>abs_jerk_std_y,
 	 :final_x=>log[end,LOG_COL_X],
 	 :final_y=>log[end,LOG_COL_Y],
-	 :initial_speed=>log[2,LOG_COL_V]
+	 :initial_speed=>log[2,LOG_COL_V],
+	 :mean_headway=>mean_headway,
+	 :mean_timegap=>mean_timegap,
+	 :logPA=>sum(log[:,LOG_COL_logprobweight_A]),
+	 :logPT=>sum(log[:,LOG_COL_logprobweight_T]),
+	 :percent_freeflow=>sum(log[:,LOG_COL_em] == EM_ID_FREEFLOW) / n,
+	 :percent_carfollow=>sum(log[:,LOG_COL_em] == EM_ID_CARFOLLOW) / n,
+	 :percent_lanechange=>sum(log[:,LOG_COL_em] == EM_ID_LANECHANGE) / n
 	]::Dict{Symbol, Any}
 end
 
@@ -657,6 +968,68 @@ function aggregate_metrics(
 	end
 	metrics
 end
+function aggregate_metrics(
+	initial_scene :: Function,
+	road          :: StraightRoadway,
+	em            :: EM,
+	params        :: SimParams,
+	n_simulations :: Int,
+	runlog        :: Matrix{Float64} = create_log(length(initial_scene()), params.n_frames)
+	)
+
+	@assert(n_simulations > 0)
+
+	metrics = Array(Dict{Symbol, Any}, n_simulations)
+
+	# TODO(tim): parallelize
+	for isim = 1 : n_simulations
+		simulate!(initial_scene(), road, em, params, runlog)
+		metrics[isim] = compute_log_metrics(runlog, road, params)
+	end
+	metrics
+end
+function aggregate_metrics(
+	scenes        :: Vector{Scene},
+	road          :: StraightRoadway,
+	em            :: EM,
+	params        :: SimParams,
+	runlog        :: Matrix{Float64} = create_log(length(scenes[1]), params.n_frames)
+	)
+
+	n_simulations = length(scenes)
+
+	@assert(n_simulations > 0)
+
+	metrics = Array(Dict{Symbol, Any}, n_simulations)
+
+	# TODO(tim): parallelize
+	for isim = 1 : n_simulations
+		simulate!(scenes[isim], road, em, params, runlog)
+		metrics[isim] = compute_log_metrics(runlog, road, params)
+	end
+	metrics
+end
+function aggregate_metrics(
+	scenes        :: Vector{Scene},
+	road          :: StraightRoadway,
+	ss            :: ScenarioSelector,
+	params        :: SimParams,
+	runlog        :: Matrix{Float64} = create_log(length(scenes[1]), params.n_frames)
+	)
+
+	n_simulations = length(scenes)
+
+	@assert(n_simulations > 0)
+
+	metrics = Array(Dict{Symbol, Any}, n_simulations)
+
+	# TODO(tim): parallelize
+	for isim = 1 : n_simulations
+		drivelog = simulate!(scenes[isim], road, ss, params) # runlog
+		metrics[isim] = compute_log_metrics(drivelog, road, params)
+	end
+	metrics
+end
 function print_results_human_readable(params::SimParams, aggmetrics::Vector{Dict{Symbol, Any}})
 	println("GLOBAL")
 	println("\tsec_per_frame: ", params.sec_per_frame)
@@ -690,6 +1063,8 @@ function print_results_human_readable(params::SimParams, aggmetrics::Vector{Dict
 	println("\tjerk std x:             ", calc_metric(:jerk_std_x, Float64, aggmetrics))
 	println("\tjerk mean y:            ", calc_metric(:jerk_mean_y, Float64, aggmetrics))
 	println("\tjerk std y:             ", calc_metric(:jerk_std_y, Float64, aggmetrics))
+	println("\tmean headway:           ", calc_metric(:mean_headway, Float64, aggmetrics))
+	println("\tmean timegap:           ", calc_metric(:mean_timegap, Float64, aggmetrics))
 end
 function print_results_csv_readable(io::IO, params::SimParams, aggmetrics::Vector{Dict{Symbol, Any}})
 	mean_centerline_offset_ego = calc_metric(:mean_centerline_offset_ego, Float64, aggmetrics, true)
@@ -701,16 +1076,18 @@ function print_results_csv_readable(io::IO, params::SimParams, aggmetrics::Vecto
 	jerk_std_x = calc_metric(:jerk_std_x, Float64, aggmetrics)
 	jerk_mean_y = calc_metric(:jerk_mean_y, Float64, aggmetrics)
 	jerk_std_y = calc_metric(:jerk_std_y, Float64, aggmetrics)
+	mean_headway = calc_metric(:mean_headway, Float64, aggmetrics)
+	mean_timegap = calc_metric(:mean_timegap, Float64, aggmetrics)
 
-	str_smoothing_a = params.sampling_lon.smoothing == :none ? "none" :
+	str_smoothing_lat = params.sampling_lon.smoothing == :none ? "none" :
 						@sprintf("%s {%d}", string(params.sampling_lon.smoothing), params.sampling_lon.smoothing_counts)
-	str_smoothing_ϕ = params.sampling_lat.smoothing == :none ? "none" :
+	str_smoothing_lon = params.sampling_lat.smoothing == :none ? "none" :
 						@sprintf("%s {%d}", string(params.sampling_lat.smoothing), params.sampling_lat.smoothing_counts)
 
 	@printf(io, "%.0f, %.3f, ", params.n_frames, params.sec_per_frame)
-	@printf(io, "%s, %s, ", string(typeof(params.sampling_a.sampling_scheme)), str_smoothing_a)
-	@printf(io, "%s, %s, ", string(typeof(params.sampling_ϕ.sampling_scheme)), str_smoothing_ϕ)
-	@printf(io, "%.3f pm %.3f, %.2f pm %.3f, %.3f, %.2f pm %.2f, %.4f pm %.4f, %.3f pm %.2f, %.2f pm %.2f, %.3f pm %.2f, %.2f pm %.2f\n",
+	@printf(io, "%s, %s, ", string(typeof(params.sampling_lat.sampling_scheme)), str_smoothing_lat)
+	@printf(io, "%s, %s, ", string(typeof(params.sampling_lon.sampling_scheme)), str_smoothing_lon)
+	@printf(io, "%.3f pm %.3f, %.2f pm %.3f, %.3f, %.2f pm %.2f, %.4f pm %.4f, %.3f pm %.2f, %.2f pm %.2f, %.3f pm %.2f, %.2f pm %.2f, %.2f pm %.2f, %.3f pm %.3f",
 		mean_centerline_offset_ego[1], mean_centerline_offset_ego[2],
 		mean_speed_ego[1], mean_speed_ego[2],
 		went_offroad[1],
@@ -719,6 +1096,9 @@ function print_results_csv_readable(io::IO, params::SimParams, aggmetrics::Vecto
 		jerk_mean_x[1], jerk_mean_x[2],
 		jerk_std_x[1], jerk_std_x[2],
 		jerk_mean_y[1], jerk_mean_y[2],
-		jerk_std_y[1], jerk_std_y[2])
+		jerk_std_y[1], jerk_std_y[2],
+		mean_headway[1], mean_headway[2],
+		mean_timegap[1], mean_timegap[2],
+		)
 end
 print_results_csv_readable(params::SimParams, aggmetrics::Vector{Dict{Symbol, Any}}) = print_results_csv_readable(STDOUT, params, aggmetrics)

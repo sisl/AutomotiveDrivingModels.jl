@@ -11,7 +11,9 @@ using Features
 import Base: get
 
 include("common.jl")
+include("behaviors.jl")
 include("encounter_model.jl")
+include("scenario_selector.jl")
 include("io.jl")
 include("feature_extract.jl")
 include("sim.jl")

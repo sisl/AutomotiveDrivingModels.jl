@@ -3,6 +3,9 @@ export get, clearmeta
 meta = Dict{(Int,Symbol), Float64}() # (carid, fsym) -> value
 clearmeta() = empty!(meta)
 
+unimplemented = false
+clear_unimp() = global unimplemented = false
+
 function get(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	
 	key = (carind, symbol(F))
@@ -11,12 +14,13 @@ function get(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, ti
 	end
 
 	value = _get(F, log, road, timestep, carind, frameind)::Float64
-	@assert(!isnan(value))
+	!isnan(value) || error("value from feature $(symbol(F)) was NaN!")
 	meta[key] = value
 	value
 end
 function _get(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	warn(@sprintf("get not implemented for feature %s", string(symbol(F))))
+	global unimplemented = true
 	return 0.0
 end
 
@@ -93,12 +97,31 @@ end
 function  get(::Features.Feature_TimeToCrossing_Left, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	d_ml = get(D_ML, log, road, timestep, carind, frameind)
 	velFy = get(VELFY, log, road, timestep, carind, frameind)
-	d_ml > 0.0 && velFy > 0.0 ? min(d_ml / velFy,THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
+	d_ml > 0.0 && velFy > 0.0 ? min(d_ml / velFy,Features.THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
 end
 function  get(::Features.Feature_TimeToCrossing_Right, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	d_mr = get(D_MR, log, road, timestep, carind, frameind)
 	velFy = get(VELFY, log, road, timestep, carind, frameind)
 	d_mr > 0.0 && velFy < 0.0 ? min(d_mr / velFy, Features.THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
+end
+function get(::Features.Feature_TimeSinceLaneCrossing, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+	
+	lane_start = get(CL, log, road, timestep, carind, frameind)
+
+	cur_frameind = frameind
+
+	for pastframeind = frameind - 1 : -1 : 1
+		Δt = (frameind - pastframeind) * timestep
+		if Δt > Features.THRESHOLD_TIMESINCELANECROSSING
+			return Features.THRESHOLD_TIMESINCELANECROSSING
+		end
+
+		past_lane = get(CL, log, road, timestep, carind, frameind)
+		if past_lane != lane_start
+			return Δt
+		end
+	end
+	return Features.THRESHOLD_TIMESINCELANECROSSING
 end
 function get(F::Features.Feature_D_Merge, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	
@@ -181,7 +204,7 @@ end
 
 			base2 = logindexbase(i)
 			dy = abs(log[frameind, base2+LOG_COL_Y] - myFy)
-			dlane = get(CL, log, road, i, frameind) - mylane
+			dlane = get(CL, log, road, timestep, i, frameind) - mylane
 			if isapprox(dlane, 0.0) || dy < Features.THRESHOLD_DY_CONSIDERED_IN_FRONT
 				dx = log[frameind, base2+LOG_COL_X] - myFx
 				if 0 < dx < frontcar_dist
@@ -205,14 +228,14 @@ end
 			othVx = othv * cos(othϕ)
 			othVy = othv * sin(othϕ)
 
-			meta[(carind, :hasfront)] = 1.0
+			meta[(carind, :has_front)] = 1.0
 			meta[(carind, :d_x_front)] = frontcar_dist
 			meta[(carind, :v_x_front)] = othVx - myVx
 			meta[(carind, :v_y_front)] = othVy - myVy
 			return float64(frontcar_ind)
 		end
 
-		meta[(carind, :hasfront)] = 0.0
+		meta[(carind, :has_front)] = 0.0
 		meta[(carind, :d_x_front)] = Features.NA_ALIAS
 		meta[(carind, :v_x_front)] = Features.NA_ALIAS
 		meta[(carind, :v_y_front)] = Features.NA_ALIAS
@@ -568,28 +591,51 @@ end
 		min(dv*dv / (2*abs(dx)), Features.THRESHOLD_A_REQ)
 	end
 
-function get(::Features.Feature_PastTurnrate100ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+function get_past_feature(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
 
-	ms = 100
-	ms_actual = convert(Int, ceil(ms / timestep))
+	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	if frameind <= ms_actual
-		return 0.0
+	if frameind+1 <= frames_back
+		frames_back = frameind - 2
 	end	
 
-	get(TURNRATE, log, road, timestep, carind, frameind-ms_actual)
+	get(F, log, road, timestep, carind, frameind-frames_back)
 end
-function get(::Features.Feature_PastAcc500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_PastTurnrate250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(TURNRATE, log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_PastTurnrate500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(TURNRATE, log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_PastTurnrate750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(TURNRATE, log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_PastTurnrate1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(TURNRATE, log, road, timestep, carind, frameind, 1000)
 
-	ms = 500
-	ms_actual = convert(Int, ceil(ms / timestep))
+get(::Features.Feature_PastAcc250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(ACC, log, road, timestep, carind, frameind,  250)
+get(::Features.Feature_PastAcc500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(ACC, log, road, timestep, carind, frameind,  500)
+get(::Features.Feature_PastAcc750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(ACC, log, road, timestep, carind, frameind,  750)
+get(::Features.Feature_PastAcc1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(ACC, log, road, timestep, carind, frameind, 1000)
 
-	if frameind <= ms_actual
-		return 0.0
-	end	
+get(::Features.Feature_PastVelFy250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(VELFY, log, road, timestep, carind, frameind,  250)
+get(::Features.Feature_PastVelFy500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(VELFY, log, road, timestep, carind, frameind,  500)
+get(::Features.Feature_PastVelFy750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(VELFY, log, road, timestep, carind, frameind,  750)
+get(::Features.Feature_PastVelFy1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(VELFY, log, road, timestep, carind, frameind, 1000)
 
-	get(ACC, log, road, timestep, carind, frameind-ms_actual)
-end
+get(::Features.Feature_PastD_CL250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(D_CL, log, road, timestep, carind, frameind,  250)
+get(::Features.Feature_PastD_CL500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(D_CL, log, road, timestep, carind, frameind,  500)
+get(::Features.Feature_PastD_CL750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(D_CL, log, road, timestep, carind, frameind,  750)
+get(::Features.Feature_PastD_CL1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_past_feature(D_CL, log, road, timestep, carind, frameind, 1000)
 
 function _get(::Features.Feature_Time_Consecutive_Brake, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	# scan backward until the car is no longer braking
@@ -673,19 +719,19 @@ function _get(::Features.Feature_Time_Consecutive_Accel, log::Matrix{Float64}, r
 	return 0.0
 end
 
-function get(::Features.Feature_MaxAccFx100ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 
-	ms = 100
-	ms_actual = convert(Int, ceil(ms / timestep))
+function get_max_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
 
-	if frameind <= ms_actual
-		return NA_ALIAS
+	frames_back = convert(Int, ceil(ms_past / timestep))
+
+	if frameind <= frames_back
+		frames_back = frameind-1
 	end	
 
 	indϕ = logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFX, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = get(VELFX, log, road, timestep, carind, frameind-i)
 		accFx = (val2 - val) / timestep
 		if abs(accFx) > retval
@@ -696,65 +742,37 @@ function get(::Features.Feature_MaxAccFx100ms, log::Matrix{Float64}, road::Strai
 	
 	retval
 end
-function get(::Features.Feature_MaxAccFx200ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_MaxAccFx250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MaxAccFx500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_MaxAccFx750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_MaxAccFx1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_MaxAccFx1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_MaxAccFx2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_MaxAccFx2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_MaxAccFx3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_MaxAccFx4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFx(log, road, timestep, carind, frameind, 4000)
 
-	ms = 200
-	ms_actual = convert(Int, ceil(ms / timestep))
+function get_max_accFy(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
 
-	if frameind <= ms_actual
-		return NA_ALIAS
-	end	
+	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
-	retval = 0.0
-	val = get(VELFX, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
-		val2 = get(VELFX, log, road, timestep, carind, frameind-i)
-		accFx = (val2 - val) / timestep
-		if abs(accFx) > retval
-			retval = accFx
-		end
-		val = val2
-	end
-	
-	retval
-end
-function get(::Features.Feature_MaxAccFx500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-
-	ms = 500
-	ms_actual = convert(Int, ceil(ms / timestep))
-
-	if frameind <= ms_actual
-		return NA_ALIAS
-	end	
-
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
-	retval = 0.0
-	val = get(VELFX, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
-		val2 = get(VELFX, log, road, timestep, carind, frameind-i)
-		accFx = (val2 - val) / timestep
-		if abs(accFx) > retval
-			retval = accFx
-		end
-		val = val2
-	end
-	
-	retval
-end
-function get(::Features.Feature_MaxAccFy250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-
-	ms = 250
-	ms_actual = convert(Int, ceil(ms / timestep))
-
-	if frameind <= ms_actual
-		return NA_ALIAS
+	if frameind <= frames_back
+		frames_back = frameind - 1
 	end	
 
 	indϕ = logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFY, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = get(VELFY, log, road, timestep, carind, frameind-i)
 		accFy = (val2 - val) / timestep
 		if abs(accFy) > retval
@@ -765,19 +783,38 @@ function get(::Features.Feature_MaxAccFy250ms, log::Matrix{Float64}, road::Strai
 	
 	retval
 end
-function get(::Features.Feature_MaxTurnRate100ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_MaxAccFy250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MaxAccFy500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_MaxAccFy750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_MaxAccFy1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_MaxAccFy1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_MaxAccFy2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_MaxAccFy2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_MaxAccFy3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_MaxAccFy4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_accFy(log, road, timestep, carind, frameind, 4000)
 
-	ms = 150
-	ms_actual = convert(Int, ceil(ms / timestep))
 
-	if frameind <= ms_actual
-		return NA_ALIAS
+function get_max_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
+
+	frames_back = convert(Int, ceil(ms_past / timestep))
+
+	if frameind <= frames_back
+		frames_back = frameind - 1
 	end	
 
 	indϕ = logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = log[frameind, indϕ]
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = log[frameind-i, indϕ]
 		turnrate = Features.deltaangle(val, val2) / timestep
 		if abs(turnrate) > retval
@@ -788,79 +825,117 @@ function get(::Features.Feature_MaxTurnRate100ms, log::Matrix{Float64}, road::St
 	
 	retval
 end
-function get(::Features.Feature_MeanAccFx100ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_MaxTurnRate250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MaxTurnRate500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_MaxTurnRate750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_MaxTurnRate1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_MaxTurnRate1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_MaxTurnRate2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_MaxTurnRate2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_MaxTurnRate3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_MaxTurnRate4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_max_turnrate(log, road, timestep, carind, frameind, 4000)
 
-	ms = 150
-	ms_actual = convert(Int, ceil(ms / timestep))
+function get_mean_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
 
-	if frameind <= ms_actual
-		return NA_ALIAS
+	frames_back = convert(Int, ceil(ms_past / timestep))
+
+	if frameind+1 <= frames_back
+		frames_back = frameind-2
 	end	
 
 	indϕ = logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFX, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = get(VELFX, log, road, timestep, carind, frameind-i)
 		retval += (val2 - val) / timestep
 		val = val2
 	end
 	
-	retval / ms_actual
+	retval / frames_back
 end
-function get(::Features.Feature_MeanTurnRate150ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_MeanAccFx250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MeanAccFx500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MeanAccFx750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MeanAccFx1s, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_MeanAccFx1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_MeanAccFx2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_MeanAccFx2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_MeanAccFx3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_MeanAccFx4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_accFx(log, road, timestep, carind, frameind, 4000)
 
-	ms = 150
-	ms_actual = convert(Int, ceil(ms / timestep))
+function get_mean_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
 
-	if frameind <= ms_actual
-		return NA_ALIAS
-	end	
+	frames_back = convert(Int, ceil(ms_past / timestep))
+
+	if frameind+1 <= frames_back
+		frames_back = frameind-1
+	end
 
 	indϕ = logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = log[frameind, indϕ]
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = log[frameind-i, indϕ]
 		retval += Features.deltaangle(val, val2) / timestep
 		val = val2
 	end
 	
-	retval / ms_actual
+	retval / frames_back
 end
-function get(::Features.Feature_MeanTurnRate200ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_MeanTurnRate250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_MeanTurnRate500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_MeanTurnRate750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_MeanTurnRate1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_MeanTurnRate1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_MeanTurnRate2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_MeanTurnRate2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_MeanTurnRate3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_MeanTurnRate4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_mean_turnrate(log, road, timestep, carind, frameind, 4000)
 
-	ms = 200
-	ms_actual = convert(Int, ceil(ms / timestep))
+function get_std_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
 
-	if frameind <= ms_actual
-		return NA_ALIAS
-	end	
+	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
-	retval = 0.0
-	val = log[frameind, indϕ]
-	for i = 1 : ms_actual
-		val2 = log[frameind-i, indϕ]
-		retval += Features.deltaangle(val, val2) / timestep
-		val = val2
+	if frames_back < 2
+		return 0.0
 	end
-	
-	retval / ms_actual
-end
-function get(::Features.Feature_StdAccFx150ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 
-	ms = 150
-	ms_actual = convert(Int, ceil(ms / timestep))
-
-	if frameind <= ms_actual
-		return NA_ALIAS
-	end	
+	if frameind+1 <= frames_back
+		frames_back = frameind-1
+	end
 
 	retval = 0.0
-	arr = zeros(Float64, ms_actual)
+	arr = zeros(Float64, frames_back)
 	val = get(VELFX, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = get(VELFX, log, road, timestep, carind, frameind-i)
 		arr[i] = (val2 - val) / timestep
 		val = val2
@@ -868,19 +943,41 @@ function get(::Features.Feature_StdAccFx150ms, log::Matrix{Float64}, road::Strai
 	
 	std(arr)
 end
-function get(::Features.Feature_StdAccFy200ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_StdAccFx250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_StdAccFx500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_StdAccFx750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_StdAccFx1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_StdAccFx1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_StdAccFx2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_StdAccFx2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_StdAccFx3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_StdAccFx4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFx(log, road, timestep, carind, frameind, 4000)
 
-	ms = 200
-	ms_actual = convert(Int, ceil(ms / timestep))
+function get_std_accFy(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
+	
+	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	if frameind <= ms_actual
-		return NA_ALIAS
+	if frames_back < 2
+		return 0.0
+	end
+
+	if frameind+1 <= frames_back
+		frames_back = frameind-1
 	end	
 
 	retval = 0.0
-	arr = zeros(Float64, ms_actual)
+	arr = zeros(Float64, frames_back)
 	val = get(VELFY, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = get(VELFY, log, road, timestep, carind, frameind-i)
 		arr[i] = (val2 - val) / timestep
 		val = val2
@@ -888,20 +985,43 @@ function get(::Features.Feature_StdAccFy200ms, log::Matrix{Float64}, road::Strai
 	
 	std(arr)
 end
-function get(::Features.Feature_StdTurnRate150ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+get(::Features.Feature_StdAccFy250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_StdAccFy500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_StdAccFy750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_StdAccFy1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_StdAccFy1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_StdAccFy2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_StdAccFy2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_StdAccFy3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_StdAccFy4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_accFy(log, road, timestep, carind, frameind, 4000)
 
-	ms = 150
-	ms_actual = convert(Int, ceil(ms / timestep))
 
-	if frameind <= ms_actual
-		return NA_ALIAS
+function get_std_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int)
+
+	frames_back = convert(Int, ceil(ms_past / timestep))
+
+	if frames_back < 2
+		return 0.0
+	end
+
+	if frameind+1 <= frames_back
+		frames_back = frameind-1
 	end	
 
 	indϕ = logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
-	arr = zeros(Float64, ms_actual)
+	arr = zeros(Float64, frames_back)
 	val = get(TURNRATE, log, road, timestep, carind, frameind)
-	for i = 1 : ms_actual
+	for i = 1 : frames_back
 		val2 = get(TURNRATE, log, road, timestep, carind, frameind-i)
 		arr[i] = (val2 - val) / timestep
 		val = val2
@@ -909,3 +1029,21 @@ function get(::Features.Feature_StdTurnRate150ms, log::Matrix{Float64}, road::St
 	
 	std(arr)
 end
+get(::Features.Feature_StdTurnRate250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 250)
+get(::Features.Feature_StdTurnRate500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 500)
+get(::Features.Feature_StdTurnRate750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 750)
+get(::Features.Feature_StdTurnRate1s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 1000)
+get(::Features.Feature_StdTurnRate1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 1500)
+get(::Features.Feature_StdTurnRate2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 2000)
+get(::Features.Feature_StdTurnRate2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 2500)
+get(::Features.Feature_StdTurnRate3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 3000)
+get(::Features.Feature_StdTurnRate4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
+	get_std_turnrate(log, road, timestep, carind, frameind, 4000)

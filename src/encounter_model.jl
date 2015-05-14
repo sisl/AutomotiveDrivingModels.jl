@@ -1,5 +1,6 @@
 export EM
 export encounter_model, build_bn, get_targets, get_indicators, index, parent_indeces
+export get_target_lat, get_target_lon
 export variable_bin_counts, counts, edges
 
 immutable EM
@@ -86,6 +87,30 @@ end
 
 get_targets(em::EM) = em.features[em.istarget]
 get_indicators(em::EM) = em.features[!(em.istarget)]
+function get_target_lat(em::EM, targets::Vector{AbstractFeature} = get_targets(em))
+    for target in targets
+        if isa(target, Features.Feature_FutureTurnRate_250ms) ||
+           isa(target, Features.Feature_FutureTurnRate_500ms) ||
+           isa(target, Features.Feature_FutureDesiredAngle_250ms) ||
+           isa(target, Features.Feature_FutureDesiredAngle_500ms)
+
+           return target
+        end
+    end
+    error("Lat target not found in targets: $(targets)")
+end
+function get_target_lon(em::EM, targets::Vector{AbstractFeature} = get_targets(em))
+    for target in targets
+        if isa(target, Features.Feature_FutureDesiredSpeed_250ms) ||
+           isa(target, Features.Feature_FutureDesiredSpeed_500ms) ||
+           isa(target, Features.Feature_FutureAcceleration_250ms) ||
+           isa(target, Features.Feature_FutureAcceleration_500ms)
+
+           return target
+        end
+    end
+    error("Lon target not found in targets: $(targets)")
+end
 
 index(f::AbstractFeature, em::EM) = em.BN.index[symbol(f)]
 index(f::Symbol, em::EM) = em.BN.index[f]
@@ -122,5 +147,9 @@ function counts(em::EM, targetind::Int, assignments::Dict{Symbol, Int}, binsizes
     end
     counts(em, targetind, parentindeces, parentassignments, binsizes)
 end
+function counts(em::EM)
+    sum(em.statsvec[1])
+end
 
 edges(varindex::Int, em::EM) = em.binmaps[varindex].binedges
+
