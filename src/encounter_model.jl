@@ -7,10 +7,10 @@ immutable EM
     BN       :: BayesNet
     statsvec :: Vector{Matrix{Float64}}
     features :: Vector{AbstractFeature}
-    binmaps  :: Vector{AbstractBinMap}
+    binmaps  :: Vector{AbstractDiscretizer}
     istarget :: BitVector # whether a feature is a target or an indicator
 end
-function encounter_model{A<:AbstractBinMap, B<:AbstractFeature, C<:AbstractFeature, R<:Real}( 
+function encounter_model{A<:AbstractDiscretizer, B<:AbstractFeature, C<:AbstractFeature, R<:Real}( 
     BN         :: BayesNet,
     statsvec   :: Vector{Matrix{R}},
     binmapdict :: Dict{Symbol, A}, 
@@ -19,7 +19,7 @@ function encounter_model{A<:AbstractBinMap, B<:AbstractFeature, C<:AbstractFeatu
     )
 
     features = AbstractFeature[symbol2feature(sym) for sym in BN.names]
-    binmaps  = AbstractBinMap[binmapdict[sym] for sym in BN.names]
+    binmaps  = AbstractDiscretizer[binmapdict[sym] for sym in BN.names]
     istarget = falses(length(features))
     for (i,f) in enumerate(features)
         if in(f, targets)

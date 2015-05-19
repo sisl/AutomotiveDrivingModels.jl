@@ -2,7 +2,7 @@ export StraightRoadway, PointSE2, Vehicle, VehicleInitialConditions
 export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR
 export CAR_LENGTH, CAR_WIDTH
 export onroad, lanecenters, laneborders
-export ncars, nframes, logindexbase, create_log
+export ncars, nframes, logindexbase, create_log, init_log!
 
 # a log is represented as a Matrix{Float64}
 const LOG_COL_X = 1
@@ -40,29 +40,29 @@ type Vehicle
 	width  :: Float64  # [m]
 end
 
-type VehicleInitialConditions
-	posFx    :: Float64 # [m]
-	posFy    :: Float64 # [m]
-	yaw      :: Float64 # [rad]
-	speed    :: Float64 # [m/s]
-	turnrate :: Float64 # [rad/s]
-	accel    :: Float64 # [m/s²]
+# type VehicleInitialConditions
+# 	posFx    :: Float64 # [m]
+# 	posFy    :: Float64 # [m]
+# 	yaw      :: Float64 # [rad]
+# 	speed    :: Float64 # [m/s]
+# 	turnrate :: Float64 # [rad/s]
+# 	accel    :: Float64 # [m/s²]
 
-	VehicleInitialConditions() = new(0.0,0.0,0.0,0.0,0.0,0.0)
-	function VehicleInitialConditions(posFx::Float64, posFy::Float64, yaw::Float64,
-		speed::Float64; turnrate::Float64 = 0.0, accel::Float64=0.0
-		)
+# 	VehicleInitialConditions() = new(0.0,0.0,0.0,0.0,0.0,0.0)
+# 	function VehicleInitialConditions(posFx::Float64, posFy::Float64, yaw::Float64,
+# 		speed::Float64; turnrate::Float64 = 0.0, accel::Float64=0.0
+# 		)
 
-		new(posFx, posFy, yaw, speed, turnrate, accel)
-	end
-	function VehicleInitialConditions(
-		posFx::Float64, posFy::Float64,    yaw::Float64,
-		speed::Float64, turnrate::Float64, accel::Float64
-		)
+# 		new(posFx, posFy, yaw, speed, turnrate, accel)
+# 	end
+# 	function VehicleInitialConditions(
+# 		posFx::Float64, posFy::Float64,    yaw::Float64,
+# 		speed::Float64, turnrate::Float64, accel::Float64
+# 		)
 
-		new(posFx, posFy, yaw, speed, turnrate, accel)
-	end
-end
+# 		new(posFx, posFy, yaw, speed, turnrate, accel)
+# 	end
+# end
 
 type VehicleTrace
 	# records the trace of a vehicle during a simulation, 
@@ -78,7 +78,44 @@ onroad(posFy::Real, road::StraightRoadway) = -0.5road.lanewidth < posFy <  (road
 lanecenters(road::StraightRoadway) = [0:(road.nlanes-1)].*road.lanewidth # [0,w,2w,...]
 laneborders(road::StraightRoadway) = [0:road.nlanes].*road.lanewidth - road.lanewidth/2
 
-create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
 ncars(log::Matrix{Float64}) = div(size(log,2), LOG_NCOLS_PER_CAR)
 nframes(log::Matrix{Float64}) = size(log, 1)
 logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
+
+create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
+
+function fill_log_with_trace_complete(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
+	# perform a direct copy of the trace
+
+	m = size(simlog, 1)
+	@assert(m == size(trace, 1))
+	@assert(size(trace, 2) == LOG_NCOLS_PER_CAR)
+	@assert(startframe == trace.history)
+
+	baseind = logindexbase(carind)
+
+    for j = 1 : LOG_NCOLS_PER_CAR
+    	simlog[:,baseind+j] = trace[:,j]
+    end
+
+	simlog
+end
+function fill_log_with_trace_partial(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
+	# only copy the history and perform no override of the rest
+
+	m = size(simlog, 1)
+	@assert(m ≥ size(trace, 1))
+	@assert(size(trace, 1) ≥ trace.history)
+	@assert(size(trace, 2) == LOG_NCOLS_PER_CAR)
+	@assert(startframe == trace.history)
+
+	baseind = logindexbase(carind)
+
+    for j = 1 : LOG_NCOLS_PER_CAR
+    	for i = 1 : startframe
+    		simlog[i,baseind+j] = trace[i,j]
+    	end
+    end
+
+	simlog
+end
