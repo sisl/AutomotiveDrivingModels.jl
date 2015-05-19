@@ -1,4 +1,4 @@
-export get, clearmeta
+export get, clearmeta, required_history
 
 meta = Dict{(Int,Symbol), Float64}() # (carid, fsym) -> value
 clearmeta() = empty!(meta)
@@ -6,7 +6,7 @@ clearmeta() = empty!(meta)
 unimplemented = false
 clear_unimp() = global unimplemented = false
 
-function get(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+function  get(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	
 	key = (carind, symbol(F))
 	if haskey(meta, key)
@@ -24,7 +24,7 @@ function _get(F::AbstractFeature, log::Matrix{Float64}, road::StraightRoadway, t
 	return 0.0
 end
 
-# NOTE(tim): get() is used for fast lookups
+# NOTE(tim):  get() is used for fast lookups
 #            _get() is used for caching calculations
 function get(F::Features.Feature_PosFx, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	

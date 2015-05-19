@@ -1,8 +1,9 @@
-export StraightRoadway, PointSE2, Vehicle, VehicleInitialConditions
-export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR
+export StraightRoadway, PointSE2, Vehicle, VehicleTrace
+export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR,
+	   LOG_COL_logprobweight_A, LOG_COL_logprobweight_T, LOG_COL_em
 export CAR_LENGTH, CAR_WIDTH
 export onroad, lanecenters, laneborders
-export ncars, nframes, logindexbase, create_log, init_log!
+export ncars, nframes, logindexbase, create_log, create_trace
 
 # a log is represented as a Matrix{Float64}
 const LOG_COL_X = 1
@@ -64,7 +65,7 @@ end
 # 	end
 # end
 
-type VehicleTrace
+immutable VehicleTrace
 	# records the trace of a vehicle during a simulation, 
 	# including the history before the simulation begins
 	#  columns are {x, y, ϕ, v, accel, turnrate, logP_A, logP_T, em_choice}
@@ -72,6 +73,14 @@ type VehicleTrace
 
 	log :: Matrix{Float64}
 	history :: Int # the index of the first frame (history = 1 indicates frame 1 is the initial state)
+
+	function VehicleTrace(nframes::Integer, history::Integer) 
+		@assert(history > 0)
+		@assert(history ≤ nframes)
+
+		simlog = Array(Float64, nframes, LOG_NCOLS_PER_CAR)
+		new(simlog, history)
+	end
 end
 
 onroad(posFy::Real, road::StraightRoadway) = -0.5road.lanewidth < posFy <  (road.nlanes - 0.5)*road.lanewidth
@@ -84,7 +93,7 @@ logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the ind
 
 create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
 
-function fill_log_with_trace_complete(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
+function fill_log_with_trace_complete!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
 	# perform a direct copy of the trace
 
 	m = size(simlog, 1)
@@ -100,20 +109,20 @@ function fill_log_with_trace_complete(simlog::Matrix{Float64}, trace::VehicleTra
 
 	simlog
 end
-function fill_log_with_trace_partial(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
+function fill_log_with_trace_partial!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
 	# only copy the history and perform no override of the rest
 
 	m = size(simlog, 1)
-	@assert(m ≥ size(trace, 1))
-	@assert(size(trace, 1) ≥ trace.history)
-	@assert(size(trace, 2) == LOG_NCOLS_PER_CAR)
+	@assert(m ≥ size(trace.log, 1))
+	@assert(size(trace.log, 1) ≥ trace.history)
+	@assert(size(trace.log, 2) == LOG_NCOLS_PER_CAR)
 	@assert(startframe == trace.history)
 
 	baseind = logindexbase(carind)
 
     for j = 1 : LOG_NCOLS_PER_CAR
     	for i = 1 : startframe
-    		simlog[i,baseind+j] = trace[i,j]
+    		simlog[i,baseind+j] = trace.log[i,j]
     	end
     end
 

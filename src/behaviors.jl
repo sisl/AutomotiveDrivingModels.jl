@@ -15,7 +15,9 @@ export  AbstractVehicleBehavior,
 
         ModelSimParams,
 
-        VEHICLE_BEHAVIOR_NONE
+        VEHICLE_BEHAVIOR_NONE,
+
+        init_log!
 
 # abstract type
 abstract AbstractVehicleBehavior
@@ -77,11 +79,11 @@ type VehicleBehaviorSS <: AbstractVehicleBehavior
 end
 
 init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorNone, trace::VehicleTrace, startframe::Int) =
-    fill_log_with_trace_complete(simlog, trace, carind, startframe)
+    fill_log_with_trace_complete!(simlog, trace, carind, startframe)
 init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorEM, trace::VehicleTrace, startframe::Int) =
-    fill_log_with_trace_partial(simlog, trace, carind, startframe)
+    fill_log_with_trace_partial!(simlog, trace, carind, startframe)
 init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorSS, trace::VehicleTrace, startframe::Int) =
-    fill_log_with_trace_partial(simlog, trace, carind, startframe)
+    fill_log_with_trace_partial!(simlog, trace, carind, startframe)
 
 function init_log!(
     simlog     :: Matrix{Float64},
