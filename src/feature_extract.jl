@@ -1,7 +1,10 @@
-export get, clearmeta, required_history
+export get, clearmeta, required_history, get_unimplemented_indicators
 
 meta = Dict{(Int,Symbol), Float64}() # (carid, fsym) -> value
 clearmeta() = empty!(meta)
+
+# TODO(tim): should not use this in parallel because meta() is a single global value
+# TODO(tim): consider supporting a custom meta, or changing it so we don't have to always allocate new values
 
 unimplemented = false
 clear_unimp() = global unimplemented = false
@@ -28,29 +31,29 @@ end
 #            _get() is used for caching calculations
 function get(F::Features.Feature_PosFx, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	
-	log[frameind, logindexbase(carind) + LOG_COL_X]
+	log[frameind, calc_logindexbase(carind) + LOG_COL_X]
 end
 function get(F::Features.Feature_PosFy, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 	
-	log[frameind, logindexbase(carind) + LOG_COL_Y]
+	log[frameind, calc_logindexbase(carind) + LOG_COL_Y]
 end
 function get(F::Features.Feature_Yaw, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-	log[frameind, logindexbase(carind) + LOG_COL_ϕ]
+	log[frameind, calc_logindexbase(carind) + LOG_COL_ϕ]
 end
 function get(F::Features.Feature_Speed, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-	log[frameind, logindexbase(carind) + LOG_COL_V]
+	log[frameind, calc_logindexbase(carind) + LOG_COL_V]
 end
 function get(F::Features.Feature_Delta_Speed_Limit, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-	log[frameind, logindexbase(carind) + LOG_COL_V] - 29.06 # TODO(tim): make this less arbitrary?
+	log[frameind, calc_logindexbase(carind) + LOG_COL_V] - 29.06 # TODO(tim): make this less arbitrary?
 end
 function get(F::Features.Feature_VelFx, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-	base = logindexbase(carind)
+	base = calc_logindexbase(carind)
 	v = log[frameind, base + LOG_COL_V]
 	ϕ = log[frameind, base + LOG_COL_ϕ]
 	v * cos(ϕ)
 end
 function get(F::Features.Feature_VelFy, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
-	base = logindexbase(carind)
+	base = calc_logindexbase(carind)
 	v = log[frameind, base + LOG_COL_V]
 	ϕ = log[frameind, base + LOG_COL_ϕ]
 	v * sin(ϕ)
@@ -60,7 +63,7 @@ function _get(F::Features.Feature_TurnRate, log::Matrix{Float64}, road::Straight
 		return NA_ALIAS
 	end
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	curr = log[frameind, indϕ]
 	past = log[frameind-1, indϕ]
 	Features.deltaangle(curr, past) / timestep
@@ -190,7 +193,7 @@ end
 # FRONT
 	function _get(::Features.Feature_IndFront, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		
-		base = logindexbase(carind)
+		base = calc_logindexbase(carind)
 		mylane = get(CL, log, road, timestep, carind, frameind)
 		myFx = log[frameind, base+LOG_COL_X]
 		myFy = log[frameind, base+LOG_COL_Y]
@@ -202,7 +205,7 @@ end
 				continue
 			end
 
-			base2 = logindexbase(i)
+			base2 = calc_logindexbase(i)
 			dy = abs(log[frameind, base2+LOG_COL_Y] - myFy)
 			dlane = get(CL, log, road, timestep, i, frameind) - mylane
 			if isapprox(dlane, 0.0) || dy < Features.THRESHOLD_DY_CONSIDERED_IN_FRONT
@@ -222,14 +225,16 @@ end
 			myVx = myv * cos(myϕ)
 			myVy = myv * sin(myϕ)
 
-			base2 = logindexbase(frontcar_ind)
-			othϕ = log[frameind, base2+LOG_COL_ϕ]
-			othv = log[frameind, base2+LOG_COL_V]
+			base2 = calc_logindexbase(frontcar_ind)
+			othFy = log[frameind, base2+LOG_COL_Y]
+			othϕ  = log[frameind, base2+LOG_COL_ϕ]
+			othv  = log[frameind, base2+LOG_COL_V]
 			othVx = othv * cos(othϕ)
 			othVy = othv * sin(othϕ)
 
 			meta[(carind, :has_front)] = 1.0
 			meta[(carind, :d_x_front)] = frontcar_dist
+			meta[(carind, :d_y_front)] = othFy - myFy
 			meta[(carind, :v_x_front)] = othVx - myVx
 			meta[(carind, :v_y_front)] = othVy - myVy
 			return float64(frontcar_ind)
@@ -237,6 +242,7 @@ end
 
 		meta[(carind, :has_front)] = 0.0
 		meta[(carind, :d_x_front)] = Features.NA_ALIAS
+		meta[(carind, :d_y_front)] = Features.NA_ALIAS
 		meta[(carind, :v_x_front)] = Features.NA_ALIAS
 		meta[(carind, :v_y_front)] = Features.NA_ALIAS
 		return Features.NA_ALIAS
@@ -248,6 +254,10 @@ end
 	function _get(::Features.Feature_D_X_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		get(INDFRONT, log, road, timestep, carind, frameind)
 		meta[(carind, :d_x_front)]
+	end
+	function _get(::Features.Feature_D_Y_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
+		get(INDFRONT, log, road, timestep, carind, frameind)
+		meta[(carind, :d_y_front)]
 	end
 	function _get(::Features.Feature_V_X_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		get(INDFRONT, log, road, timestep, carind, frameind)
@@ -309,7 +319,7 @@ end
 # REAR
 	function _get(F::Features.Feature_IndRear, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		
-		base = logindexbase(carind)
+		base = calc_logindexbase(carind)
 		mylane = get(CL, log, road, timestep, carind, frameind)
 		myFx = log[frameind, base+LOG_COL_X]
 		myFy = log[frameind, base+LOG_COL_Y]
@@ -321,7 +331,7 @@ end
 				continue
 			end
 
-			base2 = logindexbase(i)
+			base2 = calc_logindexbase(i)
 			dy = abs(log[frameind, base2+LOG_COL_Y] - myFy)
 			dlane = get(CL, log, road, i, frameind) - mylane
 			if isapprox(dlane, 0.0) || dy < Features.THRESHOLD_DY_CONSIDERED_IN_REAR
@@ -341,7 +351,7 @@ end
 			myVx = myv * cos(myϕ)
 			myVy = myv * sin(myϕ)
 
-			base2 = logindexbase(rearcar_ind)
+			base2 = calc_logindexbase(rearcar_ind)
 			othϕ = log[frameind, base2+LOG_COL_ϕ]
 			othv = log[frameind, base2+LOG_COL_V]
 			othVx = othv * cos(othϕ)
@@ -416,7 +426,7 @@ end
 # LEFT
 	function _get(F::Features.Feature_IndLeft, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		
-		base = logindexbase(carind)
+		base = calc_logindexbase(carind)
 		mylane = get(CL, log, road, timestep, carind, frameind)
 		myFx = log[frameind, base+LOG_COL_X]
 		myFy = log[frameind, base+LOG_COL_Y]
@@ -437,7 +447,7 @@ end
 				continue
 			end
 
-			base2 = logindexbase(i)
+			base2 = calc_logindexbase(i)
 			dy = abs(log[frameind, base2+LOG_COL_Y] - myFy)
 			their_lane = get(CL, log, road, i, frameind) - mylane
 			if isapprox(their_lane, mylane+1)
@@ -496,7 +506,7 @@ end
 # RIGHT
 	function _get(::Features.Feature_IndRight, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int)
 		
-		base = logindexbase(carind)
+		base = calc_logindexbase(carind)
 		mylane = get(CL, log, road, timestep, carind, frameind)
 		myFx = log[frameind, base+LOG_COL_X]
 		myFy = log[frameind, base+LOG_COL_Y]
@@ -517,7 +527,7 @@ end
 				continue
 			end
 
-			base2 = logindexbase(i)
+			base2 = calc_logindexbase(i)
 			dy = abs(log[frameind, base2+LOG_COL_Y] - myFy)
 			their_lane = get(CL, log, road, i, frameind) - mylane
 			if isapprox(their_lane, mylane-1)
@@ -728,7 +738,7 @@ function get_max_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Fl
 		frames_back = frameind-1
 	end	
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFX, log, road, timestep, carind, frameind)
 	for i = 1 : frames_back
@@ -769,7 +779,7 @@ function get_max_accFy(log::Matrix{Float64}, road::StraightRoadway, timestep::Fl
 		frames_back = frameind - 1
 	end	
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFY, log, road, timestep, carind, frameind)
 	for i = 1 : frames_back
@@ -811,7 +821,7 @@ function get_max_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep:
 		frames_back = frameind - 1
 	end	
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = log[frameind, indϕ]
 	for i = 1 : frames_back
@@ -852,7 +862,7 @@ function get_mean_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::F
 		frames_back = frameind-2
 	end	
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFX, log, road, timestep, carind, frameind)
 	for i = 1 : frames_back
@@ -890,7 +900,7 @@ function get_mean_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep
 		frames_back = frameind-1
 	end
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = log[frameind, indϕ]
 	for i = 1 : frames_back
@@ -1017,7 +1027,7 @@ function get_std_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep:
 		frames_back = frameind-1
 	end	
 
-	indϕ = logindexbase(carind) + LOG_COL_ϕ
+	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	arr = zeros(Float64, frames_back)
 	val = get(TURNRATE, log, road, timestep, carind, frameind)
@@ -1047,3 +1057,22 @@ get(::Features.Feature_StdTurnRate3s,    log::Matrix{Float64}, road::StraightRoa
 	get_std_turnrate(log, road, timestep, carind, frameind, 3000)
 get(::Features.Feature_StdTurnRate4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int) =
 	get_std_turnrate(log, road, timestep, carind, frameind, 4000)
+
+
+#####
+
+function get_unimplemented_indicators(em::EM)
+
+    runlog = create_log(1,1)
+    road   = StraightRoadway(1,1.0)
+
+    unimplemented = AbstractFeature[]
+    for f in get_indicators(em)
+        clear_unimp()
+        get(f, runlog, road, 1.0, 1, 1)
+        if unimplemented
+            push!(unimplemented, f)
+        end
+    end
+    unimplemented
+end

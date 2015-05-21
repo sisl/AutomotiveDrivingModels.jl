@@ -15,9 +15,7 @@ export  AbstractVehicleBehavior,
 
         ModelSimParams,
 
-        VEHICLE_BEHAVIOR_NONE,
-
-        init_log!
+        VEHICLE_BEHAVIOR_NONE
 
 # abstract type
 abstract AbstractVehicleBehavior
@@ -49,13 +47,13 @@ type VehicleBehaviorEM <: AbstractVehicleBehavior
     symbol_lat :: Symbol
     symbol_lon :: Symbol
 
-    sampling_lat :: ModelSimParams
-    sampling_lon :: ModelSimParams
+    simparams_lat :: ModelSimParams
+    simparams_lon :: ModelSimParams
 
     function VehicleBehaviorEM(
-        em           :: EM,
-        sampling_lat :: ModelSimParams,
-        sampling_lon :: ModelSimParams
+        em            :: EM,
+        simparams_lat :: ModelSimParams,
+        simparams_lon :: ModelSimParams
         )
 
         retval = new()
@@ -66,8 +64,8 @@ type VehicleBehaviorEM <: AbstractVehicleBehavior
         retval.symbol_lat = symbol(get_target_lat(em, targets))
         retval.symbol_lon = symbol(get_target_lon(em, targets))
 
-        retval.sampling_lat = sampling_lat
-        retval.sampling_lon = sampling_lon
+        retval.simparams_lat = simparams_lat
+        retval.simparams_lon = simparams_lon
 
         retval
     end
@@ -76,31 +74,4 @@ end
 # The vehicle always selects actions using a scenario selector
 type VehicleBehaviorSS <: AbstractVehicleBehavior
     ss :: ScenarioSelector
-end
-
-init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorNone, trace::VehicleTrace, startframe::Int) =
-    fill_log_with_trace_complete!(simlog, trace, carind, startframe)
-init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorEM, trace::VehicleTrace, startframe::Int) =
-    fill_log_with_trace_partial!(simlog, trace, carind, startframe)
-init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorSS, trace::VehicleTrace, startframe::Int) =
-    fill_log_with_trace_partial!(simlog, trace, carind, startframe)
-
-function init_log!(
-    simlog     :: Matrix{Float64},
-    behaviors  :: Vector{AbstractVehicleBehavior},
-    traces     :: Vector{VehicleTrace},
-    startframe :: Int
-    )
-    
-    num_cars = ncars(simlog)
-    @assert(num_cars == length(behaviors))
-    @assert(num_cars == length(traces))
-
-    for carind = 1 : num_cars
-        behavior = behaviors[carind]
-        trace = traces[carind]
-        init_log!(simlog, carind, behavior, trace, startframe)
-    end
-
-    simlog
 end
