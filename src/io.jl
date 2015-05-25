@@ -5,7 +5,9 @@ export
         load_em,
 
         load_tracesets_carfollow,
-        load_tracesets_freeflow
+        load_tracesets_freeflow,
+
+        print_structure
 
 function export_to_text(em::EM, filename::String)
 	# export a bayesian network to an encounter definition file 
@@ -161,14 +163,24 @@ function trace_to_tex(runlog::Matrix{Float64}, road::StraightRoadway, filename::
 	end
 end
 
-function load_em(empstats_file::String)
+function load_em(
+    discretizerdict :: Dict{Symbol, AbstractDiscretizer},
+    targets    :: Vector{AbstractFeature},
+    indicators :: Vector{AbstractFeature},
+    stats      :: Vector{Matrix{Float64}}, 
+    adj        :: BitMatrix
+    )
 
-    emstats    = load(empstats_file)
-    binmapdict = emstats["binmaps"]
-    targets    = emstats["targets"]
-    indicators = emstats["indicators"]
-    stats      = emstats["statistics"]
-    adj        = emstats["adjacency"]
+    bn = build_bn(targets, indicators, stats, adj)
+    em = encounter_model(bn, stats, discretizerdict, targets, indicators)
+end
+function load_em(
+    binmapdict :: Dict{Symbol, AbstractBinMap},
+    targets    :: Vector{AbstractFeature},
+    indicators :: Vector{AbstractFeature},
+    stats      :: Vector{Matrix{Float64}}, 
+    adj        :: BitMatrix
+    )
 
     discretizerdict = Dict{Symbol, AbstractDiscretizer}()
 
@@ -190,8 +202,32 @@ function load_em(empstats_file::String)
         end
     end
 
-    bn = build_bn(targets, indicators, stats, adj)
-    em = encounter_model(bn, stats, discretizerdict, targets, indicators)
+    load_em(discretizerdict, targets, indicators, stats, adj)
+end
+function load_em(emstats::Dict{String, Any})
+    
+    binmapdict = emstats["binmaps"]
+    targets    = emstats["targets"]
+    indicators = emstats["indicators"]
+    stats      = emstats["statistics"]
+    adj        = emstats["adjacency"]
+
+    load_em(binmapdict, convert(Vector{AbstractFeature}, targets), 
+                        convert(Vector{AbstractFeature}, indicators), 
+                        stats, adj)  
+end
+function load_em(empstats_file::String)
+    emstats = load(empstats_file)
+    
+    binmapdict = emstats["binmaps"]
+    targets    = emstats["targets"]
+    indicators = emstats["indicators"]
+    stats      = emstats["statistics"]
+    adj        = emstats["adjacency"]
+
+    load_em(binmapdict, convert(Vector{AbstractFeature}, targets), 
+                        convert(Vector{AbstractFeature}, indicators), 
+                        stats, adj)
 end
 
 function _load_tracesets(filematch::Regex)
@@ -205,3 +241,17 @@ function _load_tracesets(filematch::Regex)
 end
 load_tracesets_carfollow() = _load_tracesets(r"^carfollow(\S)*.jld")
 load_tracesets_freeflow() = _load_tracesets(r"^freeflow(\S)*.jld")
+
+function print_structure(em::EM)
+    target = get_target_lat(em)
+    println("target lat: ", symbol(target))
+    for indicator in get_indicators_lat(em, target)
+        println("\t", symbol(indicator))
+    end
+
+    target = get_target_lon(em)
+    println("target lon: ", symbol(target))
+    for indicator in get_indicators_lon(em, target)
+        println("\t", symbol(indicator))
+    end
+end

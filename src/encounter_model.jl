@@ -1,7 +1,21 @@
-export EM
-export encounter_model, build_bn, get_targets, get_indicators, index, parent_indeces
-export get_target_lat, get_target_lon
-export variable_bin_counts, counts, edges
+export 
+        EM,                   # type representing probabilistic action model
+
+        encounter_model,      # constructor
+        build_bn,             # constructs BayesNet from EM
+        get_targets,          # get Vector{AbstractFeature} of targets in EM
+        get_indicators,       # get Vector{AbstractFeature} of indicators in EM
+        get_target_lat,       # get lateral target, AbstractFeature
+        get_target_lon,       # get longitudinal target, AbstractFeature
+        get_indicators_lat,   # get Vector{AbstractFeature} of parents of lateral target
+        get_indicators_lon,   # get Vector{AbstractFeature} of parents of longitudinal target
+
+        index,                # get index of feature or symbol in EM
+        parent_indeces,       # get indeces of parents of the given variable in EM
+        
+        variable_bin_counts,  # get Vector{Int} of number of instantiations of each variable
+        counts,               # get value related to counts depending on inputs
+        edges                 # get bin edges associated with variable
 
 immutable EM
     BN       :: BayesNet
@@ -111,6 +125,16 @@ function get_target_lon(em::EM, targets::Vector{AbstractFeature} = get_targets(e
     end
     error("Lon target not found in targets: $(targets)")
 end
+function get_indicators_lat(em::EM, target_lat::AbstractFeature = get_target_lat(em))
+    i = index(target_lat, em)
+    indicator_indeces = parent_indeces(i, em)
+    em.features[indicator_indeces]
+end
+function get_indicators_lon(em::EM, target_lon::AbstractFeature = get_target_lon(em))
+    i = index(target_lon, em)
+    indicator_indeces = parent_indeces(i, em)
+    em.features[indicator_indeces]
+end
 
 index(f::AbstractFeature, em::EM) = em.BN.index[symbol(f)]
 index(f::Symbol, em::EM) = em.BN.index[f]
@@ -152,4 +176,3 @@ function counts(em::EM)
 end
 
 edges(varindex::Int, em::EM) = em.binmaps[varindex].binedges
-

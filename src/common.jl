@@ -57,30 +57,6 @@ type Vehicle
 	width  :: Float64  # [m]
 end
 
-# type VehicleInitialConditions
-# 	posFx    :: Float64 # [m]
-# 	posFy    :: Float64 # [m]
-# 	yaw      :: Float64 # [rad]
-# 	speed    :: Float64 # [m/s]
-# 	turnrate :: Float64 # [rad/s]
-# 	accel    :: Float64 # [m/s²]
-
-# 	VehicleInitialConditions() = new(0.0,0.0,0.0,0.0,0.0,0.0)
-# 	function VehicleInitialConditions(posFx::Float64, posFy::Float64, yaw::Float64,
-# 		speed::Float64; turnrate::Float64 = 0.0, accel::Float64=0.0
-# 		)
-
-# 		new(posFx, posFy, yaw, speed, turnrate, accel)
-# 	end
-# 	function VehicleInitialConditions(
-# 		posFx::Float64, posFy::Float64,    yaw::Float64,
-# 		speed::Float64, turnrate::Float64, accel::Float64
-# 		)
-
-# 		new(posFx, posFy, yaw, speed, turnrate, accel)
-# 	end
-# end
-
 immutable VehicleTrace
 	# records the trace of a vehicle during a simulation, 
 	# including the history before the simulation begins

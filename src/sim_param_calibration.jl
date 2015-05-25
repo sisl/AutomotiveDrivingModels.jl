@@ -6,6 +6,7 @@ export
         calc_histobin,
         KL_divergence_categorical,
         KL_divergence_dirichlet,
+        KL_divergence_univariate_gaussian,
         coordinate_descent_histobin_fit!
 
 type ParamsHistobin
@@ -141,6 +142,10 @@ function KL_divergence_dirichlet(histobinA::Matrix{Float64}, histobinB::Matrix{F
         KL_divergence += (histobinA[i] - histobinB[i])*(digamma(histobinA[i]) - digamma(α0))
     end
     KL_divergence::Float64
+end
+function KL_divergence_univariate_gaussian(μ1::Float64, μ2::Float64, σ1::Float64, σ2::Float64)
+    Δμ = (μ1-μ2)
+    log(σ2/σ1) + (σ1*σ1 + Δμ*Δμ)/(2σ2*σ2) - 0.5
 end
 
 function coordinate_descent_histobin_fit!{B<:AbstractVehicleBehavior}(
