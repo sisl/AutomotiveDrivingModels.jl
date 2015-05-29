@@ -218,8 +218,8 @@ function coordinate_descent_histobin_fit!{B<:AbstractVehicleBehavior}(
                     egobehavior.simparams_lon.sampling_scheme  = param_options[3][newparams[3]]
                     egobehavior.simparams_lat.smoothing        = param_options[2][newparams[2]][1]
                     egobehavior.simparams_lat.smoothing_counts = param_options[2][newparams[2]][2]
-                    egobehavior.simparams_lat.smoothing        = param_options[4][newparams[4]][1]
-                    egobehavior.simparams_lat.smoothing_counts = param_options[4][newparams[4]][2]
+                    egobehavior.simparams_lon.smoothing        = param_options[4][newparams[4]][1]
+                    egobehavior.simparams_lon.smoothing_counts = param_options[4][newparams[4]][2]
                     
                     simulate!(simlogs, behaviors, road, history, simparams)
                     # TODO(tim): compute histobin directly
@@ -240,50 +240,6 @@ function coordinate_descent_histobin_fit!{B<:AbstractVehicleBehavior}(
 
                 end
             end
-
-            # to_try = VehicleBehaviorEM[]
-            # ip_arr = Int[]
-            # for ip in 1 : length(param_options[coordinate])
-
-            #     newparams = copy(paraminds)
-            #     newparams[coordinate] = ip
-
-            #     if !in(newparams, params_tried)
-            #         push!(params_tried, newparams)
-            #         push!(ip_arr, ip)
-            #         push!(to_try, inds_to_simparams(newparams))
-            #     end
-            # end
-
-            # if !isempty(to_try)
-
-            #     tic()
-            #     KL_divs = pmap(to_try) do sim_params
-
-            #         B = calc_histobin(road, em, target_histobin, sim_params, histobin_params, drivelog)
-            #         B .+= 1.0
-            #         KL_div_function(A,B)
-            #     end
-            #     toc()
-
-            #     if verbosity > 1
-            #         for (i, kl_div) in enumerate(KL_divs)
-            #             ip = ip_arr[i]
-            #             println("\t coordinate -> ", param_options[coordinate][ip], "  ", kl_div)
-            #         end
-            #     end
-
-            #     KL_divergence, best_ind = findmin(KL_divs)
-            #     if KL_divergence < best_KLdiv
-            #         best_KLdiv = KL_divergence
-            #         paraminds[coordinate] = ip_arr[best_ind]
-            #         converged = false
-            #         if verbosity > 0
-            #             println("\tfound better: ", coordinate, " -> ", param_options[coordinate][ip_arr[best_ind]])
-            #             println("\t\tKL: ", best_KLdiv)
-            #         end
-            #     end
-            # end
         end
     end
 

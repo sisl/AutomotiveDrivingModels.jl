@@ -10,7 +10,9 @@
 
 export  AbstractVehicleBehavior,
         VehicleBehaviorNone,
-        VehicleBehaviorEM, 
+        VehicleBehaviorDriveStraight,
+        VehicleBehaviorEM,
+        VehicleBehaviorEMOriginal,
         VehicleBehaviorSS,
 
         ModelSimParams,
@@ -41,6 +43,9 @@ type ModelSimParams
         new(sampling_scheme, smoothing, smoothing_counts)
     end
 end
+
+type VehicleBehaviorDriveStraight <: AbstractVehicleBehavior end
+
 type VehicleBehaviorEM <: AbstractVehicleBehavior
     em :: EM
     indicators :: Vector{AbstractFeature}
@@ -69,6 +74,9 @@ type VehicleBehaviorEM <: AbstractVehicleBehavior
 
         retval
     end
+end
+type VehicleBehaviorEMOriginal <: AbstractVehicleBehavior
+    behavior :: VehicleBehaviorEM
 end
 
 # The vehicle always selects actions using a scenario selector

@@ -19,6 +19,7 @@ module CarEM
     include("io.jl")
     include("feature_extract.jl")
     include("sim.jl")
+    include("sim_metrics.jl")
     include("sim_param_calibration.jl")
 
 end # module

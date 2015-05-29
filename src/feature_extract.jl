@@ -9,6 +9,9 @@ end
 function Base.setindex!(cache::ExtractedFeatureCache, val::Float64, key::(Int, Int, Symbol)) 
 	cache.dict[key] = val
 end
+function Base.getindex(cache::ExtractedFeatureCache, key::(Int, Int, Symbol)) 
+	cache.dict[key]
+end
 
 # TODO(tim): should not use this in parallel because meta() is a single global value
 
@@ -115,6 +118,13 @@ function  get(::Features.Feature_TimeToCrossing_Right, log::Matrix{Float64}, roa
 	velFy = get(VELFY, log, road, timestep, carind, frameind, cache)
 	d_mr > 0.0 && velFy < 0.0 ? min(d_mr / velFy, Features.THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
 end
+function _get(::Features.Feature_EstimatedTimeToLaneCrossing, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache)
+	ttcr_left = get(TIMETOCROSSING_LEFT, log, road, timestep, carind, frameind, cache)
+	if !isinf(ttcr_left)
+		return ttcr_left
+	end
+	get(TIMETOCROSSING_RIGHT, log, road, timestep, carind, frameind, cache)
+end
 function get(::Features.Feature_TimeSinceLaneCrossing, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache)
 	
 	lane_start = get(CL, log, road, timestep, carind, frameind, cache)
@@ -197,7 +207,6 @@ function get(::Features.Feature_A_REQ_StayInLane, log::Matrix{Float64}, road::St
 	d_ml > 0.0 ?  -min(0.5velFy*velFy / d_ml, Features.THRESHOLD_A_REQ) : NA_ALIAS
 end
 
-
 # FRONT
 	function _get(::Features.Feature_IndFront, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache)
 		
@@ -208,7 +217,7 @@ end
 
 		frontcar_ind = 0
 		frontcar_dist = Inf
-		for i = 1 : ncars(log)
+		for i = 1 : get_ncars(log)
 			if i == carind
 				continue
 			end
@@ -248,11 +257,11 @@ end
 			return float64(frontcar_ind)
 		end
 
-		cache[(carind, frameind, :has_front)] = 0.0
-		cache[(carind, frameind, :d_x_front)] = Features.NA_ALIAS
-		cache[(carind, frameind, :d_y_front)] = Features.NA_ALIAS
-		cache[(carind, frameind, :v_x_front)] = Features.NA_ALIAS
-		cache[(carind, frameind, :v_y_front)] = Features.NA_ALIAS
+		cache.dict[(carind, frameind, :has_front)] = 0.0
+		cache.dict[(carind, frameind, :d_x_front)] = Features.NA_ALIAS
+		cache.dict[(carind, frameind, :d_y_front)] = Features.NA_ALIAS
+		cache.dict[(carind, frameind, :v_x_front)] = Features.NA_ALIAS
+		cache.dict[(carind, frameind, :v_y_front)] = Features.NA_ALIAS
 		return Features.NA_ALIAS
 	end
 	function _get(::Features.Feature_HAS_FRONT, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache)
@@ -334,7 +343,7 @@ end
 
 		rearcar_ind = 0
 		rearcar_dist = Inf
-		for i = 1 : ncars(log)
+		for i = 1 : get_ncars(log)
 			if i == carind
 				continue
 			end
@@ -450,7 +459,7 @@ end
 
 		leftcar_ind = 0
 		leftcar_dist = Inf
-		for i = 1 : ncars(log)
+		for i = 1 : get_ncars(log)
 			if i == carind
 				continue
 			end
@@ -530,7 +539,7 @@ end
 
 		rightcar_ind = 0
 		rightcar_dist = Inf
-		for i = 1 : ncars(log)
+		for i = 1 : get_ncars(log)
 			if i == carind
 				continue
 			end
@@ -684,8 +693,8 @@ function _get(::Features.Feature_Time_Consecutive_Brake, log::Matrix{Float64}, r
 			end
 
 			Δt = timestep * (frameind - past_frameind)
-			if Δt > Features.THRESHOLD_TIMECONSECUTIVEBRAKE
-				return Features.THRESHOLD_TIMECONSECUTIVEBRAKE
+			if Δt > Features.THRESHOLD_TIMECONSECUTIVEACCEL
+				return Features.THRESHOLD_TIMECONSECUTIVEACCEL
 			end
 		else
 			return timestep * (frameind - past_frameind - 1)
@@ -725,8 +734,8 @@ function _get(::Features.Feature_Time_Consecutive_Accel, log::Matrix{Float64}, r
 			end
 
 			Δt = timestep * (frameind - past_frameind)
-			if Δt > Features.THRESHOLD_TIMECONSECUTIVEBRAKE
-				return Features.THRESHOLD_TIMECONSECUTIVEBRAKE
+			if Δt > Features.THRESHOLD_TIMECONSECUTIVEACCEL
+				return Features.THRESHOLD_TIMECONSECUTIVEACCEL
 			end
 		else
 			return timestep * (frameind - past_frameind - 1)
@@ -736,7 +745,13 @@ function _get(::Features.Feature_Time_Consecutive_Accel, log::Matrix{Float64}, r
 	error("INVALID CODEPATH")
 	return 0.0
 end
-
+function _get(::Features.Feature_Time_Consecutive_Throttle, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache)
+	t_consec_accel = get(TIME_CONSECUTIVE_ACCEL, log, road, timestep, carind, frameind, cache)
+	if t_consec_accel > 0
+		return t_consec_accel
+	end
+	-get(TIME_CONSECUTIVE_BRAKE, log, road, timestep, carind, frameind, cache)
+end
 
 function get_max_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int, cache::ExtractedFeatureCache)
 
@@ -870,7 +885,6 @@ function get_mean_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::F
 		frames_back = frameind-2
 	end	
 
-	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = get(VELFX, log, road, timestep, carind, frameind, cache)
 	for i = 1 : frames_back
@@ -884,9 +898,9 @@ end
 get(::Features.Feature_MeanAccFx250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_mean_accFx(log, road, timestep, carind, frameind, 250, cache)
 get(::Features.Feature_MeanAccFx500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
-	get_mean_accFx(log, road, timestep, carind, frameind, 250, cache)
+	get_mean_accFx(log, road, timestep, carind, frameind, 500, cache)
 get(::Features.Feature_MeanAccFx750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
-	get_mean_accFx(log, road, timestep, carind, frameind, 250, cache)
+	get_mean_accFx(log, road, timestep, carind, frameind, 750, cache)
 get(::Features.Feature_MeanAccFx1s, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_mean_accFx(log, road, timestep, carind, frameind, 1000, cache)
 get(::Features.Feature_MeanAccFx1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
@@ -899,6 +913,43 @@ get(::Features.Feature_MeanAccFx3s,    log::Matrix{Float64}, road::StraightRoadw
 	get_mean_accFx(log, road, timestep, carind, frameind, 3000, cache)
 get(::Features.Feature_MeanAccFx4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_mean_accFx(log, road, timestep, carind, frameind, 4000, cache)
+
+function get_mean_accFy(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int, cache::ExtractedFeatureCache)
+
+	frames_back = convert(Int, ceil(ms_past / timestep))
+
+	if frameind+1 <= frames_back
+		frames_back = frameind-2
+	end	
+
+	retval = 0.0
+	val = get(VELFY, log, road, timestep, carind, frameind, cache)
+	for i = 1 : frames_back
+		val2 = get(VELFY, log, road, timestep, carind, frameind-i, cache)
+		retval += (val2 - val) / timestep
+		val = val2
+	end
+	
+	retval / frames_back
+end
+get(::Features.Feature_MeanAccFy250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 250, cache)
+get(::Features.Feature_MeanAccFy500ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 500, cache)
+get(::Features.Feature_MeanAccFy750ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 750, cache)
+get(::Features.Feature_MeanAccFy1s, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 1000, cache)
+get(::Features.Feature_MeanAccFy1500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 1500, cache)
+get(::Features.Feature_MeanAccFy2s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 2000, cache)
+get(::Features.Feature_MeanAccFy2500ms,log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 2500, cache)
+get(::Features.Feature_MeanAccFy3s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 3000, cache)
+get(::Features.Feature_MeanAccFy4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
+	get_mean_accFy(log, road, timestep, carind, frameind, 4000, cache)
 
 function get_mean_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int, cache::ExtractedFeatureCache)
 
@@ -938,16 +989,23 @@ get(::Features.Feature_MeanTurnRate3s,    log::Matrix{Float64}, road::StraightRo
 get(::Features.Feature_MeanTurnRate4s,    log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_mean_turnrate(log, road, timestep, carind, frameind, 4000, cache)
 
+function _get_std_feature(arr::Vector{Float64}, nan_return_value::Float64 = 0.0)
+	retval = std(arr)
+	if isnan(retval)
+		return nan_return_value
+	end
+	retval
+end
 function get_std_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, ms_past::Int, cache::ExtractedFeatureCache)
 
 	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	if frames_back < 2
-		return 0.0
-	end
-
 	if frameind+1 <= frames_back
 		frames_back = frameind-1
+	end
+
+	if frames_back < 2
+		return 0.0
 	end
 
 	retval = 0.0
@@ -959,7 +1017,7 @@ function get_std_accFx(log::Matrix{Float64}, road::StraightRoadway, timestep::Fl
 		val = val2
 	end
 	
-	std(arr)
+	_get_std_feature(arr)
 end
 get(::Features.Feature_StdAccFx250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_std_accFx(log, road, timestep, carind, frameind, 250, cache)
@@ -984,13 +1042,13 @@ function get_std_accFy(log::Matrix{Float64}, road::StraightRoadway, timestep::Fl
 	
 	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	if frames_back < 2
-		return 0.0
-	end
-
 	if frameind+1 <= frames_back
 		frames_back = frameind-1
 	end	
+
+	if frames_back < 2
+		return 0.0
+	end
 
 	retval = 0.0
 	arr = zeros(Float64, frames_back)
@@ -1001,7 +1059,7 @@ function get_std_accFy(log::Matrix{Float64}, road::StraightRoadway, timestep::Fl
 		val = val2
 	end
 	
-	std(arr)
+	_get_std_feature(arr)
 end
 get(::Features.Feature_StdAccFy250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_std_accFy(log, road, timestep, carind, frameind, 250, cache)
@@ -1027,13 +1085,13 @@ function get_std_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep:
 
 	frames_back = convert(Int, ceil(ms_past / timestep))
 
-	if frames_back < 2
-		return 0.0
-	end
-
 	if frameind+1 <= frames_back
 		frames_back = frameind-1
 	end	
+
+	if frames_back < 2
+		return 0.0
+	end
 
 	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
@@ -1045,7 +1103,7 @@ function get_std_turnrate(log::Matrix{Float64}, road::StraightRoadway, timestep:
 		val = val2
 	end
 	
-	std(arr)
+	_get_std_feature(arr)
 end
 get(::Features.Feature_StdTurnRate250ms, log::Matrix{Float64}, road::StraightRoadway, timestep::Float64, carind::Int, frameind::Int, cache::ExtractedFeatureCache) =
 	get_std_turnrate(log, road, timestep, carind, frameind, 250, cache)

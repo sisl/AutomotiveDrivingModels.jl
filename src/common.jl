@@ -4,6 +4,7 @@ export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NC
 export is_onroad, get_lanecenters, get_laneborders
 export get_ncars, get_nframes, calc_logindexbase, create_log, create_trace
 export calc_required_bytes_to_allocate, allocate_simlog_for_traces, allocate_simlogs_for_all_traces
+export estimate_history
 
 export
 		INPUT_EMSTATS_FOLDER,
@@ -153,4 +154,16 @@ function allocate_simlogs_for_all_traces(tracesets::Vector{Vector{VehicleTrace}}
         simlogs[i] = allocate_simlog_for_traces(traces, nframes_total)
     end
     simlogs
+end
+
+function estimate_history(simlog::Matrix{Float64})
+    # history should be where ego X position is 0.0
+    # returns -1 if it was not found
+
+    for i = 1 : get_nframes(simlog)
+        if isapprox(simlog[i, LOG_COL_X], 0.0)
+            return i
+        end
+    end
+    return -1
 end
