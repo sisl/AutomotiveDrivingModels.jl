@@ -53,14 +53,14 @@ function build_bn{F<:AbstractFeature, G<:AbstractFeature, R<:Real}(
     adj        :: BitMatrix
     )
 
-    names = [symbol(f)::Symbol for f in [targets, indicators]]
-    n_nodes = length(names)
+    bnnames = [symbol(f)::Symbol for f in [targets, indicators]]
+    n_nodes = length(bnnames)
     @assert(n_nodes == size(adj, 1) == size(adj, 2))
 
-    BN = BayesNet(names)
+    BN = BayesNet(bnnames)
 
     r_arr = Array(Int, n_nodes)
-    for (node,node_sym) in enumerate(names)
+    for (node,node_sym) in enumerate(bnnames)
         stats = statsvec[node]
         r, q = size(stats) # r = num node instantiations, q = num parental instantiations
         states = [1:r]
@@ -68,25 +68,25 @@ function build_bn{F<:AbstractFeature, G<:AbstractFeature, R<:Real}(
         r_arr[node] = r
     end
 
-    for (node,node_sym) in enumerate(names)
+    for (node,node_sym) in enumerate(bnnames)
 
         stats = statsvec[node]
         r, q = size(stats)
         states = [1:r]
 
-        stats += 1 # NOTE(tim): adding uniform prior
+        stats .+= 1 # NOTE(tim): adding uniform prior
         probs = stats ./ sum(stats,1)
 
         # set any parents & populate probability table
         n_parents = sum(adj[:,node])
         if n_parents > 0
-            parents = names[adj[:,node]]
-            for pa in parents
+            bnparents = bnnames[adj[:,node]]
+            for pa in bnparents
                 addEdge!(BN, pa, node_sym)
             end
 
             # populate probability table
-            assignments = BayesNets.assignment_dicts(BN, parents)
+            assignments = BayesNets.assignment_dicts(BN, bnparents)
             parameterFunction = BayesNets.discrete_parameter_function(assignments, vec(probs), r)
             setCPD!(BN, node_sym, CPDs.Discrete(states, parameterFunction))
         else

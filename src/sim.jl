@@ -41,8 +41,11 @@ function simulate!{B<:AbstractVehicleBehavior}(
 	behaviors     :: Vector{B},
 	road          :: StraightRoadway,
 	frameind      :: Int, # starting index within simlog
-	params        :: SimParams = SimParams(),
+	params        :: SimParams = SimParams();
+	runid         :: Int = rand(Int)
 	)
+	
+	basics = FeatureExtractBasics(simlog, road, params.sec_per_frame, params.extracted_feature_cache, runid)
 
 	numcars = get_ncars(simlog)
 	@assert(length(behaviors) == numcars)
@@ -50,7 +53,7 @@ function simulate!{B<:AbstractVehicleBehavior}(
 	while !isdone(simlog, frameind)
 
 		for (carind,behavior) in enumerate(behaviors)
-			tick!(simlog, carind, behavior, road, frameind, params)
+			tick!(basics, carind, behavior, frameind, params.n_euler_steps)
 		end
 
 		frameind += 1
@@ -66,53 +69,47 @@ function simulate!{B<:AbstractVehicleBehavior}(
     simparams :: SimParams
     )
 
-    for simlog in simlogs
-        simulate!(simlog, behaviors[1:get_ncars(simlog)], road, history, simparams)
+    for (i,simlog) in enumerate(simlogs)
+        simulate!(simlog, behaviors[1:get_ncars(simlog)], road, history, simparams, runid = i)
     end
     simlogs
 end
 
 function tick!(
-	simlog    :: Matrix{Float64}, # initialized appropriately
+	basics    :: FeatureExtractBasics,
 	carind    :: Int,
 	behavior  :: VehicleBehaviorNone,
-	road      :: StraightRoadway,
 	frameind  :: Int,
-	params    :: SimParams = SimParams()
+	n_euler_steps :: Int
 	)
 
-	simlog
+	basics.simlog
 end
 function tick!(
-	simlog    :: Matrix{Float64}, # initialized appropriately
+	basics    :: FeatureExtractBasics,
 	carind    :: Int,
 	behavior  :: VehicleBehaviorDriveStraight,
-	road      :: StraightRoadway,
 	frameind  :: Int,
-	params    :: SimParams = SimParams()
+	n_euler_steps :: Int
 	)
 
-	sec_per_frame = params.sec_per_frame
-	n_euler_steps = params.n_euler_steps
-	δt            = sec_per_frame / n_euler_steps
 
 	a = 0.0
 	ω = 0.0
 
-	logPa = 0.0
-	logPω = 0.0
-
 	logindexbase = calc_logindexbase(carind)
 
-	propagate!(simlog, frameind, logindexbase, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
+	δt = basics.sec_per_frame / n_euler_steps
+
+	_record_frame_values!(basics.simlog, frameind, logindexbase)
+	propagate!(basics.simlog, frameind, logindexbase, a, ω, n_euler_steps, δt)
 end
 function tick!(
-	simlog    :: Matrix{Float64}, # initialized appropriately
+	basics    :: FeatureExtractBasics,
 	carind    :: Int,
 	behavior  :: VehicleBehaviorEM,
-	road      :: StraightRoadway,
 	frameind  :: Int,
-	params    :: SimParams = SimParams()
+	n_euler_steps :: Int
 	)
 
 	# propagate the simulation by one step for the given vehicle
@@ -121,10 +118,9 @@ function tick!(
 	symbol_lat = behavior.symbol_lat
 	symbol_lon = behavior.symbol_lon
 
-	sec_per_frame = params.sec_per_frame
-	n_euler_steps = params.n_euler_steps
+	sec_per_frame = basics.sec_per_frame
 	δt            = sec_per_frame / n_euler_steps
-	extracted_feature_cache = params.extracted_feature_cache
+	extracted_feature_cache = basics.cache
 	
 	simparams_lat = behavior.simparams_lat
 	simparams_lon = behavior.simparams_lon
@@ -140,48 +136,45 @@ function tick!(
 
 	logindexbase = calc_logindexbase(carind)
 
-	observations = observe(simlog, road, carind, frameind, behavior.indicators, sec_per_frame, extracted_feature_cache)
+	observations = observe(basics, carind, frameind, behavior.indicators)
 	assignment   = encode(observations, em)
 	assignment, logPs  = sample_and_logP!(em, assignment)
-
-	action_lat = decode(bmap_lat, assignment[symbol_lat], samplemethod_lat)
-	action_lon = decode(bmap_lon, assignment[symbol_lon], samplemethod_lon)
-
-	a = get_input_acceleration(symbol_lon, action_lon, simlog, frameind, logindexbase)
-	ω = get_input_turnrate(    symbol_lat, action_lat, simlog, frameind, logindexbase)
 
 	logPa = logPs[symbol_lon]
 	logPω = logPs[symbol_lat]
 
+	bin_lat = assignment[symbol_lat]
+	bin_lon = assignment[symbol_lon]
+
+	action_lat = decode(bmap_lat, bin_lat, samplemethod_lat)
+	action_lon = decode(bmap_lon, bin_lon, samplemethod_lon)
+
+	a = get_input_acceleration(symbol_lon, action_lon, basics.simlog, frameind, logindexbase)
+	ω = get_input_turnrate(    symbol_lat, action_lat, basics.simlog, frameind, logindexbase)
+
 	if smoothing_lat == :SMA
-		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
-		lo = frameind-(n_frames-1)
-		ω = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_T]) + ω) / n_frames
+		ω = calc_sequential_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_T), smoothcounts_lat)
 	elseif smoothing_lat == :WMA
-		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
-		lo = frameind-(n_frames-1)
-		ω = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+		ω = calc_weighted_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_T), smoothcounts_lat)
 	end
 
 	if smoothing_lon == :SMA
-		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
-		lo = frameind-(n_frames-1)
-		a = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_A])+a) / n_frames
+		a = calc_sequential_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_A), smoothcounts_lon)
 	elseif smoothing_lon == :WMA
-		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
-		lo = frameind-(n_frames-1)
-		a = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+		a = calc_weighted_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_A), smoothcounts_lon)
 	end
 
-	propagate!(simlog, frameind, logindexbase, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
+	_record_frame_values!(basics.simlog, frameind, logindexbase, 
+						  bin_lat=bin_lat, bin_lon=bin_lon,
+		                  logPa=logPa, logPω=logPω)
+	propagate!(basics.simlog, frameind, logindexbase, a, ω, n_euler_steps, δt)
 end
 function tick!(
-	simlog    :: Matrix{Float64}, # initialized appropriately
+	basics    :: FeatureExtractBasics,
 	carind    :: Int,
-	behavior_orig  :: VehicleBehaviorEMOriginal,
-	road      :: StraightRoadway,
+	behavior  :: VehicleBehaviorEMOriginal,
 	frameind  :: Int,
-	params    :: SimParams = SimParams()
+	n_euler_steps :: Int
 	)
 
 	# propagate the simulation by one step for the given vehicle
@@ -192,10 +185,9 @@ function tick!(
 	symbol_lat = behavior.symbol_lat
 	symbol_lon = behavior.symbol_lon
 
-	sec_per_frame = params.sec_per_frame
-	n_euler_steps = params.n_euler_steps
+	sec_per_frame = basics.sec_per_frame
 	δt            = sec_per_frame / n_euler_steps
-	extracted_feature_cache = params.extracted_feature_cache
+	extracted_feature_cache = basics.cache
 	
 	simparams_lat = behavior.simparams_lat
 	simparams_lon = behavior.simparams_lon
@@ -211,42 +203,61 @@ function tick!(
 
 	logindexbase = calc_logindexbase(carind)
 
-	observations = observe(simlog, road, carind, frameind, behavior.indicators, sec_per_frame, extracted_feature_cache)
+	observations = observe(basics, carind, frameind, behavior.indicators)
 	assignment   = encode(observations, em)
 
-	bin_lat = encode(bmap_lat, simlog[frameind, logindexbase + LOG_COL_T])
-	bin_lon = encode(bmap_lon, simlog[frameind, logindexbase + LOG_COL_A])
+	bin_lat = encode(bmap_lat, basics.simlog[frameind, logindexbase + LOG_COL_T])
+	bin_lon = encode(bmap_lon, basics.simlog[frameind, logindexbase + LOG_COL_A])
 
 	action_lat = decode(bmap_lat, bin_lat, samplemethod_lat)
 	action_lon = decode(bmap_lon, bin_lon, samplemethod_lon)
 
-	a = get_input_acceleration(symbol_lon, action_lon, simlog, frameind, logindexbase)
-	ω = get_input_turnrate(    symbol_lat, action_lat, simlog, frameind, logindexbase)
-
 	logPa = calc_log_probability_of_assignment(em, assignment, symbol_lon)
 	logPω = calc_log_probability_of_assignment(em, assignment, symbol_lat)
 
+	a = get_input_acceleration(symbol_lon, action_lon, basics.simlog, frameind, logindexbase)
+	ω = get_input_turnrate(    symbol_lat, action_lat, basics.simlog, frameind, logindexbase)
+
 	if smoothing_lat == :SMA
-		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
-		lo = frameind-(n_frames-1)
-		ω = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_T]) + ω) / n_frames
+		ω = calc_sequential_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_T), smoothcounts_lat)
 	elseif smoothing_lat == :WMA
-		n_frames = frameind > smoothcounts_lat ? smoothcounts_lat : frameind
-		lo = frameind-(n_frames-1)
-		ω = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_T] .* [1:n_frames-1]) + n_frames*ω) / (0.5n_frames*(n_frames+1))
+		ω = calc_weighted_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_T), smoothcounts_lat)
 	end
 
 	if smoothing_lon == :SMA
-		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
-		lo = frameind-(n_frames-1)
-		a = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_A])+a) / n_frames
+		a = calc_sequential_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_A), smoothcounts_lon)
 	elseif smoothing_lon == :WMA
-		n_frames = frameind > smoothcounts_lon ? smoothcounts_lon : frameind
-		lo = frameind-(n_frames-1)
-		a = (sum(simlog[lo:frameind-1, logindexbase + LOG_COL_A] .* [1:n_frames-1]) + n_frames*a) / (0.5n_frames*(n_frames+1))
+		a = calc_weighted_moving_average(basics.simlog, sub2ind(size(basics.simlog), frameind, logindexbase + LOG_COL_A), smoothcounts_lon)
 	end
 
-	propagate!(simlog, frameind, logindexbase, a, ω, logPa, logPω, EM_ID_UNKNOWN, n_euler_steps, δt)
+	_record_frame_values!(basics.simlog, frameind, logindexbase, 
+						  bin_lat=bin_lat, bin_lon=bin_lon,
+		                  logPa=logPa, logPω=logPω)
+	propagate!(basics.simlog, frameind, logindexbase, a, ω, n_euler_steps, δt)
+end
+
+function _record_frame_values!(
+	simlog        :: Matrix{Float64},
+	frameind      :: Int,
+	logindexbase  :: Int;
+	bin_lat       :: Int = 0,
+	bin_lon       :: Int = 0,
+	logPa         :: Float64 = 0.0,
+	logPω         :: Float64 = 0.0,
+	em_id         :: Int = EM_ID_UNKNOWN
+	)
+
+	#=
+	Record extra values to the log for the given vehicle
+	=#
+
+	simlog[frameind, logindexbase + LOG_COL_BIN_LAT] = bin_lat
+	simlog[frameind, logindexbase + LOG_COL_BIN_LON] = bin_lon
+	simlog[frameind, logindexbase + LOG_COL_logprobweight_A] = logPa
+	simlog[frameind, logindexbase + LOG_COL_logprobweight_T] = logPω
+	simlog[frameind, logindexbase + LOG_COL_em] = float64(em_id)
+
+	simlog
 end
 
 function propagate!(
@@ -255,22 +266,15 @@ function propagate!(
 	logindexbase  :: Int,
 	a             :: Float64,
 	ω             :: Float64,
-	logPa         :: Float64,
-	logPω         :: Float64,
-	em_id         :: Int,
 	n_euler_steps :: Int,
 	δt            :: Float64,
 	)
 
 	# run physics on the given car at time frameind
 	# place results in log for that car in frameind + 1
-	
 
 	simlog[frameind, logindexbase + LOG_COL_A] = a
 	simlog[frameind, logindexbase + LOG_COL_T] = ω
-	simlog[frameind, logindexbase + LOG_COL_logprobweight_A] = logPa
-	simlog[frameind, logindexbase + LOG_COL_logprobweight_T] = logPω
-	simlog[frameind, logindexbase + LOG_COL_em] = float64(em_id)
 
 	x = simlog[frameind, logindexbase + LOG_COL_X]
 	y = simlog[frameind, logindexbase + LOG_COL_Y]
@@ -297,9 +301,6 @@ function propagate!(
 	logindexbase  :: Int,
 	a             :: Float64,
 	ω             :: Float64,
-	logPa         :: Float64,
-	logPω         :: Float64,
-	em_id         :: Int,
 	params        :: SimParams	
 	)
 	
@@ -307,16 +308,13 @@ function propagate!(
 	n_euler_steps = params.n_euler_steps
 	δt            = sec_per_frame / n_euler_steps
 
-	propagate!(simlog, frameind, logindexbase, a, ω, logPa, logPω, em_id, n_euler_steps, δt)
+	propagate!(simlog, frameind, logindexbase, a, ω, n_euler_steps, δt)
 end
 function propagate!(
 	simlog        :: Matrix{Float64},
 	frameind      :: Int,
 	a             :: Float64,
 	ω             :: Float64,
-	logPa         :: Float64,
-	logPω         :: Float64,
-	em_id         :: Int,
 	params        :: SimParams	
 	)
 	
@@ -325,7 +323,7 @@ function propagate!(
 	δt            = sec_per_frame / n_euler_steps
 
 	for carind in get_ncars(simlog)
-		propagate!(simlog, frameind, calc_logindexbase(carind), a, ω, logPa, logPω, em_id, n_euler_steps, δt)
+		propagate!(simlog, frameind, calc_logindexbase(carind), a, ω, n_euler_steps, δt)
 	end
 
 	simlog
@@ -399,18 +397,15 @@ function get_input_turnrate(sym::Symbol, action_lat::Float64, log::Matrix{Float6
 end
 
 function observe(
-	log::Matrix{Float64},
-	road::StraightRoadway,
+	basics::FeatureExtractBasics,
 	carind::Int,
 	frameind::Int,
-	features::Vector{AbstractFeature},
-	timestep::Float64,
-	extracted_feature_cache :: ExtractedFeatureCache
+	features::Vector{AbstractFeature}
 	)
 
 	observations = Dict{Symbol,Any}()
 	for f in features
-		val = get(f, log, road, timestep, carind, frameind, extracted_feature_cache)
+		val = get(f, basics, carind, frameind)
 		observations[symbol(f)] = val
 	end
 	observations
@@ -474,8 +469,9 @@ function calc_log_probability_of_assignment(em::EM, assignment::Dict{Symbol, Int
 	p = cpd.parameterFunction(assignment)
 	log(p[bin])
 end
-function calc_probability_distribution_over_assignments(em::EM, assignment::Dict{Symbol, Int}, symb::Symbol)
-	cpd = BayesNets.cpd(em.BN, symb)
+function calc_probability_distribution_over_assignments(em::EM, assignment::Dict{Symbol, Int}, target::Symbol)
+	# NOTE (tim): this returns the actual probability vector and should not be modified
+	cpd = BayesNets.cpd(em.BN, target)
 	return cpd.parameterFunction(assignment)
 end
 
@@ -532,5 +528,45 @@ function draw_action(emsample::Dict{Symbol, Int}, em::EM)
 		end
 	end
 	action_dict
+end
+
+function calc_sequential_moving_average(
+	vec         :: AbstractArray{Float64}, # vector of values to smooth on
+	index_start :: Int,                    # the present index; value must be already populated
+	history     :: Int                     # the number of values to smooth over, (≥ 1)
+	)
+
+	# Sequential Moving Average: the average of the past n results
+
+	@assert(history ≥ 1)
+
+	clamped_history = min(history, index_start)
+	index_low = index_start - clamped_history + 1
+
+	retval = 0.0
+	for i = index_low : index_start
+		retval += vec[i]
+	end
+	retval / clamped_history
+end
+function calc_weighted_moving_average(
+	vec         :: AbstractArray{Float64}, # vector of values to smooth on
+	index_start :: Int,                    # the present index; value must be already populated
+	history     :: Int                     # the number of values to smooth over, (≥ 1)
+	)
+
+	# Weighted Moving Average: the average of the past n results weighted linearly
+	# ex: (3×f₁ + 2×f₂ + 1×f₃) / (3 + 2 + 1)
+
+	@assert(history ≥ 1)
+
+	clamped_history = min(history, index_start)
+	index_low = index_start - clamped_history + 1
+
+	retval = 0.0
+	for i = index_low : index_start
+		retval += vec[i] * (i - index_low + 1)
+	end
+	retval / (0.5clamped_history*(clamped_history+1))
 end
 

@@ -2,7 +2,7 @@ export StraightRoadway, PointSE2, Vehicle, VehicleTrace
 export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR,
 	   LOG_COL_logprobweight_A, LOG_COL_logprobweight_T, LOG_COL_em
 export is_onroad, get_lanecenters, get_laneborders
-export get_ncars, get_nframes, calc_logindexbase, create_log, create_trace
+export get_ncars, get_nframes, calc_logindexbase, create_log
 export calc_required_bytes_to_allocate, allocate_simlog_for_traces, allocate_simlogs_for_all_traces
 export estimate_history
 
@@ -23,10 +23,12 @@ const LOG_COL_ϕ = 3
 const LOG_COL_V = 4
 const LOG_COL_A = 5 # acceleration input
 const LOG_COL_T = 6 # turnrate input
-const LOG_COL_logprobweight_A = 7 # logP of action A given observations and em
-const LOG_COL_logprobweight_T = 8
-const LOG_COL_em = 9 # the em model used in this step
-const LOG_NCOLS_PER_CAR = 9
+const LOG_COL_BIN_LAT = 7 # the chosen bin for the lateral control variable
+const LOG_COL_BIN_LON = 8 # the chosen bin for the longitudinal control variable
+const LOG_COL_logprobweight_A = 9 # logP of action A given observations and em
+const LOG_COL_logprobweight_T = 10
+const LOG_COL_em = 11 # the em model used in this step
+const LOG_NCOLS_PER_CAR = 11
 
 const CAR_LENGTH = 4.6 # [m]
 const CAR_WIDTH  = 2.0 # [m]
@@ -80,8 +82,8 @@ is_onroad(posFy::Real, road::StraightRoadway) = -0.5road.lanewidth < posFy <  (r
 get_lanecenters(road::StraightRoadway) = [0:(road.nlanes-1)].*road.lanewidth # [0,w,2w,...]
 get_laneborders(road::StraightRoadway) = [0:road.nlanes].*road.lanewidth - road.lanewidth/2
 
-get_ncars(log::Matrix{Float64}) = div(size(log,2), LOG_NCOLS_PER_CAR)
-get_nframes(log::Matrix{Float64}) = size(log, 1)
+get_ncars(simlog::Matrix{Float64}) = div(size(simlog,2), LOG_NCOLS_PER_CAR)
+get_nframes(simlog::Matrix{Float64}) = size(simlog, 1)
 calc_logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
 
 create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
