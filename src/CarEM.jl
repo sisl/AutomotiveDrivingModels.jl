@@ -6,6 +6,8 @@ module CarEM
 
     using BinMaps # TODO(tim): remove this once we stop using BinMaps in training EMs
     using Discretizers
+    using Distributions
+    using DataFrames
     using BayesNets
     using Features
     using HDF5, JLD
@@ -15,11 +17,15 @@ module CarEM
     include("common.jl")
     include("encounter_model.jl")
     include("scenario_selector.jl")
+    include("feature_extract.jl")
     include("behaviors.jl")
     include("io.jl")
-    include("feature_extract.jl")
     include("sim.jl")
     include("sim_metrics.jl")
-    include("sim_param_calibration.jl")
 
+    include("behaviors/behavior_em.jl")
+    include("behaviors/drive_straight.jl")
+    include("behaviors/behavior_gaussian.jl")
+
+    include("sim_param_calibration.jl")
 end # module

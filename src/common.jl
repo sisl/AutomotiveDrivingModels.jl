@@ -1,6 +1,6 @@
 export StraightRoadway, PointSE2, Vehicle, VehicleTrace
 export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR,
-	   LOG_COL_logprobweight_A, LOG_COL_logprobweight_T, LOG_COL_em
+	   LOG_COL_BIN_LAT, LOG_COL_BIN_LON, LOG_COL_LAT_BEFORE_SMOOTHING, LOG_COL_LON_BEFORE_SMOOTHING, LOG_COL_logprobweight_A, LOG_COL_logprobweight_T, LOG_COL_em
 export is_onroad, get_lanecenters, get_laneborders
 export get_ncars, get_nframes, calc_logindexbase, create_log
 export calc_required_bytes_to_allocate, allocate_simlog_for_traces, allocate_simlogs_for_all_traces
@@ -21,14 +21,16 @@ const LOG_COL_X = 1
 const LOG_COL_Y = 2
 const LOG_COL_ϕ = 3
 const LOG_COL_V = 4
-const LOG_COL_A = 5 # acceleration input
-const LOG_COL_T = 6 # turnrate input
+const LOG_COL_A = 5 # the acceleration input used to propagate the vehicle
+const LOG_COL_T = 6 # the turnrate input used to propagate the vehicle
 const LOG_COL_BIN_LAT = 7 # the chosen bin for the lateral control variable
 const LOG_COL_BIN_LON = 8 # the chosen bin for the longitudinal control variable
-const LOG_COL_logprobweight_A = 9 # logP of action A given observations and em
-const LOG_COL_logprobweight_T = 10
-const LOG_COL_em = 11 # the em model used in this step
-const LOG_NCOLS_PER_CAR = 11
+const LOG_COL_LAT_BEFORE_SMOOTHING = 9 # the continuous lateral control input before smoothig
+const LOG_COL_LON_BEFORE_SMOOTHING = 10 # the continuous longitudinal control input before smoothig
+const LOG_COL_logprobweight_A = 11 # logP of action A given observations and em
+const LOG_COL_logprobweight_T = 12
+const LOG_COL_em = 13 # the em model used in this step
+const LOG_NCOLS_PER_CAR = 13
 
 const CAR_LENGTH = 4.6 # [m]
 const CAR_WIDTH  = 2.0 # [m]

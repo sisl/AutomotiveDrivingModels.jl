@@ -1,4 +1,13 @@
 export
+        AggregateMetricSet,
+
+        evaluate_behavior,
+        evaluate_behaviors,
+
+        calc_rmse_predicted_vs_ground_truth,
+        calc_loglikelihood_of_trace,
+        calc_mean_trace_loglikelihood,
+
         calc_metrics,
         calc_aggregate_metric,
         calc_aggregate_metrics,
@@ -8,6 +17,147 @@ export
 
         print_aggregate_metrics_human_readable,
         print_aggregate_metrics_csv_readable
+
+type AggregateMetricSet
+    histobin::Matrix{Float64} # histobin image over deviation during run
+    metrics::Vector{Dict{Symbol, Any}} # metric dictionary computed for every trace
+end
+
+function evaluate_behavior(
+    egobehavior::AbstractVehicleBehavior,
+    simlogs_original::Vector{Matrix{Float64}},
+    simlogs::Vector{Matrix{Float64}},
+    road::StraightRoadway,
+    history::Int,
+    simparams::SimParams,
+    histobin_params::ParamsHistobin
+    )
+
+    #=
+    Evaluates the candidate ego behavior by:
+      - running the egobehavior on all of the simlogs
+      - computing the validation metrics on the results:
+          - histobin
+          - set of metrics
+    =#
+
+
+    # TODO(tim): expand to include as many VEHICLE_BEHAVIOR_NONEs as needed
+    behaviors = AbstractVehicleBehavior[egobehavior, VEHICLE_BEHAVIOR_NONE]
+
+    carind = 1
+    logbaseindex = calc_logindexbase(carind)
+
+    simulate!(simlogs, behaviors, road, history, simparams)
+
+    histobin = calc_histobin(simlogs, histobin_params, history)
+    metricset = calc_metrics(simlogs, road, simparams, history)
+
+    for i in 1 : length(simlogs)
+
+        simlog_model = simlogs[i]
+        simlog_original = simlogs_original[i]
+
+        basics = FeatureExtractBasics(simlog_original, road, simparams.sec_per_frame, simparams.extracted_feature_cache, i)
+        end_frame = get_nframes(simlog_model)
+        metricset[i][:logl] = calc_loglikelihood_of_trace(basics, egobehavior, carind, history, end_frame)
+
+        for rmse_endframe in [history+2 : 2 : end_frame]
+            Δt = (rmse_endframe - history) * simparams.sec_per_frame # [sec]
+            sym = symbol(@sprintf("rmse_%dms", Δt*1000))
+            metricset[i][sym] = calc_rmse_predicted_vs_ground_truth(simlog_model, simlog_original,
+                                                                 logbaseindex, history, rmse_endframe)
+        end
+    end
+    
+    AggregateMetricSet(histobin, metricset)
+end
+function evaluate_behaviors{B<:AbstractVehicleBehavior}(
+    behaviors::Vector{B},
+    simlogs_original::Vector{Matrix{Float64}},
+    simlogs::Vector{Matrix{Float64}},
+    road::StraightRoadway,
+    history::Int,
+    simparams::SimParams,
+    histobin_params::ParamsHistobin
+    )
+
+    retval = Array(AggregateMetricSet, length(behaviors))
+    for (i, egobehavior) in enumerate(behaviors)
+        retval[i] = evaluate_behavior(egobehavior, simlogs_original, simlogs,
+                                      road, history, simparams, histobin_params)
+    end
+    retval
+end
+
+function calc_rmse_predicted_vs_ground_truth(
+    simlog_predicted::Matrix{Float64},
+    simlog_truth::Matrix{Float64},
+    logindexbase::Int,
+    frame_start::Int,
+    frame_end::Int
+    )
+
+    n = frame_end - frame_start + 1
+    @assert(n > 0)
+
+    total = 0.0
+    for i = frame_start : frame_end
+        pos_x_predicted = simlog_predicted[i, logindexbase+LOG_COL_X]
+        pos_x_truth = simlog_truth[i, logindexbase+LOG_COL_X]
+        pos_y_predicted = simlog_predicted[i, logindexbase+LOG_COL_Y]
+        pos_y_truth = simlog_truth[i, logindexbase+LOG_COL_Y]
+
+        Δx = pos_x_predicted - pos_x_truth
+        Δy = pos_y_predicted - pos_y_truth
+
+        total += Δx*Δx + Δy*Δy
+    end
+    sqrt(total / n)
+end
+
+calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, binwidth::Float64) = bindiscreteprob / binwidth
+function calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, disc::LinearDiscretizer, binindex::Int)
+    width_of_bin = binwidth(disc, binindex)
+    calc_probability_for_uniform_sample_from_bin(bindiscreteprob, width_of_bin)
+end
+
+function calc_loglikelihood_of_trace(
+    basics::FeatureExtractBasics,
+    behavior::AbstractVehicleBehavior,
+    carind::Int,
+    frame_start::Int,
+    frame_end::Int
+    )
+
+    #=
+    Compute the log-likelihood of a trace given a behavior model
+    =#
+
+    logl = 0.0
+    for frameind = frame_start : frame_end
+        logl += calc_action_loglikelihood(basics, behavior, carind, frameind)
+    end
+    logl
+end
+function calc_mean_trace_loglikelihood(
+    simlogs::Vector{Matrix{Float64}},
+    behavior::AbstractVehicleBehavior,
+    road::StraightRoadway,
+    sec_per_frame::Float64,
+    history::Int,
+    carind::Int
+    )
+
+    mean_trace_logl = 0.0
+    extracted_feature_cache = ExtractedFeatureCache()
+    basics_seed = 1
+    for simlog in simlogs
+        basics = FeatureExtractBasics(simlog, road, sec_per_frame, extracted_feature_cache, basics_seed+=1)
+        mean_trace_logl += calc_loglikelihood_of_trace(basics, behavior, 1, history, get_nframes(simlog))
+    end
+    mean_trace_logl / length(simlogs)
+end
 
 function calc_metrics(simlog::Matrix{Float64}, road::StraightRoadway, simparams::SimParams, history::Int)
 

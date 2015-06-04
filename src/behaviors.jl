@@ -2,84 +2,86 @@
                  VEHICLE BEHAVIOR
 =# #################################################
 
-# define behavior for each vehicle in the scene
-#  em - if assumed to always follow one behavior
-#  ss - if has a scenario selector
-#  none - if behavior was predetermined
-#         in this case we *must* have the log pre-initialized with the vehicle's states
+# define behavior for a given vehicle in the scene
 
 export  AbstractVehicleBehavior,
+
+        select_action,
+        calc_action_loglikelihood,
+
+        init_log!,
+        init_logs!,
+        train,
+
         VehicleBehaviorNone,
-        VehicleBehaviorDriveStraight,
-        VehicleBehaviorEM,
-        VehicleBehaviorEMOriginal,
-        VehicleBehaviorSS,
-
-        ModelSimParams,
-
         VEHICLE_BEHAVIOR_NONE
+        
 
 # abstract type
+# An AbstractVehicleBehavior should implement tick!() in sim.jl
+# and calc_loglikelihood_of_frame() in sim_metrics.jl
 abstract AbstractVehicleBehavior
 
+function select_action(
+    basics::FeatureExtractBasics,
+    behavior::AbstractVehicleBehavior,
+    carind::Int, 
+    frameind::Int
+    )
+
+    error("select action not defined for $typeof(behavior)")
+end
+function calc_action_loglikelihood(
+    basics::FeatureExtractBasics,
+    behavior::AbstractVehicleBehavior,
+    carind::Int,
+    frameind::Int
+    )
+
+    error("calc action loglikelihood not defined for $typeof(behavior)")
+end
+train{B<:AbstractVehicleBehavior}(::Type{B}, trainingframes::DataFrame) = error("train not implemented for $B")
+
+function init_log!{B<:AbstractVehicleBehavior}(
+    simlog     :: Matrix{Float64},
+    behaviors  :: Vector{B},
+    traces     :: Vector{VehicleTrace},
+    startframe :: Int
+    )
+    
+    num_cars = get_ncars(simlog)
+    @assert(num_cars == length(behaviors))
+    @assert(num_cars == length(traces))
+
+    for carind = 1 : num_cars
+        behavior = behaviors[carind]
+        trace = traces[carind]
+        init_log!(simlog, carind, behavior, trace, startframe)
+    end
+
+    simlog
+end
+init_log!(simlog::Matrix{Float64}, carind::Int, ::AbstractVehicleBehavior, trace::VehicleTrace, startframe::Int) =
+    fill_log_with_trace_partial!(simlog, trace, carind, startframe)
+
+function init_logs!{B<:AbstractVehicleBehavior}(
+    simlogs::Vector{Matrix{Float64}},
+    tracesets::Vector{Vector{VehicleTrace}},
+    behaviors::Vector{B},
+    history::Int
+    )
+    
+    @assert(length(simlogs) == length(tracesets))
+    for (simlog, traces) in zip(simlogs, tracesets)
+        init_log!(simlog, behaviors[1:get_ncars(simlog)], traces, history)
+    end
+    simlogs
+end
+
 # The vehicle's actions are pre-determined
-# The simulation log *must* be appropriately initialized
+# No update is performed on the simlog for this vehicle
 type VehicleBehaviorNone <: AbstractVehicleBehavior end
 VEHICLE_BEHAVIOR_NONE = VehicleBehaviorNone()
 
-# The vehicle always selects actions using the given encounter model
-type ModelSimParams
-    sampling_scheme  :: AbstractSampleMethod
-    smoothing        :: Symbol # :none, :SMA, :WMA
-    smoothing_counts :: Int    # number of previous counts to use
-
-    function ModelSimParams(
-        sampling_scheme :: AbstractSampleMethod = SAMPLE_UNIFORM,
-        smoothing       :: Symbol = :none,
-        smoothing_counts :: Int = 1
-        )
-
-        @assert(smoothing_counts > 0)
-        new(sampling_scheme, smoothing, smoothing_counts)
-    end
-end
-
-type VehicleBehaviorDriveStraight <: AbstractVehicleBehavior end
-
-type VehicleBehaviorEM <: AbstractVehicleBehavior
-    em :: EM
-    indicators :: Vector{AbstractFeature}
-    symbol_lat :: Symbol
-    symbol_lon :: Symbol
-
-    simparams_lat :: ModelSimParams
-    simparams_lon :: ModelSimParams
-
-    function VehicleBehaviorEM(
-        em            :: EM,
-        simparams_lat :: ModelSimParams,
-        simparams_lon :: ModelSimParams
-        )
-
-        retval = new()
-        retval.em = em
-        retval.indicators = get_indicators(em)
-
-        targets = get_targets(em)
-        retval.symbol_lat = symbol(get_target_lat(em, targets))
-        retval.symbol_lon = symbol(get_target_lon(em, targets))
-
-        retval.simparams_lat = simparams_lat
-        retval.simparams_lon = simparams_lon
-
-        retval
-    end
-end
-type VehicleBehaviorEMOriginal <: AbstractVehicleBehavior
-    behavior :: VehicleBehaviorEM
-end
-
-# The vehicle always selects actions using a scenario selector
-type VehicleBehaviorSS <: AbstractVehicleBehavior
-    ss :: ScenarioSelector
-end
+init_log!(simlog::Matrix{Float64}, carind::Int, ::VehicleBehaviorNone, trace::VehicleTrace, startframe::Int) =
+    fill_log_with_trace_complete!(simlog, trace, carind, startframe)
