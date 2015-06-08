@@ -1,6 +1,7 @@
 export
         AggregateMetricSet,
 
+        evaluate_original,
         evaluate_behavior,
         evaluate_behaviors,
 
@@ -11,6 +12,8 @@ export
         calc_metrics,
         calc_aggregate_metric,
         calc_aggregate_metrics,
+
+        compute_metric_summary_table,
 
         pull_run_log_likelihoods,
         rank_by_log_likelihood,
@@ -23,6 +26,26 @@ type AggregateMetricSet
     metrics::Vector{Dict{Symbol, Any}} # metric dictionary computed for every trace
 end
 
+function evaluate_original(
+    simlogs_original::Vector{Matrix{Float64}},
+    road::StraightRoadway,
+    history::Int,
+    simparams::SimParams,
+    histobin_params::ParamsHistobin
+    )
+
+    #=
+    Computes the AggregateMetricSet for the original data
+
+    Note that this will NOT compute trace log likelihoods or RMSE values
+    as it makes no sense to compare against itself
+    =#
+
+    histobin = calc_histobin(simlogs_original, histobin_params, history)
+    metricset = calc_metrics(simlogs_original, road, simparams, history)
+    
+    AggregateMetricSet(histobin, metricset)
+end
 function evaluate_behavior(
     egobehavior::AbstractVehicleBehavior,
     simlogs_original::Vector{Matrix{Float64}},
@@ -58,9 +81,11 @@ function evaluate_behavior(
         simlog_model = simlogs[i]
         simlog_original = simlogs_original[i]
 
-        basics = FeatureExtractBasics(simlog_original, road, simparams.sec_per_frame, simparams.extracted_feature_cache, i)
+        basics_original = FeatureExtractBasics(simlog_original, road, simparams.sec_per_frame, simparams.extracted_feature_cache, i)
         end_frame = get_nframes(simlog_model)
-        metricset[i][:logl] = calc_loglikelihood_of_trace(basics, egobehavior, carind, history, end_frame)
+
+        # log likelihood of the original trajectory
+        metricset[i][:logl] = calc_loglikelihood_of_trace(basics_original, egobehavior, carind, history, end_frame)
 
         for rmse_endframe in [history+2 : 2 : end_frame]
             Δt = (rmse_endframe - history) * simparams.sec_per_frame # [sec]
@@ -88,6 +113,28 @@ function evaluate_behaviors{B<:AbstractVehicleBehavior}(
                                       road, history, simparams, histobin_params)
     end
     retval
+end
+
+function calc_kl_div_gaussian(μA::Float64, σA::Float64, μB::Float64, σB::Float64)
+
+    log(σB/σA) + (σA*σA + (μA-μB)^2)/(2σB*σB) - 0.5
+end
+function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_target::Dict{Symbol,Any}, sym::Symbol)
+
+    # Compute the kl divergence for the given aggregate metric
+    #   `sym' must refer to an entry in aggmetrics which contains but sym_mean and sym_stdev
+    #    ex: :mean_timegap -> :mean_timegap_mean and :mean_timegap_stdev
+
+    str = string(sym)
+    sym_mean = symbol(str * "_mean")
+    sym_stdev = symbol(str * "_stdev")
+
+    μ_orig = aggmetrics_original[sym_mean]
+    σ_orig = aggmetrics_original[sym_stdev]
+    μ_target = aggmetrics_target[sym_mean]
+    σ_target = aggmetrics_target[sym_stdev]
+
+    calc_kl_div_gaussian(μ_orig, σ_orig, μ_target, σ_target)
 end
 
 function calc_rmse_predicted_vs_ground_truth(
@@ -429,3 +476,51 @@ function print_aggregate_metrics_csv_readable(io::IO, simparams::SimParams, metr
         )
 end
 print_aggregate_metrics_csv_readable(simparams::SimParams, metricset::Vector{Dict{Symbol, Any}}) = print_results_csv_readable(STDOUT, simparams, metricset)
+
+function compute_metric_summary_table{S<:String}(
+    behavior_metrics::AbstractVector{AggregateMetricSet}, 
+    original_metrics::AggregateMetricSet,
+    model_names::Vector{S}
+    )
+
+
+    df = DataFrame(labels=["mean lane offset", "mean speed", "mean timegap", 
+                           "mean lane offset kldiv", "mean speed kldiv", "mean timegap kldiv",
+                           "mean trace log prob", "mean rmse 1s", "mean rmse 2s", "mean rmse 3s", "mean rmse 4s"])
+
+    aggmetrics_original = calc_aggregate_metrics(original_metrics.metrics)
+    df[:realworld] = [
+                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_centerline_offset_ego_mean], aggmetrics_original[:mean_centerline_offset_ego_stdev]),
+                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_speed_ego_mean], aggmetrics_original[:mean_speed_ego_stdev]),
+                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_timegap_mean], aggmetrics_original[:mean_timegap_stdev]),
+                        "", "", "", "", "", "", "", ""
+                    ]
+
+    for (i,behavior_metric) in enumerate(behavior_metrics)
+
+        behavor_sym = symbol(model_names[i])
+        aggmetrics = calc_aggregate_metrics(behavior_metric.metrics)
+
+        mean_trace_log_prob, stdev_trace_log_prob = calc_aggregate_metric(:logl, Float64, behavior_metric.metrics)
+        mean_rmse_1s, stdev_rmse_1s = calc_aggregate_metric(:rmse_1000ms, Float64, behavior_metric.metrics)
+        mean_rmse_2s, stdev_rmse_2s = calc_aggregate_metric(:rmse_2000ms, Float64, behavior_metric.metrics)
+        mean_rmse_3s, stdev_rmse_3s = calc_aggregate_metric(:rmse_3000ms, Float64, behavior_metric.metrics)
+        mean_rmse_4s, stdev_rmse_4s = calc_aggregate_metric(:rmse_4000ms, Float64, behavior_metric.metrics)
+
+        df[behavor_sym] = [
+                @sprintf("%.3f +- %.3f", aggmetrics[:mean_centerline_offset_ego_mean], aggmetrics[:mean_centerline_offset_ego_stdev]),
+                @sprintf("%.3f +- %.3f", aggmetrics[:mean_speed_ego_mean], aggmetrics[:mean_speed_ego_stdev]),
+                @sprintf("%.3f +- %.3f", aggmetrics[:mean_timegap_mean], aggmetrics[:mean_timegap_stdev]),
+                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_ego)),
+                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_ego)),
+                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)),
+                @sprintf("%.4f", mean_trace_log_prob),
+                @sprintf("%.4f", mean_rmse_1s),
+                @sprintf("%.4f", mean_rmse_2s),
+                @sprintf("%.4f", mean_rmse_3s),
+                @sprintf("%.4f", mean_rmse_4s)
+            ]
+    end
+
+    df
+end

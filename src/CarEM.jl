@@ -21,11 +21,10 @@ module CarEM
     include("behaviors.jl")
     include("io.jl")
     include("sim.jl")
+    include("sim_param_calibration.jl")
     include("sim_metrics.jl")
 
     include("behaviors/behavior_em.jl")
     include("behaviors/drive_straight.jl")
     include("behaviors/behavior_gaussian.jl")
-
-    include("sim_param_calibration.jl")
 end # module
