@@ -64,14 +64,8 @@ function evaluate_behavior(
           - set of metrics
     =#
 
-
-    # TODO(tim): expand to include as many VEHICLE_BEHAVIOR_NONEs as needed
-    behaviors = AbstractVehicleBehavior[egobehavior, VEHICLE_BEHAVIOR_NONE]
-
     carind = 1
     logbaseindex = calc_logindexbase(carind)
-
-    simulate!(simlogs, behaviors, road, history, simparams)
 
     histobin = calc_histobin(simlogs, histobin_params, history)
     metricset = calc_metrics(simlogs, road, simparams, history)
@@ -100,16 +94,18 @@ end
 function evaluate_behaviors{B<:AbstractVehicleBehavior}(
     behaviors::Vector{B},
     simlogs_original::Vector{Matrix{Float64}},
-    simlogs::Vector{Matrix{Float64}},
+    behavior_simlogs::Vector{Vector{Matrix{Float64}}},
     road::StraightRoadway,
     history::Int,
     simparams::SimParams,
     histobin_params::ParamsHistobin
     )
 
+    @assert(length(behaviors) == length(behavior_simlogs))
+
     retval = Array(AggregateMetricSet, length(behaviors))
     for (i, egobehavior) in enumerate(behaviors)
-        retval[i] = evaluate_behavior(egobehavior, simlogs_original, simlogs,
+        retval[i] = evaluate_behavior(egobehavior, simlogs_original, behavior_simlogs[i],
                                       road, history, simparams, histobin_params)
     end
     retval
