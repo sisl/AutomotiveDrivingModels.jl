@@ -843,7 +843,7 @@ function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	retval = 0.0
 	val = get(VELFY, basics, carind, frameind)
 	for i = 1 : frames_back
-		val2 = get(VELFY, baiscs, carind, frameind-i)
+		val2 = get(VELFY, basics, carind, frameind-i)
 		accFy = (val2 - val) / basics.sec_per_frame
 		if abs(accFy) > retval
 			retval = accFy

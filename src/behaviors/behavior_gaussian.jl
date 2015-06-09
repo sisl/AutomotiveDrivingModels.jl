@@ -1,6 +1,6 @@
 export VehicleBehaviorGaussian
 
-# The vehicle drives following a multivariabkle Gaussian noise over accel & turnrate
+# The vehicle drives following a multivariable Gaussian noise over accel & turnrate
 type VehicleBehaviorGaussian <: AbstractVehicleBehavior 
     Σ::MvNormal # with action vector (accel, turnrate)
 

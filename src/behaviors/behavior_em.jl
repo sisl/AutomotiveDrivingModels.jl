@@ -170,22 +170,29 @@ function calc_action_loglikelihood(
     action_lat = _infer_action_lat_from_input_turnrate(symbol_lat, ω, basics.simlog, frameind, logindexbase)
     action_lon = _infer_action_lon_from_input_acceleration(symbol_lon, a, basics.simlog, frameind, logindexbase)
 
-    bin_lat = encode(bmap_lat, action_lat)
-    bin_lon = encode(bmap_lon, action_lon)
+    if min(bmap_lat) ≤ action_lat ≤ max(bmap_lat) &&
+        min(bmap_lon) ≤ action_lon ≤ max(bmap_lon)
 
-    observations = observe(basics, carind, frameind, behavior.indicators)
-    assignment = encode(observations, em)
 
-    binprobs_lat = calc_probability_distribution_over_assignments(em, assignment, symbol_lat)
-    binprobs_lon = calc_probability_distribution_over_assignments(em, assignment, symbol_lon)
+        bin_lat = encode(bmap_lat, action_lat)
+        bin_lon = encode(bmap_lon, action_lon)
 
-    P_bin_lat = binprobs_lat[bin_lat]
-    P_bin_lon = binprobs_lon[bin_lon]
+        observations = observe(basics, carind, frameind, behavior.indicators)
+        assignment = encode(observations, em)
 
-    p_within_bin_lat = calc_probability_for_uniform_sample_from_bin(P_bin_lat, bmap_lat, bin_lat)
-    p_within_bin_lon = calc_probability_for_uniform_sample_from_bin(P_bin_lon, bmap_lon, bin_lon)
+        binprobs_lat = calc_probability_distribution_over_assignments(em, assignment, symbol_lat)
+        binprobs_lon = calc_probability_distribution_over_assignments(em, assignment, symbol_lon)
 
-    log(p_within_bin_lat * p_within_bin_lon)
+        P_bin_lat = binprobs_lat[bin_lat]
+        P_bin_lon = binprobs_lon[bin_lon]
+
+        p_within_bin_lat = calc_probability_for_uniform_sample_from_bin(P_bin_lat, bmap_lat, bin_lat)
+        p_within_bin_lon = calc_probability_for_uniform_sample_from_bin(P_bin_lon, bmap_lon, bin_lon)
+
+        return log(p_within_bin_lat * p_within_bin_lon)
+    else
+        -Inf
+    end
 end
 
 function observe(
