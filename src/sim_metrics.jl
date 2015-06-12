@@ -23,6 +23,7 @@ export
 
 type AggregateMetricSet
     histobin::Matrix{Float64} # histobin image over deviation during run
+    histobin_kldiv::Float64
     metrics::Vector{Dict{Symbol, Any}} # metric dictionary computed for every trace
 end
 
@@ -44,7 +45,7 @@ function evaluate_original(
     histobin = calc_histobin(simlogs_original, histobin_params, history)
     metricset = calc_metrics(simlogs_original, road, simparams, history)
     
-    AggregateMetricSet(histobin, metricset)
+    AggregateMetricSet(histobin, 0.0, metricset)
 end
 function evaluate_behavior(
     egobehavior::AbstractVehicleBehavior,
@@ -53,7 +54,8 @@ function evaluate_behavior(
     road::StraightRoadway,
     history::Int,
     simparams::SimParams,
-    histobin_params::ParamsHistobin
+    histobin_params::ParamsHistobin,
+    histobin_original_with_prior::Matrix{Float64}
     )
 
     #=
@@ -68,6 +70,7 @@ function evaluate_behavior(
     logbaseindex = calc_logindexbase(carind)
 
     histobin = calc_histobin(simlogs, histobin_params, history)
+    histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1 )
     metricset = calc_metrics(simlogs, road, simparams, history)
 
     for i in 1 : length(simlogs)
@@ -89,7 +92,7 @@ function evaluate_behavior(
         end
     end
     
-    AggregateMetricSet(histobin, metricset)
+    AggregateMetricSet(histobin, histobin_kldiv, metricset)
 end
 function evaluate_behaviors{B<:AbstractVehicleBehavior}(
     behaviors::Vector{B},
@@ -103,10 +106,13 @@ function evaluate_behaviors{B<:AbstractVehicleBehavior}(
 
     @assert(length(behaviors) == length(behavior_simlogs))
 
+    histobin_original_with_prior = calc_histobin(simlogs_original, histobin_params, history)
+    histobin_original_with_prior .+= 1.0
+
     retval = Array(AggregateMetricSet, length(behaviors))
     for (i, egobehavior) in enumerate(behaviors)
         retval[i] = evaluate_behavior(egobehavior, simlogs_original, behavior_simlogs[i],
-                                      road, history, simparams, histobin_params)
+                                      road, history, simparams, histobin_params, histobin_original_with_prior)
     end
     retval
 end
@@ -481,7 +487,7 @@ function compute_metric_summary_table{S<:String}(
 
 
     df = DataFrame(labels=["mean lane offset", "mean speed", "mean timegap", 
-                           "mean lane offset kldiv", "mean speed kldiv", "mean timegap kldiv",
+                           "mean lane offset kldiv", "mean speed kldiv", "mean timegap kldiv", "histobin kldiv",
                            "mean trace log prob", "mean rmse 1s", "mean rmse 2s", "mean rmse 3s", "mean rmse 4s"])
 
     aggmetrics_original = calc_aggregate_metrics(original_metrics.metrics)
@@ -489,7 +495,7 @@ function compute_metric_summary_table{S<:String}(
                         @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_centerline_offset_ego_mean], aggmetrics_original[:mean_centerline_offset_ego_stdev]),
                         @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_speed_ego_mean], aggmetrics_original[:mean_speed_ego_stdev]),
                         @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_timegap_mean], aggmetrics_original[:mean_timegap_stdev]),
-                        "", "", "", "", "", "", "", ""
+                        "", "", "", "", "", "", "", "", ""
                     ]
 
     for (i,behavior_metric) in enumerate(behavior_metrics)
@@ -510,6 +516,7 @@ function compute_metric_summary_table{S<:String}(
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_ego)),
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_ego)),
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)),
+                @sprintf("%.5f", aggmetrics_original.histobin_kldiv),
                 @sprintf("%.4f", mean_trace_log_prob),
                 @sprintf("%.4f", mean_rmse_1s),
                 @sprintf("%.4f", mean_rmse_2s),
