@@ -203,7 +203,7 @@ function calc_mean_trace_loglikelihood(
     basics_seed = 1
     for simlog in simlogs
         basics = FeatureExtractBasics(simlog, road, sec_per_frame, extracted_feature_cache, basics_seed+=1)
-        mean_trace_logl += calc_loglikelihood_of_trace(basics, behavior, 1, history, get_nframes(simlog))
+        mean_trace_logl += calc_loglikelihood_of_trace(basics, behavior, carind, history, get_nframes(simlog))
     end
     mean_trace_logl / length(simlogs)
 end
@@ -516,7 +516,7 @@ function compute_metric_summary_table{S<:String}(
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_ego)),
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_ego)),
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)),
-                @sprintf("%.5f", aggmetrics_original.histobin_kldiv),
+                @sprintf("%.5f", behavior_metric.histobin_kldiv),
                 @sprintf("%.4f", mean_trace_log_prob),
                 @sprintf("%.4f", mean_rmse_1s),
                 @sprintf("%.4f", mean_rmse_2s),
