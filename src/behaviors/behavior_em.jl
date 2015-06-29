@@ -2,7 +2,7 @@ export
     VehicleBehaviorEM,
     ModelSimParams,
 
-    calc_probability_distribution_over_assignments,
+    calc_probability_distribution_over_assignments!,
     calc_log_probability_of_assignment
 
 import Discretizers: encode, decode
@@ -180,8 +180,29 @@ function calc_action_loglikelihood(
         observations = observe(basics, carind, frameind, behavior.indicators)
         assignment = encode(observations, em)
 
-        binprobs_lat = calc_probability_distribution_over_assignments(em, assignment, symbol_lat)
-        binprobs_lon = calc_probability_distribution_over_assignments(em, assignment, symbol_lon)
+        binprobs_lat = Array(Float64, nlabels(bmap_lat))
+        binprobs_lon = Array(Float64, nlabels(bmap_lon))
+
+        if is_parent(em, symbol_lon, symbol_lat) # lon -> lat
+            calc_probability_distribution_over_assignments!(binprobs_lon, em, assignment, symbol_lon)
+            fill!(binprobs_lat, 0.0)
+            temp = Array(Float64, nlabels(bmap_lon))
+            for (i,p) in enumerate(binprobs_lon)
+                assignment[symbol_lon] = i
+                binprobs_lat += calc_probability_distribution_over_assignments!(temp, em, assignment, symbol_lat) .* p
+            end
+        elseif is_parent(em, symbol_lat, symbol_lon) # lat -> lon
+            calc_probability_distribution_over_assignments!(binprobs_lat, em, assignment, symbol_lat)
+            fill!(binprobs_lon, 0.0)
+            temp = Array(Float64, nlabels(bmap_lat))
+            for (i,p) in enumerate(binprobs_lat)
+                assignment[symbol_lat] = i
+                binprobs_lon += calc_probability_distribution_over_assignments!(temp, em, assignment, symbol_lon) .* p
+            end
+        else
+            calc_probability_distribution_over_assignments!(binprobs_lat, em, assignment, symbol_lat)
+            calc_probability_distribution_over_assignments!(binprobs_lon, em, assignment, symbol_lon)
+        end
 
         P_bin_lat = binprobs_lat[bin_lat]
         P_bin_lon = binprobs_lon[bin_lon]
@@ -269,10 +290,16 @@ function calc_log_probability_of_assignment(em::EM, assignment::Dict{Symbol, Int
     p = cpd.parameterFunction(assignment)
     log(p[bin])
 end
-function calc_probability_distribution_over_assignments(em::EM, assignment::Dict{Symbol, Int}, target::Symbol)
-    # NOTE (tim): this returns the actual probability vector and should not be modified
+function calc_probability_distribution_over_assignments!(
+    dest::Vector{Float64},
+    em::EM,
+    assignment::Dict{Symbol, Int},
+    target::Symbol
+    )
+
+    # NOTE (tim): cpd.parameterFunction(assignment) returns the actual probability vector, not a copy
     cpd = BayesNets.cpd(em.BN, target)
-    return cpd.parameterFunction(assignment)
+    copy!(dest, cpd.parameterFunction(assignment))
 end
 
 function get_input_acceleration(sym::Symbol, action_lon::Float64, simlog::Matrix{Float64}, frameind::Int, logindexbase::Int)
