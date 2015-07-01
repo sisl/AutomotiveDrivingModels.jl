@@ -15,6 +15,7 @@ module CarEM
     import Base: get
 
     include("common.jl")
+    include("collision.jl")
     include("encounter_model.jl")
     include("scenario_selector.jl")
     include("feature_extract.jl")
@@ -23,6 +24,7 @@ module CarEM
     include("sim.jl")
     include("sim_param_calibration.jl")
     include("sim_metrics.jl")
+    include("risk_estimation.jl")
 
     include("behaviors/behavior_em.jl")
     include("behaviors/drive_straight.jl")

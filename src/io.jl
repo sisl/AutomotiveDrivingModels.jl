@@ -175,6 +175,17 @@ function load_em(
     em = encounter_model(bn, stats, discretizerdict, targets, indicators)
 end
 function load_em(
+    discretizers::Vector{AbstractDiscretizer},
+    targets::Vector{AbstractFeature},
+    indicators::Vector{AbstractFeature},
+    stats::Vector{Matrix{Float64}}, 
+    adj::BitMatrix
+    )
+
+    bn = build_bn(targets, indicators, stats, adj)
+    em = encounter_model(bn, stats, discretizers, targets, indicators)
+end
+function load_em(
     binmapdict :: Dict{Symbol, AbstractBinMap},
     targets    :: Vector{AbstractFeature},
     indicators :: Vector{AbstractFeature},

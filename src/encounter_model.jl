@@ -12,8 +12,10 @@ export
 
         index,                # get index of feature or symbol in EM
         parent_indeces,       # get indeces of parents of the given variable in EM
+        is_parent,            # whether the given parent->child edge is in the net
         
         variable_bin_counts,  # get Vector{Int} of number of instantiations of each variable
+        marginal_probability, # get Vector{Float64} if the marginal probability of the variable
         counts,               # get value related to counts depending on inputs
         edges                 # get bin edges associated with variable
 
@@ -22,7 +24,7 @@ immutable EM
     statsvec :: Vector{Matrix{Float64}}
     features :: Vector{AbstractFeature}
     binmaps  :: Vector{AbstractDiscretizer}
-    istarget :: BitVector # whether a feature is a target or an indicator
+    istarget :: BitVector # whether a feature is a target feature
 end
 function encounter_model{A<:AbstractDiscretizer, B<:AbstractFeature, C<:AbstractFeature, R<:Real}( 
     BN         :: BayesNet,
@@ -34,6 +36,27 @@ function encounter_model{A<:AbstractDiscretizer, B<:AbstractFeature, C<:Abstract
 
     features = AbstractFeature[symbol2feature(sym) for sym in BN.names]
     binmaps  = AbstractDiscretizer[binmapdict[sym] for sym in BN.names]
+    istarget = falses(length(features))
+    for (i,f) in enumerate(features)
+        if in(f, targets)
+            istarget[i] = true
+        elseif !in(f, indicators)
+            error("Feature not in targets or indicators")
+        end
+    end
+
+    statsvecFloat = convert(Vector{Matrix{Float64}}, statsvec)
+    EM(BN, statsvecFloat, features, binmaps, istarget)
+end
+function encounter_model{A<:AbstractDiscretizer, B<:AbstractFeature, C<:AbstractFeature, R<:Real}( 
+    BN         :: BayesNet,
+    statsvec   :: Vector{Matrix{R}},
+    binmaps    :: Vector{A}, 
+    targets    :: Vector{B}, 
+    indicators :: Vector{C}
+    )
+
+    features = AbstractFeature[symbol2feature(sym) for sym in BN.names]
     istarget = falses(length(features))
     for (i,f) in enumerate(features)
         if in(f, targets)
@@ -135,6 +158,15 @@ function get_indicators_lon(em::EM, target_lon::AbstractFeature = get_target_lon
     indicator_indeces = parent_indeces(i, em)
     em.features[indicator_indeces]
 end
+function is_parent(em::EM, parent::Symbol, child::Symbol)
+    index_parent = em.BN.index[parent]
+    index_child = em.BN.index[child]
+    is_parent(em, index_parent, index_child)
+end
+function is_parent(em::EM, parent::Int, child::Int)
+    
+    in(parent, in_neighbors(child, em.BN.dag))
+end
 
 index(f::AbstractFeature, em::EM) = em.BN.index[symbol(f)]
 index(f::Symbol, em::EM) = em.BN.index[f]
@@ -155,10 +187,14 @@ function variable_bin_counts(em::EM)
     end
     r_arr
 end
+function marginal_probability(varindex::Int, em::EM)
+    binprobs = vec(sum(em.statsvec[varindex], 2))
+    binprobs ./= sum(binprobs)
+end
 function counts(em::EM, targetind::Int, parentindeces::Vector{Int}, parentassignments::Vector{Int}, binsizes::Vector{Int})
     
-    dims      = tuple([binsizes[parentindeces]]...)
-    subs      = tuple(parentassignments...)
+    dims = tuple([binsizes[parentindeces]]...)
+    subs = tuple(parentassignments...)
     j = sub2ind(dims, subs...)
     em.statsvec[targetind][:,j]
 end

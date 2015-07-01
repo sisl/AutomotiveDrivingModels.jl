@@ -1,20 +1,51 @@
-export StraightRoadway, PointSE2, Vehicle, VehicleTrace
-export LOG_COL_X, LOG_COL_Y, LOG_COL_ϕ, LOG_COL_V, LOG_COL_A, LOG_COL_T, LOG_NCOLS_PER_CAR,
-	   LOG_COL_BIN_LAT, LOG_COL_BIN_LON, LOG_COL_LAT_BEFORE_SMOOTHING, LOG_COL_LON_BEFORE_SMOOTHING, LOG_COL_logprobweight_A, LOG_COL_logprobweight_T, LOG_COL_em
-export is_onroad, get_lanecenters, get_laneborders
-export get_ncars, get_nframes, calc_logindexbase, create_log
-export calc_required_bytes_to_allocate, allocate_simlog_for_traces, allocate_simlogs_for_all_traces
-export estimate_history
-
 export
-		INPUT_EMSTATS_FOLDER,
-		TRACE_DIR,
-		OUTPUT_FOLDER_DIRICHLET,
-		OUTPUT_FOLDER_CATEGORICAL,
+    StraightRoadway,
+    PointSE2,
+    Vehicle,
+    VehicleTrace,
 
-		CAR_LENGTH,
-		CAR_WIDTH,
-		DEFAULT_LANE_WIDTH
+    INPUT_EMSTATS_FOLDER,
+    TRACE_DIR,
+    OUTPUT_FOLDER_DIRICHLET,
+    OUTPUT_FOLDER_CATEGORICAL,
+
+    CAR_LENGTH,
+    CAR_WIDTH,
+    DEFAULT_LANE_WIDTH,
+
+    LOG_COL_X,
+    LOG_COL_Y,
+    LOG_COL_ϕ,
+    LOG_COL_V,
+    LOG_COL_A,
+    LOG_COL_T,
+    LOG_NCOLS_PER_CAR,
+    LOG_COL_BIN_LAT,
+    LOG_COL_BIN_LON,
+    LOG_COL_LAT_BEFORE_SMOOTHING,
+    LOG_COL_LON_BEFORE_SMOOTHING,
+    LOG_COL_logprobweight_A,
+    LOG_COL_logprobweight_T,
+    LOG_COL_em,
+
+    is_onroad,
+    get_lanecenter,
+    get_lanecenters,
+    get_laneborders,
+    
+    get_ncars,
+    get_nframes,
+    calc_logindexbase,
+    create_log,
+
+    calc_required_bytes_to_allocate,
+    allocate_simlog_for_traces,
+    allocate_simlogs_for_all_traces,
+
+    estimate_history,
+
+    pull_vehicle!,
+    place_vehicle!
 
 # a log is represented as a Matrix{Float64}
 const LOG_COL_X = 1
@@ -53,6 +84,9 @@ type PointSE2
 	x :: Float64
 	y :: Float64
 	ϕ :: Float64 # [rad]
+
+    PointSE2() = new()
+    PointSE2(x::Float64, y::Float64, ϕ::Float64=0.0) = new(x,y,ϕ)
 end
 
 type Vehicle
@@ -60,6 +94,28 @@ type Vehicle
 	speed  :: Float64  # [m/s]
 	length :: Float64  # [m]
 	width  :: Float64  # [m]
+
+    Vehicle() = new(PointSE2(), 0.0, 0.0, 0.0)
+    function Vehicle(
+        pos::PointSE2,
+        speed::Float64,
+        length::Float64=CAR_LENGTH,
+        width::Float64=CAR_WIDTH
+        )
+
+        new(pos, speed, length, width)
+    end
+    function Vehicle(
+        x::Float64,
+        y::Float64,
+        ϕ::Float64,
+        speed::Float64,
+        length::Float64=CAR_LENGTH,
+        width::Float64=CAR_WIDTH
+        )
+
+        new(PointSE2(x,y,ϕ), speed, length, width)
+    end
 end
 
 immutable VehicleTrace
@@ -81,6 +137,7 @@ immutable VehicleTrace
 end
 
 is_onroad(posFy::Real, road::StraightRoadway) = -0.5road.lanewidth < posFy <  (road.nlanes - 0.5)*road.lanewidth
+get_lanecenter(road::StraightRoadway, laneindex::Int) = road.lanewidth * (laneindex-1)
 get_lanecenters(road::StraightRoadway) = [0:(road.nlanes-1)].*road.lanewidth # [0,w,2w,...]
 get_laneborders(road::StraightRoadway) = [0:road.nlanes].*road.lanewidth - road.lanewidth/2
 
@@ -170,4 +227,19 @@ function estimate_history(simlog::Matrix{Float64})
         end
     end
     return -1
+end
+
+function pull_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)
+    veh.pos.x = simlog[frameind, baseind + LOG_COL_X]
+    veh.pos.y = simlog[frameind, baseind + LOG_COL_Y]
+    veh.pos.z = simlog[frameind, baseind + LOG_COL_ϕ]
+    veh.speed = simlog[frameind, baseind + LOG_COL_V]
+    veh
+end
+function place_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)
+    simlog[frameind, baseind + LOG_COL_X] = veh.pos.x
+    simlog[frameind, baseind + LOG_COL_Y] = veh.pos.y
+    simlog[frameind, baseind + LOG_COL_ϕ] = veh.pos.ϕ
+    simlog[frameind, baseind + LOG_COL_V] = veh.speed
+    simlog
 end
