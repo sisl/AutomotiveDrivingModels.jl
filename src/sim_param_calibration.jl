@@ -12,6 +12,13 @@ export
 type ParamsHistobin
     discx :: LinearDiscretizer
     discy :: LinearDiscretizer
+
+    ParamsHistobin(discx::LinearDiscretizer, discy::LinearDiscretizer) = new(discx, discy)
+    function ParamsHistobin(binedgesx::Vector{Float64}, binedgesy::Vector{Float64})
+        discx = LinearDiscretizer(binedgesx)
+        discy = LinearDiscretizer(binedgesx)
+        new(discx, discy)
+    end
 end
 
 function calc_trace_deviation(simlog::Matrix{Float64}, history::Int)

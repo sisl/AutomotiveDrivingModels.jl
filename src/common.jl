@@ -12,6 +12,7 @@ export
     CAR_LENGTH,
     CAR_WIDTH,
     DEFAULT_LANE_WIDTH,
+    DEFAULT_SEC_PER_FRAME,
 
     LOG_COL_X,
     LOG_COL_Y,
@@ -44,6 +45,7 @@ export
 
     estimate_history,
 
+    pull_vehicle,
     pull_vehicle!,
     place_vehicle!
 
@@ -65,7 +67,8 @@ const LOG_NCOLS_PER_CAR = 13
 
 const CAR_LENGTH = 4.6 # [m]
 const CAR_WIDTH  = 2.0 # [m]
-const DEFAULT_LANE_WIDTH = 3.7
+const DEFAULT_LANE_WIDTH = 3.7 # [m]
+const DEFAULT_SEC_PER_FRAME = 0.25 # [s]
 
 const INPUT_EMSTATS_FOLDER      = "/media/tim/DATAPART1/Data/Bosch/processed/plots/graph_feature_selection_NEW/"
 const TRACE_DIR                 = "/media/tim/DATAPART1/Data/Bosch/processed/traces/"
@@ -95,7 +98,7 @@ type Vehicle
 	length :: Float64  # [m]
 	width  :: Float64  # [m]
 
-    Vehicle() = new(PointSE2(), 0.0, 0.0, 0.0)
+    Vehicle() = new(PointSE2(), 0.0, CAR_LENGTH, CAR_WIDTH)
     function Vehicle(
         pos::PointSE2,
         speed::Float64,
@@ -229,10 +232,12 @@ function estimate_history(simlog::Matrix{Float64})
     return -1
 end
 
+pull_vehicle(simlog::Matrix{Float64}, baseind::Int, frameind::Int) =
+    pull_vehicle!(Vehicle(), simlog, baseind, frameind)
 function pull_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)
     veh.pos.x = simlog[frameind, baseind + LOG_COL_X]
     veh.pos.y = simlog[frameind, baseind + LOG_COL_Y]
-    veh.pos.z = simlog[frameind, baseind + LOG_COL_ϕ]
+    veh.pos.ϕ = simlog[frameind, baseind + LOG_COL_ϕ]
     veh.speed = simlog[frameind, baseind + LOG_COL_V]
     veh
 end

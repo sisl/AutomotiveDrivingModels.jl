@@ -1,55 +1,16 @@
+# export
+#     PolynomialFactoredTrajectory,
 
+#     Polynomial,
+#     Quartic,
+#     Quintic,
 
-function calc_candidate_trajectory_bezier_followlane!(
-    simlog::Matrix{Float64},
-    road::StraightRoadway,
-    carind::Int,
-    frameind_start::Int,
-    horizon::Int,
-    lane_index::Int,
-    speed_end::Float64,
-    accel_end::Float64,
-    params::SimParams = SimParams()
-    )
+#     set_trajectory_relative_to_lane!,
+#     calc_candidate_trajectory_bezier_followlane,
 
-    baseind = calc_logindexbase(carind)
-
-    closest_centerline = get_lanecenter(road, lane_index)
-
-    s_start = simlog[frameind_start, baseind+LOG_COL_X]
-    d_start = simlog[frameind_start, baseind+LOG_COL_Y] - closest_centerline
-    v_start = simlog[frameind_start, baseind+LOG_COL_V]
-    ϕ_start = simlog[frameind_start, baseind+LOG_COL_ϕ]
-
-    sdot = v_start * cos(ϕ_start)
-    ddot = v_start * sin(ϕ_start)
-
-    sddot = 0.0 # TODO(tim): fix this
-    dddot = 0.0 # TODO(tim): fix this
-    d_end, ddot_end, dddot_end = 0.0, 0.0, 0.0
-
-    τ = horizon * params.sec_per_frame
-
-    q_lat = get_quartic_coefficients(d_start, ddot, dddot, d_end, ddot_end, dddot_end, τ)
-    q_lon = get_quintic_coefficients(s_start, sdot, sddot, speed_end, accel_end, τ)
-
-    for framejump in 1 : horizon
-        frameind = frameind_start + framejump
-        t = framejump * params.sec_per_frame
-
-        s = p₁(q_lon, t::Float64)
-        d = p₁(q_lat, t::Float64)
-        v = hypot(p₂(q_lon, t::Float64), p₂(q_lat, t::Float64))
-        ϕ = 0.0 # TODO(tim): fix this
-
-        simlog[frameind, baseind + LOG_COL_X] = s
-        simlog[frameind, baseind + LOG_COL_Y] = d + closest_centerline
-        simlog[frameind, baseind + LOG_COL_ϕ] = ϕ
-        simlog[frameind, baseind + LOG_COL_V] = v
-    end
-
-    simlog
-end
+#     get_quartic_coefficients,
+#     get_quintic_coefficients,
+#     p₁, p₂, p₃, p₄, p₁₂, p₁₂₃
 
 abstract Polynomial
 immutable Quintic <: Polynomial
@@ -77,6 +38,9 @@ p₁(q::Quartic, t::Float64) = q.x₁ + t*(q.x₂ + t*(q.x₃ + t*(q.x₄ + t*(q
 p₂(q::Quartic, t::Float64) = q.x₂ + t*(2q.x₃ + t*(3q.x₄ + t*(4q.x₅ + t*5q.x₆))) # first derivative
 p₃(q::Quartic, t::Float64) = 2q.x₃ + t*(6q.x₄ + t*(12q.x₅ + t*20q.x₆)) # second derivative
 p₄(q::Quartic, t::Float64) = 6q.x₄ + t*(24q.x₅ + t*60q.x₆) # third derivative
+
+p₁₂(p::Polynomial, t::Float64) = (p₁(p,t), p₂(p,t))
+p₁₂₃(p::Polynomial, t::Float64) = (p₁(p,t), p₂(p,t), p₃(p,t))
 
 function _get_M1(t::Float64)
     [1.0 t t*t;
@@ -151,25 +115,115 @@ function get_quintic_coefficients(
     Quintic(c₀₁₂[1], c₀₁₂[2], c₀₁₂[3], retval[2], retval[3])
 end
 
-start_state_lat = [3.0, 0.0, 0.0]
-end_state_lat = [1.0, -0.5, 0.0]
-start_state_lon = [0.0, 1.0, 0.0]
-end_state_lon = [NaN, 1.0, 0.0]
-τ = 2.5
+# =========================
 
-q_lat = get_quartic_coefficients(start_state_lat..., end_state_lat..., τ)
-q_lon = get_quintic_coefficients(start_state_lon..., end_state_lon[2:3]..., τ)
+type PolynomialFactoredTrajectory
+    # NOTE(tim): t=0 is the start of the trajectory,
+    #            t=τ is the end of the trajectory
+    s::Polynomial # along the centerline
+    d::Polynomial # perpendicular to the centerline, (left)
+end
 
+function set_trajectory_relative_to_lane!(
+    simlog::Matrix{Float64},
+    road::StraightRoadway,
+    carind::Int,
+    frameind_start::Int,
+    horizon::Int,
+    lane_index::Int,
+    traj::PolynomialFactoredTrajectory,
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME
+    )
 
-println("start: ", start_state)
-println("end: ", end_state)
-println("τ: ", τ)
-println(q)
+    # NOTE: this does NOT set the initial position
 
-println("p₁: ", p₁(q, 0.0))
-println("p₂: ", p₂(q, 0.0))
-println("p₃: ", p₃(q, 0.0))
+    closest_centerline_y = get_lanecenter(road, lane_index)
 
-println("p₁: ", p₁(q, 1.0))
-println("p₂: ", p₂(q, 1.0))
-println("p₃: ", p₃(q, 1.0))
+    baseind = calc_logindexbase(carind)
+
+    t = 0.0
+    frameind = frameind_start
+    for framejump in 1 : horizon
+        frameind += 1
+        t += sec_per_frame
+
+        s, sdot = p₁₂(traj.s, t)
+        d, ddot = p₁₂(traj.d, t)
+        v = hypot(ddot, sdot)
+        ϕ = atan2(ddot, sdot)
+
+        simlog[frameind, baseind + LOG_COL_X] = s
+        simlog[frameind, baseind + LOG_COL_Y] = d + closest_centerline_y
+        simlog[frameind, baseind + LOG_COL_ϕ] = ϕ
+        simlog[frameind, baseind + LOG_COL_V] = v
+    end
+
+    simlog
+end
+
+function calc_candidate_trajectory_bezier_followlane(
+    simlog::Matrix{Float64},
+    road::StraightRoadway,
+    carind::Int,
+    frameind_start::Int,
+    horizon::Int,
+    lane_index::Int,
+    sdot₂::Float64,
+    sddot₂::Float64,
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME;
+    d₂::Float64=0.0, # final lateral offset
+    ddot₂::Float64=0.0, # final lateral velocity
+    dddot₂::Float64=0.0, # final lateral acceleration
+    )
+
+    baseind = calc_logindexbase(carind)
+    s₁ = simlog[frameind_start, baseind+LOG_COL_X]
+    d₁ = simlog[frameind_start, baseind+LOG_COL_Y] - get_lanecenter(road, lane_index)
+    v₁ = simlog[frameind_start, baseind+LOG_COL_V]
+    ϕ₁ = simlog[frameind_start, baseind+LOG_COL_ϕ]
+
+    sdot₁ = v₁ * cos(ϕ₁)
+    ddot₁ = v₁ * sin(ϕ₁)
+
+    if frameind_start > 1
+        v₀ = simlog[frameind_start-1, baseind+LOG_COL_V]
+        ϕ₀ = simlog[frameind_start-1, baseind+LOG_COL_V]
+        sdot₀ = v₀ * cos(ϕ₀)
+        ddot₀ = v₀ * sin(ϕ₀)
+        sddot₁ = (sdot₁ - sdot₀) / sec_per_frame
+        dddot₁ = (ddot₁ - ddot₀) / sec_per_frame
+    else
+        sddot₁ = 0.0
+        dddot₁ = 0.0
+    end
+
+    τ = horizon * sec_per_frame
+
+    calc_candidate_trajectory_bezier_followlane(d₁, ddot₁, dddot₁, sdot₁, sddot₁, τ, 
+                                                d₂=d₂, ddot₂=ddot₂, dddot₂=dddot₂,
+                                                s₁=s₁, sdot₂=sdot₂, sddot₂=sddot₂)
+end
+function calc_candidate_trajectory_bezier_followlane(
+    d₁::Float64, # initial lateral offset
+    ddot₁::Float64, # initial lateral velocity
+    dddot₁::Float64, # initial lateral acceleration
+    sdot₁::Float64, # initial longitudinal speed
+    sddot₁::Float64, # initial longitudinal acceleration
+    τ::Float64; # trajectory duration [sec]
+
+    d₂::Float64=0.0, # final lateral offset
+    ddot₂::Float64=0.0, # final lateral velocity
+    dddot₂::Float64=0.0, # final lateral acceleration
+    sdot₂::Float64=sdot₁, # final longitudinal velocity
+    sddot₂::Float64=0.0, # final longitudinal accel
+    s₁::Float64=0.0, # initial longitudinal position
+    )
+
+    # Compute a trajectory in which the lateral start and end states are fully known
+    # and where the longitudinal trajectory has unspecified end position
+
+    s = get_quintic_coefficients(s₁, sdot₁, sddot₁, sdot₂, sddot₂, τ)
+    d = get_quartic_coefficients(d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
+
+    PolynomialFactoredTrajectory(s, d)
+end

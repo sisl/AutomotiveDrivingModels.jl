@@ -662,48 +662,48 @@ end
 		min(dv*dv / (2*abs(dx)), Features.THRESHOLD_A_REQ)
 	end
 
-function get_past_feature(F::AbstractFeature, basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_past_feature(F::AbstractFeature, basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 	#NOTE(tim): this function will not overflow past frame 1
 
-	frames_back = convert(Int, ceil(0.001ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 	past_frame = max(frameind-frames_back, 1)
 	get(F, basics, carind, past_frame)
 end
 get(::Features.Feature_PastTurnrate250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(TURNRATE, basics, carind, frameind, 250)
 get(::Features.Feature_PastTurnrate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(TURNRATE, basics, carind, frameind, 500)
+	get_past_feature(TURNRATE, basics, carind, frameind, 0.5)
 get(::Features.Feature_PastTurnrate750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(TURNRATE, basics, carind, frameind, 750)
+	get_past_feature(TURNRATE, basics, carind, frameind, 0.75)
 get(::Features.Feature_PastTurnrate1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(TURNRATE, basics, carind, frameind, 1000)
+	get_past_feature(TURNRATE, basics, carind, frameind, 1.0)
 
 get(::Features.Feature_PastAcc250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(ACC, basics, carind, frameind,  250)
 get(::Features.Feature_PastAcc500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(ACC, basics, carind, frameind,  500)
+	get_past_feature(ACC, basics, carind, frameind,  0.5)
 get(::Features.Feature_PastAcc750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(ACC, basics, carind, frameind,  750)
+	get_past_feature(ACC, basics, carind, frameind,  0.75)
 get(::Features.Feature_PastAcc1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(ACC, basics, carind, frameind, 1000)
+	get_past_feature(ACC, basics, carind, frameind, 1.0)
 
 get(::Features.Feature_PastVelFy250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(VELFY, basics, carind, frameind,  250)
 get(::Features.Feature_PastVelFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(VELFY, basics, carind, frameind,  500)
+	get_past_feature(VELFY, basics, carind, frameind,  0.5)
 get(::Features.Feature_PastVelFy750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(VELFY, basics, carind, frameind,  750)
+	get_past_feature(VELFY, basics, carind, frameind,  0.75)
 get(::Features.Feature_PastVelFy1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(VELFY, basics, carind, frameind, 1000)
+	get_past_feature(VELFY, basics, carind, frameind, 1.0)
 
 get(::Features.Feature_PastD_CL250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(D_CL, basics, carind, frameind,  250)
 get(::Features.Feature_PastD_CL500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(D_CL, basics, carind, frameind,  500)
+	get_past_feature(D_CL, basics, carind, frameind,  0.5)
 get(::Features.Feature_PastD_CL750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(D_CL, basics, carind, frameind,  750)
+	get_past_feature(D_CL, basics, carind, frameind,  0.75)
 get(::Features.Feature_PastD_CL1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(D_CL, basics, carind, frameind, 1000)
+	get_past_feature(D_CL, basics, carind, frameind, 1.0)
 
 function _get(::Features.Feature_Time_Consecutive_Brake, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	# scan backward until the car is no longer braking
@@ -794,9 +794,9 @@ function _get(::Features.Feature_Time_Consecutive_Throttle, basics::FeatureExtra
 	-get(TIME_CONSECUTIVE_BRAKE, basics, carind, frameind)
 end
 
-function get_max_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_max_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
 	if frameind <= frames_back
 		frames_back = frameind-1
@@ -804,7 +804,7 @@ function get_max_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 
 	retval = 0.0
 	val = get(VELFX, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(VELFX, basics, carind, frameind-i)
 		accFx = (val2 - val) / basics.sec_per_frame
 		if abs(accFx) > retval
@@ -816,25 +816,25 @@ function get_max_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	retval
 end
 get(::Features.Feature_MaxAccFx500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 500)
+	get_max_accFx(basics, carind, frameind, 0.5)
 get(::Features.Feature_MaxAccFx750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 750)
+	get_max_accFx(basics, carind, frameind, 0.75)
 get(::Features.Feature_MaxAccFx1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 1000)
+	get_max_accFx(basics, carind, frameind, 1.0)
 get(::Features.Feature_MaxAccFx1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 1500)
+	get_max_accFx(basics, carind, frameind, 1.5)
 get(::Features.Feature_MaxAccFx2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 2000)
+	get_max_accFx(basics, carind, frameind, 2.0)
 get(::Features.Feature_MaxAccFx2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 2500)
+	get_max_accFx(basics, carind, frameind, 2.5)
 get(::Features.Feature_MaxAccFx3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 3000)
+	get_max_accFx(basics, carind, frameind, 3.0)
 get(::Features.Feature_MaxAccFx4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFx(basics, carind, frameind, 4000)
+	get_max_accFx(basics, carind, frameind, 4.0)
 
-function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
 	if frameind <= frames_back
 		frames_back = frameind - 1
@@ -842,7 +842,7 @@ function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 
 	retval = 0.0
 	val = get(VELFY, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(VELFY, basics, carind, frameind-i)
 		accFy = (val2 - val) / basics.sec_per_frame
 		if abs(accFy) > retval
@@ -854,26 +854,26 @@ function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	retval
 end
 get(::Features.Feature_MaxAccFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 500)
+	get_max_accFy(basics, carind, frameind, 0.5)
 get(::Features.Feature_MaxAccFy750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 750)
+	get_max_accFy(basics, carind, frameind, 0.75)
 get(::Features.Feature_MaxAccFy1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 1000)
+	get_max_accFy(basics, carind, frameind, 1.0)
 get(::Features.Feature_MaxAccFy1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 1500)
+	get_max_accFy(basics, carind, frameind, 1.5)
 get(::Features.Feature_MaxAccFy2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 2000)
+	get_max_accFy(basics, carind, frameind, 2.0)
 get(::Features.Feature_MaxAccFy2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 2500)
+	get_max_accFy(basics, carind, frameind, 2.5)
 get(::Features.Feature_MaxAccFy3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 3000)
+	get_max_accFy(basics, carind, frameind, 3.0)
 get(::Features.Feature_MaxAccFy4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_accFy(basics, carind, frameind, 4000)
+	get_max_accFy(basics, carind, frameind, 4.0)
 
 
-function get_max_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_max_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
 	if frameind <= frames_back
 		frames_back = frameind - 1
@@ -882,7 +882,7 @@ function get_max_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = basics.simlog[frameind, indϕ]
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = basics.simlog[frameind-i, indϕ]
 		turnrate = Features.deltaangle(val, val2) / basics.sec_per_frame
 		if abs(turnrate) > retval
@@ -894,33 +894,33 @@ function get_max_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 	retval
 end
 get(::Features.Feature_MaxTurnRate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 500)
+	get_max_turnrate(basics, carind, frameind, 0.5)
 get(::Features.Feature_MaxTurnRate750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 750)
+	get_max_turnrate(basics, carind, frameind, 0.75)
 get(::Features.Feature_MaxTurnRate1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 1000)
+	get_max_turnrate(basics, carind, frameind, 1.0)
 get(::Features.Feature_MaxTurnRate1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 1500)
+	get_max_turnrate(basics, carind, frameind, 1.5)
 get(::Features.Feature_MaxTurnRate2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 2000)
+	get_max_turnrate(basics, carind, frameind, 2.0)
 get(::Features.Feature_MaxTurnRate2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 2500)
+	get_max_turnrate(basics, carind, frameind, 2.5)
 get(::Features.Feature_MaxTurnRate3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 3000)
+	get_max_turnrate(basics, carind, frameind, 3.0)
 get(::Features.Feature_MaxTurnRate4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_max_turnrate(basics, carind, frameind, 4000)
+	get_max_turnrate(basics, carind, frameind, 4.0)
 
-function get_mean_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_mean_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame ))
 
-	if frameind+1 <= frames_back
-		frames_back = frameind-2
+	if frameind < frames_back
+		frames_back = frameind-1
 	end	
 
 	retval = 0.0
 	val = get(VELFX, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(VELFX, basics, carind, frameind-i)
 		retval += (val2 - val) / basics.sec_per_frame
 		val = val2
@@ -929,33 +929,33 @@ function get_mean_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int
 	retval / frames_back
 end
 get(::Features.Feature_MeanAccFx500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 500)
+	get_mean_accFx(basics, carind, frameind, 0.5)
 get(::Features.Feature_MeanAccFx750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 750)
+	get_mean_accFx(basics, carind, frameind, 0.75)
 get(::Features.Feature_MeanAccFx1s, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 1000)
+	get_mean_accFx(basics, carind, frameind, 1.0)
 get(::Features.Feature_MeanAccFx1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 1500)
+	get_mean_accFx(basics, carind, frameind, 1.5)
 get(::Features.Feature_MeanAccFx2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 2000)
+	get_mean_accFx(basics, carind, frameind, 2.0)
 get(::Features.Feature_MeanAccFx2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 2500)
+	get_mean_accFx(basics, carind, frameind, 2.5)
 get(::Features.Feature_MeanAccFx3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 3000)
+	get_mean_accFx(basics, carind, frameind, 3.0)
 get(::Features.Feature_MeanAccFx4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFx(basics, carind, frameind, 4000)
+	get_mean_accFx(basics, carind, frameind, 4.0)
 
-function get_mean_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_mean_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
-	if frameind+1 <= frames_back
-		frames_back = frameind-2
+	if frameind < frames_back
+		frames_back = frameind-1
 	end	
 
 	retval = 0.0
 	val = get(VELFY, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(VELFY, basics, carind, frameind-i)
 		retval += (val2 - val) / basics.sec_per_frame
 		val = val2
@@ -964,34 +964,34 @@ function get_mean_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int
 	retval / frames_back
 end
 get(::Features.Feature_MeanAccFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 500)
+	get_mean_accFy(basics, carind, frameind, 0.5)
 get(::Features.Feature_MeanAccFy750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 750)
+	get_mean_accFy(basics, carind, frameind, 0.75)
 get(::Features.Feature_MeanAccFy1s, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 1000)
+	get_mean_accFy(basics, carind, frameind, 1.0)
 get(::Features.Feature_MeanAccFy1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 1500)
+	get_mean_accFy(basics, carind, frameind, 1.5)
 get(::Features.Feature_MeanAccFy2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 2000)
+	get_mean_accFy(basics, carind, frameind, 2.0)
 get(::Features.Feature_MeanAccFy2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 2500)
+	get_mean_accFy(basics, carind, frameind, 2.5)
 get(::Features.Feature_MeanAccFy3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 3000)
+	get_mean_accFy(basics, carind, frameind, 3.0)
 get(::Features.Feature_MeanAccFy4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_accFy(basics, carind, frameind, 4000)
+	get_mean_accFy(basics, carind, frameind, 4.0)
 
-function get_mean_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_mean_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
-	if frameind+1 <= frames_back
+	if frameind < frames_back
 		frames_back = frameind-1
-	end
+	end	
 
 	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
 	val = basics.simlog[frameind, indϕ]
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = basics.simlog[frameind-i, indϕ]
 		retval += Features.deltaangle(val, val2) / basics.sec_per_frame
 		val = val2
@@ -1000,21 +1000,21 @@ function get_mean_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::
 	retval / frames_back
 end
 get(::Features.Feature_MeanTurnRate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 500)
+	get_mean_turnrate(basics, carind, frameind, 0.5)
 get(::Features.Feature_MeanTurnRate750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 750)
+	get_mean_turnrate(basics, carind, frameind, 0.75)
 get(::Features.Feature_MeanTurnRate1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 1000)
+	get_mean_turnrate(basics, carind, frameind, 1.0)
 get(::Features.Feature_MeanTurnRate1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 1500)
+	get_mean_turnrate(basics, carind, frameind, 1.5)
 get(::Features.Feature_MeanTurnRate2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 2000)
+	get_mean_turnrate(basics, carind, frameind, 2.0)
 get(::Features.Feature_MeanTurnRate2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 2500)
+	get_mean_turnrate(basics, carind, frameind, 2.5)
 get(::Features.Feature_MeanTurnRate3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 3000)
+	get_mean_turnrate(basics, carind, frameind, 3.0)
 get(::Features.Feature_MeanTurnRate4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_mean_turnrate(basics, carind, frameind, 4000)
+	get_mean_turnrate(basics, carind, frameind, 4.0)
 
 function _get_std_feature(arr::Vector{Float64}, nan_return_value::Float64 = 0.0)
 	retval = std(arr)
@@ -1023,11 +1023,11 @@ function _get_std_feature(arr::Vector{Float64}, nan_return_value::Float64 = 0.0)
 	end
 	retval
 end
-function get_std_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_std_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
-	if frameind+1 <= frames_back
+	if frameind < frames_back
 		frames_back = frameind-1
 	end
 
@@ -1038,7 +1038,7 @@ function get_std_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	retval = 0.0
 	arr = zeros(Float64, frames_back)
 	val = get(VELFX, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(VELFX, basics, carind, frameind-i)
 		arr[i] = (val2 - val) / basics.sec_per_frame
 		val = val2
@@ -1047,25 +1047,25 @@ function get_std_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	_get_std_feature(arr)
 end
 get(::Features.Feature_StdAccFx500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 500)
+	get_std_accFx(basics, carind, frameind, 0.5)
 get(::Features.Feature_StdAccFx750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 750)
+	get_std_accFx(basics, carind, frameind, 0.75)
 get(::Features.Feature_StdAccFx1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 1000)
+	get_std_accFx(basics, carind, frameind, 1.0)
 get(::Features.Feature_StdAccFx1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 1500)
+	get_std_accFx(basics, carind, frameind, 1.5)
 get(::Features.Feature_StdAccFx2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 2000)
+	get_std_accFx(basics, carind, frameind, 2.0)
 get(::Features.Feature_StdAccFx2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 2500)
+	get_std_accFx(basics, carind, frameind, 2.5)
 get(::Features.Feature_StdAccFx3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 3000)
+	get_std_accFx(basics, carind, frameind, 3.0)
 get(::Features.Feature_StdAccFx4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFx(basics, carind, frameind, 4000)
+	get_std_accFx(basics, carind, frameind, 4.0)
 
-function get_std_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_std_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 	
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
 	if frameind+1 <= frames_back
 		frames_back = frameind-1
@@ -1078,7 +1078,7 @@ function get_std_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	retval = 0.0
 	arr = zeros(Float64, frames_back)
 	val = get(VELFY, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(VELFY, basics, carind, frameind-i)
 		arr[i] = (val2 - val) / basics.sec_per_frame
 		val = val2
@@ -1089,30 +1089,30 @@ end
 get(::Features.Feature_StdAccFy250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_std_accFy(basics, carind, frameind, 250)
 get(::Features.Feature_StdAccFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 500)
+	get_std_accFy(basics, carind, frameind, 0.5)
 get(::Features.Feature_StdAccFy750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 750)
+	get_std_accFy(basics, carind, frameind, 0.75)
 get(::Features.Feature_StdAccFy1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 1000)
+	get_std_accFy(basics, carind, frameind, 1.0)
 get(::Features.Feature_StdAccFy1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 1500)
+	get_std_accFy(basics, carind, frameind, 1.5)
 get(::Features.Feature_StdAccFy2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 2000)
+	get_std_accFy(basics, carind, frameind, 2.0)
 get(::Features.Feature_StdAccFy2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 2500)
+	get_std_accFy(basics, carind, frameind, 2.5)
 get(::Features.Feature_StdAccFy3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 3000)
+	get_std_accFy(basics, carind, frameind, 3.0)
 get(::Features.Feature_StdAccFy4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 4000)
+	get_std_accFy(basics, carind, frameind, 4.0)
 
 
-function get_std_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::Int, ms_past::Int)
+function get_std_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
 
-	frames_back = convert(Int, ceil(ms_past / basics.sec_per_frame))
+	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
-	if frameind+1 <= frames_back
+	if frameind < frames_back
 		frames_back = frameind-1
-	end	
+	end
 
 	if frames_back < 2
 		return 0.0
@@ -1122,7 +1122,7 @@ function get_std_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 	retval = 0.0
 	arr = zeros(Float64, frames_back)
 	val = get(TURNRATE, basics, carind, frameind)
-	for i = 1 : frames_back
+	for i = 1 : frames_back-1
 		val2 = get(TURNRATE, basics, carind, frameind-i)
 		arr[i] = (val2 - val) / basics.sec_per_frame
 		val = val2
@@ -1133,21 +1133,21 @@ end
 get(::Features.Feature_StdTurnRate250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_std_turnrate(basics, carind, frameind, 250)
 get(::Features.Feature_StdTurnRate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 500)
+	get_std_turnrate(basics, carind, frameind, 0.5)
 get(::Features.Feature_StdTurnRate750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 750)
+	get_std_turnrate(basics, carind, frameind, 0.75)
 get(::Features.Feature_StdTurnRate1s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 1000)
+	get_std_turnrate(basics, carind, frameind, 1.0)
 get(::Features.Feature_StdTurnRate1500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 1500)
+	get_std_turnrate(basics, carind, frameind, 1.5)
 get(::Features.Feature_StdTurnRate2s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 2000)
+	get_std_turnrate(basics, carind, frameind, 2.0)
 get(::Features.Feature_StdTurnRate2500ms,basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 2500)
+	get_std_turnrate(basics, carind, frameind, 2.5)
 get(::Features.Feature_StdTurnRate3s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 3000)
+	get_std_turnrate(basics, carind, frameind, 3.0)
 get(::Features.Feature_StdTurnRate4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 4000)
+	get_std_turnrate(basics, carind, frameind, 4.0)
 
 
 #####

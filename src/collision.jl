@@ -1,6 +1,54 @@
 export
+    Box,
+    AABB,
+    OBB,
+
     intersects
 
+
+abstract Box
+immutable AABB <: Box
+    # axis-aligned bounding box
+    x::Float64 # center x-position
+    y::Float64 # center y-position
+    a::Float64 # semi-axis along the x-axis (half the width)
+    b::Float64 # semi-axis along the y-axis
+end
+immutable OBB <: Box
+    # oriented bounding box
+    x::Float64 # center x-position
+    y::Float64 # center y-position
+    ϕ::Float64 # orientation, counterclockwise rotation
+    a::Float64 # semi-axis along the x-axis (half the width)
+    b::Float64 # semi-axis along the y-axis
+end
+
+function intersects(i::AABB, j::AABB)
+    if i.x + i.a < j.x - j.a ||
+       i.y + i.b < j.y - j.b ||
+       i.x - i.a > j.x + j.a ||
+       i.y - i.b > j.y + j.b
+                
+        false
+    else
+        true
+    end
+end
+function intersects(
+    A_x_lo::Float64, A_x_hi::Float64, A_y_lo::Float64, A_y_hi::Float64,
+    B_x_lo::Float64, B_x_hi::Float64, B_y_lo::Float64, B_y_hi::Float64
+    )
+
+    if A_x_hi < B_x_lo ||
+       A_y_hi < B_y_lo ||
+       A_x_lo > B_x_hi ||
+       A_y_lo > B_y_hi
+                
+        false
+    else
+        true
+    end
+end
 
 const HALF_PI = 0.5π
 const τ = 2π
@@ -27,9 +75,10 @@ function intersects(simlog::Matrix{Float64};
     ncars = get_ncars(simlog)
 
     for frameind in startframe : endframe
-        for carA = 1 : ncars-1
+        for carindA = 1 : ncars-1
             pull_vehicle!(carA, simlog, calc_logindexbase(carindA), frameind)
-            for carB = carA + 1 : ncars
+            for carindB = carindA + 1 : ncars
+                # println(carA, "  ", carB)
                 pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
                 if intersects(carA, carB)
                     return true
@@ -56,7 +105,7 @@ function intersects(carind::Int, simlog::Matrix{Float64};
 
     for frameind in startframe : endframe
         pull_vehicle!(carA, simlog, basindA, frameind)
-        for carB = 1 : ncars
+        for carindB = 1 : ncars
             if carB != carA
                 pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
                 if intersects(carA, carB)
@@ -97,6 +146,16 @@ function intersects(carA::Vehicle, carB::Vehicle)
     #
     # Used approach outlined at http://www.codezealot.org/archives/55
     # Originally written by Julien Kawawa-Beaudan, Summer 2014
+
+    # retval = intersects(AABB(carA.pos.x, carA.pos.y, carA.length/2, carA.width/2),
+    #            AABB(carB.pos.x, carB.pos.y, carB.length/2, carB.width/2))
+
+    # if retval == true
+    #     println("A: ", carA.pos)
+    #     println("B: ", carB.pos)
+    # end
+
+    # retval
 
     ϕA = carA.pos.ϕ
     ϕB = carB.pos.ϕ
@@ -169,151 +228,3 @@ function overlap(p1::Projection, p2::Projection)
     #OUTPUT: <bool> true if the two projections overlap
     (p1.min <= p2.min && p2.min <= p1.max) || (p1.min <= p2.max && p2.max <= p1.max) || (p2.min <= p1.min && p1.min <= p2.max)
 end
-
-# abstract Box
-# immutable AABB <: Box
-#     # axis-aligned bounding box
-#     x::Float64 # center x-position
-#     y::Float64 # center y-position
-#     a::Float64 # semi-axis along the x-axis (half the width)
-#     b::Float64 # semi-axis along the y-axis
-# end
-# immutable OBB <: Box
-#     # oriented bounding box
-#     x::Float64 # center x-position
-#     y::Float64 # center y-position
-#     ϕ::Float64 # orientation, counterclockwise rotation
-#     a::Float64 # semi-axis along the x-axis (half the width)
-#     b::Float64 # semi-axis along the y-axis
-# end
-
-# function collide(boxA::OBB, boxB::OBB)
-#     # COLLIDE: Given two oriented bounding boxes, 
-#     #          uses the separating axis theorem to determine
-#     #          whether their rectangular body-aligned bounding boxes collide.
-#     # OUTPUTS: <Bool> true if there is a collision
-#     #
-#     # Used approach outlined at http://www.gamedev.net/page/resources/_/technical/game-programming/2d-rotated-rectangle-collision-r2604
-
-#     # axes = [boxA.ϕ, boxB.ϕ, boxA.ϕ + HALF_PI, boxB.ϕ + HALF_PI]
-
-#     # # function get_corners( car::Vehicle )
-#     # #     corners = Array(Point, 4);
-#     # #     # Corners in order: front left, front right, back left, back right
-#     # #     # car.pos.ϕ is in radians from x axis (direction of road)
-#     # #     corners[1] = Point(car.x + car.length*cos(car.pos.ϕ)/2 - car.width*sin(car.pos.ϕ)/2,
-#     # #         car.pos.y + car.length*sin(car.pos.ϕ)/2 + car.width*cos(car.pos.ϕ)/2)
-#     # #     corners[2] = Point(car.x + car.length*cos(car.pos.ϕ)/2 + car.width*sin(car.pos.ϕ)/2,
-#     # #         car.pos.y + car.length*sin(car.pos.ϕ)/2 - car.width*cos(car.pos.ϕ)/2)
-#     # #     corners[3] = Point(car.x - car.length*cos(car.pos.ϕ)/2 - car.width*sin(car.pos.ϕ)/2,
-#     # #         car.pos.y - car.length*sin(car.pos.ϕ)/2 + car.width*cos(car.pos.ϕ)/2)
-#     # #     corners[4] = Point(car.x - car.length*cos(car.pos.ϕ)/2 + car.width*sin(car.pos.ϕ)/2,
-#     # #         car.pos.y - car.length*sin(car.pos.ϕ)/2 - car.width*cos(car.pos.ϕ)/2)
-#     # #     return corners
-#     # # end
-
-#     const URx = 1
-#     const URy = 2
-#     const ULx = 3
-#     const ULy = 4
-#     const LRx = 5
-#     const LRy = 6
-#     const LLx = 7
-#     const LLy = 8
-
-#     sinA = sin(boxA.ϕ)
-#     cosA = cos(boxA.ϕ)
-#     sinB = sin(boxB.ϕ)
-#     cosB = cos(boxB.ϕ)
-
-#     asinA = boxA.a*sin(boxA.ϕ)
-#     bsinA = boxA.b*sin(boxA.ϕ)
-#     acosA = boxA.a*cos(boxA.ϕ)
-#     bcosA = boxA.b*cos(boxA.ϕ)
-
-#     # Corners in order: front left, front right, back left, back right
-#     cornersCarA = [boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA),
-#                    boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA),
-#                    boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA),
-#                    boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA)]
-
-#     # cornersCarB = get_corners(carB)
-
-#     Axis1.x = A.UR.x - A.UL.x
-#     Axis1.y = A.UR.y - A.UL.y
-#     Axis2.x = A.UR.x - A.LR.x
-#     Axis2.y = A.UR.y - A.LR.y
-#     Axis3.x = B.UL.x - B.LL.x
-#     Axis3.y = B.UL.y - B.LL.y
-#     Axis4.x = B.UL.x - B.UR.x
-#     Axis4.y = B.UL.y - B.UR.y
-
-    
-
-#     # for axis in axes
-#     #     p1 = get_projection(cornersCarA, axis)
-#     #     p2 = get_projection(cornersCarB, axis)
-#     #       if !overlap(p1, p2)
-#     #         return false
-#     #     end
-#     # end
-
-#     true
-# end
-# function collide(boxA::AABB, boxB::OBB)
-#     # COLLIDE: Given a AABB and an oriented bounding boxe, 
-#     #          use the separating axis theorem to determine
-#     #          whether they collide.
-#     # OUTPUTS: <Bool> true if there is a collision
-
-
-
-
-
-
-#     const URx = 1
-#     const URy = 2
-#     const ULx = 3
-#     const ULy = 4
-#     const LRx = 5
-#     const LRy = 6
-#     const LLx = 7
-#     const LLy = 8
-
-#     sinA = sin(boxA.ϕ)
-#     cosA = cos(boxA.ϕ)
-#     sinB = sin(boxB.ϕ)
-#     cosB = cos(boxB.ϕ)
-
-#     asinA = boxA.a*sin(boxA.ϕ)
-#     bsinA = boxA.b*sin(boxA.ϕ)
-#     acosA = boxA.a*cos(boxA.ϕ)
-#     bcosA = boxA.b*cos(boxA.ϕ)
-
-#     # Corners in order: front left, front right, back left, back right
-#     cornersCarA = [boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA),
-#                    boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA),
-#                    boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA),
-#                    boxA.x + acosA - bsinA,
-#                    boxA.y + asinA + bcosA)]
-
-#     # cornersCarB = get_corners(carB)
-
-#     Axis1.x = A.UR.x - A.UL.x
-#     Axis1.y = A.UR.y - A.UL.y
-#     Axis2.x = A.UR.x - A.LR.x
-#     Axis2.y = A.UR.y - A.LR.y
-#     Axis3.x = B.UL.x - B.LL.x
-#     Axis3.y = B.UL.y - B.LL.y
-#     Axis4.x = B.UL.x - B.UR.x
-#     Axis4.y = B.UL.y - B.UR.y
-
-#     true
-# end

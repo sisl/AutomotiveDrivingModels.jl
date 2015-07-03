@@ -1,9 +1,11 @@
 export  SimParams,
+		DEFAULT_SIM_PARAMS,
        
         simulate!,
         propagate!,
 
         isdone
+
 
 
 immutable SimParams
@@ -12,7 +14,7 @@ immutable SimParams
 	extracted_feature_cache :: ExtractedFeatureCache
 
 	function SimParams(
-		sec_per_frame :: Float64 = 0.25,
+		sec_per_frame :: Float64 = DEFAULT_SEC_PER_FRAME,
 		n_euler_steps :: Int     = 10,
 		extracted_feature_cache :: ExtractedFeatureCache = ExtractedFeatureCache()
 		)
@@ -23,13 +25,14 @@ immutable SimParams
 		new(sec_per_frame, n_euler_steps, extracted_feature_cache)
 	end
 end
+const DEFAULT_SIM_PARAMS = SimParams()
 
 function simulate!{B<:AbstractVehicleBehavior}(
 	simlog        :: Matrix{Float64}, # initialized appropriately
 	behaviors     :: Vector{B},
 	road          :: StraightRoadway,
 	frameind      :: Int, # starting index within simlog
-	params        :: SimParams = SimParams();
+	params        :: SimParams = DEFAULT_SIM_PARAMS;
 	runid         :: Int = rand(Int)
 	)
 	
@@ -60,7 +63,7 @@ function simulate!{B<:AbstractVehicleBehavior}(
     behaviors::Vector{B},
     road::StraightRoadway,
     history::Int,
-    simparams :: SimParams
+    simparams :: SimParams = DEFAULT_SIM_PARAMS
     )
 
     for (i,simlog) in enumerate(simlogs)

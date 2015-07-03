@@ -238,6 +238,9 @@ function encode(observations::Dict{Symbol, Any}, em::EM)
     for i = 1 : length(em.istarget)
         if !em.istarget[i]
             sym = em.BN.names[i]
+            if isnan(observations[sym])
+                error("$sym is NaN!")
+            end
             assignment[sym] = encode(em.binmaps[i], observations[sym])
         end
     end
