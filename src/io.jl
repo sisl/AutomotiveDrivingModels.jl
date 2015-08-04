@@ -1,80 +1,10 @@
 export 
-        export_to_text,
         trace_to_tex,
 
-        load_em,
-
         load_tracesets_carfollow,
-        load_tracesets_freeflow,
+        load_tracesets_freeflow
 
-        print_structure
 
-function export_to_text(em::EM, filename::String)
-	# export a bayesian network to an encounter definition file 
-
-	n = em.n # the number of nodes
-
-	open(filename, "w") do fout
-	  	
-		# Labels: the node names
-		###############################################
-		println(fout, "# labels")
-		for i = 1 : n
-			@printf(fout, "\"%s\"", string(em.labels[i]))
-			if i < n
-				@printf(fout, ", ")
-			else
-				@printf(fout, "\n")
-			end
-		end
-
-		# G: the graphical structure
-		##################################################
-		println(fout, "# G: graphical structure")
-		for i = 1 : n
-			for j = 1 : n
-				@printf(fout, "%c ", em.G[i,j] ? '1' : '0')
-			end
-			@printf(fout, "\n")
-		end
-
-		# r: number of bins for each variable
-		##################################################
-		println(fout, "# r: number of bins")
-		for i = 1 : n
-			@printf(fout, "%d ", em.r[i])
-		end
-		@printf(fout, "\n")
-
-		# N: the sufficient statistics, in integer form
-		##################################################
-		println(fout, "# N: sufficient statistics")
-		for i = 1 : n
-			stats = em.N[i]
-			r, q = size(stats)
-			for b = 1:q, a = 1:r
-				@printf(fout, "%d ", stats[a,b])
-			end
-		end
-		@printf(fout, "\n")
-
-		# binmaps, '*' if discrete
-		##################################################
-		@printf(fout, "# binmaps\n")
-		for i = 1 : n
-			bmap = em.binmaps[i]
-			
-			if isa(bmap, LabelMap)
-				@printf(fout, "*")
-			elseif isa(bmap, DataBinMap) || isa(bmap, BinMap)
-				for e in bmap.binedges
-					@printf(fout, "%f ", e)
-				end
-			end
-			@printf(fout, "\n")
-		end
-	end
-end
 function trace_to_tex(runlog::Matrix{Float64}, road::StraightRoadway, filename::String;
 	frameskip :: Int = 8 # how many frames we iterate by
 	)
@@ -163,84 +93,6 @@ function trace_to_tex(runlog::Matrix{Float64}, road::StraightRoadway, filename::
 	end
 end
 
-function load_em(
-    discretizerdict :: Dict{Symbol, AbstractDiscretizer},
-    targets    :: Vector{AbstractFeature},
-    indicators :: Vector{AbstractFeature},
-    stats      :: Vector{Matrix{Float64}}, 
-    adj        :: BitMatrix
-    )
-
-    bn = build_bn(targets, indicators, stats, adj)
-    em = encounter_model(bn, stats, discretizerdict, targets, indicators)
-end
-function load_em(
-    discretizers::Vector{AbstractDiscretizer},
-    targets::Vector{AbstractFeature},
-    indicators::Vector{AbstractFeature},
-    stats::Vector{Matrix{Float64}}, 
-    adj::BitMatrix
-    )
-
-    bn = build_bn(targets, indicators, stats, adj)
-    em = encounter_model(bn, stats, discretizers, targets, indicators)
-end
-function load_em(
-    binmapdict :: Dict{Symbol, AbstractBinMap},
-    targets    :: Vector{AbstractFeature},
-    indicators :: Vector{AbstractFeature},
-    stats      :: Vector{Matrix{Float64}}, 
-    adj        :: BitMatrix
-    )
-
-    discretizerdict = Dict{Symbol, AbstractDiscretizer}()
-
-    for f in [targets, indicators]
-        sym = symbol(f)
-        bmap = binmapdict[sym]
-        
-        if isa(bmap, BinMap)
-            discretizerdict[sym] = LinearDiscretizer(bmap.binedges, bmap.nbins, bmap.i2bin, bmap.bin2i, bmap.force_outliers_to_closest)
-        elseif isa(bmap, LabelMap)
-            discretizerdict[sym] = CategoricalDiscretizer(bmap.v2i, bmap.i2v)
-        elseif isa(bmap, DataBinMap)
-            cat = CategoricalDiscretizer([Inf=>1])
-            lin = LinearDiscretizer(bmap.binedges, bmap.nbins-1, bmap.i2bin, bmap.bin2i, bmap.force_outliers_to_closest)
-            discretizerdict[sym] = HybridDiscretizer(cat, lin)
-        else
-            println(sym, "\n\t", typeof(bmap))
-            error("unknown type!")
-        end
-    end
-
-    load_em(discretizerdict, targets, indicators, stats, adj)
-end
-function load_em(emstats::Dict{String, Any})
-    
-    binmapdict = emstats["binmaps"]
-    targets    = emstats["targets"]
-    indicators = emstats["indicators"]
-    stats      = emstats["statistics"]
-    adj        = emstats["adjacency"]
-
-    load_em(binmapdict, convert(Vector{AbstractFeature}, targets), 
-                        convert(Vector{AbstractFeature}, indicators), 
-                        stats, adj)  
-end
-function load_em(empstats_file::String)
-    emstats = load(empstats_file)
-    
-    binmapdict = emstats["binmaps"]
-    targets    = emstats["targets"]
-    indicators = emstats["indicators"]
-    stats      = emstats["statistics"]
-    adj        = emstats["adjacency"]
-
-    load_em(binmapdict, convert(Vector{AbstractFeature}, targets), 
-                        convert(Vector{AbstractFeature}, indicators), 
-                        stats, adj)
-end
-
 function _load_tracesets(filematch::Regex)
     traces = Vector{VehicleTrace}[]
     for blob in readdir(TRACE_DIR)
@@ -252,17 +104,3 @@ function _load_tracesets(filematch::Regex)
 end
 load_tracesets_carfollow() = _load_tracesets(r"^carfollow(\S)*.jld")
 load_tracesets_freeflow() = _load_tracesets(r"^freeflow(\S)*.jld")
-
-function print_structure(em::EM)
-    target = get_target_lat(em)
-    println("target lat: ", symbol(target))
-    for indicator in get_indicators_lat(em, target)
-        println("\t", symbol(indicator))
-    end
-
-    target = get_target_lon(em)
-    println("target lon: ", symbol(target))
-    for indicator in get_indicators_lon(em, target)
-        println("\t", symbol(indicator))
-    end
-end

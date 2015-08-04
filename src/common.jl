@@ -13,6 +13,7 @@ export
     CAR_WIDTH,
     DEFAULT_LANE_WIDTH,
     DEFAULT_SEC_PER_FRAME,
+    SPEED_65MPH,
 
     LOG_COL_X,
     LOG_COL_Y,
@@ -36,18 +37,27 @@ export
     
     get_ncars,
     get_nframes,
-    calc_logindexbase,
+    get_horizon,
+
     create_log,
+    calc_logindexbase,
+
+    pull_vehicle,
+    pull_vehicle!,
+    place_vehicle!,
+
+    fill_log_with_trace!,
 
     calc_required_bytes_to_allocate,
     allocate_simlog_for_traces,
     allocate_simlogs_for_all_traces,
 
+    get_max_vehicle_count,
+
     estimate_history,
 
-    pull_vehicle,
-    pull_vehicle!,
-    place_vehicle!
+    translate!,
+    translate_so_is_at_loc_at_frame!
 
 # a log is represented as a Matrix{Float64}
 const LOG_COL_X = 1
@@ -69,6 +79,7 @@ const CAR_LENGTH = 4.6 # [m]
 const CAR_WIDTH  = 2.0 # [m]
 const DEFAULT_LANE_WIDTH = 3.7 # [m]
 const DEFAULT_SEC_PER_FRAME = 0.25 # [s]
+const SPEED_65MPH = 29.06 # [m/s]
 
 const INPUT_EMSTATS_FOLDER      = "/media/tim/DATAPART1/Data/Bosch/processed/plots/graph_feature_selection_NEW/"
 const TRACE_DIR                 = "/media/tim/DATAPART1/Data/Bosch/processed/traces/"
@@ -124,7 +135,7 @@ end
 immutable VehicleTrace
 	# records the trace of a vehicle during a simulation, 
 	# including the history before the simulation begins
-	#  columns are {x, y, ϕ, v, accel, turnrate, logP_A, logP_T, em_choice}
+	#  columns are the same ones as in simlog
 	#  actions at time t produce state at time t+1
 
 	log :: Matrix{Float64}
@@ -146,47 +157,71 @@ get_laneborders(road::StraightRoadway) = [0:road.nlanes].*road.lanewidth - road.
 
 get_ncars(simlog::Matrix{Float64}) = div(size(simlog,2), LOG_NCOLS_PER_CAR)
 get_nframes(simlog::Matrix{Float64}) = size(simlog, 1)
-calc_logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
+get_nframes(trace::VehicleTrace) = size(trace.log,1)
+get_horizon(trace::VehicleTrace) = size(trace.log,1) - trace.history
 
 create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
+calc_logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
 
-function fill_log_with_trace_complete!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
-	# perform a direct copy of the trace
-
-	nframes_simlog = size(simlog, 1)
-	@assert(nframes_simlog ≤ size(trace.log, 1))
-	@assert(size(trace.log, 2) == LOG_NCOLS_PER_CAR)
-	@assert(startframe == trace.history)
-
-	baseind = calc_logindexbase(carind)
+pull_vehicle(simlog::Matrix{Float64}, baseind::Int, frameind::Int) = pull_vehicle!(Vehicle(), simlog, baseind, frameind)
+function pull_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)
+    veh.pos.x = simlog[frameind, baseind + LOG_COL_X]
+    veh.pos.y = simlog[frameind, baseind + LOG_COL_Y]
+    veh.pos.ϕ = simlog[frameind, baseind + LOG_COL_ϕ]
+    veh.speed = simlog[frameind, baseind + LOG_COL_V]
+    veh
+end
+function place_vehicle!(simlog::Matrix{Float64}, baseind::Int, frameind::Int, veh::Vehicle)
+    simlog[frameind, baseind + LOG_COL_X] = veh.pos.x
+    simlog[frameind, baseind + LOG_COL_Y] = veh.pos.y
+    simlog[frameind, baseind + LOG_COL_ϕ] = veh.pos.ϕ
+    simlog[frameind, baseind + LOG_COL_V] = veh.speed
+    simlog
+end
+function place_vehicle!(simlog::Matrix{Float64}, baseind::Int, frameind::Int, simloghistory::Int, trace::VehicleTrace)
+    framedelta = frameind - simloghistory
+    traceindex = trace.history + framedelta
 
     for j = 1 : LOG_NCOLS_PER_CAR
-    	for i = 1 : nframes_simlog
-    		simlog[i,baseind+j] = trace.log[i,j]
-    	end
+        simlog[frameind, baseind+j] = trace.log[traceindex, j]
+    end
+    simlog
+end
+
+function fill_log_with_trace!(
+    simlog::Matrix{Float64},
+    index_in_simlog_where_we_start::Int,
+    trace::VehicleTrace,
+    index_in_trace_where_we_start::Int,
+    index_in_trace_where_we_end::Int,
+    carind::Int,
+    )
+
+    @assert(size(trace.log, 2) == LOG_NCOLS_PER_CAR)
+
+    baseind = calc_logindexbase(carind)
+
+    index_in_simlog = index_in_simlog_where_we_start - 1
+    for index_in_trace = index_in_trace_where_we_start : index_in_trace_where_we_end
+        index_in_simlog += 1
+
+        for j = 1 : LOG_NCOLS_PER_CAR
+            simlog[index_in_simlog,baseind+j] = trace.log[index_in_trace,j]
+        end
     end
 
-	simlog
+    simlog
 end
-function fill_log_with_trace_partial!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
-	# only copy the history and perform no override of the rest
-
-	m = size(simlog, 1)
-	@assert(m ≥ size(trace.log, 1))
-	@assert(size(trace.log, 1) ≥ trace.history)
-	@assert(size(trace.log, 2) == LOG_NCOLS_PER_CAR)
-	@assert(startframe == trace.history)
-
-	baseind = calc_logindexbase(carind)
-
-    for j = 1 : LOG_NCOLS_PER_CAR
-    	for i = 1 : startframe
-    		simlog[i,baseind+j] = trace.log[i,j]
-    	end
-    end
-
-	simlog
-end
+# function fill_log_with_trace_complete!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
+# 	# perform a direct copy of the trace
+# 	@assert(startframe == trace.history)
+#     fill_log_with_trace!(simlog, startframe, trace, startframe, size(simlog, 1), carind)
+# end
+# function fill_log_with_trace_partial!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
+# 	# only copy the history and perform no override of the rest
+#     @assert(startframe == trace.history)
+#     fill_log_with_trace!(simlog, 1, trace, 1, startframe, carind)
+# end
 
 function calc_required_bytes_to_allocate(traces::Vector{VehicleTrace}, nframes_total::Int)
     @assert(nframes_total > 0)
@@ -220,6 +255,14 @@ function allocate_simlogs_for_all_traces(tracesets::Vector{Vector{VehicleTrace}}
     simlogs
 end
 
+function get_max_vehicle_count(tracesets::Vector{Vector{VehicleTrace}})
+    hi = 0
+    for traceset in tracesets
+        hi = max(hi, length(traceset))
+    end
+    hi
+end
+
 function estimate_history(simlog::Matrix{Float64})
     # history should be where ego X position is 0.0
     # returns -1 if it was not found
@@ -232,19 +275,18 @@ function estimate_history(simlog::Matrix{Float64})
     return -1
 end
 
-pull_vehicle(simlog::Matrix{Float64}, baseind::Int, frameind::Int) =
-    pull_vehicle!(Vehicle(), simlog, baseind, frameind)
-function pull_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)
-    veh.pos.x = simlog[frameind, baseind + LOG_COL_X]
-    veh.pos.y = simlog[frameind, baseind + LOG_COL_Y]
-    veh.pos.ϕ = simlog[frameind, baseind + LOG_COL_ϕ]
-    veh.speed = simlog[frameind, baseind + LOG_COL_V]
-    veh
+function translate!(trace::VehicleTrace, Δx::Float64, Δy::Float64)
+
+    trace.log[:,LOG_COL_X] += Δx
+    trace.log[:,LOG_COL_Y] += Δy
+
+    trace
 end
-function place_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)
-    simlog[frameind, baseind + LOG_COL_X] = veh.pos.x
-    simlog[frameind, baseind + LOG_COL_Y] = veh.pos.y
-    simlog[frameind, baseind + LOG_COL_ϕ] = veh.pos.ϕ
-    simlog[frameind, baseind + LOG_COL_V] = veh.speed
-    simlog
+function translate_so_is_at_loc_at_frame!(trace::VehicleTrace, x::Float64, y::Float64, frameind::Int)
+
+    x_t = trace.log[frameind, LOG_COL_X]
+    y_t = trace.log[frameind, LOG_COL_Y]
+    Δx = x - x_t
+    Δy = y - y_t
+    translate!(trace, Δx, Δy)
 end

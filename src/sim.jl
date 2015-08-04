@@ -3,6 +3,7 @@ export  SimParams,
        
         simulate!,
         propagate!,
+        record_frame_values,
 
         isdone
 
@@ -72,7 +73,7 @@ function simulate!{B<:AbstractVehicleBehavior}(
     simlogs
 end
 
-function _record_frame_values!(
+function record_frame_values!(
 	simlog::Matrix{Float64},
 	frameind::Int,
 	logindexbase::Int;
@@ -82,7 +83,7 @@ function _record_frame_values!(
 	action_lon::Float64 = 0.0, # before smoothing
 	logPa::Float64 = 0.0,
 	logPω::Float64 = 0.0,
-	em_id::Int = EM_ID_UNKNOWN
+	em_id::Int = 0
 	)
 
 	#=

@@ -1,9 +1,10 @@
 export 
+		ExtractedFeatureCache,
+		FeatureExtractBasics,
+
 		get,
 		get_unimplemented_indicators,
-
-		ExtractedFeatureCache,
-		FeatureExtractBasics
+		observe
 
 
 type ExtractedFeatureCache
@@ -58,6 +59,21 @@ function _get(F::AbstractFeature, basics::FeatureExtractBasics, carind::Int, fra
 	return NaN
 end
 
+function observe(
+    basics::FeatureExtractBasics,
+    carind::Int,
+    frameind::Int,
+    features::Vector{AbstractFeature}
+    )
+
+    observations = Dict{Symbol,Float64}()
+    for f in features
+        val = get(f, basics, carind, frameind)::Float64
+        observations[symbol(f)] = val
+    end
+    observations
+end
+
 # NOTE(tim):  get() is used for fast lookups
 #            _get() is used for caching calculations
 function get(::Features.Feature_PosFx, basics::FeatureExtractBasics, carind::Int, frameind::Int)
@@ -92,8 +108,10 @@ end
 function _get(::Features.Feature_SceneVelFx, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 
 	ncars = get_ncars(basics.simlog)
+	@assert(ncars > 0)
 	total = 0.0
 	for carind = 1 : ncars
+		# println("vel: ", get(VELFX, basics, carind, frameind))
 		total += get(VELFX, basics, carind, frameind)
 	end
 	total / ncars
@@ -670,7 +688,7 @@ function get_past_feature(F::AbstractFeature, basics::FeatureExtractBasics, cari
 	get(F, basics, carind, past_frame)
 end
 get(::Features.Feature_PastTurnrate250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(TURNRATE, basics, carind, frameind, 250)
+	get_past_feature(TURNRATE, basics, carind, frameind, 0.25)
 get(::Features.Feature_PastTurnrate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(TURNRATE, basics, carind, frameind, 0.5)
 get(::Features.Feature_PastTurnrate750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -679,7 +697,7 @@ get(::Features.Feature_PastTurnrate1s,    basics::FeatureExtractBasics, carind::
 	get_past_feature(TURNRATE, basics, carind, frameind, 1.0)
 
 get(::Features.Feature_PastAcc250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(ACC, basics, carind, frameind,  250)
+	get_past_feature(ACC, basics, carind, frameind,  0.25)
 get(::Features.Feature_PastAcc500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(ACC, basics, carind, frameind,  0.5)
 get(::Features.Feature_PastAcc750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -688,7 +706,7 @@ get(::Features.Feature_PastAcc1s,    basics::FeatureExtractBasics, carind::Int, 
 	get_past_feature(ACC, basics, carind, frameind, 1.0)
 
 get(::Features.Feature_PastVelFy250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(VELFY, basics, carind, frameind,  250)
+	get_past_feature(VELFY, basics, carind, frameind,  0.25)
 get(::Features.Feature_PastVelFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(VELFY, basics, carind, frameind,  0.5)
 get(::Features.Feature_PastVelFy750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -697,7 +715,7 @@ get(::Features.Feature_PastVelFy1s,    basics::FeatureExtractBasics, carind::Int
 	get_past_feature(VELFY, basics, carind, frameind, 1.0)
 
 get(::Features.Feature_PastD_CL250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_past_feature(D_CL, basics, carind, frameind,  250)
+	get_past_feature(D_CL, basics, carind, frameind,  0.25)
 get(::Features.Feature_PastD_CL500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_past_feature(D_CL, basics, carind, frameind,  0.5)
 get(::Features.Feature_PastD_CL750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1087,7 +1105,7 @@ function get_std_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 	_get_std_feature(arr)
 end
 get(::Features.Feature_StdAccFy250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_accFy(basics, carind, frameind, 250)
+	get_std_accFy(basics, carind, frameind, 0.25)
 get(::Features.Feature_StdAccFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_std_accFy(basics, carind, frameind, 0.5)
 get(::Features.Feature_StdAccFy750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1131,7 +1149,7 @@ function get_std_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 	_get_std_feature(arr)
 end
 get(::Features.Feature_StdTurnRate250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
-	get_std_turnrate(basics, carind, frameind, 250)
+	get_std_turnrate(basics, carind, frameind, 0.25)
 get(::Features.Feature_StdTurnRate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_std_turnrate(basics, carind, frameind, 0.5)
 get(::Features.Feature_StdTurnRate750ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1148,22 +1166,3 @@ get(::Features.Feature_StdTurnRate3s,    basics::FeatureExtractBasics, carind::I
 	get_std_turnrate(basics, carind, frameind, 3.0)
 get(::Features.Feature_StdTurnRate4s,    basics::FeatureExtractBasics, carind::Int, frameind::Int) =
 	get_std_turnrate(basics, carind, frameind, 4.0)
-
-
-#####
-
-function get_unimplemented_indicators(em::EM)
-
-    simlog = create_log(1,1)
-    road   = StraightRoadway(1,1.0)
-
-    unimplemented = AbstractFeature[]
-    for f in get_indicators(em)
-        clear_unimp()
-        get(f, simlog, road, 1.0, 1, 1)
-        if unimplemented
-            push!(unimplemented, f)
-        end
-    end
-    unimplemented
-end

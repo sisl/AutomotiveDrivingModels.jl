@@ -35,9 +35,9 @@ type VehicleBehaviorEM <: AbstractVehicleBehavior
     simparams_lon :: ModelSimParams
 
     function VehicleBehaviorEM(
-        em            :: EM,
-        simparams_lat :: ModelSimParams,
-        simparams_lon :: ModelSimParams
+        em::EM,
+        simparams_lat::ModelSimParams=ModelSimParams(),
+        simparams_lon::ModelSimParams=ModelSimParams()
         )
 
         retval = new()
@@ -52,6 +52,14 @@ type VehicleBehaviorEM <: AbstractVehicleBehavior
         retval.simparams_lon = simparams_lon
 
         retval
+    end
+    function VehicleBehaviorEM(
+        filename::String,
+        simparams_lat::ModelSimParams=ModelSimParams(),
+        simparams_lon::ModelSimParams=ModelSimParams()
+        )
+
+        VehicleBehaviorEM(load_em(filename), simparams_lat, simparams_lon)
     end
 end
 
@@ -215,6 +223,8 @@ function calc_action_loglikelihood(
         -Inf
     end
 end
+function train(::Type{VehicleBehaviorEM}, trainingframes::DataFrame;
+    )
 
 function observe(
     basics::FeatureExtractBasics,

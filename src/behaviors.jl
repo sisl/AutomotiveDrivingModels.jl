@@ -40,7 +40,9 @@ function calc_action_loglikelihood(
 
     error("calc action loglikelihood not defined for $typeof(behavior)")
 end
-train{B<:AbstractVehicleBehavior}(::Type{B}, trainingframes::DataFrame) = error("train not implemented for $B")
+train{B<:AbstractVehicleBehavior}(::Type{B}, trainingframes::DataFrame; args...) = error("train not implemented for $B")
+
+###############################################################
 
 function init_log!{B<:AbstractVehicleBehavior}(
     simlog     :: Matrix{Float64},
@@ -77,6 +79,8 @@ function init_logs!{B<:AbstractVehicleBehavior}(
     end
     simlogs
 end
+
+###############################################################
 
 # The vehicle's actions are pre-determined
 # No update is performed on the simlog for this vehicle

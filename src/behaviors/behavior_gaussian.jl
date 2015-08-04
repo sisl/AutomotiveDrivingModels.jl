@@ -28,7 +28,7 @@ function select_action(
 
     logindexbase = calc_logindexbase(carind)
 
-    _record_frame_values!(basics.simlog, frameind, logindexbase, 
+    record_frame_values!(basics.simlog, frameind, logindexbase, 
                           logPa=logl/2, logPω=logl/2) # NOTE(tim): splitting logl in half
 
     (a, ω)
@@ -53,7 +53,11 @@ function calc_action_loglikelihood(
     logpdf(behavior.Σ, [a, ω])
 end
 
-function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame)
+function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
+
+    for (k,v) in args
+        warn("Train VehicleBehaviorGaussian: ignoring $k")
+    end
 
     nframes = size(trainingframes, 1)
 
