@@ -14,11 +14,11 @@ function select_action(
     )
 
 
-    a = 0.0
-    ω = 0.0
+    action_lat = 0.0
+    action_lon = 0.0
 
     logindexbase = calc_logindexbase(carind)
-    _record_frame_values!(basics.simlog, frameind, logindexbase)
+    record_frame_loglikelihoods!(basics.simlog, frameind, logindexbase)
 
-    (a, ω)
+    (action_lat, action_lon)
 end

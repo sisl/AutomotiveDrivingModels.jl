@@ -4,8 +4,8 @@ export VehicleBehaviorGaussian
 type VehicleBehaviorGaussian <: AbstractVehicleBehavior 
     Σ::MvNormal # with action vector (accel, turnrate)
 
-    function VehicleBehaviorGaussian(σ_accel::Float64, σ_turnrate::Float64, σ_correlation::Float64=0.0)
-        new(MvNormal([σ_accel σ_correlation; σ_correlation σ_turnrate]))
+    function VehicleBehaviorGaussian(σ_lat::Float64, σ_lon::Float64, σ_correlation::Float64=0.0)
+        new(MvNormal([σ_lat σ_correlation; σ_correlation σ_lon]))
     end
     function VehicleBehaviorGaussian(Σ::MvNormal)
         @assert(length(Σ) == 2)
@@ -23,15 +23,16 @@ function select_action(
     action = rand(behavior.Σ)
     logl = logpdf(behavior.Σ, action)
 
-    a = action[1]
-    ω = action[2]
+    action_lat = action[1]
+    action_lon = action[2]
 
     logindexbase = calc_logindexbase(carind)
 
-    record_frame_values!(basics.simlog, frameind, logindexbase, 
-                          logPa=logl/2, logPω=logl/2) # NOTE(tim): splitting logl in half
+    # NOTE(tim): splitting logl in half
+    record_frame_loglikelihoods!(basics.simlog, frameind, logindexbase, 
+                                 logl/2, logl/2) 
 
-    (a, ω)
+    (action_lat, action_lon)
 end
 function calc_action_loglikelihood(
     basics::FeatureExtractBasics,
@@ -47,10 +48,10 @@ function calc_action_loglikelihood(
 
     logindexbase = calc_logindexbase(carind)
 
-    a = basics.simlog[frameind, logindexbase + LOG_COL_A]
-    ω = basics.simlog[frameind, logindexbase + LOG_COL_T]
+    action_lat = basics.simlog[frameind, logindexbase + LOG_COL_ACTION_LAT]
+    action_lon = basics.simlog[frameind, logindexbase + LOG_COL_ACTION_LON]
 
-    logpdf(behavior.Σ, [a, ω])
+    logpdf(behavior.Σ, [action_lat, action_lon])
 end
 
 function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
@@ -65,15 +66,15 @@ function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args:
     trainingmatrix = Array(Float64, 2, nframes)
     for i = 1 : nframes
 
-        accel = trainingframes[i, :acc]
-        turnrate = trainingframes[i, :turnrate]
+        action_lat = trainingframes[i, :f_des_angle_250ms]
+        action_lon = trainingframes[i, :f_accel_250ms]
 
-        if !isnan(accel) && !isnan(turnrate) &&
-           !isinf(accel) && !isinf(turnrate)
+        if !isnan(action_lat) && !isnan(action_lon) &&
+           !isinf(action_lat) && !isinf(action_lon)
 
             count += 1
-            trainingmatrix[1, count] = accel
-            trainingmatrix[2, count] = turnrate
+            trainingmatrix[1, count] = action_lat
+            trainingmatrix[2, count] = action_lon
         end
     end
     trainingmatrix = trainingmatrix[:, 1:count]
