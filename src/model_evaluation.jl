@@ -57,10 +57,15 @@ end
 
 function create_metrics_sets{B<:AbstractVehicleBehavior}(
     model_behaviors::Vector{B},
-    validation_tracesets::Vector{Vector{VehicleTrace}},
+    tracesets::Vector{Vector{VehicleTrace}},
     evalparams::EvaluationParams;
-    nframes_total::Int=get_nframes(validation_tracesets[1][1]),
+    nframes_total::Int=get_nframes(tracesets[1][1]),
     )
+
+    #=
+    Takes trained bejavior models and computes MetricsSet for each
+    given the tracesets
+    =#
 
     # pull out the parameters
     sim_history_in_frames = evalparams.sim_history_in_frames
@@ -69,8 +74,8 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     histobin_params = evalparams.histobin_params
 
     # compute original simlogs from tracesets
-    simlogs_original = allocate_simlogs_for_all_traces(validation_tracesets, nframes_total)
-    for (simlog,traceset) in zip(simlogs_original, validation_tracesets)
+    simlogs_original = allocate_simlogs_for_all_traces(tracesets, nframes_total)
+    for (simlog,traceset) in zip(simlogs_original, tracesets)
         for (carind, trace) in enumerate(traceset)
             fill_log_with_trace!(simlog, 1, trace, 1, get_nframes(trace), carind)
         end
@@ -80,7 +85,7 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     metrics_set_orig = create_metrics_set(simlogs_original, road, sim_history_in_frames, simparams, histobin_params)
     
     # create default behavior vector
-    behaviors = Array(AbstractVehicleBehavior, get_max_vehicle_count(validation_tracesets))
+    behaviors = Array(AbstractVehicleBehavior, get_max_vehicle_count(tracesets))
     fill!(behaviors, VEHICLE_BEHAVIOR_NONE)
 
     # simulate each behavior
@@ -114,9 +119,11 @@ function cross_validate(
     nfolds = maximum(frame_assignment)
 
     nbehaviors = length(behaviorset.behaviors)
-    aggregate_metric_sets = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
+    aggregate_metric_sets_training = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
+    aggregate_metric_sets_validation = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
     for i = 1:length(aggregate_metric_sets)
-        aggregate_metric_sets[i] = Array(Dict{Symbol,Any}, nfolds)
+        aggregate_metric_sets_training[i] = Array(Dict{Symbol,Any}, nfolds)
+        aggregate_metric_sets_validation[i] = Array(Dict{Symbol,Any}, nfolds)
     end
 
     for fold = 1 : nfolds
@@ -124,15 +131,21 @@ function cross_validate(
             println("FOLD ", fold, " / ", nfolds)
             tic()
         end
-        training_frames, validation_tracesets = _get_training_and_validation(
-                                                   fold, tracesets, dataframe, 
-                                                   startframes, frame_assignment, 
-                                                   trace_assignment)
+        training_frames, training_tracesets, validation_tracesets = _get_training_and_validation(
+                                                                        fold, tracesets, dataframe, 
+                                                                        startframes, frame_assignment, 
+                                                                        trace_assignment)
 
         model_behaviors = train(behaviorset, training_frames)
-        metrics_sets = create_metrics_sets(model_behaviors, validation_tracesets, evalparams)
-        for (i,metrics_set) in enumerate(metrics_sets)
-            aggregate_metric_sets[i][fold] = metrics_set.aggmetrics
+
+        metrics_sets_training = create_metrics_sets(model_behaviors, training_tracesets, evalparams)
+        for (i,metrics_set) in enumerate(metrics_sets_training)
+            aggregate_metric_sets_training[i][fold] = metrics_set.aggmetrics
+        end
+
+        metrics_sets_validation = create_metrics_sets(model_behaviors, validation_tracesets, evalparams)
+        for (i,metrics_set) in enumerate(metrics_sets_validation)
+            aggregate_metric_sets_validation[i][fold] = metrics_set.aggmetrics
         end
 
         if isa(incremental_model_save_file, String)
@@ -141,14 +154,15 @@ function cross_validate(
             JLD.save(filename,
                 "behaviorset", behaviorset,
                 "models", model_behaviors,
-                "metrics_sets", metrics_sets)
+                "metrics_sets_training", metrics_sets,
+                "metrics_sets_validation", metrics_sets)
         end
 
         verbosity > 0 && toc()
     end
 
-    cross_validation_metrics = Array(Dict{Symbol,Any}, length(aggregate_metric_sets))
-    for (i,aggs) in enumerate(aggregate_metric_sets)
+    cross_validation_metrics = Array(Dict{Symbol,Any}, length(aggregate_metric_sets_validation))
+    for (i,aggs) in enumerate(aggregate_metric_sets_validation)
         cross_validation_metrics[i] = calc_mean_cross_validation_metrics(aggs)
     end
     cross_validation_metrics
@@ -165,7 +179,7 @@ function _get_training_and_validation(
 
     #=
     OUTPUT:
-        (training_frames::DataFrame, validation_tracesets::Vector{Vector{VehicleTrace}})
+        (training_frames::DataFrame, training_tracesets::Vector{Vector{VehicleTrace}}, validation_tracesets::Vector{Vector{VehicleTrace}})
         for use in training and then validating a behavior model
 
     frame_assignment and trace_assignment should have been created with cross_validation_sets
@@ -185,11 +199,17 @@ function _get_training_and_validation(
     end
     training_frames = dataframe[training_frame_indeces, :]
 
+    training_trace_indeces = falses(length(trace_assignment))
+    for (i,a) in enumerate(trace_assignment)
+        validation_trace_indeces[i] = (a!=fold)
+    end
+    training_tracesets = tracesets[training_trace_indeces]
+
     validation_trace_indeces = falses(length(trace_assignment))
     for (i,a) in enumerate(trace_assignment)
         validation_trace_indeces[i] = (a==fold)
     end
     validation_tracesets = tracesets[validation_trace_indeces]
 
-    (training_frames, validation_tracesets)
+    (training_frames, training_tracesets, validation_tracesets)
 end
