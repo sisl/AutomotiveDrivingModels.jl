@@ -91,7 +91,7 @@ function get(::Features.Feature_Speed, basics::FeatureExtractBasics, carind::Int
 	basics.simlog[frameind, calc_logindexbase(carind) + LOG_COL_V]
 end
 function get(::Features.Feature_Delta_Speed_Limit, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	basics.simlog[frameind, calc_logindexbase(carind) + LOG_COL_V] - 29.06 # TODO(tim): make this less arbitrary?
+	Features.SPEED_LIMIT - basics.simlog[frameind, calc_logindexbase(carind) + LOG_COL_V] # TODO(tim): make this less arbitrary?
 end
 function get(::Features.Feature_VelFx, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	baseind = calc_logindexbase(carind)
@@ -146,14 +146,14 @@ function _get(::Features.Feature_D_ML, basics::FeatureExtractBasics, carind::Int
 	if d_cl > 0.5basics.road.lanewidth
 		return NA_ALIAS
 	end
-	0.5basics.road.lanewidth - d_cl
+	d_cl - 0.5basics.road.lanewidth
 end
 function _get(::Features.Feature_D_MR, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	d_cl = get(D_CL, basics, carind, frameind)
 	if d_cl < -0.5basics.road.lanewidth
 		return NA_ALIAS
 	end
-	0.5basics.road.lanewidth + d_cl
+	0.5basics.road.lanewidth - d_cl
 end
 function  get(::Features.Feature_TimeToCrossing_Left, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	d_ml = get(D_ML, basics, carind, frameind)
@@ -500,6 +500,22 @@ end
 		end
 
 		min(dv*dv / (2dx), Features.THRESHOLD_A_REQ)
+	end
+	function _get(::Features.Feature_Timegap_X_REAR, basics::FeatureExtractBasics, carind::Int, frameind::Int)
+	
+		ind_rear = get(INDREAR, basics, carind, frameind)
+		if ind_rear == NA_ALIAS
+			return Features.THRESHOLD_TIMEGAP
+		end
+
+		dx = get(D_X_REAR, basics, carind, frameind) # distance between cars
+		 v = get(VELFX,    basics, carind, frameind)
+
+		if v <= 0.0
+			return Features.THRESHOLD_TIMEGAP
+		end
+
+		min(dx / v, Features.THRESHOLD_TIMEGAP)
 	end
 
 # LEFT

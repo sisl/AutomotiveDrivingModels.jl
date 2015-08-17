@@ -34,6 +34,44 @@ function select_action(
 
     (action_lat, action_lon)
 end
+function select_action(
+    basics::FeatureExtractBasicsPdSet,
+    behavior::VehicleBehaviorGaussian,
+    carind::Int,
+    frameind::Int
+    )
+
+    action = rand(behavior.Σ)
+    logl = logpdf(behavior.Σ, action)
+
+    action_lat = action[1]
+    action_lon = action[2]
+
+    logindexbase = calc_logindexbase(carind)
+
+    # NOTE(tim): splitting logl in half
+    # record_frame_loglikelihoods!(basics.pdset, frameind, logindexbase, 
+    #                              logl/2, logl/2) 
+
+    (action_lat, action_lon)
+end
+
+function calc_action_loglikelihood(
+    basics::FeatureExtractBasicsPdSet,
+    behavior::VehicleBehaviorGaussian,
+    carind::Int,
+    validfind::Int,
+    action_lat::Float64,
+    action_lon::Float64
+    )
+
+    #=
+    Compute the log-likelihood of the action taken during a single frame
+    given the VehicleBehaviorGaussian.
+    =#
+
+    logpdf(behavior.Σ, [action_lat, action_lon])
+end
 function calc_action_loglikelihood(
     basics::FeatureExtractBasics,
     behavior::VehicleBehaviorGaussian,

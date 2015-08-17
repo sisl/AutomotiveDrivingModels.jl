@@ -36,14 +36,6 @@ type EvaluationParams
     histobin_params::ParamsHistobin
 end
 
-# function train(
-#     models::BehaviorSet,
-    # frame_assignment::Vector{Int},
-    # trace_assignment::Vector{Int}
-#     )
-
-
-# end
 function train( models::BehaviorSet, training_frames::DataFrame )
 
     # TODO(tim): parallel training
@@ -57,13 +49,63 @@ end
 
 function create_metrics_sets{B<:AbstractVehicleBehavior}(
     model_behaviors::Vector{B},
+    pdsets_original::Vector{PrimaryDataset},
+    pdsets_for_simulation::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+    evalparams::EvaluationParams,
+    fold::Integer,
+    pdsetseg_fold_assignment::Vector{Int},
+    match_fold::Bool, # if true, then we want to only include folds that match target (validation)
+                      # if false, then we want to only include folds that do not (training)
+    )
+
+    #=
+    Takes trained behavior models and computes MetricsSet for each
+    =#
+
+    retval = Array(MetricsSet, 1+ length(model_behaviors))
+
+    # pull out the parameters
+    simparams = evalparams.simparams
+    histobin_params = evalparams.histobin_params
+
+    # compute original metrics
+    metrics_set_orig = create_metrics_set(pdsets_original, streetnets, pdset_segments, simparams, histobin_params,
+                                          fold, pdsetseg_fold_assignment, match_fold)
+    histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
+    retval[1] = metrics_set_orig
+
+    # simulate each behavior and compute the behavior metrics
+    basics = FeatureExtractBasicsPdSet(pdsets_for_simulation[1], streetnets[1])
+    behavior_pairs = Array((AbstractVehicleBehavior,Int), 1)
+    for (i, behavior) in enumerate(model_behaviors)
+        for seg in pdset_segments
+            basics.pdset = pdsets_for_simulation[seg.pdset_id]
+            basics.sn = streetnets[seg.streetnet_id]
+            basics.runid += 1
+            behavior_pairs[1] = (behavior, seg.carid)
+            simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+        end
+
+        retval[i+1] = create_metrics_set(behavior, metrics_set_orig, 
+                                         pdsets_original, pdsets_for_simulation,
+                                         streetnets, pdset_segments, simparams,
+                                         histobin_params, histobin_original_with_prior,
+                                         fold, pdsetseg_fold_assignment, match_fold)
+    end
+
+    retval
+end
+function create_metrics_sets{B<:AbstractVehicleBehavior}(
+    model_behaviors::Vector{B},
     tracesets::Vector{Vector{VehicleTrace}},
     evalparams::EvaluationParams;
     nframes_total::Int=get_nframes(tracesets[1][1]),
     )
 
     #=
-    Takes trained bejavior models and computes MetricsSet for each
+    Takes trained behavior models and computes MetricsSet for each
     given the tracesets
     =#
 
@@ -104,6 +146,117 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     retval[2:end] = behavior_metrics_sets
     retval::Vector{MetricsSet}
 end
+
+function _cross_validate(
+    behaviorset::BehaviorSet,
+    pdsets::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    pdsetseg_fold_assignment::Vector{Int},
+    evalparams::EvaluationParams;
+    verbosity::Int=1,
+    incremental_model_save_file::Union(Nothing, String)=nothing
+    )
+
+    nfolds = maximum(frame_assignment)
+    nbehaviors = length(behaviorset.behaviors)
+    
+    aggregate_metric_sets_training = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
+    for i = 1:length(aggregate_metric_sets_training)
+        aggregate_metric_sets_training[i] = Array(Dict{Symbol,Any}, nfolds)
+    end
+
+    aggregate_metric_sets_validation = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
+    for i = 1:length(aggregate_metric_sets_validation)
+        aggregate_metric_sets_validation[i] = Array(Dict{Symbol,Any}, nfolds)
+    end
+
+    max_dataframe_training_frames = _max_count_of_unique_value(frame_assignment)
+    dataframe_for_training = similar(dataframe, max_dataframe_training_frames)
+    pdsets_for_simulation = deepcopy(pdsets) # these will be overwritten for the simulation
+
+    for fold = 1 : nfolds
+
+        if verbosity > 0
+            println("FOLD ", fold, " / ", nfolds)
+            tic()
+        end
+    
+        # copy the training frames into dataframe_for_training
+        framecount = 0
+        for (i,assignment) in enumerate(frame_assignment)
+            if assignment == fold
+                framecount += 1
+                for j = 1 : size(dataframe, 2)
+                    dataframe_for_training[framecount, j] = dataframe[i, j]
+                end
+            end
+        end
+        while framecount < max_dataframe_training_frames
+
+            # now we need to fill in any extra training frames so that the entire thing is populated
+            # If properly used this will only be one extra row so the overall effect will be negligible
+
+            row = rand(1:framecount)
+            framecount += 1
+            for j = 1 : size(dataframe, 2)
+                dataframe_for_training[framecount, j] = dataframe_for_training[row, j]
+            end
+        end
+
+        model_behaviors = train(behaviorset, dataframe_for_training)
+
+        println("done training")
+
+        print("computing training metrics sets"); tic()
+        metrics_sets_training = CarEM.create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
+                                                          streetnets, pdset_segments, evalparams,
+                                                          fold, pdsetseg_fold_assignment, false)
+        for (i,metrics_set) in enumerate(metrics_sets_training)
+            aggregate_metric_sets_training[i][fold] = metrics_set.aggmetrics
+            metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
+        end
+        print(" [DONE] "); toc()
+
+        print("computing validation metrics sets"); tic()
+        metrics_sets_validation = CarEM.create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
+                                                            streetnets, pdset_segments, evalparams,
+                                                            fold, pdsetseg_fold_assignment, true)
+        for (i,metrics_set) in enumerate(metrics_sets_validation)
+            aggregate_metric_sets_validation[i][fold] = metrics_set.aggmetrics
+            metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
+        end
+        print(" [DONE] "); toc()
+
+        
+        if isa(incremental_model_save_file, String)
+            
+            println("saving incremental file"); tic()
+            # NOTE: "dir/file.jld" → "dir/file_<fold>.jld"
+            filename = splitext(incremental_model_save_file)[1] * @sprintf("_%02d.jld", fold)
+            JLD.save(filename,
+                "behaviorset", behaviorset,
+                "models", model_behaviors,
+                "metrics_sets_training", metrics_sets_training,
+                "metrics_sets_validation", metrics_sets_validation)
+
+            print(" [DONE] "); toc()
+        end
+
+        if verbosity > 0
+            toc()
+        end
+    end
+
+    cross_validation_metrics = Array(Dict{Symbol,Any}, length(aggregate_metric_sets_validation))
+    for (i,aggs) in enumerate(aggregate_metric_sets_validation)
+        cross_validation_metrics[i] = calc_mean_cross_validation_metrics(aggs)
+    end
+    cross_validation_metrics
+end
+
 function cross_validate(                                                                                                              
     behaviorset::BehaviorSet,
     tracesets::Vector{Vector{VehicleTrace}},
@@ -119,10 +272,14 @@ function cross_validate(
     nfolds = maximum(frame_assignment)
 
     nbehaviors = length(behaviorset.behaviors)
+    
     aggregate_metric_sets_training = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
-    aggregate_metric_sets_validation = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
-    for i = 1:length(aggregate_metric_sets)
+    for i = 1:length(aggregate_metric_sets_training)
         aggregate_metric_sets_training[i] = Array(Dict{Symbol,Any}, nfolds)
+    end
+
+    aggregate_metric_sets_validation = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
+    for i = 1:length(aggregate_metric_sets_validation)
         aggregate_metric_sets_validation[i] = Array(Dict{Symbol,Any}, nfolds)
     end
 
@@ -138,27 +295,37 @@ function cross_validate(
 
         model_behaviors = train(behaviorset, training_frames)
 
+        print("training metrics sets ($(length(training_tracesets)))"); tic()
         metrics_sets_training = create_metrics_sets(model_behaviors, training_tracesets, evalparams)
         for (i,metrics_set) in enumerate(metrics_sets_training)
             aggregate_metric_sets_training[i][fold] = metrics_set.aggmetrics
+            metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
         end
+        print(" [DONE] "); toc()
 
+        print("validation metrics sets ($(length(validation_tracesets)))"); tic()
         metrics_sets_validation = create_metrics_sets(model_behaviors, validation_tracesets, evalparams)
         for (i,metrics_set) in enumerate(metrics_sets_validation)
             aggregate_metric_sets_validation[i][fold] = metrics_set.aggmetrics
+            metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
         end
+        print(" [DONE] "); toc()
 
+        println("saving incremental file"); tic()
         if isa(incremental_model_save_file, String)
             # NOTE: "dir/file.jld" → "dir/file_<fold>.jld"
             filename = splitext(incremental_model_save_file)[1] * @sprintf("_%02d.jld", fold)
             JLD.save(filename,
                 "behaviorset", behaviorset,
                 "models", model_behaviors,
-                "metrics_sets_training", metrics_sets,
-                "metrics_sets_validation", metrics_sets)
+                "metrics_sets_training", metrics_sets_training,
+                "metrics_sets_validation", metrics_sets_validation)
         end
+        print(" [DONE] "); toc()
 
-        verbosity > 0 && toc()
+        if verbosity > 0
+            toc()
+        end
     end
 
     cross_validation_metrics = Array(Dict{Symbol,Any}, length(aggregate_metric_sets_validation))
@@ -167,12 +334,38 @@ function cross_validate(
     end
     cross_validation_metrics
 end
+function cross_validate(
+    behaviorset::BehaviorSet,
+    pdset_filepaths::Vector{String},
+    streetnet_filepaths::Vector{String},
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    pdsetseg_fold_assignment::Vector{Int},
+    evalparams::EvaluationParams;
+    verbosity::Int=1,
+    incremental_model_save_file::Union(Nothing, String)=nothing
+    )
+
+    pdsets = Array(PrimaryDataset, length(pdset_filepaths))
+    for (i,pdset_filepath) in enumerate(pdset_filepaths)
+        pdsets[i] = load(pdset_filepath, "pdset")
+    end
+
+    streetnets = Array(StreetNetwork, length(streetnet_filepaths))
+    for (i,streetnet_filepath) in enumerate(streetnet_filepaths)
+        streetnets[i] = load(streetnet_filepath, "streetmap")
+    end
+
+    CarEM._cross_validate(behaviorset, pdsets, streetnets, pdset_segments, dataframe, frame_assignment, pdsetseg_fold_assignment,
+                    evalparams, verbosity=verbosity, incremental_model_save_file=incremental_model_save_file)
+end
+
 
 function _get_training_and_validation(
     fold::Int,
     tracesets::Vector{Vector{VehicleTrace}},
     dataframe::DataFrame,
-    trace_to_framestart::Vector{Int},
     frame_assignment::Vector{Int},
     trace_assignment::Vector{Int},
     )
@@ -201,7 +394,7 @@ function _get_training_and_validation(
 
     training_trace_indeces = falses(length(trace_assignment))
     for (i,a) in enumerate(trace_assignment)
-        validation_trace_indeces[i] = (a!=fold)
+        training_trace_indeces[i] = (a!=fold)
     end
     training_tracesets = tracesets[training_trace_indeces]
 
@@ -212,4 +405,57 @@ function _get_training_and_validation(
     validation_tracesets = tracesets[validation_trace_indeces]
 
     (training_frames, training_tracesets, validation_tracesets)
+end
+function _get_training_and_validation(
+    fold::Int,
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    pdsetseg_fold_assignment::Vector{Int},
+    )
+
+    #=
+    OUTPUT:
+        (training_frames::DataFrame, training_tracesets::Vector{Vector{VehicleTrace}}, validation_tracesets::Vector{Vector{VehicleTrace}})
+        for use in training and then validating a behavior model
+
+    frame_assignment and pdsetseg_fold_assignment should have been created with cross_validation_sets
+    to assign to kfolds.
+
+    Fold must be within [1,kfolds].
+
+    returns training_frames corresponding to all frames in folds that are not fold
+    and validation_tracesets corresponding to fold
+    =#
+
+    @assert(fold > 0)
+
+    training_frame_indeces = falses(length(frame_assignment))
+    for (i,a) in enumerate(frame_assignment)
+        training_frame_indeces[i] = (a!=fold)
+    end
+    training_frames = dataframe[training_frame_indeces, :]
+
+    training_trace_indeces = falses(length(pdsetseg_fold_assignment))
+    for (i,a) in enumerate(pdsetseg_fold_assignment)
+        training_trace_indeces[i] = (a!=fold)
+    end
+    training_pdset_segments = pdset_segments[training_trace_indeces]
+
+    validation_trace_indeces = falses(length(pdsetseg_fold_assignment))
+    for (i,a) in enumerate(pdsetseg_fold_assignment)
+        validation_trace_indeces[i] = (a==fold)
+    end
+    validation_pdset_segments = pdset_segments[validation_trace_indeces]
+
+    (training_frames, training_pdset_segments, validation_pdset_segments)
+end
+
+
+function _max_count_of_unique_value(arr::AbstractArray)
+    dict = Dict{Any,Int}()
+    for v in arr
+        dict[v] = get(dict, v, 0) + 1
+    end
+    maximum(values(dict))::Int
 end

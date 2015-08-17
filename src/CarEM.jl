@@ -5,13 +5,16 @@ module CarEM
     # TODO(tim): remove this dependency
     push!(LOAD_PATH, "/home/tim/Documents/wheelerworkspace/Bosch/model/")
 
-    using BinMaps # TODO(tim): remove this once we stop using BinMaps in training EMs
     using Discretizers
     using Distributions
+    using StreamStats
     using DataFrames
     using BayesNets
     using Features
-    using HDF5, JLD
+    using JLD
+    using Trajdata
+    using StreetMap
+    using Curves
 
     import Base: get
 

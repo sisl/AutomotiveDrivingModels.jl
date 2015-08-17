@@ -3,11 +3,14 @@ export  SimParams,
        
         simulate!,
         propagate!,
-        record_frame_values,
+        record_frame_loglikelihoods!,
+        isdone,
 
-        isdone
+        get_input_acceleration,
+		get_input_turnrate,
 
-
+        calc_sequential_moving_average,
+		calc_weighted_moving_average
 
 immutable SimParams
 	sec_per_frame :: Float64
@@ -28,6 +31,27 @@ immutable SimParams
 end
 const DEFAULT_SIM_PARAMS = SimParams()
 
+function simulate!(
+    basics          :: FeatureExtractBasicsPdSet,
+    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    validfind_start :: Int,
+    validfind_end   :: Int;
+    pdset_frames_per_sim_frame::Int=5,
+    n_euler_steps   :: Int = 2
+    )
+
+    for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end
+        for (behavior,carid) in behavior_pairs
+            if !isa(behavior, VehicleBehaviorNone)
+                action_lat, action_lon = select_action(basics, behavior, carid, validfind)
+                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon, 
+                          pdset_frames_per_sim_frame, n_euler_steps)
+            end
+        end
+    end
+
+    basics
+end
 function simulate!{B<:AbstractVehicleBehavior}(
 	simlog        :: Matrix{Float64}, # initialized appropriately
 	behaviors     :: Vector{B},
@@ -48,9 +72,10 @@ function simulate!{B<:AbstractVehicleBehavior}(
 
 		for (carind,behavior) in enumerate(behaviors)
 			if !isa(behavior, VehicleBehaviorNone)
-				a, ω = select_action(basics, behavior, carind, frameind)
+				action_lat, action_lon = select_action(basics, behavior, carind, frameind)
 				logindexbase = calc_logindexbase(carind)
-				propagate!(basics.simlog, frameind, logindexbase, a, ω, n_euler_steps, δt)
+				propagate!(basics.simlog, frameind, logindexbase, 
+					       action_lat, action_lon, n_euler_steps, δt)
 			end
 		end
 
@@ -73,41 +98,152 @@ function simulate!{B<:AbstractVehicleBehavior}(
     simlogs
 end
 
-function record_frame_values!(
+function record_frame_loglikelihoods!(
 	simlog::Matrix{Float64},
 	frameind::Int,
-	logindexbase::Int;
-	bin_lat::Int = 0,
-	bin_lon::Int = 0,
-	action_lat::Float64 = 0.0, # before smoothing
-	action_lon::Float64 = 0.0, # before smoothing
-	logPa::Float64 = 0.0,
-	logPω::Float64 = 0.0,
-	em_id::Int = 0
+	logindexbase::Int,
+	logl_lat::Float64 = NaN,
+	logl_lon::Float64 = NaN,
 	)
 
 	#=
 	Record extra values to the log for the given vehicle
 	=#
 
-	simlog[frameind, logindexbase + LOG_COL_BIN_LAT] = bin_lat
-	simlog[frameind, logindexbase + LOG_COL_BIN_LON] = bin_lon
-	simlog[frameind, logindexbase + LOG_COL_LAT_BEFORE_SMOOTHING] = action_lat
-	simlog[frameind, logindexbase + LOG_COL_LON_BEFORE_SMOOTHING] = action_lon
-	simlog[frameind, logindexbase + LOG_COL_logprobweight_A] = logPa
-	simlog[frameind, logindexbase + LOG_COL_logprobweight_T] = logPω
-	simlog[frameind, logindexbase + LOG_COL_em] = float64(em_id)
-
+	simlog[frameind, logindexbase + LOG_COL_LOGL_LAT] = logl_lat
+	simlog[frameind, logindexbase + LOG_COL_LOGL_LON] = logl_lon
 
 	simlog
 end
 
+get_input_acceleration(action_lon::Float64) = action_lon
+function get_input_turnrate(action_lat::Float64, ϕ::Float64)
+    phi_des = action_lat
+    (phi_des - ϕ)*Features.KP_DESIRED_ANGLE
+end
+
+function _propagate_one_pdset_frame!(
+    pdset         :: PrimaryDataset,
+    sn            :: StreetNetwork,
+    validfind     :: Int,
+    carid         :: Int,
+    action_lat    :: Float64,
+    action_lon    :: Float64,
+    n_euler_steps :: Int,
+    )
+
+    validfind_fut = jumpframe(pdset, validfind, 1)
+    @assert(validfind_fut != 0)
+
+    Δt = get_elapsed_time(pdset, validfind, validfind_fut)
+    δt = Δt / n_euler_steps
+
+    carind = carid2ind(pdset, carid, validfind)
+
+    if !idinframe(pdset, carid, validfind_fut)
+        add_car_to_validfind!(pdset, carid, validfind_fut)
+    end
+    carind_fut = carid2ind(pdset, carid, validfind_fut)
+
+    x = get(pdset, "posGx", carind, validfind)
+    y = get(pdset, "posGy", carind, validfind)
+    θ = get(pdset, "posGyaw", carind, validfind)
+    
+    s = d = 0.0
+    ϕ = get(pdset, "posFyaw", carind, validfind)
+
+    velFx = get(pdset, "velFx", carind, validfind)
+    velFy = get(pdset, "velFy", carind, validfind)
+    v = hypot(velFx, velFy)
+
+    for j = 1 : n_euler_steps
+
+        a = get_input_acceleration(action_lon)
+        ω = get_input_turnrate(action_lat, ϕ)
+
+        v += a*δt
+        θ += ω*δt
+        x += v*cos(θ)*δt
+        y += v*sin(θ)*δt
+
+        proj = project_point_to_streetmap(x, y, sn)
+        @assert(proj.successful)
+
+        ptG = proj.curvept
+        s, d, ϕ = pt_to_frenet_xyy(ptG, x, y, θ)
+    end
+
+    proj = project_point_to_streetmap(x, y, sn)
+    @assert(proj.successful)
+
+    ptG = proj.curvept
+    laneid = int(proj.laneid.lane)
+    tile = proj.tile
+    seg = get_segment(tile, int(proj.laneid.segment))
+    d_end = distance_to_lane_end(seg, laneid, proj.extind)
+
+    set!(pdset, "posGx", carind_fut, validfind_fut, x)
+    set!(pdset, "posGy", carind_fut, validfind_fut, y)
+    set!(pdset, "posGyaw", carind_fut, validfind_fut, θ)
+
+    set!(pdset, "posFx", carind_fut, validfind_fut, NaN) # this should basically never be used
+    set!(pdset, "posFy", carind_fut, validfind_fut, NaN) # this should also basically never be used
+    set!(pdset, "posFyaw", carind_fut, validfind_fut, ϕ)
+
+    set!(pdset, "velFx", carind_fut, validfind_fut, v*cos(ϕ)) # vel along the lane
+    set!(pdset, "velFy", carind_fut, validfind_fut, v*sin(ϕ)) # vel perpendicular to lane
+
+    set!(pdset, "lanetag",   carind_fut, validfind_fut, LaneTag(tile, proj.laneid))
+    set!(pdset, "curvature", carind_fut, validfind_fut, ptG[KIND])
+    set!(pdset, "d_cl",      carind_fut, validfind_fut, d)
+
+    d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
+    d_split = distance_to_lane_split(seg, laneid, proj.extind)
+    set!(pdset, "d_merge", carind_fut, validfind_fut, isinf(d_merge) ? NA : d_merge)
+    set!(pdset, "d_split", carind_fut, validfind_fut, isinf(d_split) ? NA : d_split)
+
+    nll, nlr = StreetMap.num_lanes_on_sides(seg, laneid, proj.extind)
+    @assert(nll ≥ 0)
+    @assert(nlr ≥ 0)
+    set!(pdset, "nll", carind_fut, validfind_fut, nll)
+    set!(pdset, "nlr", carind_fut, validfind_fut, nlr)
+
+    lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+    set!(pdset, "d_mr", carind_fut, validfind_fut, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
+    set!(pdset, "d_ml", carind_fut, validfind_fut, (d > -lane_width_right) ?  d - lane_width_right : Inf)
+
+    if carid != CARID_EGO
+        set!(pdset, "id",        carind_fut, validfind_fut, carid)
+        set!(pdset, "t_inview",  carind_fut, validfind_fut, get(pdset, "t_inview", carind, validfind) + Δt)
+        # NOTE(tim): `trajind` is deprecated
+    end    
+
+    pdset
+end
+function propagate!(
+    pdset         :: PrimaryDataset,
+    sn            :: StreetNetwork,
+    validfind     :: Int,
+    carid         :: Int,
+    action_lat    :: Float64,
+    action_lon    :: Float64,
+    pdset_frames_per_sim_frame :: Int,
+    n_euler_steps :: Int,
+    )
+
+    for i = 1 : pdset_frames_per_sim_frame
+        @assert(validfind != 0)
+        _propagate_one_pdset_frame!(pdset, sn, validfind, carid, action_lat, action_lon, n_euler_steps)
+        validfind = jumpframe(pdset, validfind, 1)
+    end
+    pdset
+end
 function propagate!(
 	simlog        :: Matrix{Float64},
 	frameind      :: Int,
 	logindexbase  :: Int,
-	a             :: Float64,
-	ω             :: Float64,
+	action_lat    :: Float64,
+	action_lon    :: Float64,
 	n_euler_steps :: Int,
 	δt            :: Float64,
 	)
@@ -115,8 +251,8 @@ function propagate!(
 	# run physics on the given car at time frameind
 	# place results in log for that car in frameind + 1
 
-	simlog[frameind, logindexbase + LOG_COL_A] = a
-	simlog[frameind, logindexbase + LOG_COL_T] = ω
+	simlog[frameind, logindexbase + LOG_COL_ACTION_LAT] = action_lat
+	simlog[frameind, logindexbase + LOG_COL_ACTION_LON] = action_lon
 
 	x = simlog[frameind, logindexbase + LOG_COL_X]
 	y = simlog[frameind, logindexbase + LOG_COL_Y]
@@ -124,6 +260,10 @@ function propagate!(
 	v = simlog[frameind, logindexbase + LOG_COL_V]
 
 	for j = 1 : n_euler_steps
+		
+		a = get_input_acceleration(action_lon)
+		ω = get_input_turnrate(action_lat, ϕ)
+
 		v += a*δt
 		ϕ += ω*δt
 		x += v*cos(ϕ)*δt
@@ -141,8 +281,8 @@ function propagate!(
 	simlog        :: Matrix{Float64},
 	frameind      :: Int,
 	logindexbase  :: Int,
-	a             :: Float64,
-	ω             :: Float64,
+	action_lat    :: Float64,
+	action_lon    :: Float64,
 	params        :: SimParams	
 	)
 	
@@ -150,13 +290,13 @@ function propagate!(
 	n_euler_steps = params.n_euler_steps
 	δt            = sec_per_frame / n_euler_steps
 
-	propagate!(simlog, frameind, logindexbase, a, ω, n_euler_steps, δt)
+	propagate!(simlog, frameind, logindexbase, action_lat, action_lon, n_euler_steps, δt)
 end
 function propagate!(
 	simlog        :: Matrix{Float64},
 	frameind      :: Int,
-	a             :: Float64,
-	ω             :: Float64,
+	action_lat    :: Float64,
+	action_lon    :: Float64,
 	params        :: SimParams	
 	)
 	
@@ -165,7 +305,7 @@ function propagate!(
 	δt            = sec_per_frame / n_euler_steps
 
 	for carind in get_ncars(simlog)
-		propagate!(simlog, frameind, calc_logindexbase(carind), a, ω, n_euler_steps, δt)
+		propagate!(simlog, frameind, calc_logindexbase(carind), action_lat, action_lon, n_euler_steps, δt)
 	end
 
 	simlog

@@ -3,6 +3,7 @@ export
     PointSE2,
     Vehicle,
     VehicleTrace,
+    PdsetSegment,
 
     INPUT_EMSTATS_FOLDER,
     TRACE_DIR,
@@ -19,16 +20,11 @@ export
     LOG_COL_Y,
     LOG_COL_ϕ,
     LOG_COL_V,
-    LOG_COL_A,
-    LOG_COL_T,
+    LOG_COL_ACTION_LAT,
+    LOG_COL_ACTION_LON,
+    LOG_COL_LOGL_LAT,
+    LOG_COL_LOGL_LON,
     LOG_NCOLS_PER_CAR,
-    LOG_COL_BIN_LAT,
-    LOG_COL_BIN_LON,
-    LOG_COL_LAT_BEFORE_SMOOTHING,
-    LOG_COL_LON_BEFORE_SMOOTHING,
-    LOG_COL_logprobweight_A,
-    LOG_COL_logprobweight_T,
-    LOG_COL_em,
 
     is_onroad,
     get_lanecenter,
@@ -38,9 +34,12 @@ export
     get_ncars,
     get_nframes,
     get_horizon,
+    get_history,
+    get_max_nframes,
 
-    create_log,
     calc_logindexbase,
+    create_log,
+    create_and_fill_log,
 
     pull_vehicle,
     pull_vehicle!,
@@ -64,20 +63,15 @@ const LOG_COL_X = 1
 const LOG_COL_Y = 2
 const LOG_COL_ϕ = 3
 const LOG_COL_V = 4
-const LOG_COL_A = 5 # the acceleration input used to propagate the vehicle
-const LOG_COL_T = 6 # the turnrate input used to propagate the vehicle
-const LOG_COL_BIN_LAT = 7 # the chosen bin for the lateral control variable
-const LOG_COL_BIN_LON = 8 # the chosen bin for the longitudinal control variable
-const LOG_COL_LAT_BEFORE_SMOOTHING = 9 # the continuous lateral control input before smoothig
-const LOG_COL_LON_BEFORE_SMOOTHING = 10 # the continuous longitudinal control input before smoothig
-const LOG_COL_logprobweight_A = 11 # logP of action A given observations and em
-const LOG_COL_logprobweight_T = 12
-const LOG_COL_em = 13 # the em model used in this step
-const LOG_NCOLS_PER_CAR = 13
+const LOG_COL_ACTION_LAT = 5 # the lateral action input
+const LOG_COL_ACTION_LON = 6 # the longitudinal action input
+const LOG_COL_LOGL_LAT = 7 # loglikelihood of lateral action
+const LOG_COL_LOGL_LON = 8 # loglikelihood of longitudinal action
+const LOG_NCOLS_PER_CAR = 8
 
 const CAR_LENGTH = 4.6 # [m]
 const CAR_WIDTH  = 2.0 # [m]
-const DEFAULT_LANE_WIDTH = 3.7 # [m]
+const DEFAULT_LANE_WIDTH = 3.25 # [m]
 const DEFAULT_SEC_PER_FRAME = 0.25 # [s]
 const SPEED_65MPH = 29.06 # [m/s]
 
@@ -150,6 +144,30 @@ immutable VehicleTrace
 	end
 end
 
+immutable PdsetSegment
+    pdset_id        :: Int
+    streetnet_id    :: Int
+    carid           :: Int # the active vehicle
+    validfind_start :: Int # the starting validfind (does not count any sort of history)
+    validfind_end   :: Int # the ending validfind
+end
+
+function Base.show(io::IO, veh::Vehicle)
+    println("PdsetSegment")
+    @printf("\tpdset_id: %d\n", veh.pos)
+    @printf("\tspeed:    %d\n", veh.speed)
+    @printf("\tlength:   %d\n", veh.length)
+    @printf("\twidth:    %d\n", veh.width)
+end
+function Base.show(io::IO, seg::PdsetSegment)
+    println("PdsetSegment")
+    @printf("\tpdset_id:        %d\n", seg.pdset_id)
+    @printf("\tstreetnet_id:    %d\n", seg.streetnet_id)
+    @printf("\tcarid:           %d\n", seg.carid)
+    @printf("\tvalidfind_start: %d\n", seg.validfind_start)
+    @printf("\tvalidfind_end:   %d\n", seg.validfind_end)
+end
+
 is_onroad(posFy::Real, road::StraightRoadway) = -0.5road.lanewidth < posFy <  (road.nlanes - 0.5)*road.lanewidth
 get_lanecenter(road::StraightRoadway, laneindex::Int) = road.lanewidth * (laneindex-1)
 get_lanecenters(road::StraightRoadway) = [0:(road.nlanes-1)].*road.lanewidth # [0,w,2w,...]
@@ -158,10 +176,37 @@ get_laneborders(road::StraightRoadway) = [0:road.nlanes].*road.lanewidth - road.
 get_ncars(simlog::Matrix{Float64}) = div(size(simlog,2), LOG_NCOLS_PER_CAR)
 get_nframes(simlog::Matrix{Float64}) = size(simlog, 1)
 get_nframes(trace::VehicleTrace) = size(trace.log,1)
+get_nframes(seg::PdsetSegment) = seg.validfind_end - seg.validfind_start + 1
 get_horizon(trace::VehicleTrace) = size(trace.log,1) - trace.history
+get_horizon(seg::PdsetSegment) = seg.validfind_end - seg.validfind_start # NOTE(tim): no +1 as the first frame does not count in horizon
+get_history(trace::VehicleTrace) = trace.history
 
-create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
+function get_max_nframes(traces::Vector{VehicleTrace})
+    nframes = -1
+    for trace in traces
+        n = get_nframes(trace) 
+        if n > nframes
+            nframes = n
+        end
+    end
+    nframes
+end
+
 calc_logindexbase(carind::Int) = LOG_NCOLS_PER_CAR*carind-LOG_NCOLS_PER_CAR # the index to which LOG_COL_* is added
+create_log(ncars::Integer, nframes::Integer) = Array(Float64, nframes, ncars*LOG_NCOLS_PER_CAR)
+function create_and_fill_log(traces::Vector{VehicleTrace}, nframes::Integer=get_max_nframes(traces))
+
+    @assert(!isempty(traces))
+    simlog = create_log(length(traces), nframes)
+    fill!(simlog, NaN)
+
+    for (carind,trace) in enumerate(traces)
+        fill_log_with_trace!(simlog, 1, trace, 1, get_nframes(trace), carind)
+    end
+
+    simlog
+end
+
 
 pull_vehicle(simlog::Matrix{Float64}, baseind::Int, frameind::Int) = pull_vehicle!(Vehicle(), simlog, baseind, frameind)
 function pull_vehicle!(veh::Vehicle, simlog::Matrix{Float64}, baseind::Int, frameind::Int)

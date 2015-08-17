@@ -21,6 +21,26 @@ type ParamsHistobin
     end
 end
 
+function calc_trace_deviation(pdset::PrimaryDataset, sn::StreetNetwork, seg::PdsetSegment)
+    
+    initial_carind = carid2ind(pdset, seg.carid, seg.validfind_start)
+    velFx = get(pdset, "velFx", initial_carind, seg.validfind_start)
+    velFy = get(pdset, "velFy", initial_carind, seg.validfind_start)
+    initial_speed = hypot(velFx, velFy)
+
+    final_carind = carid2ind(pdset, seg.carid, seg.validfind_end)
+    posGx_A = get(pdset, "posGx", initial_carind, seg.validfind_start)
+    posGy_A = get(pdset, "posGy", initial_carind, seg.validfind_start)
+    posGx_B = get(pdset, "posGx", final_carind, seg.validfind_end)
+    posGy_B = get(pdset, "posGy", final_carind, seg.validfind_end)
+
+    Δx, Δy = frenet_distance_between_points(sn, posGx_A, posGy_A, posGx_B, posGy_B)
+    @assert(!isnan(Δx))
+
+    Δt = Δx / initial_speed
+    
+    (Δt, Δy)
+end
 function calc_trace_deviation(simlog::Matrix{Float64}, history::Int)
     
     initial_speed = simlog[history,LOG_COL_V]
@@ -70,6 +90,37 @@ function calc_traceset_deviations(simlogs::Vector{Matrix{Float64}}, history::Int
     (Δt_arr, Δy_arr)
 end
 
+function calc_histobin(
+    pdsets::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+    histobin_params::ParamsHistobin,
+    fold::Integer,
+    pdsetseg_fold_assignment::Vector{Int},
+    match_fold::Bool
+    )
+
+    n_bins_x = nlabels(histobin_params.discx)
+    n_bins_y = nlabels(histobin_params.discy)
+
+    histobin = zeros(Float64, n_bins_x, n_bins_y)
+
+    for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+
+        if (match_fold && fold_assignment == fold) ||
+           (!match_fold && fold_assignment != fold)
+
+            Δt, Δy = calc_trace_deviation(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg)
+
+            bin_x = encode(histobin_params.discx, Δt)
+            bin_y = encode(histobin_params.discy, Δy)
+
+            histobin[bin_x, bin_y] += 1.0
+        end
+    end
+
+    histobin
+end
 function calc_histobin(Δt_arr::Vector{Float64}, Δy_arr::Vector{Float64}, histobin_params::ParamsHistobin)
 
     n_bins_x = nlabels(histobin_params.discx)

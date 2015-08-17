@@ -40,6 +40,18 @@ function calc_action_loglikelihood(
 
     error("calc action loglikelihood not defined for $typeof(behavior)")
 end
+function calc_action_loglikelihood(
+    basics::FeatureExtractBasicsPdSet,
+    behavior::AbstractVehicleBehavior,
+    carind::Int,
+    validfind::Int
+    )
+
+    action_lat = get(FUTUREACCELERATION_250MS, basics, carind, validfind)::Float64
+    action_lon = get(FUTUREDESIREDSPEED_250MS, basics, carind, validfind)::Float64
+    calc_action_loglikelihood(basics, behavior, carind, validfind, action_lat, action_lon)
+end
+
 train{B<:AbstractVehicleBehavior}(::Type{B}, trainingframes::DataFrame; args...) = error("train not implemented for $B")
 
 ###############################################################

@@ -1,11 +1,22 @@
 export
+    Scenario,
+
     calc_collision_risk_monte_carlo!,
     calc_future_grid_counts!
 
-
 type Scenario
-    
+
+    # Scenario defines the conditions for a risk assessment scene
+    # - first vehicle is the ego vehicle
+    # - behaviors must be assigned to each vehicle
+
+    road::StraightRoadway
+    history::Int
+    horizon::Int
+    traces::Vector{VehicleTrace} # used to initialize the scenario with history
+    sec_per_frame::Float64
 end
+
 
 function calc_collision_risk_monte_carlo!{B<:AbstractVehicleBehavior}(
     simlog       :: Matrix{Float64}, # initialized appropriately
