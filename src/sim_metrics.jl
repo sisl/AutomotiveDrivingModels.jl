@@ -888,8 +888,8 @@ function compute_metric_summary_table{S<:String}(
 
     aggmetrics_original = original_metrics_set.aggmetrics
     df[:realworld] = [
-                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_centerline_offset_ego_mean], aggmetrics_original[:mean_centerline_offset_ego_stdev]),
-                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_speed_ego_mean], aggmetrics_original[:mean_speed_ego_stdev]),
+                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_centerline_offset_activecar_mean], aggmetrics_original[:mean_centerline_offset_activecar_stdev]),
+                        @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_speed_activecar_mean], aggmetrics_original[:mean_speed_activecar_stdev]),
                         @sprintf("%.3f +- %.3f", aggmetrics_original[:mean_timegap_mean], aggmetrics_original[:mean_timegap_stdev]),
                         "", "", "", "", "", "", "", "", ""
                     ]
@@ -900,10 +900,6 @@ function compute_metric_summary_table{S<:String}(
         tracemetrics = behavior_metrics_set.tracemetrics
         aggmetrics = behavior_metrics_set.aggmetrics
 
-        # TODO(tim: figure out why these are NaN)
-        arr = convert(Vector{Float64}, [metricset[i][:logl] for i in 1 : length(metricset)])
-        println("logl arr:", arr)
-
         mean_trace_log_prob, stdev_trace_log_prob = calc_aggregate_metric(:logl, Float64, tracemetrics)
         mean_rmse_1s, stdev_rmse_1s = calc_aggregate_metric(:rmse_1000ms, Float64, tracemetrics)
         mean_rmse_2s, stdev_rmse_2s = calc_aggregate_metric(:rmse_2000ms, Float64, tracemetrics)
@@ -911,11 +907,11 @@ function compute_metric_summary_table{S<:String}(
         mean_rmse_4s, stdev_rmse_4s = calc_aggregate_metric(:rmse_4000ms, Float64, tracemetrics)
 
         df[behavor_sym] = [
-                @sprintf("%.3f +- %.3f", aggmetrics[:mean_centerline_offset_ego_mean], aggmetrics[:mean_centerline_offset_ego_stdev]),
-                @sprintf("%.3f +- %.3f", aggmetrics[:mean_speed_ego_mean], aggmetrics[:mean_speed_ego_stdev]),
+                @sprintf("%.3f +- %.3f", aggmetrics[:mean_centerline_offset_activecar_mean], aggmetrics[:mean_centerline_offset_activecar_stdev]),
+                @sprintf("%.3f +- %.3f", aggmetrics[:mean_speed_activecar_mean], aggmetrics[:mean_speed_activecar_stdev]),
                 @sprintf("%.3f +- %.3f", aggmetrics[:mean_timegap_mean], aggmetrics[:mean_timegap_stdev]),
-                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_ego)),
-                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_ego)),
+                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_activecar)),
+                @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_activecar)),
                 @sprintf("%.5f", calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)),
                 @sprintf("%.5f", behavior_metrics_set.histobin_kldiv),
                 @sprintf("%.4f", mean_trace_log_prob),
