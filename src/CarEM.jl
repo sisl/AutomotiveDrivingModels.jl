@@ -13,10 +13,10 @@ module CarEM
     using Features
     using JLD
     using Trajdata
-    using StreetMap
+    using StreetNetworks
     using Curves
 
-    import Base: get
+    import Base: get, ==
 
     include("polynomials.jl")
     include("common.jl")
@@ -33,7 +33,6 @@ module CarEM
     include("risk_estimation.jl")
     include("model_evaluation.jl")
 
-    # include("behaviors/behavior_em.jl")
     include("behaviors/drive_straight.jl")
     include("behaviors/behavior_gaussian.jl")
 end # module

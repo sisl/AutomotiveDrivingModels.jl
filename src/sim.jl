@@ -145,15 +145,15 @@ function _propagate_one_pdset_frame!(
     end
     carind_fut = carid2ind(pdset, carid, validfind_fut)
 
-    x = get(pdset, "posGx", carind, validfind)
-    y = get(pdset, "posGy", carind, validfind)
-    θ = get(pdset, "posGyaw", carind, validfind)
+    x = get(pdset, :posGx, carind, validfind)
+    y = get(pdset, :posGy, carind, validfind)
+    θ = get(pdset, :posGyaw, carind, validfind)
     
     s = d = 0.0
-    ϕ = get(pdset, "posFyaw", carind, validfind)
+    ϕ = get(pdset, :posFyaw, carind, validfind)
 
-    velFx = get(pdset, "velFx", carind, validfind)
-    velFy = get(pdset, "velFy", carind, validfind)
+    velFx = get(pdset, :velFx, carind, validfind)
+    velFy = get(pdset, :velFy, carind, validfind)
     v = hypot(velFx, velFy)
 
     for j = 1 : n_euler_steps
@@ -182,41 +182,73 @@ function _propagate_one_pdset_frame!(
     seg = get_segment(tile, int(proj.laneid.segment))
     d_end = distance_to_lane_end(seg, laneid, proj.extind)
 
-    set!(pdset, "posGx", carind_fut, validfind_fut, x)
-    set!(pdset, "posGy", carind_fut, validfind_fut, y)
-    set!(pdset, "posGyaw", carind_fut, validfind_fut, θ)
+    if carind == CARIND_EGO
+        frameind_fut = validfind2frameind(pdset, validfind_fut)
+        sete!(pdset, :posGx, frameind_fut, x)
+        sete!(pdset, :posGy, frameind_fut, y)
+        sete!(pdset, :posGyaw, frameind_fut, θ)
 
-    set!(pdset, "posFx", carind_fut, validfind_fut, NaN) # this should basically never be used
-    set!(pdset, "posFy", carind_fut, validfind_fut, NaN) # this should also basically never be used
-    set!(pdset, "posFyaw", carind_fut, validfind_fut, ϕ)
+        sete!(pdset, :posFx, frameind_fut, NaN) # this should basically never be used
+        sete!(pdset, :posFy, frameind_fut, NaN) # this should also basically never be used
+        sete!(pdset, :posFyaw, frameind_fut, ϕ)
 
-    set!(pdset, "velFx", carind_fut, validfind_fut, v*cos(ϕ)) # vel along the lane
-    set!(pdset, "velFy", carind_fut, validfind_fut, v*sin(ϕ)) # vel perpendicular to lane
+        sete!(pdset, :velFx, frameind_fut, v*cos(ϕ)) # vel along the lane
+        sete!(pdset, :velFy, frameind_fut, v*sin(ϕ)) # vel perpendicular to lane
 
-    set!(pdset, "lanetag",   carind_fut, validfind_fut, LaneTag(tile, proj.laneid))
-    set!(pdset, "curvature", carind_fut, validfind_fut, ptG[KIND])
-    set!(pdset, "d_cl",      carind_fut, validfind_fut, d)
+        sete!(pdset, :lanetag, frameind_fut, LaneTag(tile, proj.laneid))
+        sete!(pdset, :curvature, frameind_fut, ptG.k)
+        sete!(pdset, :d_cl, frameind_fut, d)
 
-    d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-    d_split = distance_to_lane_split(seg, laneid, proj.extind)
-    set!(pdset, "d_merge", carind_fut, validfind_fut, isinf(d_merge) ? NA : d_merge)
-    set!(pdset, "d_split", carind_fut, validfind_fut, isinf(d_split) ? NA : d_split)
+        d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
+        d_split = distance_to_lane_split(seg, laneid, proj.extind)
+        sete!(pdset, :d_merge, frameind_fut, isinf(d_merge) ? NA : d_merge)
+        sete!(pdset, :d_split, frameind_fut, isinf(d_split) ? NA : d_split)
 
-    nll, nlr = StreetMap.num_lanes_on_sides(seg, laneid, proj.extind)
-    @assert(nll ≥ 0)
-    @assert(nlr ≥ 0)
-    set!(pdset, "nll", carind_fut, validfind_fut, nll)
-    set!(pdset, "nlr", carind_fut, validfind_fut, nlr)
+        nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+        @assert(nll ≥ 0)
+        @assert(nlr ≥ 0)
+        sete!(pdset, :nll, frameind_fut, nll)
+        sete!(pdset, :nlr, frameind_fut, nlr)
 
-    lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
-    set!(pdset, "d_mr", carind_fut, validfind_fut, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
-    set!(pdset, "d_ml", carind_fut, validfind_fut, (d > -lane_width_right) ?  d - lane_width_right : Inf)
+        lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+        sete!(pdset, :d_mr, frameind_fut, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
+        sete!(pdset, :d_ml, frameind_fut, (d > -lane_width_right) ?  d - lane_width_right : Inf)
+    else
 
-    if carid != CARID_EGO
-        set!(pdset, "id",        carind_fut, validfind_fut, carid)
-        set!(pdset, "t_inview",  carind_fut, validfind_fut, get(pdset, "t_inview", carind, validfind) + Δt)
+        setc!(pdset, :posGx, carind_fut, validfind_fut, x)
+        setc!(pdset, :posGy, carind_fut, validfind_fut, y)
+        setc!(pdset, :posGyaw, carind_fut, validfind_fut, θ)
+
+        setc!(pdset, :posFx, carind_fut, validfind_fut, NaN) # this should basically never be used
+        setc!(pdset, :posFy, carind_fut, validfind_fut, NaN) # this should also basically never be used
+        setc!(pdset, :posFyaw, carind_fut, validfind_fut, ϕ)
+
+        setc!(pdset, :velFx, carind_fut, validfind_fut, v*cos(ϕ)) # vel along the lane
+        setc!(pdset, :velFy, carind_fut, validfind_fut, v*sin(ϕ)) # vel perpendicular to lane
+
+        setc!(pdset, :lanetag,   carind_fut, validfind_fut, LaneTag(tile, proj.laneid))
+        setc!(pdset, :curvature, carind_fut, validfind_fut, ptG.k)
+        setc!(pdset, :d_cl,      carind_fut, validfind_fut, d)
+
+        d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
+        d_split = distance_to_lane_split(seg, laneid, proj.extind)
+        setc!(pdset, :d_merge, carind_fut, validfind_fut, isinf(d_merge) ? NA : d_merge)
+        setc!(pdset, :d_split, carind_fut, validfind_fut, isinf(d_split) ? NA : d_split)
+
+        nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+        @assert(nll ≥ 0)
+        @assert(nlr ≥ 0)
+        setc!(pdset, :nll, carind_fut, validfind_fut, nll)
+        setc!(pdset, :nlr, carind_fut, validfind_fut, nlr)
+
+        lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+        setc!(pdset, :d_mr, carind_fut, validfind_fut, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
+        setc!(pdset, :d_ml, carind_fut, validfind_fut, (d > -lane_width_right) ?  d - lane_width_right : Inf)
+
+        setc!(pdset, :id,        carind_fut, validfind_fut, carid)
+        setc!(pdset, :t_inview,  carind_fut, validfind_fut, getc(pdset, :t_inview, carind, validfind) + Δt)
         # NOTE(tim): `trajind` is deprecated
-    end    
+    end
 
     pdset
 end
@@ -231,11 +263,42 @@ function propagate!(
     n_euler_steps :: Int,
     )
 
-    for i = 1 : pdset_frames_per_sim_frame
-        @assert(validfind != 0)
-        _propagate_one_pdset_frame!(pdset, sn, validfind, carid, action_lat, action_lon, n_euler_steps)
-        validfind = jumpframe(pdset, validfind, 1)
+    # println("\n")
+    # println(pdset.df_ego_primary[validfind, :])
+    # for i = 0 : pdset_frames_per_sim_frame
+    #     carind = carid2ind(pdset, carid, validfind+i)
+    #     velFx = get(pdset, "velFx", carind, validfind+i)
+    #     velFy = get(pdset, "velFy", carind, validfind+i)
+    #     v = hypot(velFx, velFy)
+    #     println("$i) v = ", v)
+    # end
+
+    for jump = 0 : pdset_frames_per_sim_frame-1
+        validfind_fut = jumpframe(pdset, validfind, jump)
+        @assert(validfind_fut != 0)
+        _propagate_one_pdset_frame!(pdset, sn, validfind_fut, carid, action_lat, action_lon, n_euler_steps)        
     end
+
+    # carind = carid2ind(pdset, carid, validfind)
+    # action_lat_after = Features._get(FUTUREDESIREDANGLE_250MS, pdset, sn, carind, validfind)
+    # action_lon_after = Features._get(FUTUREACCELERATION_250MS, pdset, sn, carind, validfind)
+
+    # println("\n")
+    # for i = 0 : pdset_frames_per_sim_frame
+    #     carind = carid2ind(pdset, carid, validfind+i)
+    #     velFx = get(pdset, "velFx", carind, validfind+i)
+    #     velFy = get(pdset, "velFy", carind, validfind+i)
+    #     v = hypot(velFx, velFy)
+    #     println("$i) v = ", v)
+    # end
+
+    # @printf("before: %10.6f %10.6f\n", action_lat, action_lon)
+    # @printf("after:  %10.6f %10.6f\n", action_lat_after, action_lon_after)
+    # println(pdset.df_ego_primary[validfind, :])
+    # println(pdset.df_ego_primary[validfind+5, :])
+    # println("\n")
+    # exit()
+
     pdset
 end
 function propagate!(

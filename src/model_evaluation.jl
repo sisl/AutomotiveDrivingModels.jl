@@ -64,6 +64,7 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     Takes trained behavior models and computes MetricsSet for each
     =#
 
+
     retval = Array(MetricsSet, 1+ length(model_behaviors))
 
     # pull out the parameters
@@ -79,20 +80,44 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     # simulate each behavior and compute the behavior metrics
     basics = FeatureExtractBasicsPdSet(pdsets_for_simulation[1], streetnets[1])
     behavior_pairs = Array((AbstractVehicleBehavior,Int), 1)
+    fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
     for (i, behavior) in enumerate(model_behaviors)
-        for seg in pdset_segments
-            basics.pdset = pdsets_for_simulation[seg.pdset_id]
-            basics.sn = streetnets[seg.streetnet_id]
-            basics.runid += 1
-            behavior_pairs[1] = (behavior, seg.carid)
-            simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+
+        histobin = allocate_empty_histobin(histobin_params)
+        tracemetrics = Array(Dict{Symbol, Any}, fold_size)
+
+        fold_entry_count = 0
+        for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+
+            if is_in_fold(fold, fold_assignment, match_fold)
+
+                fold_entry_count += 1
+
+                pdset_orig = pdsets_original[seg.pdset_id]
+                basics.pdset = pdsets_for_simulation[seg.pdset_id]
+                basics.sn = streetnets[seg.streetnet_id]
+                basics.runid += 1
+                behavior_pairs[1] = (behavior, seg.carid)
+                simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+
+                # update the MetricsSet calculation
+                update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
+                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, simparams, basics=basics)
+
+                # now override the pdset with the original values once more
+                copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
+            end
         end
 
-        retval[i+1] = create_metrics_set(behavior, metrics_set_orig, 
-                                         pdsets_original, pdsets_for_simulation,
-                                         streetnets, pdset_segments, simparams,
-                                         histobin_params, histobin_original_with_prior,
-                                         fold, pdsetseg_fold_assignment, match_fold)
+        histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
+        aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig.aggmetrics, histobin_kldiv)
+
+        retval[i+1] = MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
+        # retval[i+1] = create_metrics_set(behavior, metrics_set_orig, 
+        #                                  pdsets_original, pdsets_for_simulation,
+        #                                  streetnets, pdset_segments, simparams,
+        #                                  histobin_params, histobin_original_with_prior,
+        #                                  fold, pdsetseg_fold_assignment, match_fold)
     end
 
     retval
@@ -177,6 +202,14 @@ function _cross_validate(
     dataframe_for_training = similar(dataframe, max_dataframe_training_frames)
     pdsets_for_simulation = deepcopy(pdsets) # these will be overwritten for the simulation
 
+    # ------------------
+
+    # metrics_sets_training = create_metrics_sets(train(behaviorset, dataframe), pdsets, pdsets_for_simulation,
+    #                                                       streetnets, pdset_segments, evalparams,
+    #                                                       1, ones(Int, length(pdsetseg_fold_assignment)), false)
+
+    # ------------------
+
     for fold = 1 : nfolds
 
         if verbosity > 0
@@ -211,7 +244,7 @@ function _cross_validate(
         println("done training")
 
         print("computing training metrics sets"); tic()
-        metrics_sets_training = CarEM.create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
+        metrics_sets_training = create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
                                                           streetnets, pdset_segments, evalparams,
                                                           fold, pdsetseg_fold_assignment, false)
         for (i,metrics_set) in enumerate(metrics_sets_training)
@@ -221,7 +254,7 @@ function _cross_validate(
         print(" [DONE] "); toc()
 
         print("computing validation metrics sets"); tic()
-        metrics_sets_validation = CarEM.create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
+        metrics_sets_validation = create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
                                                             streetnets, pdset_segments, evalparams,
                                                             fold, pdsetseg_fold_assignment, true)
         for (i,metrics_set) in enumerate(metrics_sets_validation)
@@ -361,6 +394,19 @@ function cross_validate(
                     evalparams, verbosity=verbosity, incremental_model_save_file=incremental_model_save_file)
 end
 
+function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
+    fold_size = 0
+    for a in fold_assignment
+        if is_in_fold(fold, a, match_fold)
+            fold_size += 1
+        end
+    end
+    fold_size
+end
+function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
+    (match_fold && fold_assignment == fold) ||
+    (!match_fold && fold_assignment != fold)
+end
 
 function _get_training_and_validation(
     fold::Int,
@@ -450,7 +496,6 @@ function _get_training_and_validation(
 
     (training_frames, training_pdset_segments, validation_pdset_segments)
 end
-
 
 function _max_count_of_unique_value(arr::AbstractArray)
     dict = Dict{Any,Int}()

@@ -292,11 +292,25 @@ function calc_tracemetrics(
             end
         end
 
-        update!(speed, get(SPEED, basics, carind_active, validfind))
-        update!(headway, get(D_X_FRONT, basics, carind_active, validfind))
-        update!(timegap, get(TIMEGAP_X_FRONT, basics, carind_active, validfind))
+        update!(speed, Features._get(SPEED, basics, carind_active, validfind))
+        (best_carind, d_x_front, d_y_front) = Features._get_carind_front_and_dist(basics, carind_active, validfind)
+        update!(headway, d_x_front)
 
-        offset = get(pdset, "d_cl", carind_active, validfind)
+        if !isinf(d_x_front)
+            timegap_x_front = Features.THRESHOLD_TIMEGAP
+        else
+            v  = get(basics.pdset, :velFx, carind_active, validfind) # our current velocity
+
+            if v <= 0.0
+                return Features.THRESHOLD_TIMEGAP
+            end
+
+            timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
+        end
+        update!(timegap, timegap_x_front)
+            
+
+        offset = get(pdset, :d_cl, carind_active, validfind)
         update!(centerline_offset, offset)
         is_on_road = abs(offset) < 2.0 # NOTE(tim): there should be a call for this in StreetNetwork
 
@@ -306,15 +320,15 @@ function calc_tracemetrics(
         end
 
         # check for collision
-        posGx = get(pdset, "posGx", carind_active, validfind)
-        posGy = get(pdset, "posGy", carind_active, validfind)
+        posGx = get(pdset, :posGx, carind_active, validfind)
+        posGy = get(pdset, :posGy, carind_active, validfind)
 
         max_carind = get_maxcarind(pdset, validfind)
         for carind in -1 : max_carind
             if carind != carind_active
 
-                posGx_target = get(pdset, "posGx", carind, validfind)
-                posGy_target = get(pdset, "posGy", carind, validfind)
+                posGx_target = get(pdset, :posGx, carind, validfind)
+                posGy_target = get(pdset, :posGy, carind, validfind)
 
                 Δx = posGx - posGx_target
                 Δy = posGx - posGy_target
@@ -331,8 +345,8 @@ function calc_tracemetrics(
                     if carind2 != carind_active &&
                        carind2 != carind
 
-                        Δx = posGx_target - get(pdset, "posGx", carind2, validfind)
-                        Δy = posGy_target - get(pdset, "posGy", carind2, validfind)
+                        Δx = posGx_target - get(pdset, :posGx, carind2, validfind)
+                        Δy = posGy_target - get(pdset, :posGy, carind2, validfind)
             
                         # TODO(tim): these attributes should be in PdSet
                         # TODO(tim): we should be using a better method for collision checking
@@ -389,7 +403,7 @@ function calc_tracemetrics(
     validfind_of_first_offroad = -1
     n_frames_offroad = 0
 
-    cur_lanetag = get(pdset_simulation, "lanetag", carid2ind(pdset_simulation, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
+    cur_lanetag = get(pdset_simulation, :lanetag, carid2ind(pdset_simulation, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
     cur_lane = get_lane(sn, cur_lanetag)
 
     for validfind in seg.validfind_start : seg.validfind_end
@@ -398,7 +412,7 @@ function calc_tracemetrics(
         carind_active = carid2ind(pdset_simulation, seg.carid, validfind)
         
         if validfind > seg.validfind_start
-            fut_lanetag = get(pdset_simulation, "lanetag", carind_active, validfind)::LaneTag
+            fut_lanetag = get(pdset_simulation, :lanetag, carind_active, validfind)::LaneTag
             if fut_lanetag != cur_lanetag
                 if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
                     lane_change_occurred = true
@@ -414,15 +428,29 @@ function calc_tracemetrics(
             end
         end
 
-        update!(speed, get(SPEED, basics, carind_active, validfind))
-        update!(headway, get(D_X_FRONT, basics, carind_active, validfind))
-        update!(timegap, get(TIMEGAP_X_FRONT, basics, carind_active, validfind))
+        update!(speed, Features._get(SPEED, basics, carind_active, validfind))
+        (best_carind, d_x_front, d_y_front) = Features._get_carind_front_and_dist(basics, carind_active, validfind)
+        update!(headway, d_x_front)
+
+        if !isinf(d_x_front)
+            timegap_x_front = Features.THRESHOLD_TIMEGAP
+        else
+            v  = get(basics.pdset, :velFx, carind_active, validfind) # our current velocity
+
+            if v <= 0.0
+                return Features.THRESHOLD_TIMEGAP
+            end
+
+            timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
+        end
+        update!(timegap, timegap_x_front)
 
         if validfind != seg.validfind_end
             total_action_loglikelihood += calc_action_loglikelihood(basics, behavior, carind_active, validfind)
+            @assert(!isinf(total_action_loglikelihood))
         end
 
-        offset = get(pdset_simulation, "d_cl", carind_active, validfind)
+        offset = get(pdset_simulation, :d_cl, carind_active, validfind)
         update!(centerline_offset, offset)
         is_on_road = abs(offset) < 2.0 # NOTE(tim): there should be a call for this in StreetNetwork
 
@@ -432,15 +460,15 @@ function calc_tracemetrics(
         end
 
         # check for collision
-        posGx = get(pdset_simulation, "posGx", carind_active, validfind)
-        posGy = get(pdset_simulation, "posGy", carind_active, validfind)
+        posGx = get(pdset_simulation, :posGx, carind_active, validfind)
+        posGy = get(pdset_simulation, :posGy, carind_active, validfind)
 
         max_carind = get_maxcarind(pdset_simulation, validfind)
         for carind in -1 : max_carind
             if carind != carind_active
 
-                posGx_target = get(pdset_simulation, "posGx", carind, validfind)
-                posGy_target = get(pdset_simulation, "posGy", carind, validfind)
+                posGx_target = get(pdset_simulation, :posGx, carind, validfind)
+                posGy_target = get(pdset_simulation, :posGy, carind, validfind)
 
                 Δx = posGx - posGx_target
                 Δy = posGx - posGy_target
@@ -457,8 +485,8 @@ function calc_tracemetrics(
                     if carind2 != carind_active &&
                        carind2 != carind
 
-                        Δx = posGx_target - get(pdset_simulation, "posGx", carind2, validfind)
-                        Δy = posGy_target - get(pdset_simulation, "posGy", carind2, validfind)
+                        Δx = posGx_target - get(pdset_simulation, :posGx, carind2, validfind)
+                        Δy = posGy_target - get(pdset_simulation, :posGy, carind2, validfind)
             
                         # TODO(tim): these attributes should be in PdSet
                         # TODO(tim): we should be using a better method for collision checking
@@ -504,20 +532,12 @@ function calc_tracemetrics(
     match_fold::Bool
     )
     
-    fold_size = 0
-    for fold_assignment in pdsetseg_fold_assignment
-        if (match_fold && fold_assignment == fold) ||
-           (!match_fold && fold_assignment != fold)
-
-            fold_size += 1
-        end
-    end
+    fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
 
     metrics = Array(Dict{Symbol, Any}, fold_size)
     i = 0
     for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
-        if (match_fold && fold_assignment == fold) ||
-           (!match_fold && fold_assignment != fold)
+        if is_in_fold(fold, fold_assignment, match_fold)
 
             i += 1
             metrics[i] = calc_tracemetrics(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg, simparams)
@@ -525,41 +545,35 @@ function calc_tracemetrics(
     end
     metrics
 end
-function calc_tracemetrics(
-    behavior::AbstractVehicleBehavior,
-    pdsets_original::Vector{PrimaryDataset},
-    pdsets_simulation::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-    pdset_segments::Vector{PdsetSegment},
-    simparams::SimParams,
-    fold::Integer,
-    pdsetseg_fold_assignment::Vector{Int},
-    match_fold::Bool
-    )
+
+# NOTE(tim): deprecated due to pdsets not being reverted back to their original state between sims
+# function calc_tracemetrics(
+#     behavior::AbstractVehicleBehavior,
+#     pdsets_original::Vector{PrimaryDataset},
+#     pdsets_simulation::Vector{PrimaryDataset},
+#     streetnets::Vector{StreetNetwork},
+#     pdset_segments::Vector{PdsetSegment},
+#     simparams::SimParams,
+#     fold::Integer,
+#     pdsetseg_fold_assignment::Vector{Int},
+#     match_fold::Bool
+#     )
     
-    fold_size = 0
-    for fold_assignment in pdsetseg_fold_assignment
-        if (match_fold && fold_assignment == fold) ||
-           (!match_fold && fold_assignment != fold)
+#     fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
 
-            fold_size += 1
-        end
-    end
+#     metrics = Array(Dict{Symbol, Any}, fold_size)
+#     i = 0
+#     for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+#         if is_in_fold(fold, fold_assignment, match_fold)
 
-    metrics = Array(Dict{Symbol, Any}, fold_size)
-    i = 0
-    for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
-        if (match_fold && fold_assignment == fold) ||
-           (!match_fold && fold_assignment != fold)
-
-            i += 1
-            metrics[i] = calc_tracemetrics(behavior, pdsets_original[seg.pdset_id], 
-                                           pdsets_simulation[seg.pdset_id],
-                                           streetnets[seg.streetnet_id], seg, simparams)
-        end
-    end
-    metrics
-end
+#             i += 1
+#             metrics[i] = calc_tracemetrics(behavior, pdsets_original[seg.pdset_id], 
+#                                            pdsets_simulation[seg.pdset_id],
+#                                            streetnets[seg.streetnet_id], seg, simparams)
+#         end
+#     end
+#     metrics
+# end
 
 function calc_aggregate_metric(sym::Symbol, ::Type{Int}, metricset::Vector{Dict{Symbol, Any}})
 
@@ -646,16 +660,21 @@ function calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
     aggmetrics[:mean_lane_offset_kldiv] = NaN
     aggmetrics[:mean_speed_ego_kldiv] = NaN
     aggmetrics[:mean_timegap_kldiv] = NaN
+    aggmetrics[:histobin_kldiv] = NaN
 
     aggmetrics
 end
-function calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}}, aggmetrics_original::Dict{Symbol, Any})
+function calc_aggregate_metrics(
+    metricset::Vector{Dict{Symbol, Any}},
+    aggmetrics_original::Dict{Symbol, Any},
+    histobin_kldiv::Float64)
 
     aggmetrics = _calc_aggregate_metrics(metricset)
 
     aggmetrics[:mean_lane_offset_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_activecar)
     aggmetrics[:mean_speed_ego_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_activecar)
     aggmetrics[:mean_timegap_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)
+    aggmetrics[:histobin_kldiv] = histobin_kldiv
 
     aggmetrics
 end
@@ -754,30 +773,32 @@ function create_metrics_set(
 
     MetricsSet(histobin, 0.0, tracemetrics, aggmetrics)
 end
-function create_metrics_set(
-    behavior::AbstractVehicleBehavior,
-    original_metrics_set::MetricsSet,
-    pdsets_original::Vector{PrimaryDataset},
-    pdsets_sim::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-    pdset_segments::Vector{PdsetSegment},
-    simparams::SimParams,
-    histobin_params::ParamsHistobin,
-    histobin_original_with_prior::Matrix{Float64},
-    fold::Integer,
-    pdsetseg_fold_assignment::Vector{Int},
-    match_fold::Bool
-    )
 
-    histobin = calc_histobin(pdsets_sim, streetnets, pdset_segments, histobin_params,
-                             fold, pdsetseg_fold_assignment, match_fold)
-    histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1 )
-    tracemetrics = calc_tracemetrics(behavior, pdsets_original, pdsets_sim, streetnets, pdset_segments, simparams,
-                                     fold, pdsetseg_fold_assignment, match_fold)
-    aggmetrics = calc_aggregate_metrics(tracemetrics, original_metrics_set.aggmetrics)
+# NOTE(tim): deprecated due to pdsets not being reverted back to their original state between sims
+# function create_metrics_set(
+#     behavior::AbstractVehicleBehavior,
+#     original_metrics_set::MetricsSet,
+#     pdsets_original::Vector{PrimaryDataset},
+#     pdsets_sim::Vector{PrimaryDataset},
+#     streetnets::Vector{StreetNetwork},
+#     pdset_segments::Vector{PdsetSegment},
+#     simparams::SimParams,
+#     histobin_params::ParamsHistobin,
+#     histobin_original_with_prior::Matrix{Float64},
+#     fold::Integer,
+#     pdsetseg_fold_assignment::Vector{Int},
+#     match_fold::Bool
+#     )
 
-    MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
-end
+#     histobin = calc_histobin(pdsets_sim, streetnets, pdset_segments, histobin_params,
+#                              fold, pdsetseg_fold_assignment, match_fold)
+#     histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
+#     tracemetrics = calc_tracemetrics(behavior, pdsets_original, pdsets_sim, streetnets, pdset_segments, simparams,
+#                                      fold, pdsetseg_fold_assignment, match_fold)
+#     aggmetrics = calc_aggregate_metrics(tracemetrics, original_metrics_set.aggmetrics, histobin_kldiv)
+
+#     MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
+# end
 
 function create_metrics_set(
     simlogs_original::Vector{Matrix{Float64}},

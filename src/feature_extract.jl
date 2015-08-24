@@ -127,14 +127,14 @@ function _get(::Features.Feature_TurnRate, basics::FeatureExtractBasics, carind:
 	Features.deltaangle(curr, past) / basics.sec_per_frame
 end
 
-function _get(::Features.Feature_CL, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	posFy = get(POSFY, basics, carind, frameind)
-	# generate the lane centerlines
-	nlanes = basics.road.nlanes
-	lanewidth = basics.road.lanewidth
-	lane_centers = [0:(nlanes-1)].*lanewidth # [0,lw,2lw,...]
-	float64(indmin(abs(lane_centers .- posFy)))
-end
+# function _get(::Features.Feature_CL, basics::FeatureExtractBasics, carind::Int, frameind::Int)
+# 	posFy = get(POSFY, basics, carind, frameind)
+# 	# generate the lane centerlines
+# 	nlanes = basics.road.nlanes
+# 	lanewidth = basics.road.lanewidth
+# 	lane_centers = [0:(nlanes-1)].*lanewidth # [0,lw,2lw,...]
+# 	float64(indmin(abs(lane_centers .- posFy)))
+# end
 function _get(::Features.Feature_D_CL, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	# y - cl_y
 	lane = get(CL, basics, carind, frameind)

@@ -4,6 +4,7 @@ export
     Vehicle,
     VehicleTrace,
     PdsetSegment,
+    ModelTargets,
 
     INPUT_EMSTATS_FOLDER,
     TRACE_DIR,
@@ -126,6 +127,11 @@ type Vehicle
     end
 end
 
+type ModelTargets
+    lat :: AbstractFeature
+    lon :: AbstractFeature
+end
+
 immutable VehicleTrace
 	# records the trace of a vehicle during a simulation, 
 	# including the history before the simulation begins
@@ -151,7 +157,13 @@ immutable PdsetSegment
     validfind_start :: Int # the starting validfind (does not count any sort of history)
     validfind_end   :: Int # the ending validfind
 end
-
+function ==(a::PdsetSegment, b::PdsetSegment)
+    a.pdset_id == b.pdset_id &&
+    a.streetnet_id == b.streetnet_id &&
+    a.carid == b.carid &&
+    a.validfind_start == b.validfind_start &&
+    a.validfind_end == b.validfind_end
+end
 function Base.show(io::IO, veh::Vehicle)
     println("PdsetSegment")
     @printf("\tpdset_id: %d\n", veh.pos)
@@ -257,6 +269,9 @@ function fill_log_with_trace!(
 
     simlog
 end
+
+
+
 # function fill_log_with_trace_complete!(simlog::Matrix{Float64}, trace::VehicleTrace, carind::Int, startframe::Int)
 # 	# perform a direct copy of the trace
 # 	@assert(startframe == trace.history)

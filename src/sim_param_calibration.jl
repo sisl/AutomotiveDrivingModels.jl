@@ -3,7 +3,11 @@ export
 
         calc_trace_deviation,
         calc_traceset_deviations,
+        
+        allocate_empty_histobin,
+        update_histobin!,
         calc_histobin,
+
         KL_divergence_categorical,
         KL_divergence_dirichlet,
         KL_divergence_univariate_gaussian,
@@ -24,22 +28,42 @@ end
 function calc_trace_deviation(pdset::PrimaryDataset, sn::StreetNetwork, seg::PdsetSegment)
     
     initial_carind = carid2ind(pdset, seg.carid, seg.validfind_start)
-    velFx = get(pdset, "velFx", initial_carind, seg.validfind_start)
-    velFy = get(pdset, "velFy", initial_carind, seg.validfind_start)
+    velFx = get(pdset, :velFx, initial_carind, seg.validfind_start)
+    velFy = get(pdset, :velFy, initial_carind, seg.validfind_start)
     initial_speed = hypot(velFx, velFy)
 
     final_carind = carid2ind(pdset, seg.carid, seg.validfind_end)
-    posGx_A = get(pdset, "posGx", initial_carind, seg.validfind_start)
-    posGy_A = get(pdset, "posGy", initial_carind, seg.validfind_start)
-    posGx_B = get(pdset, "posGx", final_carind, seg.validfind_end)
-    posGy_B = get(pdset, "posGy", final_carind, seg.validfind_end)
+    posGx_A = get(pdset, :posGx, initial_carind, seg.validfind_start)
+    posGy_A = get(pdset, :posGy, initial_carind, seg.validfind_start)
+    posGx_B = get(pdset, :posGx, final_carind, seg.validfind_end)
+    posGy_B = get(pdset, :posGy, final_carind, seg.validfind_end)
 
-    Δx, Δy = frenet_distance_between_points(sn, posGx_A, posGy_A, posGx_B, posGy_B)
-    @assert(!isnan(Δx))
+    Δs, Δd = frenet_distance_between_points(sn, posGx_A, posGy_A, posGx_B, posGy_B)
+    if isnan(Δs)
+        warn("NaN Δs: ", (Δs, Δd))
+        println((posGx_A, posGy_A, posGx_B, posGy_B))
+        println(project_point_to_streetmap(posGx_A, posGy_A, sn))
+    end
+    @assert(!isnan(Δd))
+    @assert(!isnan(Δs))
+    @assert(!isnan(initial_speed))
 
-    Δt = Δx / initial_speed
+    Δt = Δs / initial_speed
+
+    if isnan(Δt)
+        println("initial_carind: ", initial_carind)
+        println("velFx: ", velFx)
+        println("velFy: ", velFy)
+        println("seg: ", seg)
+        println("Δs: ", Δs)
+        println("Δd: ", Δd)
+        println("initial_speed: ", initial_speed)
+        println(project_point_to_streetmap(posGx_A, posGy_A, sn))
+        println(project_point_to_streetmap(posGx_B, posGy_B, sn))
+    end
+    @assert(!isnan(Δt))
     
-    (Δt, Δy)
+    (Δt, Δd)
 end
 function calc_trace_deviation(simlog::Matrix{Float64}, history::Int)
     
@@ -51,10 +75,7 @@ function calc_trace_deviation(simlog::Matrix{Float64}, history::Int)
     
     (Δt, Δy)
 end
-function calc_trace_deviation(trace::VehicleTrace)
-
-    calc_trace_deviation(trace.log, trace.history)
-end
+calc_trace_deviation(trace::VehicleTrace) = calc_trace_deviation(trace.log, trace.history)
 
 function calc_traceset_deviations(tracesets::Vector{Vector{VehicleTrace}})
 
@@ -90,6 +111,28 @@ function calc_traceset_deviations(simlogs::Vector{Matrix{Float64}}, history::Int
     (Δt_arr, Δy_arr)
 end
 
+function allocate_empty_histobin(histobin_params::ParamsHistobin)
+    n_bins_x = nlabels(histobin_params.discx)
+    n_bins_y = nlabels(histobin_params.discy)
+    zeros(Float64, n_bins_x, n_bins_y)
+end
+function update_histobin!(
+    histobin::Matrix{Float64},
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    seg::PdsetSegment,
+    histobin_params::ParamsHistobin,
+    )
+
+    Δt, Δy = calc_trace_deviation(pdset, sn, seg)
+
+    bin_x = encode(histobin_params.discx, Δt)
+    bin_y = encode(histobin_params.discy, Δy)
+
+    histobin[bin_x, bin_y] += 1.0
+
+    histobin
+end
 function calc_histobin(
     pdsets::Vector{PrimaryDataset},
     streetnets::Vector{StreetNetwork},
@@ -100,33 +143,25 @@ function calc_histobin(
     match_fold::Bool
     )
 
-    n_bins_x = nlabels(histobin_params.discx)
-    n_bins_y = nlabels(histobin_params.discy)
-
-    histobin = zeros(Float64, n_bins_x, n_bins_y)
+    histobin = allocate_empty_histobin(histobin_params)
 
     for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
 
-        if (match_fold && fold_assignment == fold) ||
-           (!match_fold && fold_assignment != fold)
+        if is_in_fold(fold, fold_assignment, match_fold)
 
-            Δt, Δy = calc_trace_deviation(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg)
-
-            bin_x = encode(histobin_params.discx, Δt)
-            bin_y = encode(histobin_params.discy, Δy)
-
-            histobin[bin_x, bin_y] += 1.0
+            update_histobin!(histobin, 
+                             pdsets[seg.pdset_id], 
+                             streetnets[seg.streetnet_id],
+                             seg, histobin_params)
         end
     end
 
     histobin
 end
+
 function calc_histobin(Δt_arr::Vector{Float64}, Δy_arr::Vector{Float64}, histobin_params::ParamsHistobin)
 
-    n_bins_x = nlabels(histobin_params.discx)
-    n_bins_y = nlabels(histobin_params.discy)
-
-    histobin = zeros(Float64, n_bins_x, n_bins_y)
+    histobin = allocate_empty_histobin(histobin_params)
 
     for (Δt, Δy) in zip(Δt_arr, Δy_arr)
 
@@ -140,10 +175,7 @@ function calc_histobin(Δt_arr::Vector{Float64}, Δy_arr::Vector{Float64}, histo
 end
 function calc_histobin(tracesets::Vector{Vector{VehicleTrace}}, histobin_params::ParamsHistobin)
 
-    n_bins_x = nlabels(histobin_params.discx)
-    n_bins_y = nlabels(histobin_params.discy)
-
-    histobin = zeros(Float64, n_bins_x, n_bins_y)
+    histobin = allocate_empty_histobin(histobin_params)
 
     for (i,traceset) in enumerate(tracesets)
 
@@ -160,10 +192,7 @@ function calc_histobin(tracesets::Vector{Vector{VehicleTrace}}, histobin_params:
 end
 function calc_histobin(simlogs::Vector{Matrix{Float64}}, histobin_params::ParamsHistobin, history::Int)
 
-    n_bins_x = nlabels(histobin_params.discx)
-    n_bins_y = nlabels(histobin_params.discy)
-
-    histobin = zeros(Float64, n_bins_x, n_bins_y)
+    histobin = allocate_empty_histobin(histobin_params)
 
     for (i,simlog) in enumerate(simlogs)
 
