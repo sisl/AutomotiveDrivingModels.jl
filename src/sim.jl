@@ -33,6 +33,24 @@ const DEFAULT_SIM_PARAMS = SimParams()
 
 function simulate!(
     basics          :: FeatureExtractBasicsPdSet,
+    behavior        :: AbstractVehicleBehavior,
+    carid           :: Int,
+    validfind_start :: Int,
+    validfind_end   :: Int;
+    pdset_frames_per_sim_frame::Int=5,
+    n_euler_steps   :: Int = 2
+    )
+
+    for validfind in validfind_start : pdset_frames_per_sim_frame : validfind_end
+        action_lat, action_lon = select_action(basics, behavior, carid, validfind)
+        propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon, 
+                   pdset_frames_per_sim_frame, n_euler_steps)
+    end
+
+    basics
+end
+function simulate!(
+    basics          :: FeatureExtractBasicsPdSet,
     behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;

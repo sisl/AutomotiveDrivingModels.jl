@@ -49,6 +49,55 @@ end
 
 function create_metrics_sets{B<:AbstractVehicleBehavior}(
     model_behaviors::Vector{B},
+    tracesets::Vector{Vector{VehicleTrace}},
+    evalparams::EvaluationParams;
+    nframes_total::Int=get_nframes(tracesets[1][1]),
+    )
+
+    #=
+    Takes trained behavior models and computes MetricsSet for each
+    given the tracesets
+    =#
+
+    # pull out the parameters
+    sim_history_in_frames = evalparams.sim_history_in_frames
+    road = evalparams.road
+    simparams = evalparams.simparams
+    histobin_params = evalparams.histobin_params
+
+    # compute original simlogs from tracesets
+    simlogs_original = allocate_simlogs_for_all_traces(tracesets, nframes_total)
+    for (simlog,traceset) in zip(simlogs_original, tracesets)
+        for (carind, trace) in enumerate(traceset)
+            fill_log_with_trace!(simlog, 1, trace, 1, get_nframes(trace), carind)
+        end
+    end
+
+    # compute original metrics
+    metrics_set_orig = create_metrics_set(simlogs_original, road, sim_history_in_frames, simparams, histobin_params)
+    
+    # create default behavior vector
+    behaviors = Array(AbstractVehicleBehavior, get_max_vehicle_count(tracesets))
+    fill!(behaviors, VEHICLE_BEHAVIOR_NONE)
+
+    # simulate each behavior
+    behavior_simlogs = Array(Vector{Matrix{Float64}}, length(model_behaviors))
+    for (i, model_behavior) in enumerate(model_behaviors)
+        behaviors[1] = model_behavior
+        behavior_simlogs[i] = simulate!(deepcopy(simlogs_original), behaviors, road, sim_history_in_frames, simparams)
+    end
+
+    # compute the behavior metrics
+    behavior_metrics_sets = create_metrics_sets(model_behaviors, metrics_set_orig, simlogs_original, behavior_simlogs, 
+                                                road, sim_history_in_frames, simparams, histobin_params)
+
+    retval = Array(MetricsSet, 1 + length(behavior_metrics_sets))
+    retval[1] = metrics_set_orig
+    retval[2:end] = behavior_metrics_sets
+    retval::Vector{MetricsSet}
+end
+function create_metrics_sets{B<:AbstractVehicleBehavior}(
+    model_behaviors::Vector{B},
     pdsets_original::Vector{PrimaryDataset},
     pdsets_for_simulation::Vector{PrimaryDataset},
     streetnets::Vector{StreetNetwork},
@@ -72,8 +121,8 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     histobin_params = evalparams.histobin_params
 
     # compute original metrics
-    metrics_set_orig = create_metrics_set(pdsets_original, streetnets, pdset_segments, simparams, histobin_params,
-                                          fold, pdsetseg_fold_assignment, match_fold)
+    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams, histobin_params,
+                                                          fold, pdsetseg_fold_assignment, match_fold)
     histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
     retval[1] = metrics_set_orig
 
@@ -122,54 +171,75 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
 
     retval
 end
-function create_metrics_sets{B<:AbstractVehicleBehavior}(
+function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
     model_behaviors::Vector{B},
-    tracesets::Vector{Vector{VehicleTrace}},
-    evalparams::EvaluationParams;
-    nframes_total::Int=get_nframes(tracesets[1][1]),
+    pdsets_original::Vector{PrimaryDataset},
+    pdsets_for_simulation::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+    evalparams::EvaluationParams,
+    fold::Integer,
+    pdsetseg_fold_assignment::Vector{Int},
+    match_fold::Bool, # if true, then we want to only include folds that match target (validation)
+                      # if false, then we want to only include folds that do not (training)
     )
 
     #=
     Takes trained behavior models and computes MetricsSet for each
-    given the tracesets
     =#
 
+
+    retval = Array(MetricsSet, 1+ length(model_behaviors))
+
     # pull out the parameters
-    sim_history_in_frames = evalparams.sim_history_in_frames
-    road = evalparams.road
     simparams = evalparams.simparams
     histobin_params = evalparams.histobin_params
 
-    # compute original simlogs from tracesets
-    simlogs_original = allocate_simlogs_for_all_traces(tracesets, nframes_total)
-    for (simlog,traceset) in zip(simlogs_original, tracesets)
-        for (carind, trace) in enumerate(traceset)
-            fill_log_with_trace!(simlog, 1, trace, 1, get_nframes(trace), carind)
-        end
-    end
-
     # compute original metrics
-    metrics_set_orig = create_metrics_set(simlogs_original, road, sim_history_in_frames, simparams, histobin_params)
-    
-    # create default behavior vector
-    behaviors = Array(AbstractVehicleBehavior, get_max_vehicle_count(tracesets))
-    fill!(behaviors, VEHICLE_BEHAVIOR_NONE)
+    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams, histobin_params,
+                                                          fold, pdsetseg_fold_assignment, match_fold)
+    histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
+    retval[1] = metrics_set_orig
 
-    # simulate each behavior
-    behavior_simlogs = Array(Vector{Matrix{Float64}}, length(model_behaviors))
-    for (i, model_behavior) in enumerate(model_behaviors)
-        behaviors[1] = model_behavior
-        behavior_simlogs[i] = simulate!(deepcopy(simlogs_original), behaviors, road, sim_history_in_frames, simparams)
+    # simulate each behavior and compute the behavior metrics
+    basics = FeatureExtractBasicsPdSet(pdsets_for_simulation[1], streetnets[1])
+    behavior_pairs = Array((AbstractVehicleBehavior,Int), 1)
+    fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
+    for (i, behavior) in enumerate(model_behaviors)
+
+        histobin = allocate_empty_histobin(histobin_params)
+        tracemetrics = Array(Dict{Symbol, Any}, fold_size)
+
+        fold_entry_count = 0
+        for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+
+            if is_in_fold(fold, fold_assignment, match_fold)
+
+                fold_entry_count += 1
+
+                pdset_orig = pdsets_original[seg.pdset_id]
+                basics.pdset = pdsets_for_simulation[seg.pdset_id]
+                basics.sn = streetnets[seg.streetnet_id]
+                basics.runid += 1
+                behavior_pairs[1] = (behavior, seg.carid)
+                simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+
+                # update the MetricsSet calculation
+                update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
+                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, simparams, basics=basics)
+
+                # now override the pdset with the original values once more
+                copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
+            end
+        end
+
+        histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
+        aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig.aggmetrics, histobin_kldiv)
+
+        retval[i+1] = MetricsSet(histobin, histobin_kldiv, Dict{Symbol, Any}[], aggmetrics)
     end
 
-    # compute the behavior metrics
-    behavior_metrics_sets = create_metrics_sets(model_behaviors, metrics_set_orig, simlogs_original, behavior_simlogs, 
-                                                road, sim_history_in_frames, simparams, histobin_params)
-
-    retval = Array(MetricsSet, 1 + length(behavior_metrics_sets))
-    retval[1] = metrics_set_orig
-    retval[2:end] = behavior_metrics_sets
-    retval::Vector{MetricsSet}
+    retval
 end
 
 function _cross_validate(
@@ -198,15 +268,9 @@ function _cross_validate(
         aggregate_metric_sets_validation[i] = Array(Dict{Symbol,Any}, nfolds)
     end
 
-    max_dataframe_training_frames = _max_count_of_unique_value(frame_assignment)
+    max_dataframe_training_frames = length(frame_assignment) - _max_count_of_unique_value(frame_assignment)
     dataframe_for_training = similar(dataframe, max_dataframe_training_frames)
     pdsets_for_simulation = deepcopy(pdsets) # these will be overwritten for the simulation
-
-    # ------------------
-
-    # metrics_sets_training = create_metrics_sets(train(behaviorset, dataframe), pdsets, pdsets_for_simulation,
-    #                                                       streetnets, pdset_segments, evalparams,
-    #                                                       1, ones(Int, length(pdsetseg_fold_assignment)), false)
 
     # ------------------
 
@@ -220,7 +284,7 @@ function _cross_validate(
         # copy the training frames into dataframe_for_training
         framecount = 0
         for (i,assignment) in enumerate(frame_assignment)
-            if assignment == fold
+            if is_in_fold(fold, assignment, false)
                 framecount += 1
                 for j = 1 : size(dataframe, 2)
                     dataframe_for_training[framecount, j] = dataframe[i, j]
@@ -392,6 +456,91 @@ function cross_validate(
 
     CarEM._cross_validate(behaviorset, pdsets, streetnets, pdset_segments, dataframe, frame_assignment, pdsetseg_fold_assignment,
                     evalparams, verbosity=verbosity, incremental_model_save_file=incremental_model_save_file)
+end
+
+function _cross_validate_fold(
+    fold::Integer,
+    behaviorset::BehaviorSet,
+    pdset_filepaths::Vector{String},
+    streetnet_filepaths::Vector{String},
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    pdsetseg_fold_assignment::Vector{Int},
+    evalparams::EvaluationParams;
+    incremental_model_save_file::Union(Nothing, String)=nothing
+    )
+
+    pdsets = Array(PrimaryDataset, length(pdset_filepaths))
+    for (i,pdset_filepath) in enumerate(pdset_filepaths)
+        pdsets[i] = load(pdset_filepath, "pdset")
+    end
+
+    streetnets = Array(StreetNetwork, length(streetnet_filepaths))
+    for (i,streetnet_filepath) in enumerate(streetnet_filepaths)
+        streetnets[i] = load(streetnet_filepath, "streetmap")
+    end
+
+    model_behaviors = train(behaviorset, dataframe[frame_assignment != fold,:])
+    
+    metrics_sets_validation = create_metrics_sets_no_tracemetrics(model_behaviors, pdsets, pdsets_for_simulation,
+                                                                  streetnets, pdset_segments, evalparams,
+                                                                  fold, pdsetseg_fold_assignment, true)
+    aggregate_metric_sets_validation = Array(Dict{Symbol,Any}, nbehaviors+1)
+    for (i,metrics_set) in enumerate(metrics_sets_validation)
+        aggregate_metric_sets_validation[i] = metrics_set.aggmetrics
+    end
+
+    if isa(incremental_model_save_file, String)
+
+        metrics_sets_training = create_metrics_sets_no_tracemetrics(model_behaviors, pdsets, pdsets_for_simulation,
+                                                                    streetnets, pdset_segments, evalparams,
+                                                                    fold, pdsetseg_fold_assignment, false)
+        aggregate_metric_sets_training = Array(Dict{Symbol,Any}, nbehaviors+1)
+        for (i,metrics_set) in enumerate(metrics_sets_training)
+            aggregate_metric_sets_training[i] = metrics_set.aggmetrics
+        end
+
+        # NOTE: "dir/file.jld" → "dir/file_<fold>.jld"
+        filename = splitext(incremental_model_save_file)[1] * @sprintf("_%02d.jld", fold)
+        JLD.save(filename,
+            "behaviorset", behaviorset,
+            "models", model_behaviors,
+            "metrics_sets_training", metrics_sets_training,
+            "metrics_sets_validation", metrics_sets_validation)
+    end
+
+    aggregate_metric_sets_validation
+end
+function cross_validate_parallel(
+    behaviorset::BehaviorSet,
+    pdset_filepaths::Vector{String},
+    streetnet_filepaths::Vector{String},
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    pdsetseg_fold_assignment::Vector{Int},
+    evalparams::EvaluationParams;
+    incremental_model_save_file::Union(Nothing, String)=nothing
+    )
+
+    nfolds = maximum(frame_assignment)
+    all_the_aggmetric_sets_validation = pmap(1:nfolds) do fold
+        cross_validate_fold(fold, behaviorset, pdset_filepaths, streetnet_filepaths, pdset_segments,
+                            dataframe, frame_assignment, pdsetseg_fold_assignment, evalparams,
+                            incremental_model_save_file=incremental_model_save_file) 
+    end
+
+    n_cv_metrics = length(all_the_aggmetric_sets_validation[1])
+    cross_validation_metrics = Array(Dict{Symbol,Any}, n_cv_metrics)
+    aggs = Array(MetricsSet, nfolds)
+    for i in 1 : n_cv_metrics
+        for (j,s) in enumerate(all_the_aggmetric_sets_validation[i])
+            aggs[j] = s    
+        end
+        cross_validation_metrics[i] = calc_mean_cross_validation_metrics(aggs)
+    end
+    cross_validation_metrics
 end
 
 function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)

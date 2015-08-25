@@ -3,6 +3,7 @@ export
 
     create_metrics_set,
     create_metrics_sets,
+    create_metrics_set_no_tracemetrics,
 
     calc_rmse_predicted_vs_ground_truth,
     calc_loglikelihood_of_trace,
@@ -772,6 +773,32 @@ function create_metrics_set(
     aggmetrics = calc_aggregate_metrics(tracemetrics)
 
     MetricsSet(histobin, 0.0, tracemetrics, aggmetrics)
+end
+function create_metrics_set_no_tracemetrics(
+    pdsets_original::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+    simparams::SimParams,
+    histobin_params::ParamsHistobin,
+    fold::Integer,
+    pdsetseg_fold_assignment::Vector{Int},
+    match_fold::Bool
+    )
+
+    #=
+    Computes the MetricsSet for the original data
+
+    Note that this will NOT compute trace log likelihoods or RMSE values
+    as it makes no sense to compare against itself
+    =#
+
+    histobin = calc_histobin(pdsets_original, streetnets, pdset_segments, histobin_params,
+                             fold, pdsetseg_fold_assignment, match_fold)
+    tracemetrics = calc_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams,
+                                     fold, pdsetseg_fold_assignment, match_fold)
+    aggmetrics = calc_aggregate_metrics(tracemetrics)
+
+    MetricsSet(histobin, 0.0, Dict{Symbol, Any}[], aggmetrics)
 end
 
 # NOTE(tim): deprecated due to pdsets not being reverted back to their original state between sims
