@@ -14,6 +14,7 @@ import Base.Meta: quot
 
 using LaTeXStrings
 using DataArrays
+using Vec
 
 using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Curves
@@ -24,11 +25,11 @@ using AutomotiveDrivingModels.StreetNetworks
 
 export 
 	AbstractFeature,
-	ExtractedFeatureCache2,
+	ExtractedFeatureCache,
 	FeatureExtractBasicsPdSet
 
 export YAW, POSFX, POSFY, SPEED, VELFX, VELFY, DELTA_SPEED_LIMIT, TURNRATE, TURNRATE_GLOBAL, ACC, ACCFX, ACCFY, ISEGO
-export D_CL, D_ML, D_MR, SCENEVELFX, D_ONRAMP, D_OFFRAMP
+export D_CL, D_ML, D_MR, SCENEVELFX
 export TIMETOCROSSING_RIGHT, TIMETOCROSSING_LEFT, ESTIMATEDTIMETOLANECROSSING
 export D_MERGE, D_SPLIT, ID
 export A_REQ_STAYINLANE, N_LANE_R, N_LANE_L, HAS_LANE_R, HAS_LANE_L, LANECURVATURE
@@ -75,7 +76,7 @@ export observe
 export description, units, isint, isbool, lowerbound, upperbound, symbol, lsymbol, couldna, get, symbol2feature
 export calc_occupancy_schedule_grid, put_occupancy_schedule_grid_in_meta!
 export allfeatures
-export NA_ALIAS, clearmeta
+export NA_ALIAS
 
 # ----------------------------------
 # constants
@@ -101,27 +102,27 @@ const OCCUPANCY_SCHEDULE_GRID_DIM_D    = 3.7 # [m] lateral dimension per cell in
 abstract AbstractFeature
 
 
-type ExtractedFeatureCache2
+type ExtractedFeatureCache
 
 	# (carid, frameind, feature symbol) -> (value, runid)
 	# where runid is an Int associated with a particular run
 	dict::Dict{(Int, Int, Symbol), (Float64, Int)}
 
-    ExtractedFeatureCache2() = new(Dict{(Int, Int, Symbol), (Float64, Int)}())
+    ExtractedFeatureCache() = new(Dict{(Int, Int, Symbol), (Float64, Int)}())
 end
-Base.setindex!(cache::ExtractedFeatureCache2, val::(Float64, Int), key::(Int, Int, Symbol)) = cache.dict[key] = val
-Base.getindex(cache::ExtractedFeatureCache2, key::(Int, Int, Symbol)) = cache.dict[key]
+Base.setindex!(cache::ExtractedFeatureCache, val::(Float64, Int), key::(Int, Int, Symbol)) = cache.dict[key] = val
+Base.getindex(cache::ExtractedFeatureCache, key::(Int, Int, Symbol)) = cache.dict[key]
 
 type FeatureExtractBasicsPdSet
 	pdset :: PrimaryDataset
 	sn :: StreetNetwork
-	cache :: ExtractedFeatureCache2
+	cache :: ExtractedFeatureCache
 	runid :: Int
 
 	function FeatureExtractBasicsPdSet(
 		pdset::PrimaryDataset,
 		sn::StreetNetwork;
-		cache::ExtractedFeatureCache2=ExtractedFeatureCache2(),
+		cache::ExtractedFeatureCache=ExtractedFeatureCache(),
 		runid::Int=rand(Int)
 		)
 
@@ -137,56 +138,23 @@ Base.getindex(basics::FeatureExtractBasicsPdSet, key::(Int, Int, Symbol)) = basi
 # globals
 sym2ftr = Dict{Symbol,AbstractFeature}()
 
-meta = Dict{Int,Dict{Symbol,Float64}}() # carind -> meta map
-meta_validfind = 0                      # the validfind corresponding to the current meta datascene
-
 # ----------------------------------
 # abstract feature functions
 
 symbol2feature(sym::Symbol)    = sym2ftr[sym]
-description(::AbstractFeature) = "None"
-units(      ::AbstractFeature) = "None"
-isint(      ::AbstractFeature) = error("Not implemented!") # true if the feature takes on only integer values
-isbool(     ::AbstractFeature) = error("Not implemented!") # true if the feature takes on only boolean values (0,1) (will also have isint = true)
-upperbound( ::AbstractFeature) = error("Not implemented!") # max value of the feature
-lowerbound( ::AbstractFeature) = error("Not implemented!") # min value of the feature
-couldna(    ::AbstractFeature) = true                      # whether the given variable could produce the NA alias
-symbol(     ::AbstractFeature) = error("Not implemented!")
-lsymbol(    ::AbstractFeature) = error("Not implemented!")
-get(        ::AbstractFeature, ::PrimaryDataset, carind::Int, validfind::Int) = error("Not implemented!")
+# description(::AbstractFeature) = "None"
+# units(      ::AbstractFeature) = "None"
+# isint(      ::AbstractFeature) = error("Not implemented!") # true if the feature takes on only integer values
+# isbool(     ::AbstractFeature) = error("Not implemented!") # true if the feature takes on only boolean values (0,1) (will also have isint = true)
+# upperbound( ::AbstractFeature) = error("Not implemented!") # max value of the feature
+# lowerbound( ::AbstractFeature) = error("Not implemented!") # min value of the feature
+# couldna(    ::AbstractFeature) = true                      # whether the given variable could produce the NA alias
+# symbol(     ::AbstractFeature) = error("Not implemented!")
+# lsymbol(    ::AbstractFeature) = error("Not implemented!")
+# get(        ::AbstractFeature, ::PrimaryDataset, ::Int, ::Int) = error("Not implemented!")
 
 allfeatures() = collect(values(sym2ftr)) # array of all features
 
-function get(F::AbstractFeature, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	# a wrapper for get() that automatically does the meta[] stuff for you
-	sym = symbol(F)
-	if checkmeta(carind, validfind, sym)
-		return meta[carind][sym]
-	end
-	value = _get(F, pdset, carind, validfind)
-
-	meta[carind][sym] = value
-	@assert(!isa(value, NAtype))
-	value
-end
-# function get(F::AbstractFeature, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-# 	# a wrapper for get() that automatically does the meta[] stuff for you
-# 	sym = symbol(F)
-# 	if checkmeta(carind, validfind, sym)
-# 		return meta[carind][sym]
-# 	end
-# 	value = _get(F, pdset, sn, carind, validfind)
-
-
-# 	# ERROR(tim)
-# 	try
-# 		meta[carind][sym] = value
-# 	catch
-# 		error("failed to get: ", sym, "  carind: ", carind, "  validfind: ", validfind, "  value: ", value)
-# 	end
-
-# 	value::Float64
-# end
 function get(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	cache = basics.cache
 
@@ -201,8 +169,6 @@ function get(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 	value
 end
-# _get(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) =
-# 	_get(F, basics.pdset, basics.sn, carind, validfind)
 
 # ----------------------------------
 
@@ -269,33 +235,15 @@ end
 # inherent features
 
 create_feature_basics("Yaw", "rad", false, false, Inf, -Inf, false, :yaw, L"\psi", "angle relative to the closest lane")
-get(::Feature_Yaw, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :posFyaw, carind, validfind)::Float64
-get(::Feature_Yaw, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :posFyaw, carind, validfind)::Float64
 get(::Feature_Yaw, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :posFyaw, carind, validfind)::Float64
 
 create_feature_basics("PosFx", "m", false, false, Inf, -Inf, false, :posFx, L"p^F_x", "x position in the frenet frame")
-get(::Feature_PosFx, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :posFx, carind, validfind)::Float64
-get(::Feature_PosFx, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :posFx, carind, validfind)::Float64
 get(::Feature_PosFx, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :posFx, carind, validfind)::Float64
 
 create_feature_basics("PosFy", "m", false, false, Inf, -Inf, false, :posFy, L"p^F_y", "y position in the frenet frame")
-get(::Feature_PosFy, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :posFy, carind, validfind)::Float64
-get(::Feature_PosFy, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :posFy, carind, validfind)::Float64
 get(::Feature_PosFy, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :posFy, carind, validfind)::Float64
 
 create_feature_basics("Speed", "m/s", false, false, Inf, -Inf, false, :speed, L"\|v\|", "speed")
-function _get(::Feature_Speed, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		velx = gete(pdset, :velFx, frameind)::Float64
-		vely = gete(pdset, :velFy, frameind)::Float64
-		return hypot(velx, vely)
-	end
-	velx = getc(pdset, :velFx, carind, validfind)::Float64
-	vely = getc(pdset, :velFy, carind, validfind)::Float64
-	return hypot(velx, vely)
-end
-		 get(::Feature_Speed, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(SPEED, pdset, carind, validfind)
 function _get(::Feature_Speed, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	if carind == CARIND_EGO
 		frameind = validfind2frameind(basics.pdset, validfind)
@@ -309,75 +257,36 @@ function _get(::Feature_Speed, basics::FeatureExtractBasicsPdSet, carind::Int, v
 end
 
 create_feature_basics("Delta_Speed_Limit", "m/s", false, false, Inf, -Inf, false, :delta_speed_limit, L"Δv_{\text{limit}}", "difference between current speed and speed limit")
-function get(::Feature_Delta_Speed_Limit, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	speed = get(SPEED, pdset, carind, validfind)
-	SPEED_LIMIT - speed
-end
-		 get(::Feature_Delta_Speed_Limit, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(DELTA_SPEED_LIMIT, pdset, carind, validfind)
 function get(::Feature_Delta_Speed_Limit, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	speed = get(SPEED, basics.pdset, carind, validfind)
 	SPEED_LIMIT - speed
 end
 
 create_feature_basics("VelFx", "m/s", false, false, Inf, -Inf, false, :velFx, L"v^F_x", "velocity along the lane centerline")
-get(::Feature_VelFx, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :velFx, carind, validfind)::Float64
-get(::Feature_VelFx, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :velFx, carind, validfind)::Float64
 get(::Feature_VelFx, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :velFx, carind, validfind)::Float64
 
 create_feature_basics("VelFy", "m/s", false, false, Inf, -Inf, false, :velFy, L"v^F_y", "velocity perpendicular to the lane centerline")
-get(::Feature_VelFy, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :velFy, carind, validfind)::Float64
-get(::Feature_VelFy, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :velFy, carind, validfind)::Float64
 get(::Feature_VelFy, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :velFy, carind, validfind)::Float64
 
 create_feature_basics_boolean("IsEgo", false, :isego, L"1_{ego}", "whether the car is the ego car")
-get(::Feature_IsEgo, pdset::PrimaryDataset, carind::Int, validfind::Int) = carind == CARIND_EGO
-get(::Feature_IsEgo, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = carind == CARIND_EGO
-get(::Feature_IsEgo, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = carind == CARIND_EGO
+get(::Feature_IsEgo, ::FeatureExtractBasicsPdSet, carind::Int, ::Int) = carind == CARIND_EGO
 
 create_feature_basics( "D_CL", "m", false, false, Inf, -Inf, false, :d_cl, L"d_{cl}", "distance to the closest centerline")
-get(::Feature_D_CL, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :d_cl, carind, validfind)::Float64
-get(::Feature_D_CL, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :d_cl, carind, validfind)::Float64
 get(::Feature_D_CL, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :d_cl, carind, validfind)::Float64
 
 create_feature_basics( "D_ML", "m", false, false, Inf, 0.0, true, :d_ml, L"d_{ml}", "lateral distance between center of car and the left lane marker")
-function get(::Feature_D_ML, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	d_ml = get(pdset, :d_ml, carind, validfind)
-	isa(d_ml, NAtype) ? NA_ALIAS : d_ml
-end
-function get(::Feature_D_ML, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	d_ml = get(pdset, :d_ml, carind, validfind)
-	isa(d_ml, NAtype) ? NA_ALIAS : d_ml
-end
 function get(::Feature_D_ML, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_ml = get(basics.pdset, :d_ml, carind, validfind)
 	isa(d_ml, NAtype) ? NA_ALIAS : d_ml
 end
 
 create_feature_basics( "D_MR", "m", false, false, Inf, 0.0, true, :d_mr, L"d_{mr}", "lateral distance (strictly positive) between center of car and the right lane marker")
-function get(::Feature_D_MR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	d_mr = get(pdset, :d_mr, carind, validfind)::Float64
-	return isa(d_mr, NAtype) ? NA_ALIAS : d_mr
-end
-function get(::Feature_D_MR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	d_mr = get(pdset, :d_mr, carind, validfind)::Float64
-	return isa(d_mr, NAtype) ? NA_ALIAS : d_mr
-end
 function get(::Feature_D_MR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_mr = get(basics.pdset, :d_mr, carind, validfind)::Float64
 	return isa(d_mr, NAtype) ? NA_ALIAS : d_mr
 end
 
 create_feature_basics( "TimeToCrossing_Right", "s", false, false, Inf, 0.0, true, :ttcr_mr, L"ttcr^{mr}_y", "time to cross the right marking of assigned lane")
-function get(::Feature_TimeToCrossing_Right, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	d_mr = get(D_MR, pdset, carind, validfind)
-	velFy = get(VELFY, pdset, carind, validfind)
-	d_mr > 0.0 && velFy < 0.0 ? min(-d_mr / velFy, THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
-end
-function get(::Feature_TimeToCrossing_Right, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	d_mr = get(D_MR, pdset, carind, validfind)
-	velFy = get(VELFY, pdset, carind, validfind)
-	d_mr > 0.0 && velFy < 0.0 ? min(-d_mr / velFy, THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
-end
 function get(::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_mr = get(D_MR, basics, carind, validfind)
 	velFy = get(VELFY, basics, carind, validfind)
@@ -385,20 +294,6 @@ function get(::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, 
 end
 
 create_feature_basics( "TimeToCrossing_Left", "s", false, false, Inf, 0.0, true, :ttcr_ml, L"ttcr^{ml}_y", "time to cross the left marking of assigned lane")
-function get(::Feature_TimeToCrossing_Left, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	d_ml = get(D_ML, pdset, carind, validfind)
-	velFy = get(VELFY, pdset, carind, validfind)
-	if d_ml > 0.0 && velFy > 0.0
-		min(d_ml / velFy, Features.THRESHOLD_TIME_TO_CROSSING)
-	else 
-		NA_ALIAS
-	end
-end
-function get(::Feature_TimeToCrossing_Left, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	d_ml = get(D_ML, pdset, sn, carind, validfind)
-	velFy = get(VELFY, pdset, sn, carind, validfind)
-	d_ml < 0.0 && velFy > 0.0 ? min(-d_ml / velFy,THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
-end
 function get(::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_ml = get(D_ML, basics, carind, validfind)
 	velFy = get(VELFY, basics, carind, validfind)
@@ -406,14 +301,6 @@ function get(::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, c
 end
 
 create_feature_basics( "EstimatedTimeToLaneCrossing", "s", false, false, Inf, 0.0, true, :est_ttcr, L"ttcr^\text{est}_y", "time to crossing the lane boundary in the direction of travel")
-function get(::Feature_EstimatedTimeToLaneCrossing, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-
-	ttcr_left = get(TIMETOCROSSING_LEFT, pdset, sn, carind, validfind)
-	if !isinf(ttcr_left)
-		return ttcr_left
-	end
-	get(TIMETOCROSSING_RIGHT, pdset, sn, carind, validfind)
-end
 function get(::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	ttcr_left = get(TIMETOCROSSING_LEFT, basics, carind, validfind)
 	if !isinf(ttcr_left)
@@ -423,26 +310,6 @@ function get(::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasics
 end
 
 create_feature_basics( "A_REQ_StayInLane", "m/s2", false, false, Inf, -Inf, true, :a_req_stayinlane, L"a^{req}_y", "acceleration required to stay in the current lane")
-function get(::Feature_A_REQ_StayInLane, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	velFy = get(VELFY, pdset, carind, validfind)
-	d_mr = get(D_MR, pdset, carind, validfind)
-	if d_mr > 0.0
-		return min(0.5velFy*velFy / d_mr, THRESHOLD_A_REQ)
-	end
-	d_ml = get(D_ML, pdset, carind, validfind)
-	d_ml > 0.0 ? -min(0.5velFy*velFy / d_ml, THRESHOLD_A_REQ) : NA_ALIAS
-end
-function get(::Feature_A_REQ_StayInLane, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	velFy = get(VELFY, pdset, sn, carind, validfind)
-
-	if velFy > 0.0
-		d_mr = get(D_MR, pdset, sn, carind, validfind)
-		return d_mr > 0.0 ? min( 0.5velFy*velFy / d_mr, THRESHOLD_A_REQ) : NA_ALIAS
-	else
-		d_ml = get(D_ML, pdset, sn, carind, validfind)
-		return d_ml < 0.0 ? min(-0.5velFy*velFy / d_ml, THRESHOLD_A_REQ) : NA_ALIAS
-	end
-end
 function get(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	velFy = get(VELFY, basics, carind, validfind)
 
@@ -456,39 +323,15 @@ function get(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, cari
 end
 
 create_feature_basics( "N_LANE_L", "-", true, false, 10.0, 0.0, false, :n_lane_left, L"nlane_l", "number of lanes on the left side of this vehicle")
-function get(::Feature_N_LANE_L, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		nll = float64(gete(pdset, :nll, frameind))
-		@assert(0.0 ≤ nll ≤ 6.0)
-		return nll
-	end
-	float64(getc(pdset, "nll", carind, validfind))
-end
-get(::Feature_N_LANE_L, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = get(N_LANE_L, pdset, carind, validfind)
 get(::Feature_N_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(basics.pdset, :nll, carind, validfind))
 
 create_feature_basics( "N_LANE_R", "-", true, false, 10.0, 0.0, false, :n_lane_right, L"nlane_r", "number of lanes on the right side of this vehicle")
-function get(::Feature_N_LANE_R, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		nlr = float64(gete(pdset, :nlr, frameind))
-		@assert(0.0 ≤ nlr ≤ 6.0)
-		return nlr
-	end
-	float64(getc(pdset, "nlr", carind, validfind))
-end
-get(::Feature_N_LANE_R, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = get(N_LANE_R, pdset, carind, validfind)
 get(::Feature_N_LANE_R, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(basics.pdset, :nlr, carind, validfind))
 
 create_feature_basics_boolean( "HAS_LANE_R", false, :has_lane_right, L"\exists_{\text{lane}}^\text{r}", "whether at least one lane exists to right")
-get(::Feature_HAS_LANE_R, pdset::PrimaryDataset, carind::Int, validfind::Int) = float64(get(N_LANE_R, pdset, carind, validfind) > 0.0)
-get(::Feature_HAS_LANE_R, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = get(HAS_LANE_R, pdset, carind, validfind)
 get(::Feature_HAS_LANE_R, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(N_LANE_R, basics, carind, validfind) > 0.0)
 
 create_feature_basics_boolean( "HAS_LANE_L", false, :has_lane_left, L"\exists_{\text{lane}}^\text{l}", "whether at least one lane exists to the left")
-get(::Feature_HAS_LANE_L, pdset::PrimaryDataset, carind::Int, validfind::Int) = float64(get(N_LANE_L, pdset, carind, validfind) > 0.0)
-get(::Feature_HAS_LANE_L, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = get(HAS_LANE_L, pdset, carind, validfind)
 get(::Feature_HAS_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(N_LANE_L, basics, carind, validfind) > 0.0)
 
 ###########################
@@ -555,8 +398,8 @@ function _calc_jumps_required_to_reach_projectable_lane_segment_upstream(
 	found_lane = false
 	njumps = 0
 
-	done = false
-	while !done
+	finished = false
+	while !finished
 
 		extind = Curves.closest_point_extind_to_curve(current_lane.curve, posGx, posGy)
 
@@ -566,9 +409,9 @@ function _calc_jumps_required_to_reach_projectable_lane_segment_upstream(
 			search_dist += current_lane.curve.s[end]
 			current_lane = prev_lane(sn, current_lane)
 			njumps += 1
-			done = search_dist > max_dist
+			finished = search_dist > max_dist
 		else
-			done = true
+			finished = true
 		end
 	end
 
@@ -598,7 +441,7 @@ function _calc_jumps_required_to_reach_projectable_lane_segment(
 	end
 
 	# now search upstream
-	njumps = _calc_jumps_required_to_reach_projectable_lane_segment_upstream(sn, lane, posGx, posGy, max_dist=max_dist_downstream)
+	njumps = _calc_jumps_required_to_reach_projectable_lane_segment_upstream(sn, lane, posGx, posGy, max_dist=max_dist_upstream)
 	if njumps ≥ 0
 		return (-njumps, true)
 	else
@@ -718,9 +561,9 @@ function _project_pt_to_lane_frenet(
 	=#
 
 	lane = get_lane(origin)
-	njumps, success = _calc_jumps_required_to_reach_projectable_lane_segment(sn, lane, posGx, posGy, max_dist_downstream=max_dist)
+	njumps, successful = _calc_jumps_required_to_reach_projectable_lane_segment(sn, lane, posGx, posGy, max_dist_downstream=max_dist)
 
-	if success
+	if successful
 
 		origin_s = origin.curvept[SIND]
 		
@@ -796,152 +639,14 @@ function _update_time_to_enter_cell!(cell::OccupancyScheduleGridCell, time_enter
 	nothing
 end
 function _update_time_to_depart_cell!(cell::OccupancyScheduleGridCell, time_depart_forward::Float64, time_depart_backward::Float64)
-	time = _get_smallest_nonan_value(time_depart_forward, time_depart_backward)
+	thetime = _get_smallest_nonan_value(time_depart_forward, time_depart_backward)
 
 	if cell.occupied
-		cell.time = max(cell.time, time)
+		cell.time = max(cell.time, thetime)
 	else
 		cell.occupied = true
 	end
 	nothing
-end
-function calc_occupancy_schedule_grid(pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-
-	#=
-	Computes an occupancy schedule grid for the given vehicle
-	Computes the follow values for the eight locations
-	  - Whether the cell is occupied or not
-	  - Time until a vehicle enters the cell (if it is unoccupied, 0.0 otherwise)
-	  - Time until a vehicle departs the cell (if it is occupied, 0.0)
-	  - Combined time value, max(T_enter, T_depart)
-	The locations are the grid cells in the cardinal and ordinal directions
-	  {front, front-right, right, back-right, back, back-left, left, front-left}
-	All calculations are performed assuming constant relative acceleration
-	=#
-
-	grid = OccupancyScheduleGrid()
-
-	# Grid frame is centered on the target vehicle
-	#    and is oriented with the lane
-
-	frameind = validfind2frameind(pdset, validfind)
-	grid_center_x = get(pdset, :posGx, carind, frameind, validfind)::Float64
-	grid_center_y = get(pdset, :posGy, carind, frameind, validfind)::Float64
-	acc_us = get(ACCFX, pdset, sn, carind, validfind)
-	vel_us = get(VELFX, pdset, sn, carind, validfind)
-	proj_center = project_point_to_streetmap(grid_center_x, grid_center_y, sn)
-
-	if proj_center.successful
-
-		# project entire scene to the frame
-		# figure out each occupancy schedule grid position
-
-		nothercarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-		for loop_carind = -1 : nothercarsinframe-1 # this includes the ego vehicle
-				
-			if loop_carind == carind
-				continue
-			end
-
-			carPosGx = get(pdset, :posGx, loop_carind, frameind, validfind)::Float64
-			carPosGy = get(pdset, :posGy, loop_carind, frameind, validfind)::Float64
-			s, d = _project_pt_to_lane_frenet(sn, proj_center, carPosGx, carPosGy)
-
-			acc_rel = get(ACCFX, pdset, sn, loop_carind, validfind) - acc_us
-			vel_rel = get(VELFX, pdset, sn, loop_carind, validfind) - vel_us
-
-			time_to_reach_neg_2 = _quadratic_roots_default_to_smallest_positive(acc_rel/2,vel_rel,s + 1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D)
-			time_to_reach_neg_1 = _quadratic_roots_default_to_smallest_positive(acc_rel/2,vel_rel,s + 0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D)
-			time_to_reach_pos_1 = _quadratic_roots_default_to_smallest_positive(acc_rel/2,vel_rel,s - 0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D)
-			time_to_reach_pos_2 = _quadratic_roots_default_to_smallest_positive(acc_rel/2,vel_rel,s - 1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D)
-
-			if OCCUPANCY_SCHEDULE_GRID_DIM_D ≤ d ≤ 2*OCCUPANCY_SCHEDULE_GRID_DIM_D
-				# LEFT
-
-				if s > 1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in front of FRONT_LEFT
-					_update_time_to_enter_cell!(grid.FL, time_to_reach_pos_2)
-					_update_time_to_enter_cell!(grid.L,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.BL, time_to_reach_neg_1)
-				elseif s > 0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in FRONT_LEFT
-					_update_time_to_depart_cell!(grid.FL, time_to_reach_pos_2, time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.L,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.BL, time_to_reach_neg_1)
-				elseif s > -0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in LEFT
-					_update_time_to_enter_cell!(grid.FL,  time_to_reach_pos_1)
-					_update_time_to_depart_cell!(grid.L, time_to_reach_pos_1, time_to_reach_neg_1)
-					_update_time_to_enter_cell!(grid.BL, time_to_reach_neg_1)
-				elseif s > -1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in BEHIND_LEFT
-					_update_time_to_enter_cell!(grid.FL,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.L,  time_to_reach_neg_1)
-					_update_time_to_depart_cell!(grid.BL, time_to_reach_neg_1, time_to_reach_neg_2)
-				else
-					# car is in behind of BEHIND_LEFT
-					_update_time_to_enter_cell!(grid.FL, time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.L,  time_to_reach_neg_1)
-					_update_time_to_enter_cell!(grid.BL, time_to_reach_neg_2)
-				end
-			elseif -OCCUPANCY_SCHEDULE_GRID_DIM_D ≤ d ≤ OCCUPANCY_SCHEDULE_GRID_DIM_D
-				# CENTER
-
-				if s > 1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in front of FRONT
-					_update_time_to_enter_cell!(grid.F, time_to_reach_pos_2)
-					_update_time_to_enter_cell!(grid.B, time_to_reach_neg_1)
-				elseif s > 0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in FRONT
-					_update_time_to_depart_cell!(grid.F, time_to_reach_pos_2, time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.B, time_to_reach_neg_1)
-				elseif s > -0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in CENTER
-					_update_time_to_enter_cell!(grid.F,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.B, time_to_reach_neg_1)
-				elseif s > -1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in BEHIND
-					_update_time_to_enter_cell!(grid.F,  time_to_reach_pos_1)
-					_update_time_to_depart_cell!(grid.B, time_to_reach_neg_1, time_to_reach_neg_2)
-				else
-					# car is in behind of BEHIND
-					_update_time_to_enter_cell!(grid.F, time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.B, time_to_reach_neg_2)
-				end
-			elseif -2*OCCUPANCY_SCHEDULE_GRID_DIM_D ≤ d ≤ -OCCUPANCY_SCHEDULE_GRID_DIM_D
-				# RIGHT
-
-				if s > 1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in front of FRONT_RIGHT
-					_update_time_to_enter_cell!(grid.FR, time_to_reach_pos_2)
-					_update_time_to_enter_cell!(grid.R,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.BR, time_to_reach_neg_1)
-				elseif s > 0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in FRONT_RIGHT
-					_update_time_to_depart_cell!(grid.FR, time_to_reach_pos_2, time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.R,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.BR, time_to_reach_neg_1)
-				elseif s > -0.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in RIGHT
-					_update_time_to_enter_cell!(grid.FR,  time_to_reach_pos_1)
-					_update_time_to_depart_cell!(grid.R, time_to_reach_pos_1, time_to_reach_neg_1)
-					_update_time_to_enter_cell!(grid.BR, time_to_reach_neg_1)
-				elseif s > -1.5*OCCUPANCY_SCHEDULE_GRID_DIM_D
-					# car is in BEHIND_RIGHT
-					_update_time_to_enter_cell!(grid.FR,  time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.R,  time_to_reach_neg_1)
-					_update_time_to_depart_cell!(grid.BR, time_to_reach_neg_1, time_to_reach_neg_2)
-				else
-					# car is in behind of BEHIND_RIGHT
-					_update_time_to_enter_cell!(grid.FR, time_to_reach_pos_1)
-					_update_time_to_enter_cell!(grid.R,  time_to_reach_neg_1)
-					_update_time_to_enter_cell!(grid.BR, time_to_reach_neg_2)
-				end
-			end
-		end
-	end
-
-	grid
 end
 function calc_occupancy_schedule_grid(basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
@@ -1083,28 +788,6 @@ function calc_occupancy_schedule_grid(basics::FeatureExtractBasicsPdSet, carind:
 
 	grid
 end
-function put_occupancy_schedule_grid_in_meta!(grid::OccupancyScheduleGrid, carind::Int, validfind::Int)
-
-	checkmeta(carind, validfind, :osg_isoccupied_f) # need symbol so Dict is initialized
-
-	meta[carind][:osg_isoccupied_f]  = grid.F.occupied
-	meta[carind][:osg_isoccupied_fr] = grid.FR.occupied
-	meta[carind][:osg_isoccupied_r]  = grid.R.occupied
-	meta[carind][:osg_isoccupied_br] = grid.BR.occupied
-	meta[carind][:osg_isoccupied_b]  = grid.B.occupied
-	meta[carind][:osg_isoccupied_bl] = grid.BL.occupied
-	meta[carind][:osg_isoccupied_l]  = grid.L.occupied
-	meta[carind][:osg_isoccupied_fl] = grid.FL.occupied
-
-	meta[carind][:osg_time_f]  = grid.F.time
-	meta[carind][:osg_time_fr] = grid.FR.time
-	meta[carind][:osg_time_r]  = grid.R.time
-	meta[carind][:osg_time_br] = grid.BR.time
-	meta[carind][:osg_time_b]  = grid.B.time
-	meta[carind][:osg_time_bl] = grid.BL.time
-	meta[carind][:osg_time_l]  = grid.L.time
-	meta[carind][:osg_time_fl] = grid.FL.time
-end
 function put_occupancy_schedule_grid_in_meta!(basics::FeatureExtractBasicsPdSet, grid::OccupancyScheduleGrid, carind::Int, validfind::Int)
 
 	checkmeta(carind, validfind, :osg_isoccupied_f) # need symbol so Dict is initialized
@@ -1129,88 +812,48 @@ function put_occupancy_schedule_grid_in_meta!(basics::FeatureExtractBasicsPdSet,
 end
 
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_Front",      false, :osg_isoccupied_f,  L"OCC_\text{osg}^\text{f}",  "whether f cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Front, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_f]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_f)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_FrontRight", false, :osg_isoccupied_fr, L"OCC_\text{osg}^\text{fr}", "whether fr cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_FrontRight, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_fr]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_FrontRight, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_fr)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_Right",      false, :osg_isoccupied_r,  L"OCC_\text{osg}^\text{r}",  "whether r cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Right, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_r]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_r)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_BackRight",  false, :osg_isoccupied_br, L"OCC_\text{osg}^\text{br}", "whether br cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_BackRight, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_br]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_BackRight, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_br)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_Back",       false, :osg_isoccupied_b,  L"OCC_\text{osg}^\text{b}",  "whether b cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Back, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_b]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Back, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_b)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_BackLeft",   false, :osg_isoccupied_bl, L"OCC_\text{osg}^\text{bl}", "whether bl cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_BackLeft, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_bl]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_BackLeft, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_bl)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_Left",       false, :osg_isoccupied_l,  L"OCC_\text{osg}^\text{l}",  "whether l cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Left, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_l]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_isoccupied_l)]
 end
 create_feature_basics_boolean( "OccupancyScheduleGrid_IsOccupied_FrontLeft",  false, :osg_isoccupied_fl, L"OCC_\text{osg}^\text{fl}", "whether fl cell is occupied in occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_IsOccupied_FrontLeft, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_isoccupied_fl]
-end
 function _get(::Feature_OccupancyScheduleGrid_IsOccupied_FrontLeft, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
@@ -1218,88 +861,48 @@ function _get(::Feature_OccupancyScheduleGrid_IsOccupied_FrontLeft, basics::Feat
 end
 
 create_feature_basics( "OccupancyScheduleGrid_Time_Front",      "s", false, false, Inf, 0.0, true, :osg_time_f,  L"T_\text{osg}^\text{f}",  "time to entry or exit of cell f in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_Front, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_f]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_f)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_FrontRight", "s", false, false, Inf, 0.0, true, :osg_time_fr, L"T_\text{osg}^\text{fr}", "time to entry or exit of cell fr in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_FrontRight, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_fr]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_FrontRight, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_fr)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_Right",      "s", false, false, Inf, 0.0, true, :osg_time_r,  L"T_\text{osg}^\text{r}",  "time to entry or exit of cell r in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_Right, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_r]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_r)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_BackRight",  "s", false, false, Inf, 0.0, true, :osg_time_br, L"T_\text{osg}^\text{br}", "time to entry or exit of cell br in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_BackRight, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_br]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_BackRight, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_br)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_Back",       "s", false, false, Inf, 0.0, true, :osg_time_b,  L"T_\text{osg}^\text{b}",  "time to entry or exit of cell b in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_Back, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_b]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_Back, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_b)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_BackLeft",   "s", false, false, Inf, 0.0, true, :osg_time_bl, L"T_\text{osg}^\text{bl}", "time to entry or exit of cell bl in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_BackLeft, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_bl]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_BackLeft, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_bl)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_Left",       "s", false, false, Inf, 0.0, true, :osg_time_l,  L"T_\text{osg}^\text{l}",  "time to entry or exit of cell l in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_Left, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_l]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
 	basics[(carind, validfind, :osg_time_l)]
 end
 create_feature_basics( "OccupancyScheduleGrid_Time_FrontLeft",  "s", false, false, Inf, 0.0, true, :osg_time_fl, L"T_\text{osg}^\text{fl}", "time to entry or exit of cell fl in the occupancy schedule grid")
-function _get(::Feature_OccupancyScheduleGrid_Time_FrontLeft, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	grid = calc_occupancy_schedule_grid(pdset, sn, carind, validfind)
-	put_occupancy_schedule_grid_in_meta!(grid, carind, validfind)
-	meta[carind][:osg_time_fl]
-end
 function _get(::Feature_OccupancyScheduleGrid_Time_FrontLeft, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	grid = calc_occupancy_schedule_grid(basics, carind, validfind)
 	put_occupancy_schedule_grid_in_meta!(basics, grid, carind, validfind)
@@ -1342,8 +945,8 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 
 	delete!(cars_to_check, carind)
 
-	done = false
-	while !done
+	finished = false
+	while !finished
 		to_remove = Set{Int}()
 		for target_carind in cars_to_check
 			if active_lanetag == lanetags[target_carind+2]
@@ -1382,9 +985,9 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 			search_dist += active_lane.curve.s[end]
 			active_lane = next_lane(sn, active_lane)
 			active_lanetag = LaneTag(sn, active_lane)
-			done = search_dist > best_dist
+			finished = search_dist > best_dist
 		else
-			done = true
+			finished = true
 		end
 	end
 
@@ -1396,202 +999,11 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 end
 
 create_feature_basics( "IndFront", "-", true, false, Inf, -1.0, true, :ind_front, L"i_{front}", "index of the closest car in front")
-function _get(::Feature_IndFront, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	frameind = validfind2frameind(pdset, validfind)
-	curlane = gete(pdset, :lane,  frameind)
-	egoFx   = gete(pdset, :posFx, frameind)::Float64
-	egoFy   = gete(pdset, :posFy, frameind)::Float64
-	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-
-	searchcarinds = [0:ncarsinframe-1]
-	if carind == CARIND_EGO
-
-		if ncarsinframe == 0 # no other cars!
-			meta[CARIND_EGO][:d_x_front] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_front] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_front] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_front] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_front] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_front] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		d_x_front, frontcar_ind = findmin(map(ci->begin
-				dy    = getc(pdset, :posFy, ci, validfind)::Float64 - egoFy
-				dlane = getc(pdset, :lane,  ci, validfind) - curlane
-				if isapprox(dlane, 0.0) || abs(dy) < THRESHOLD_DY_CONSIDERED_IN_FRONT
-					dx = getc(pdset, :posFx, ci, validfind)::Float64 - egoFx
-					return dx > 0 ? dx : Inf
-				end
-				return Inf
-			end, searchcarinds))
-
-		if isinf(d_x_front)
-			meta[CARIND_EGO][:d_x_front] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_front] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_front] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_front] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_front] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_front] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		@assert(!isa(d_x_front, NAtype))
-		meta[CARIND_EGO][:d_x_front] = d_x_front
-		meta[CARIND_EGO][:d_y_front] = getc(pdset, :posFy, searchcarinds[frontcar_ind], validfind)::Float64 - egoFy
-		meta[CARIND_EGO][:v_x_front] = getc(pdset, :velFx, searchcarinds[frontcar_ind], validfind)::Float64 - gete(pdset, :velFx, frameind)
-		meta[CARIND_EGO][:v_y_front] = getc(pdset, :velFy, searchcarinds[frontcar_ind], validfind)::Float64 - gete(pdset, :velFy, frameind)
-		meta[CARIND_EGO][:yaw_front] = getc(pdset, :posFyaw, searchcarinds[frontcar_ind], validfind)::Float64
-		meta[CARIND_EGO][:turnrate_front] = get(TURNRATE, pdset, searchcarinds[frontcar_ind], validfind)
-		return frontcar_ind
-	end
-	
-	myFx   = getc(pdset, :posFx, carind, validfind)::Float64
-	myFy   = getc(pdset, :posFy, carind, validfind)::Float64
-	mylane = getc(pdset, :lane,  carind, validfind)
-	frontcar_dist, frontcar_ind = findmin(map(carind2->begin
-			if carind2 == carind
-				return Inf
-			end
-			dy    = getc(pdset, :posFy, carind2, validfind)::Float64 - myFy
-			dlane = getc(pdset, :lane, carind2, validfind) -  mylane
-			if isapprox(dlane, 0.0) || abs(dy) < THRESHOLD_DY_CONSIDERED_IN_FRONT
-				dx = getc(pdset, :posFx, carind2, validfind)::Float64 - myFx
-				return dx > 0 ? dx : Inf
-			end
-			return Inf
-		end, searchcarinds))
-	dy_ego = myFy - egoFy
-	dlane =  mylane - curlane
-	if (isapprox(dlane, 0.0) || abs(dy_ego) < THRESHOLD_DY_CONSIDERED_IN_FRONT) &&
-		egoFx - myFx > 0.0 &&
-		egoFx - myFx < frontcar_dist
-
-		# ego is better
-		meta[carind][:d_x_front] = egoFx - myFx
-		meta[carind][:d_y_front] = egoFy - myFy
-		meta[carind][:v_x_front] = gete(pdset, :velFx, frameind)::Float64 - getc(pdset, :velFx, carind, validfind)::Float64
-		meta[carind][:v_y_front] = gete(pdset, :velFy, frameind)::Float64 - getc(pdset, :velFy, carind, validfind)::Float64
-		meta[carind][:yaw_front] = gete(pdset, :posFyaw, frameind)::Float64
-		meta[carind][:turnrate_front] = get(TURNRATE, pdset, CARIND_EGO, validfind)
-		return frontcar_ind
-	end
-
-	if isinf(frontcar_dist)
-		meta[carind][:d_x_front] = NA_ALIAS
-		meta[carind][:d_y_front] = NA_ALIAS
-		meta[carind][:v_x_front] = NA_ALIAS
-		meta[carind][:v_y_front] = NA_ALIAS
-		meta[carind][:yaw_front] = NA_ALIAS
-		meta[carind][:turnrate_front] = NA_ALIAS
-		return NA_ALIAS
-	end
-
-	# other car is better
-	meta[carind][:d_x_front] = frontcar_dist
-	meta[carind][:d_y_front] = getc(pdset, :posFy, searchcarinds[frontcar_ind], validfind)::Float64 - myFy
-	meta[carind][:v_x_front] = getc(pdset, :velFx, searchcarinds[frontcar_ind], validfind)::Float64 - getc(pdset, :velFx, carind, validfind)::Float64
-	meta[carind][:v_y_front] = getc(pdset, :velFy, searchcarinds[frontcar_ind], validfind)::Float64 - getc(pdset, :velFy, carind, validfind)::Float64
-	meta[carind][:yaw_front] = getc(pdset, :posFyaw, searchcarinds[frontcar_ind], validfind)::Float64
-	meta[carind][:turnrate_front] = get(TURNRATE, pdset, searchcarinds[frontcar_ind], validfind)
-	frontcar_ind
-end
-function _get(::Feature_IndFront, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	max_dist_front :: Float64 = 100.0
-	)
-
-	best_carind = -2
-	best_dist   = max_dist_front # start at max
-	best_ΔpFy   = 0.0
-
-	frameind = validfind2frameind(pdset, validfind)
-
-	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-	cars_to_check = Set([-1 : (ncarsinframe-1)])
-
-	lanetags = Array(LaneTag, ncarsinframe+1)
-	for cind in cars_to_check
-		lanetags[cind+2] = get(pdset, :lanetag, cind, frameind, validfind)::LaneTag
-	end
-
-	posFx = get(pdset, :posFx, carind, frameind, validfind)::Float64
-	posFy = get(pdset, :posFy, carind, frameind, validfind)::Float64
-	active_lanetag = lanetags[carind+2]
-	active_lane = get_lane(sn, active_lanetag)
-	search_dist = 0.0
-
-	delete!(cars_to_check, carind)
-
-	done = false
-	while !done
-		to_remove = Set{Int}()
-		for target_carind in cars_to_check
-			if active_lanetag == lanetags[target_carind+2]
-				target_posFx = get(pdset, :posFx, target_carind, frameind, validfind)
-
-				# only accept cars that are in front of us
-				# and better than what we already have
-
-				target_dist = target_posFx - posFx + search_dist
-				if 0.0 < target_dist < best_dist
-
-					target_posFy = get(pdset, :posFy, target_carind, frameind, validfind)
-					ΔpFy = target_posFy - posFy
-					if abs(ΔpFy) < THRESHOLD_DY_CONSIDERED_IN_FRONT
-						best_carind, best_dist = target_carind, target_dist
-						best_ΔpFy = ΔpFy
-					end
-				end
-
-				push!(to_remove, target_carind)
-			end
-		end
-		if best_carind != -2
-			break
-		end
-
-		for target_carind in to_remove
-			delete!(cars_to_check, target_carind)
-		end
-		if isempty(cars_to_check)
-			break
-		end
-
-		# move to next lane
-		if has_next_lane(sn, active_lane)
-			search_dist += active_lane.curve.s[end]
-			active_lane = next_lane(sn, active_lane)
-			active_lanetag = LaneTag(sn, active_lane)
-			done = search_dist > best_dist
-		else
-			done = true
-		end
-	end
-
-	if best_carind != -2
-		meta[carind][:d_x_front] = best_dist
-		meta[carind][:d_y_front] = best_ΔpFy
-		meta[carind][:v_x_front] = get(pdset, :velFx,   best_carind, frameind, validfind) - get(pdset, :velFx, carind, frameind, validfind)
-		meta[carind][:v_y_front] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
-		meta[carind][:yaw_front] = get(pdset, :posFyaw, best_carind, frameind, validfind)
-		meta[carind][:turnrate_front] = get(TURNRATE, pdset, sn, best_carind, validfind)
-		return float64(best_carind)
-	else
-		meta[carind][:d_x_front] = NA_ALIAS
-		meta[carind][:d_y_front] = NA_ALIAS
-		meta[carind][:v_x_front] = NA_ALIAS
-		meta[carind][:v_y_front] = NA_ALIAS
-		meta[carind][:yaw_front] = NA_ALIAS
-		meta[carind][:turnrate_front] = NA_ALIAS
-		return NA_ALIAS
-	end
-end
 function _get(::Feature_IndFront, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	max_dist_front :: Float64 = 100.0
 	)
 
-	(best_carind, best_dist, best_ΔpFy) = _get_carind_front_and_dist(basics, carind, validfind)
+	(best_carind, best_dist, best_ΔpFy) = _get_carind_front_and_dist(basics, carind, validfind, max_dist_front=max_dist_front)
 
 	pdset = basics.pdset
 
@@ -1616,130 +1028,45 @@ function _get(::Feature_IndFront, basics::FeatureExtractBasicsPdSet, carind::Int
 end
 
 create_feature_basics_boolean( "HAS_FRONT", false, :has_front, L"\exists_{fo}", "whether there is a car in front")
-function get( ::Feature_HAS_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	float64(get(INDFRONT, pdset, carind, validfind) != NA_ALIAS)
-end
-get( ::Feature_HAS_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = float64(get(INDFRONT, pdset, sn, carind, validfind) != NA_ALIAS)
 get( ::Feature_HAS_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(INDFRONT, basics, carind, validfind) != NA_ALIAS)
 
 create_feature_basics( "D_X_FRONT", "m", false, false, Inf, 0.0, true, :d_x_front, L"d_{x,fo}", "longitudinal distance to the closest vehicle in the same lane in front")
-function get( ::Feature_D_X_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_x_front] # pull the processed result
-end
-function get( ::Feature_D_X_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_x_front] # pull the processed result
-end
 function get( ::Feature_D_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_front)]
 end
 
 create_feature_basics( "D_Y_FRONT", "m", false, false, Inf, -Inf, true, :d_y_front, L"d_{y,fo}", "lateral distance to the closest vehicle in the same lane in front")
-function get( ::Feature_D_Y_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_y_front] # pull the processed result
-end
-function get( ::Feature_D_Y_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_y_front] # pull the processed result
-end
 function get( ::Feature_D_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_front)]
 end
 
 create_feature_basics( "V_X_FRONT", "m/s", false, false, Inf, -Inf, true, :v_x_front, L"v^{rel}_{x,fo}", "relative x velocity of the vehicle in front of you")
-function get( ::Feature_V_X_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_x_front] # pull the processed result
-end
-function get( ::Feature_V_X_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_x_front] # pull the processed result
-end
 function get( ::Feature_V_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_front)]
 end
 
 create_feature_basics( "V_Y_FRONT", "m/s", false, false, Inf, -Inf, true, :v_y_front, L"v^{rel}_{y,fo}", "relative y velocity of the vehicle in front of you")
-function get( ::Feature_V_Y_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_y_front] # pull the processed result
-end
-function get( ::Feature_V_Y_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_y_front] # pull the processed result
-end
 function get( ::Feature_V_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_front)]
 end
 
 create_feature_basics( "YAW_FRONT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_front, L"\psi_{fo}", "yaw of the vehicle in front of you")
-function get( ::Feature_YAW_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:yaw_front] # pull the processed result
-end
-function get( ::Feature_YAW_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	meta[carind][:yaw_front] # pull the processed result
-end
 function get( ::Feature_YAW_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_front)]
 end
 
 create_feature_basics( "TURNRATE_FRONT", "rad/s", false, false, Inf, -Inf, true, :turnrate_front, L"\dot{\psi}_{fo}", "turnrate of the vehicle in front of you")
-function get( ::Feature_TURNRATE_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:turnrate_front] # pull the processed result
-end
-function get( ::Feature_TURNRATE_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	meta[carind][:turnrate_front] # pull the processed result
-end
 function get( ::Feature_TURNRATE_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_front)]
 end
 
 create_feature_basics( "A_REQ_FRONT", "m/s2", false, false, 0.0, -Inf, true, :a_req_front, L"a^{req}_{x,fo}", "const acceleration required to prevent collision with car in front assuming constant velocity")
-function get( ::Feature_A_REQ_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_front = get(INDFRONT, pdset, carind, validfind)
-	if ind_front == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_FRONT, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_FRONT, pdset, carind, validfind) # v_front - v_back
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	-min(dv*dv / (2dx), THRESHOLD_A_REQ)
-end
-function get( ::Feature_A_REQ_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_front = get(INDFRONT, pdset, sn, carind, validfind)
-	if ind_front == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_FRONT, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_FRONT, pdset, sn, carind, validfind) # v_front - v_back
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	-min(dv*dv / (2dx), THRESHOLD_A_REQ)
-end
 function get( ::Feature_A_REQ_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_front = get(INDFRONT, basics, carind, validfind)
@@ -1758,11 +1085,6 @@ function get( ::Feature_A_REQ_FRONT, basics::FeatureExtractBasicsPdSet, carind::
 end
 
 create_feature_basics_boolean( "Gaining_On_Front", true, :gaining_on_front, L"1\{v_\text{ego} > v_\text{front}\}", "whether the car will collide with front if no action is taken and both const. vel")
-function get( ::Feature_Gaining_On_Front, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDFRONT, pdset, sn, carind, validfind) # call to get it to do the calculation
-	ΔV = meta[carind][:v_x_front] # pull the processed result
-	float64(ΔV < 0.0)
-end
 function get( ::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	ΔV = basics[(carind, validfind, :v_x_front)]
@@ -1770,38 +1092,6 @@ function get( ::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, car
 end
 
 create_feature_basics( "TTC_X_FRONT", "s", false, false, Inf, 0.0, true, :ttc_x_front, L"ttc_{x,fo}", "time to collision with car in front assuming constant velocities")
-function get( ::Feature_TTC_X_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_front = get(INDFRONT, pdset, carind, validfind)
-	if ind_front == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_FRONT, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_FRONT, pdset, carind, validfind) # v_front - v_back
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	min(-dx / dv, THRESHOLD_TIME_TO_COLLISION)
-end
-function get( ::Feature_TTC_X_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_front = get(INDFRONT, pdset, sn, carind, validfind)
-	if ind_front == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_FRONT, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_FRONT, pdset, sn, carind, validfind) # v_front - v_back
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	min(-dx / dv, THRESHOLD_TIME_TO_COLLISION)
-end
 function get( ::Feature_TTC_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_front = get(INDFRONT, basics, carind, validfind)
@@ -1820,38 +1110,6 @@ function get( ::Feature_TTC_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::
 end
 
 create_feature_basics( "TimeGap_X_FRONT", "s", false, false, Inf, 0.0, false, :timegap_x_front, L"\tau_{x,fo}", "timegap between cars")
-function get( ::Feature_TimeGap_X_FRONT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_front = get(INDFRONT, pdset, carind, validfind)
-	if ind_front == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_FRONT, pdset, carind, validfind) # distance between cars
-	v  = get(VELFX,     pdset, carind, validfind) # our current velocity
-
-	if v <= 0.0
-		return NA_ALIAS
-	end
-
-	dx / v
-end
-function get( ::Feature_TimeGap_X_FRONT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_front = get(INDFRONT, pdset, sn, carind, validfind)
-	if ind_front == NA_ALIAS
-		return Features.THRESHOLD_TIMEGAP
-	end
-
-	dx = get(D_X_FRONT, pdset, sn, carind, validfind) # distance between cars
-	v  = get(VELFX,     pdset, sn, carind, validfind) # our current velocity
-
-	if v <= 0.0
-		return Features.THRESHOLD_TIMEGAP
-	end
-
-	min(dx / v, THRESHOLD_TIMEGAP)
-end
 function get( ::Feature_TimeGap_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	ind_front = get(INDFRONT, basics, carind, validfind)
 	if ind_front == NA_ALIAS
@@ -1872,190 +1130,6 @@ end
 # REAR
 
 create_feature_basics( "IndRear", "-", true, false, Inf, -2.0, true, :ind_rear, L"i_{rear}", "index of the closest car behind")
-function _get(::Feature_IndRear, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	frameind = validfind2frameind(pdset, validfind)
-	curlane = gete(pdset, :lane,  frameind)
-	egoFx   = gete(pdset, :posFx, frameind)
-	egoFy   = gete(pdset, :posFy, frameind)
-	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-
-	searchcarinds = [0:ncarsinframe-1]
-	if carind == CARIND_EGO
-
-		if ncarsinframe == 0 # no other cars!
-			meta[CARIND_EGO][:d_x_rear] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_rear] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_rear] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_rear] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_rear] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_rear] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		d_x_rear, rearcar_ind = findmin(map(ci->begin
-				dy    = getc(pdset, "posFy", ci, validfind) - egoFy
-				dlane = getc(pdset, "lane",  ci, validfind) - curlane
-				if isapprox(dlane, 0.0) || abs(dy) < THRESHOLD_DY_CONSIDERED_IN_FRONT
-					dx = egoFx - getc(pdset, "posFx", ci, validfind)
-					return dx > 0.0 ? dx : Inf
-				end
-				return Inf
-			end, searchcarinds))
-
-		if isinf(d_x_rear)
-			meta[CARIND_EGO][:d_x_rear] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_rear] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_rear] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_rear] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_rear] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_rear] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		@assert(!isa(d_x_rear, NAtype))
-		meta[CARIND_EGO][:d_x_rear] = d_x_rear
-		meta[CARIND_EGO][:d_y_rear] = egoFy - getc(pdset, "posFy", searchcarinds[rearcar_ind], validfind)
-		meta[CARIND_EGO][:v_x_rear] = gete(pdset, :velFx, frameind) - getc(pdset, "velFx", searchcarinds[rearcar_ind], validfind)
-		meta[CARIND_EGO][:v_y_rear] = gete(pdset, :velFy, frameind) - getc(pdset, "velFy", searchcarinds[rearcar_ind], validfind)
-		meta[CARIND_EGO][:yaw_rear] = getc(pdset, "posFyaw", searchcarinds[rearcar_ind], validfind)
-		meta[CARIND_EGO][:turnrate_rear] = get(TURNRATE, pdset, searchcarinds[rearcar_ind], validfind)
-		return rearcar_ind
-	end
-	
-	myFx   = getc(pdset, :posFx, carind, validfind)
-	myFy   = getc(pdset, :posFy, carind, validfind)
-	mylane = getc(pdset, :lane,  carind, validfind)
-	rearcar_dist, rearcar_ind = findmin(map(carind2->begin
-			if carind2 == carind
-				return Inf
-			end
-			dy    = getc(pdset, :posFy, carind2, validfind) - myFy
-			dlane = getc(pdset, :lane, carind2, validfind) -  mylane
-			if isapprox(dlane, 0.0) || dy < THRESHOLD_DY_CONSIDERED_IN_FRONT
-				dx = myFx - getc(pdset, :posFx, carind2, validfind)
-				return dx > 0 ? dx : Inf
-			end
-			return Inf
-		end, searchcarinds))
-	dy_ego = myFy - egoFy
-	dlane =  mylane - curlane
-	if (isapprox(dlane, 0.0) || abs(dy_ego) < THRESHOLD_DY_CONSIDERED_IN_FRONT) &&
-		myFx - egoFx > 0.0 &&
-		myFx - egoFx < rearcar_dist
-
-		# ego is better
-		meta[carind][:d_x_rear] = myFx - egoFx
-		meta[carind][:d_y_rear] = myFy - egoFy
-		meta[carind][:v_x_rear] = getc(pdset, :velFx, carind, validfind) - gete(pdset, :velFx, frameind)
-		meta[carind][:v_y_rear] = getc(pdset, :velFy, carind, validfind) - gete(pdset, :velFy, frameind)
-		meta[carind][:yaw_rear] = gete(pdset, :posFyaw, frameind)
-		meta[carind][:turnrate_rear] = get(TURNRATE, pdset, CARIND_EGO, validfind)
-		return rearcar_ind
-	end
-
-	if isinf(rearcar_dist)
-		meta[carind][:d_x_rear] = NA_ALIAS
-		meta[carind][:d_y_rear] = NA_ALIAS
-		meta[carind][:v_x_rear] = NA_ALIAS
-		meta[carind][:v_y_rear] = NA_ALIAS
-		meta[carind][:yaw_rear] = NA_ALIAS
-		meta[carind][:turnrate_rear] = NA_ALIAS
-		return NA_ALIAS
-	end
-
-	# other car is better
-	meta[carind][:d_x_rear] = rearcar_dist
-	meta[carind][:d_y_rear] = myFy                                    - getc(pdset, :posFy, searchcarinds[rearcar_ind], validfind)
-	meta[carind][:v_x_rear] = getc(pdset, :velFx, carind, validfind) - getc(pdset, :velFx, searchcarinds[rearcar_ind], validfind)
-	meta[carind][:v_y_rear] = getc(pdset, :velFy, carind, validfind) - getc(pdset, :velFy, searchcarinds[rearcar_ind], validfind)
-	meta[carind][:yaw_rear] = getc(pdset, :posFyaw, searchcarinds[rearcar_ind], validfind)
-	meta[carind][:turnrate_rear] = get(TURNRATE, pdset, searchcarinds[rearcar_ind], validfind)
-	rearcar_ind
-end
-function _get(::Feature_IndRear, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-
-	best_carind = -2
-	best_dist   = 100.0 # start at max
-	best_ΔpFy   = 0.0
-
-	frameind = validfind2frameind(pdset, validfind)
-
-	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-	cars_to_check = Set([-1 : (ncarsinframe-1)])
-
-	lanetags = Array(LaneTag, ncarsinframe+1)
-	for cind in cars_to_check
-		lanetags[cind+2] = get(pdset, :lanetag, cind, frameind, validfind)::LaneTag
-	end
-
-	posFx = get(pdset, :posFx, carind, frameind, validfind)::Float64
-	posFy = get(pdset, :posFy, carind, frameind, validfind)::Float64
-	active_lanetag = lanetags[carind+2]
-	active_lane = get_lane(sn, active_lanetag)
-	search_dist = 0.0
-
-	delete!(cars_to_check, carind)
-
-	done = false
-	while !done
-		to_remove = Set{Int}()
-		for target_carind in cars_to_check
-			if active_lanetag == lanetags[target_carind+2]
-				target_posFx = get(pdset, :posFx, target_carind, frameind, validfind)
-
-				target_dist = posFx - target_posFx + search_dist
-
-				if 0.0 < target_dist < best_dist
-					target_posFy = get(pdset, :posFy, target_carind, frameind, validfind)
-					ΔpFy = target_posFy - posFy
-					if abs(ΔpFy) < THRESHOLD_DY_CONSIDERED_IN_FRONT
-						best_carind, best_dist = target_carind, target_dist
-						best_ΔpFy = ΔpFy
-					end
-				end
-
-				push!(to_remove, target_carind)
-			end
-		end
-		if best_carind != -2 || search_dist > best_dist
-			break
-		end
-
-		for target_carind in to_remove
-			delete!(cars_to_check, target_carind)
-		end
-		if isempty(cars_to_check)
-			break
-		end
-
-		if has_prev_lane(sn, active_lane)
-			active_lane = prev_lane(sn, active_lane)
-			active_lanetag = LaneTag(sn, active_lane)
-			search_dist += active_lane.curve.s[end]
-		else
-			done = true
-		end
-	end
-
-	if best_carind != -2
-		meta[carind][:d_x_rear] = best_dist
-		meta[carind][:d_y_rear] = best_ΔpFy
-		meta[carind][:v_x_rear] = get(pdset, :velFx,   best_carind, frameind, validfind) - get(pdset, :velFx, carind, frameind, validfind)
-		meta[carind][:v_y_rear] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
-		meta[carind][:yaw_rear] = get(pdset, :posFyaw, best_carind, frameind, validfind)
-		meta[carind][:turnrate_rear] = get(TURNRATE, pdset, sn, best_carind, validfind)
-		return float64(best_carind)
-	else
-		meta[carind][:d_x_rear] = NA_ALIAS
-		meta[carind][:d_y_rear] = NA_ALIAS
-		meta[carind][:v_x_rear] = NA_ALIAS
-		meta[carind][:v_y_rear] = NA_ALIAS
-		meta[carind][:yaw_rear] = NA_ALIAS
-		meta[carind][:turnrate_rear] = NA_ALIAS
-		return NA_ALIAS
-	end
-end
 function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	best_carind = -2
@@ -2083,8 +1157,8 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 	delete!(cars_to_check, carind)
 
-	done = false
-	while !done
+	finished = false
+	while !finished
 		to_remove = Set{Int}()
 		for target_carind in cars_to_check
 			if active_lanetag == lanetags[target_carind+2]
@@ -2120,7 +1194,7 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 			active_lanetag = LaneTag(sn, active_lane)
 			search_dist += active_lane.curve.s[end]
 		else
-			done = true
+			finished = true
 		end
 	end
 
@@ -2144,130 +1218,45 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 end
 
 create_feature_basics_boolean( "HAS_REAR", false, :has_rear, L"\exists_{re}", "whether there is a car behind")
-function get( ::Feature_HAS_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	float64(get(INDREAR, pdset, carind, validfind) != NA_ALIAS)
-end
-get( ::Feature_HAS_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = float64(get(INDREAR, pdset, sn, carind, validfind) != NA_ALIAS)
 get( ::Feature_HAS_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(INDREAR, basics, carind, validfind) != NA_ALIAS)
 
 create_feature_basics( "D_X_REAR", "m", false, false, Inf, 0.0, true, :d_x_rear, L"d_{x,re}", "longitudinal distance to the closest vehicle in the same lane in rear")
-function get( ::Feature_D_X_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDREAR, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_x_rear] # pull the processed result
-end
-function get( ::Feature_D_X_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDREAR, pdset, sn, carind, validfind)
-	meta[carind][:d_x_rear]
-end
 function get( ::Feature_D_X_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_rear)]
 end
 
 create_feature_basics( "D_Y_REAR", "m", false, false, Inf, -Inf, true, :d_y_rear, L"d_{y,re}", "lateral distance to the closest vehicle in the same lane in rear")
-function get( ::Feature_D_Y_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDREAR, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_y_rear] # pull the processed result
-end
-function get( ::Feature_D_Y_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDREAR, pdset, sn, carind, validfind)
-	meta[carind][:d_y_rear]
-end
 function get( ::Feature_D_Y_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_rear)]
 end
 
 create_feature_basics( "V_X_REAR", "m/s", false, false, Inf, -Inf, true, :v_x_rear, L"v^{rel}_{x,re}", "relative x velocity of the vehicle behind you")
-function get( ::Feature_V_X_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDREAR, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_x_rear] # pull the processed result
-end
-function get( ::Feature_V_X_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDREAR, pdset, sn, carind, validfind)
-	meta[carind][:v_x_rear]
-end
 function get( ::Feature_V_X_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_rear)]
 end
 
 create_feature_basics( "V_Y_REAR", "m/s", false, false, Inf, -Inf, true, :v_y_rear, L"v^{rel}_{y,re}", "relative y velocity of the vehicle behind you")
-function get( ::Feature_V_Y_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDREAR, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_y_rear] # pull the processed result
-end
-function get( ::Feature_V_Y_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDREAR, pdset, sn, carind, validfind)
-	meta[carind][:v_y_rear]
-end
 function get( ::Feature_V_Y_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_rear)]
 end
 
 create_feature_basics( "YAW_REAR", "rad", false, false, float64(pi), float64(-pi), true, :yaw_rear, L"\psi^{rel}_{re}", "yaw of the vehicle behind you")
-function get( ::Feature_YAW_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDREAR, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:yaw_rear] # pull the processed result
-end
-function get( ::Feature_YAW_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDREAR, pdset, sn, carind, validfind)
-	meta[carind][:yaw_rear]
-end
 function get( ::Feature_YAW_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_rear)]
 end
 
 create_feature_basics( "TURNRATE_REAR", "rad/s", false, false, Inf, -Inf, true, :turnrate_rear, L"\dot{\psi}^{rel}_{re}", "turnrate of the vehicle behind you")
-function get( ::Feature_TURNRATE_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDREAR, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:turnrate_rear] # pull the processed result
-end
-function get( ::Feature_TURNRATE_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDREAR, pdset, sn, carind, validfind)
-	meta[carind][:turnrate_rear]
-end
 function get( ::Feature_TURNRATE_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_rear)]
 end
 
 create_feature_basics( "A_REQ_REAR", "m/s2", false, false, Inf, 0.0, true, :a_req_rear, L"a^{req}_{x,re}", "const acceleration required to prevent collision with car behind assuming constant velocity")
-function get( ::Feature_A_REQ_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_rear = get(INDREAR, pdset, carind, validfind)
-	if ind_rear == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_REAR, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_REAR, pdset, carind, validfind) # v_front - v_back
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	-(dv*dv / (2dx), THRESHOLD_A_REQ)
-end
-function get( ::Feature_A_REQ_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_rear = get(INDREAR, pdset, sn, carind, validfind)
-	if ind_rear == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_REAR, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_REAR, pdset, sn, carind, validfind) # v_front - v_back
-
-	if dv <= 0.0
-		return NA_ALIAS
-	end
-
-	min(dv*dv / (2dx), THRESHOLD_A_REQ)
-end
 function get( ::Feature_A_REQ_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_rear = get(INDREAR, basics, carind, validfind)
@@ -2286,38 +1275,6 @@ function get( ::Feature_A_REQ_REAR, basics::FeatureExtractBasicsPdSet, carind::I
 end
 
 create_feature_basics( "TTC_X_REAR", "s", false, false, Inf, 0.0, true, :ttc_x_rear, L"ttc_{x,re}", "time to collision with rear car assuming constant velocities")
-function get( ::Feature_TTC_X_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_rear = get(INDREAR, pdset, carind, validfind)
-	if ind_rear == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_REAR, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_REAR, pdset, carind, validfind) # v_front - v_back
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	min(-dx / dv, THRESHOLD_TIME_TO_COLLISION)
-end
-function get( ::Feature_TTC_X_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_rear = get(INDREAR, pdset, sn, carind, validfind)
-	if ind_rear == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_REAR, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_REAR, pdset, sn, carind, validfind) # v_them - v_us
-
-	if dv <= 0.0
-		return NA_ALIAS
-	end
-
-	min(dx / dv, THRESHOLD_TIME_TO_COLLISION)
-end
 function get( ::Feature_TTC_X_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_rear = get(INDREAR, basics, carind, validfind)
@@ -2336,38 +1293,6 @@ function get( ::Feature_TTC_X_REAR, basics::FeatureExtractBasicsPdSet, carind::I
 end
 
 create_feature_basics( "Timegap_X_REAR", "s", false, false, Inf, 0.0, true, :timegap_x_rear, L"\tau_{x,re}", "timegap with rear car")
-function get( ::Feature_Timegap_X_REAR, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_rear = get(INDREAR, pdset, carind, validfind)
-	if ind_rear == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_REAR, pdset, carind, validfind) # distance between cars
-	v  = get(VELFX,    pdset, carind, validfind)
-
-	if v <= 0.0
-		return NA_ALIAS
-	end
-
-	dx / v
-end
-function get( ::Feature_Timegap_X_REAR, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_rear = get(INDREAR, pdset, sn, carind, validfind)
-	if ind_rear == NA_ALIAS
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx = get(D_X_REAR, pdset, sn, carind, validfind) # distance between cars
-	v  = get(VELFX,    pdset, sn, carind, validfind)
-
-	if v <= 0.0
-		return THRESHOLD_TIMEGAP
-	end
-
-	min(dx / v, THRESHOLD_TIMEGAP)
-end
 function get( ::Feature_Timegap_X_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_rear = get(INDREAR, basics, carind, validfind)
@@ -2389,218 +1314,6 @@ end
 # LEFT
 
 create_feature_basics( "IndLeft", "-", true, false, Inf, -2.0, true, :ind_left, L"i_{\text{left}}", "index of the closest car in the left-hand lane")
-function _get(::Feature_IndLeft, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	frameind = validfind2frameind(pdset, validfind)
-	curlane = gete(pdset, :lane,  frameind)
-	egoFx   = gete(pdset, :posFx, frameind)
-	egoFy   = gete(pdset, :posFy, frameind)
-	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-
-	searchcarinds = [0:ncarsinframe-1]
-	if carind == CARIND_EGO
-
-		if ncarsinframe == 0 # no other cars!
-			meta[CARIND_EGO][:d_x_left] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_left] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_left] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_left] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_left] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_left] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		d_x_left, leftcar_ind = findmin(map(ci->begin
-				dlane = getc(pdset, "lane",  ci, validfind) - curlane
-				return isapprox(dlane, 1.0) ? abs(getc(pdset, "posFx", ci, validfind) - egoFx) : Inf
-			end, searchcarinds))
-
-		if isinf(d_x_left)
-			meta[CARIND_EGO][:d_x_left] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_left] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_left] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_left] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_left] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_left] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		@assert(!isa(d_x_left, NAtype))
-		meta[CARIND_EGO][:d_x_left] = getc(pdset, "posFx", searchcarinds[leftcar_ind], validfind) - egoFx
-		meta[CARIND_EGO][:d_y_left] = getc(pdset, "posFy", searchcarinds[leftcar_ind], validfind) - egoFy
-		meta[CARIND_EGO][:v_x_left] = getc(pdset, "velFx", searchcarinds[leftcar_ind], validfind) - gete(pdset, :velFx, frameind)
-		meta[CARIND_EGO][:v_y_left] = getc(pdset, "velFy", searchcarinds[leftcar_ind], validfind) - gete(pdset, :velFy, frameind)
-		meta[CARIND_EGO][:yaw_left] = getc(pdset, "posFyaw", searchcarinds[leftcar_ind], validfind)
-		meta[CARIND_EGO][:turnrate_left] = get(TURNRATE, pdset, searchcarinds[leftcar_ind], validfind)
-		return leftcar_ind
-	end
-	
-	myFx   = getc(pdset, :posFx, carind, validfind)
-	myFy   = getc(pdset, :posFy, carind, validfind)
-	mylane = getc(pdset, :lane,  carind, validfind)
-	leftcar_dist, leftcar_ind = findmin(map(carind2->begin
-			if carind2 == carind
-				return Inf
-			end
-			dlane = getc(pdset, :lane, carind2, validfind) -  mylane
-			return isapprox(dlane, 1.0) ? abs(getc(pdset, :posFx, carind2, validfind) - myFx) : Inf
-		end, searchcarinds))
-
-	dy_ego = myFy - egoFy
-	dlane =  mylane - curlane
-	if isapprox(dlane, 1.0) && abs(egoFx - myFx) < leftcar_dist
-
-		# ego is better
-		meta[carind][:d_x_left] = egoFx - myFx
-		meta[carind][:d_y_left] = egoFy - myFy
-		meta[carind][:v_x_left] = gete(pdset, :velFx, frameind) - getc(pdset, :velFx, carind, validfind)
-		meta[carind][:v_y_left] = gete(pdset, :velFy, frameind) - getc(pdset, :velFy, carind, validfind)
-		meta[carind][:yaw_left] = gete(pdset, :posFyaw, frameind)
-		meta[carind][:turnrate_left] = get(TURNRATE, pdset, CARIND_EGO, validfind)
-		return leftcar_ind
-	end
-
-	if isinf(leftcar_dist)
-		meta[carind][:d_x_left] = NA_ALIAS
-		meta[carind][:d_y_left] = NA_ALIAS
-		meta[carind][:v_x_left] = NA_ALIAS
-		meta[carind][:v_y_left] = NA_ALIAS
-		meta[carind][:yaw_left] = NA_ALIAS
-		meta[carind][:turnrate_left] = NA_ALIAS
-		return NA_ALIAS
-	end
-
-	# other car is better
-	meta[carind][:d_x_left] = getc(pdset, :posFx, searchcarinds[leftcar_ind], validfind) - myFx
-	meta[carind][:d_y_left] = getc(pdset, :posFy, searchcarinds[leftcar_ind], validfind) - myFy
-	meta[carind][:v_x_left] = getc(pdset, :velFx, searchcarinds[leftcar_ind], validfind) - getc(pdset, :velFx, carind, validfind)
-	meta[carind][:v_y_left] = getc(pdset, :velFy, searchcarinds[leftcar_ind], validfind) - getc(pdset, :velFy, carind, validfind)
-	meta[carind][:yaw_left] = getc(pdset, :posFyaw, searchcarinds[leftcar_ind], validfind)
-	meta[carind][:turnrate_left] = get(TURNRATE, pdset, searchcarinds[leftcar_ind], validfind)
-	leftcar_ind
-end
-function _get(::Feature_IndLeft, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-
-	# Finds the car that is closest in physical distance to the car in the left lane
-
-	# TODO(tim): may still have an issue with computing distances across curve boundaries
-
-	best_carind = -2
-	best_dist   = 50.0
-	best_ΔpFy   = NA_ALIAS
-
-	frameind = validfind2frameind(pdset, validfind)
-
-	if get(pdset, :nll, carind, frameind, validfind)::Int8 > 0
-
-		ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-		cars_to_check = Set([-1 : (ncarsinframe-1)])
-
-		lanetags = Array(LaneTag, ncarsinframe+1)
-		for cind in cars_to_check
-			lanetags[cind+2] = get(pdset, :lanetag, cind, frameind, validfind)::LaneTag
-		end
-
-		current_lanetag = lanetags[carind+2]
-		current_lane    = get_lane(sn, current_lanetag)
-		current_lane_next = has_next_lane(sn, current_lane) ? next_lane(sn, current_lane) : current_lane
-		current_lane_prev = has_prev_lane(sn, current_lane) ? prev_lane(sn, current_lane) : current_lane
-
-		posGx = get(pdset, :posGx,   carind, frameind, validfind)::Float64
-		posGy = get(pdset, :posGy,   carind, frameind, validfind)::Float64
-		posGθ = get(pdset, :posGyaw, carind, frameind, validfind)::Float64
-
-		rayEx = posGx + cos(posGθ)
-		rayEy = posGy + sin(posGθ)
-
-		# project the current location to the tilemap, but accept only lanes to the left of current location & not the current lane
-		function f_filter(curve_pt::CurvePt, lane::StreetLane)
-			is_pt_left_of_ray(curve_pt.x, curve_pt.y, posGx, posGy, rayEx, rayEy) && 
-				!(current_lane      === lane) &&
-				!(current_lane_next === lane) && 
-				!(current_lane_prev === lane)
-		end
-		proj = project_point_to_streetmap(posGx, posGy, sn, f_filter)
-
-		if proj.successful
-
-			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
-
-			left_lanetag = LaneTag(proj.tile, proj.laneid)
-			left_lane = get_lane(sn, left_lanetag)
-			
-			delete!(cars_to_check, carind)
-
-			pq = Collections.PriorityQueue()
-			Collections.enqueue!(pq, (left_lane, left_lanetag, true, 0.0), 0.0)
-
-			done = false
-			while !done && !isempty(pq)
-				to_remove = Set{Int}()
-
-				active_lane, active_lanetag, is_forward, search_dist = Collections.dequeue!(pq)
-
-				# if ( is_forward && search_dist > abs(best_dist)) ||
-				#    (!is_forward && search_dist > (abs(best_dist) + active_lane.curve.s[end]))
-				#    break
-				# end
-
-				for target_carind in cars_to_check
-					if active_lanetag == lanetags[target_carind+2]
-						target_posFx = get(pdset, :posFx, target_carind, frameind, validfind)
-
-						target_dist = is_forward ? target_posFx - posFx + search_dist :
-						                           posFx - target_posFx + search_dist
-
-						if abs(target_dist) < abs(best_dist)
-							best_carind, best_dist = target_carind, target_dist
-							target_posFy = get(pdset, :posFy, target_carind, frameind, validfind)
-							best_ΔpFy = target_posFy - posFy
-						end
-
-						push!(to_remove, target_carind)
-					end
-				end	
-
-				for target_carind in to_remove
-					delete!(cars_to_check, target_carind)
-				end
-				if isempty(cars_to_check)
-					break
-				end
-
-				if is_forward && has_next_lane(sn, active_lane)
-					next_search_dist = search_dist + active_lane.curve.s[end]
-					next_active_lane = next_lane(sn, active_lane)
-					Collections.enqueue!(pq, (next_active_lane, LaneTag(sn, next_active_lane), true, next_search_dist), next_search_dist)
-				end
-				if (!is_forward || isapprox(search_dist, 0.0)) && has_prev_lane(sn, active_lane)
-					prev_active_lane = prev_lane(sn, active_lane)
-					prev_search_dist = search_dist + prev_active_lane.curve.s[end]
-					Collections.enqueue!(pq, (prev_active_lane, LaneTag(sn, prev_active_lane), false, prev_search_dist), prev_search_dist)
-				end
-			end
-		end
-	end
-
-	if best_carind != -2
-		meta[carind][:d_x_left] = best_dist # NOTE(tim): + if other car in front, - if other car behind
-		meta[carind][:d_y_left] = best_ΔpFy
-		meta[carind][:v_x_left] = get(pdset, :velFx,   best_carind, frameind, validfind) - get(pdset, :velFx, carind, frameind, validfind)
-		meta[carind][:v_y_left] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
-		meta[carind][:yaw_left] = get(pdset, :posFyaw, best_carind, frameind, validfind)
-		meta[carind][:turnrate_left] = get(TURNRATE, pdset, sn, best_carind, validfind)
-		return float64(best_carind)
-	else
-		meta[carind][:d_x_left] = NA_ALIAS
-		meta[carind][:d_y_left] = NA_ALIAS
-		meta[carind][:v_x_left] = NA_ALIAS
-		meta[carind][:v_y_left] = NA_ALIAS
-		meta[carind][:yaw_left] = NA_ALIAS
-		meta[carind][:turnrate_left] = NA_ALIAS
-		return NA_ALIAS
-	end
-end
 function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	# Finds the car that is closest in physical distance to the car in the left lane
@@ -2659,8 +1372,8 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 			pq = Collections.PriorityQueue()
 			Collections.enqueue!(pq, (left_lane, left_lanetag, true, 0.0), 0.0)
 
-			done = false
-			while !done && !isempty(pq)
+			finished = false
+			while !finished && !isempty(pq)
 				to_remove = Set{Int}()
 
 				active_lane, active_lanetag, is_forward, search_dist = Collections.dequeue!(pq)
@@ -2728,126 +1441,42 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 end
 
 create_feature_basics( "D_X_LEFT", "m", false, false, Inf, -Inf, true, :d_x_left, L"d_{x,lf}", "longitudinal distance to the closest vehicle in the left lane")
-function get( ::Feature_D_X_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_x_left] # pull the processed result
-end
-function get( ::Feature_D_X_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, sn, carind, validfind)
-	meta[carind][:d_x_left]
-end
 function get( ::Feature_D_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_left)]
 end
 
 create_feature_basics( "D_Y_LEFT", "m", false, false, Inf, -Inf, true, :d_y_left, L"d_{y,lf}", "lateral distance to the closest vehicle in the left lane")
-function get( ::Feature_D_Y_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_y_left] # pull the processed result
-end
-function get( ::Feature_D_Y_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, sn, carind, validfind)
-	meta[carind][:d_y_left]
-end
 function get( ::Feature_D_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_left)]
 end
 
 create_feature_basics( "V_X_LEFT", "m/s", false, false, Inf, -Inf, true, :v_x_left, L"v^{rel}_{x,lf}", "relative x velocity of the closest vehicle in left lane")
-function get( ::Feature_V_X_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_x_left] # pull the processed result
-end
-function get( ::Feature_V_X_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, sn, carind, validfind)
-	meta[carind][:v_x_left]
-end
 function get( ::Feature_V_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_left)]
 end
 
 create_feature_basics( "V_Y_LEFT", "m/s", false, false, Inf, -Inf, true, :v_y_left, L"v^{rel}_{y,le}", "relative y velocity of the closest vehicle in left lane")
-function get( ::Feature_V_Y_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_y_left] # pull the processed result
-end
-function get( ::Feature_V_Y_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, sn, carind, validfind)
-	meta[carind][:v_y_left]
-end
 function get( ::Feature_V_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_left)]
 end
 
 create_feature_basics( "YAW_LEFT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_left, L"\psi_{le}", "yaw of the closest vehicle in left lane")
-function get( ::Feature_YAW_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:yaw_left] # pull the processed result
-end
-function get( ::Feature_YAW_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, sn, carind, validfind)
-	meta[carind][:yaw_left]
-end
 function get( ::Feature_YAW_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_left)]
 end
 
 create_feature_basics( "TURNRATE_LEFT", "rad/s", false, false, Inf, -Inf, true, :turnrate_left, L"\dot{\psi}_{le}", "turnrate of the closest vehicle in left lane")
-function get( ::Feature_TURNRATE_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:turnrate_left] # pull the processed result
-end
-function get( ::Feature_TURNRATE_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDLEFT, pdset, sn, carind, validfind)
-	meta[carind][:turnrate_left]
-end
 function get( ::Feature_TURNRATE_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_left)]
 end
 
 create_feature_basics( "A_REQ_LEFT", "m/s2", false, false, 0.0, -Inf, true, :a_req_left, L"a^{req}_{x,le}", "const acceleration (+ to left) required to prevent collision with car to left assuming constant velocity")
-function get( ::Feature_A_REQ_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_left = get(INDLEFT, pdset, carind, validfind)
-	if ind_left == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_LEFT, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_LEFT, pdset, carind, validfind) # v_other - v_me
-
-	if dv <= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	-min(dv*dv / (2dx), THRESHOLD_A_REQ)
-end
-function get( ::Feature_A_REQ_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_left = get(INDLEFT, pdset, sn, carind, validfind)
-	if ind_left == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_LEFT, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_LEFT, pdset, sn, carind, validfind) # v_other - v_me
-
-	if (dx > 0.0 && dv > 0.0) || (dx < 0.0 && dv < 0.0)
-		return NA_ALIAS
-	end
-
-	if dx > 0.0
-		-min(dv*dv / (2*dx), THRESHOLD_A_REQ)
-	else
-		min(dv*dv / (2*abs(dx)), THRESHOLD_A_REQ)
-	end
-end
 function get( ::Feature_A_REQ_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_left = get(INDLEFT, basics, carind, validfind)
@@ -2870,38 +1499,6 @@ function get( ::Feature_A_REQ_LEFT, basics::FeatureExtractBasicsPdSet, carind::I
 end
 
 create_feature_basics( "TTC_X_LEFT", "s", false, false, Inf, 0.0, true, :ttc_x_left, L"ttc_{x,le}", "time to collision with left car assuming constant velocities")
-function get( ::Feature_TTC_X_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_left = get(INDLEFT, pdset, carind, validfind)
-	if ind_left == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_LEFT, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_LEFT, pdset, carind, validfind) # v_other - v_me
-
-	if dv <= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	min(dx / dv, THRESHOLD_TIME_TO_COLLISION)
-end
-function get( ::Feature_TTC_X_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_left = get(INDLEFT, pdset, sn, carind, validfind)
-	if ind_left == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_LEFT, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_LEFT, pdset, sn, carind, validfind) # v_other - v_me
-
-	if (dx > 0.0 && dv > 0.0) || (dx < 0.0 && dv < 0.0)
-		return NA_ALIAS
-	end
-
-	min(abs(dx / dv), THRESHOLD_TIME_TO_COLLISION)
-end
 function get( ::Feature_TTC_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_left = get(INDLEFT, basics, carind, validfind)
@@ -2920,38 +1517,6 @@ function get( ::Feature_TTC_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::I
 end
 
 create_feature_basics( "Timegap_X_LEFT", "s", false, false, Inf, 0.0, true, :timegap_x_left, L"\tau_{x,le}", "timegap with left car")
-function get( ::Feature_Timegap_X_LEFT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_left = get(INDLEFT, pdset, carind, validfind)
-	if ind_left == NA_ALIAS
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx = get(D_X_LEFT, pdset, carind, validfind) # distance between cars
-	v  = get(VELFX,    pdset, carind, validfind)
-
-	if v <= 0.0
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx / v
-end
-function get( ::Feature_Timegap_X_LEFT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-
-	ind_left = get(INDLEFT, pdset, sn, carind, validfind)
-	if ind_left == NA_ALIAS
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx = get(D_X_LEFT, pdset, sn, carind, validfind) # distance between cars
-	v  = get(VELFX,    pdset, sn, carind, validfind)
-
-	if (dx > 0.0 && v > 0.0) || (dx < 0.0 && v < 0.0)
-		return THRESHOLD_TIMEGAP
-	end
-
-	min(abs(dx / v), THRESHOLD_TIMEGAP)
-end
 function get( ::Feature_Timegap_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	ind_left = get(INDLEFT, basics, carind, validfind)
@@ -2973,103 +1538,16 @@ end
 # RIGHT
 
 create_feature_basics( "IndRight", "-", true, false, Inf, -2.0, true, :ind_right, L"i_{right}", "index of the closest car in the right-hand lane")
-function _get(::Feature_IndRight, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	frameind = validfind2frameind(pdset, validfind)
-	curlane = gete(pdset, :lane,  frameind)
-	egoFx   = gete(pdset, :posFx, frameind)
-	egoFy   = gete(pdset, :posFy, frameind)
-	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-
-	searchcarinds = [0:ncarsinframe-1]
-	if carind == CARIND_EGO
-
-		if ncarsinframe == 0 # no other cars!
-			meta[CARIND_EGO][:d_x_right] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_right] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_right] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_right] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_right] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_right] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		d_x_right, rightcar_ind = findmin(map(ci->begin
-				dlane = getc(pdset, "lane",  ci, validfind) - curlane
-				return isapprox(dlane, -1.0) ? abs(getc(pdset, "posFx", ci, validfind) - egoFx) : Inf
-			end, searchcarinds))
-
-		if isinf(d_x_right)
-			meta[CARIND_EGO][:d_x_right] = NA_ALIAS
-			meta[CARIND_EGO][:d_y_right] = NA_ALIAS
-			meta[CARIND_EGO][:v_x_right] = NA_ALIAS
-			meta[CARIND_EGO][:v_y_right] = NA_ALIAS
-			meta[CARIND_EGO][:yaw_right] = NA_ALIAS
-			meta[CARIND_EGO][:turnrate_right] = NA_ALIAS
-			return NA_ALIAS
-		end
-
-		@assert(!isa(d_x_right, NAtype))
-		meta[CARIND_EGO][:d_x_right] = getc(pdset, "posFx", searchcarinds[rightcar_ind], validfind) - egoFx
-		meta[CARIND_EGO][:d_y_right] = getc(pdset, "posFy", searchcarinds[rightcar_ind], validfind) - egoFy
-		meta[CARIND_EGO][:v_x_right] = getc(pdset, "velFx", searchcarinds[rightcar_ind], validfind) - gete(pdset, :velFx, frameind)
-		meta[CARIND_EGO][:v_y_right] = getc(pdset, "velFy", searchcarinds[rightcar_ind], validfind) - gete(pdset, :velFy, frameind)
-		meta[CARIND_EGO][:yaw_right] = getc(pdset, "posFyaw", searchcarinds[rightcar_ind], validfind)
-		meta[CARIND_EGO][:turnrate_right] = get(TURNRATE, pdset, searchcarinds[rightcar_ind], validfind)
-		return rightcar_ind
-	end
-	
-	myFx   = getc(pdset, "posFx", carind, validfind)
-	myFy   = getc(pdset, "posFy", carind, validfind)
-	mylane = getc(pdset, "lane",  carind, validfind)
-	rightcar_dist, rightcar_ind = findmin(map(carind2->begin
-			if carind2 == carind
-				return Inf
-			end
-			dlane = getc(pdset, "lane", carind2, validfind) -  mylane
-			return isapprox(dlane, -1.0) ? abs(getc(pdset, "posFx", carind2, validfind) - myFx) : Inf
-		end, searchcarinds))
-
-	dy_ego = myFy - egoFy
-	dlane =  mylane - curlane
-	if isapprox(dlane, -1.0) && abs(egoFx - myFx) < rightcar_dist
-
-		# ego is better
-		meta[carind][:d_x_right] = egoFx - myFx
-		meta[carind][:d_y_right] = egoFy - myFy
-		meta[carind][:v_x_right] = gete(pdset, :velFx, frameind) - getc(pdset, "velFx", carind, validfind)
-		meta[carind][:v_y_right] = gete(pdset, :velFy, frameind) - getc(pdset, "velFy", carind, validfind)
-		meta[carind][:yaw_right] = gete(pdset, :posFyaw, frameind)
-		meta[carind][:turnrate_right] = get(TURNRATE, pdset, CARIND_EGO, validfind)
-		return rightcar_ind
-	end
-
-	if isinf(rightcar_dist)
-		meta[carind][:d_x_right] = NA_ALIAS
-		meta[carind][:d_y_right] = NA_ALIAS
-		meta[carind][:v_x_right] = NA_ALIAS
-		meta[carind][:v_y_right] = NA_ALIAS
-		meta[carind][:yaw_right] = NA_ALIAS
-		meta[carind][:turnrate_right] = NA_ALIAS
-		return NA_ALIAS
-	end
-
-	# other car is better
-	meta[carind][:d_x_right] = getc(pdset, "posFx", searchcarinds[rightcar_ind], validfind) - myFx
-	meta[carind][:d_y_right] = getc(pdset, "posFy", searchcarinds[rightcar_ind], validfind) - myFy
-	meta[carind][:v_x_right] = getc(pdset, "velFx", searchcarinds[rightcar_ind], validfind) - getc(pdset, "velFx", carind, validfind)
-	meta[carind][:v_y_right] = getc(pdset, "velFy", searchcarinds[rightcar_ind], validfind) - getc(pdset, "velFy", carind, validfind)
-	meta[carind][:yaw_right] = getc(pdset, "posFyaw", searchcarinds[rightcar_ind], validfind)
-	meta[carind][:turnrate_right] = get(TURNRATE, pdset, searchcarinds[rightcar_ind], validfind)
-	rightcar_ind
-end
-function _get(::Feature_IndRight, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
+function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	# TODO(tim): may still have an issue with computing distances across curve boundaries
 
 	best_carind = -2
 	best_dist   = 50.0
 	best_ΔpFy   = NA_ALIAS
+
+	sn = basics.sn
+	pdset = basics.pdset
 
 	frameind = validfind2frameind(pdset, validfind)
 
@@ -3115,125 +1593,8 @@ function _get(::Feature_IndRight, pdset::PrimaryDataset, sn::StreetNetwork, cari
 			pq = Collections.PriorityQueue()
 			Collections.enqueue!(pq, (right_lane, right_lanetag, true, 0.0), 0.0)
 
-			done = false
-			while !done && !isempty(pq)
-				to_remove = Set{Int}()
-
-				active_lane, active_lanetag, is_forward, search_dist = Collections.dequeue!(pq)
-
-				for target_carind in cars_to_check
-					if active_lanetag == lanetags[target_carind+2]
-						target_posFx = get(pdset, :posFx, target_carind, frameind, validfind)
-
-						target_dist = is_forward ? target_posFx - posFx + search_dist :
-						                           posFx - target_posFx + search_dist
-
-						if abs(target_dist) < abs(best_dist)
-							best_carind, best_dist = target_carind, target_dist
-							target_posFy = get(pdset, :posFy, target_carind, frameind, validfind)
-							best_ΔpFy = target_posFy - posFy
-						end
-
-						push!(to_remove, target_carind)
-					end
-				end	
-
-				for target_carind in to_remove
-					delete!(cars_to_check, target_carind)
-				end
-				if isempty(cars_to_check)
-					break
-				end
-
-				if is_forward && has_next_lane(sn, active_lane)
-					next_search_dist = search_dist + active_lane.curve.s[end]
-					next_active_lane = next_lane(sn, active_lane)
-					Collections.enqueue!(pq, (next_active_lane, LaneTag(sn, next_active_lane), true, next_search_dist), next_search_dist)
-				end
-				if (!is_forward || isapprox(search_dist, 0.0)) && has_prev_lane(sn, active_lane)
-					prev_active_lane = prev_lane(sn, active_lane)
-					prev_search_dist = search_dist + prev_active_lane.curve.s[end]
-					Collections.enqueue!(pq, (prev_active_lane, LaneTag(sn, prev_active_lane), false, prev_search_dist), prev_search_dist)
-				end
-			end
-		end
-	end
-
-	if best_carind != -2
-		meta[carind][:d_x_right] = best_dist # NOTE(tim): + if other car in front, - if other car behind
-		meta[carind][:d_y_right] = best_ΔpFy
-		meta[carind][:v_x_right] = get(pdset, :velFx,   best_carind, frameind, validfind) - get(pdset, :velFx, carind, frameind, validfind)
-		meta[carind][:v_y_right] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
-		meta[carind][:yaw_right] = get(pdset, :posFyaw, best_carind, frameind, validfind)
-		meta[carind][:turnrate_right] = get(TURNRATE, pdset, sn, best_carind, validfind)
-		return float64(best_carind)
-	else
-		meta[carind][:d_x_right] = NA_ALIAS
-		meta[carind][:d_y_right] = NA_ALIAS
-		meta[carind][:v_x_right] = NA_ALIAS
-		meta[carind][:v_y_right] = NA_ALIAS
-		meta[carind][:yaw_right] = NA_ALIAS
-		meta[carind][:turnrate_right] = NA_ALIAS
-		return NA_ALIAS
-	end
-end
-function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-
-	# TODO(tim): may still have an issue with computing distances across curve boundaries
-
-	best_carind = -2
-	best_dist   = 50.0
-	best_ΔpFy   = NA_ALIAS
-
-	sn = basics.sn
-	pdset = basics.pdset
-
-	frameind = validfind2frameind(pdset, validfind)
-
-	if get(pdset, :nlr, "nlr",  carind, frameind, validfind)::Int8 > 0
-
-		ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-		cars_to_check = Set([-1 : (ncarsinframe-1)])
-
-		lanetags = Array(LaneTag, ncarsinframe+1)
-		for cind in cars_to_check
-			lanetags[cind+2] = get(pdset, :lanetag, cind, frameind, validfind)::LaneTag
-		end
-
-		current_lanetag = lanetags[carind+2]
-		current_lane    = get_lane(sn, current_lanetag)
-		current_lane_next = has_next_lane(sn, current_lane) ? next_lane(sn, current_lane) : current_lane
-		current_lane_prev = has_prev_lane(sn, current_lane) ? prev_lane(sn, current_lane) : current_lane
-
-		posGx = get(pdset, :posGx,   carind, frameind, validfind)::Float64
-		posGy = get(pdset, :posGy,   carind, frameind, validfind)::Float64
-		posGθ = get(pdset, :posGyaw, carind, frameind, validfind)::Float64
-
-		rayEx = posGx + cos(posGθ)
-		rayEy = posGy + sin(posGθ)
-
-		function f_filter(curve_pt::CurvePt, lane::StreetLane)
-			!is_pt_left_of_ray(curve_pt.x, curve_pt.y, posGx, posGy, rayEx, rayEy) && 
-				!(current_lane      === lane) &&
-				!(current_lane_next === lane) && 
-				!(current_lane_prev === lane)
-		end
-		proj = project_point_to_streetmap(posGx, posGy, sn, f_filter)
-
-		if proj.successful
-
-			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
-
-			right_lanetag = LaneTag(proj.tile, proj.laneid)
-			right_lane = get_lane(sn, right_lanetag)
-			
-			delete!(cars_to_check, carind)
-
-			pq = Collections.PriorityQueue()
-			Collections.enqueue!(pq, (right_lane, right_lanetag, true, 0.0), 0.0)
-
-			done = false
-			while !done && !isempty(pq)
+			finished = false
+			while !finished && !isempty(pq)
 				to_remove = Set{Int}()
 
 				active_lane, active_lanetag, is_forward, search_dist = Collections.dequeue!(pq)
@@ -3296,126 +1657,42 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 end
 
 create_feature_basics( "D_X_RIGHT", "m", false, false, Inf, -Inf, true, :d_x_right, L"d_{x,ri}", "longitudinal distance to the closest vehicle in the right lane")
-function get( ::Feature_D_X_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_x_right] # pull the processed result
-end
-function get( ::Feature_D_X_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, sn, carind, validfind)
-	meta[carind][:d_x_right]
-end
 function get( ::Feature_D_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_right)]
 end
 
 create_feature_basics( "D_Y_RIGHT", "m", false, false, Inf, -Inf, true, :d_y_right, L"d_{y,ri}", "lateral distance to the closest vehicle in the right lane")
-function get( ::Feature_D_Y_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:d_y_right] # pull the processed result
-end
-function get( ::Feature_D_Y_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, sn, carind, validfind)
-	meta[carind][:d_y_right]
-end
 function get( ::Feature_D_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_right)]
 end
 
 create_feature_basics( "V_X_RIGHT", "m/s", false, false, Inf, -Inf, true, :v_x_right, L"v^{rel}_{x,ri}", "relative x velocity of the closest vehicle in right lane")
-function get( ::Feature_V_X_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_x_right] # pull the processed result
-end
-function get( ::Feature_V_X_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, sn, carind, validfind)
-	meta[carind][:v_x_right]
-end
 function get( ::Feature_V_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_right)]
 end
 
 create_feature_basics( "V_Y_RIGHT", "m/s", false, false, Inf, -Inf, true, :v_y_right, L"v^{rel}_{y,ri}", "relative y velocity of the closest vehicle in right lane")
-function get( ::Feature_V_Y_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:v_y_right] # pull the processed result
-end
-function get( ::Feature_V_Y_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, sn, carind, validfind)
-	meta[carind][:v_y_right]
-end
 function get( ::Feature_V_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_right)]
 end
 
 create_feature_basics( "YAW_RIGHT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_right, L"\psi_{ri}", "yaw of the closest vehicle in right lane")
-function get( ::Feature_YAW_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:yaw_right] # pull the processed result
-end
-function get( ::Feature_YAW_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, sn, carind, validfind)
-	meta[carind][:yaw_right]
-end
 function get( ::Feature_YAW_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
     get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_right)]
 end
 
 create_feature_basics( "TURNRATE_RIGHT", "rad", false, false, Inf, -Inf, true, :turnrate_right, L"\dot{\psi}_{ri}", "turnrate of the closest vehicle in right lane")
-function get( ::Feature_TURNRATE_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, carind, validfind) # call to get it to do the calculation
-	meta[carind][:turnrate_right] # pull the processed result
-end
-function get( ::Feature_TURNRATE_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	get(INDRIGHT, pdset, sn, carind, validfind)
-	meta[carind][:turnrate_right]
-end
 function get( ::Feature_TURNRATE_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_right)]
 end
 
 create_feature_basics( "A_REQ_RIGHT", "m/s2", false, false, Inf, 0.0, true, :a_req_right, L"a^{req}_{x,ri}", "const acceleration (+ to left) required to prevent collision with car to right assuming constant velocity")
-function get( ::Feature_A_REQ_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_right = get(INDRIGHT, pdset, carind, validfind)
-	if ind_right == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_RIGHT, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_RIGHT, pdset, carind, validfind) # v_other - v_me
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	min(dv*dv / (2dx), THRESHOLD_A_REQ)
-end
-function get( ::Feature_A_REQ_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_right = get(INDRIGHT, pdset, sn, carind, validfind)
-	if ind_right == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_RIGHT, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_RIGHT, pdset, sn, carind, validfind) # v_other - v_me
-
-	if (dx > 0.0 && dv > 0.0) || (dx < 0.0 && dv < 0.0)
-		return NA_ALIAS
-	end
-
-	if dx > 0.0
-		-min(dv*dv / (2*dx), THRESHOLD_A_REQ)
-	else
-		min(dv*dv / (2*abs(dx)), THRESHOLD_A_REQ)
-	end
-end
 function get( ::Feature_A_REQ_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	
 	ind_right = get(INDRIGHT, basics, carind, validfind)
@@ -3438,38 +1715,6 @@ function get( ::Feature_A_REQ_RIGHT, basics::FeatureExtractBasicsPdSet, carind::
 end
 
 create_feature_basics( "TTC_X_RIGHT", "s", false, false, Inf, 0.0, true, :ttc_x_right, L"ttc_{x,ri}", "time to collision with right car assuming constant velocities")
-function get( ::Feature_TTC_X_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_right = get(INDRIGHT, pdset, carind, validfind)
-	if ind_right == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_RIGHT, pdset, carind, validfind) # distance between cars
-	dv = get(V_X_RIGHT, pdset, carind, validfind) # v_other - v_me
-
-	if dv >= 0.0 # they are pulling away; we are good
-		return NA_ALIAS
-	end
-
-	min(-dx / dv, THRESHOLD_TIME_TO_COLLISION)
-end
-function get( ::Feature_TTC_X_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_right = get(INDRIGHT, pdset, sn, carind, validfind)
-	if ind_right == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	dx = get(D_X_RIGHT, pdset, sn, carind, validfind) # distance between cars
-	dv = get(V_X_RIGHT, pdset, sn, carind, validfind) # v_other - v_me
-
-	if (dx > 0.0 && dv > 0.0) || (dx < 0.0 && dv < 0.0)
-		return NA_ALIAS
-	end
-
-	min(abs(dx / dv), THRESHOLD_TIME_TO_COLLISION)
-end
 function get( ::Feature_TTC_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	
 	ind_right = get(INDRIGHT, basics, carind, validfind)
@@ -3488,38 +1733,6 @@ function get( ::Feature_TTC_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::
 end
 
 create_feature_basics( "Timegap_X_RIGHT", "s", false, false, Inf, 0.0, true, :timegap_x_right, L"\tau_{x,ri}", "timegap with right car")
-function get( ::Feature_Timegap_X_RIGHT, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	
-	ind_right = get(INDRIGHT, pdset, carind, validfind)
-	if ind_right == NA_ALIAS
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx = get(D_X_RIGHT, pdset, carind, validfind) # distance between cars
-	v  = get(VELFX,     pdset, carind, validfind)
-
-	if v <= 0.0
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx / v
-end
-function get( ::Feature_Timegap_X_RIGHT, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	ind_right = get(INDRIGHT, pdset, sn, carind, validfind)
-	if ind_right == NA_ALIAS
-		return THRESHOLD_TIMEGAP
-	end
-
-	dx = get(D_X_RIGHT, pdset, sn, carind, validfind) # distance between cars
-	v  = get(VELFX,     pdset, sn, carind, validfind)
-
-	if (dx > 0.0 && v > 0.0) || (dx < 0.0 && v < 0.0)
-		return THRESHOLD_TIMEGAP
-	end
-
-	min(abs(dx / v), THRESHOLD_TIMEGAP)
-end
 function get( ::Feature_Timegap_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	ind_right = get(INDRIGHT, basics, carind, validfind)
 	if ind_right == NA_ALIAS
@@ -3539,57 +1752,17 @@ end
 # ----------------------------------
 
 create_feature_basics( "SceneVelFx", "m", false, false, Inf, -Inf, false, :scene_velFx, L"\|v\|_{scene}", "average velocity along the lane across all cars in the scene")
-function _get( ::Feature_SceneVelFx, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	count = 1
-	val   = gete(pdset, :velFx, validfind2frameind(pdset, validfind))
-	for carind = 0 : get_num_other_cars_in_frame(pdset, validfind)-1
-		val += getc(pdset, :velFx, carind, validfind)
-		count += 1
-	end
-	val / count
-end
-		 _get( ::Feature_SceneVelFx, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) =
-		 	_get(SCENEVELFX, pdset, carind, validfind)
-function _get( ::Feature_SceneVelFx, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	count = 1
+function _get( ::Feature_SceneVelFx, basics::FeatureExtractBasicsPdSet, ::Int, validfind::Int)
+	total = 1
 	val = gete(basics.pdset, :velFx, validfind2frameind(basics.pdset, validfind))
 	for carind = 0 : get_num_other_cars_in_frame(basics.pdset, validfind)-1
 		val += getc(basics.pdset, :velFx, carind, validfind)
-		count += 1
+		total += 1
 	end
-	val / count
+	val / total
 end
 
 create_feature_basics( "TurnRate", "rad/s", false, false, Inf, -Inf, false, :turnrate, L"\dot{\psi}", "turn rate")
-function _get(::Feature_TurnRate, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	# NOTE(tim): defaults to 0.0
-
-	lookback = DEFAULT_FRAME_PER_SEC
-
-	validfind_past = jumpframe(pdset, validfind, -lookback)
-	if validfind_past == 0 # Does not exist
-		return 0.0
-	end
-
-	if carind == CARIND_EGO
-		frameind_curr = validfind2frameind(pdset, validfind)
-		frameind_past = validfind2frameind(pdset, validfind_past)
-		curr = gete(pdset, :posFyaw, frameind_curr)
-		past = gete(pdset, :posFyaw, frameind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, validfind_past)
-		farind = carid2ind(pdset, carid, validfind_past)
-		curr = getc(pdset, :posFyaw, carind, validfind)
-		past = getc(pdset, :posFyaw, farind, validfind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
-	end
-	0.0
-end
-		 _get(::Feature_TurnRate, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) =
-		 	_get(TURNRATE, pdset, carind, validfind)
 function _get(::Feature_TurnRate, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
@@ -3606,7 +1779,7 @@ function _get(::Feature_TurnRate, basics::FeatureExtractBasicsPdSet, carind::Int
 		frameind_past = validfind2frameind(pdset, validfind_past)
 		curr = gete(pdset, :posFyaw, frameind_curr)
 		past = gete(pdset, :posFyaw, frameind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
+		return deltaangle(curr, past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 
 	carid = carind2id(pdset, carind, validfind)
@@ -3614,41 +1787,12 @@ function _get(::Feature_TurnRate, basics::FeatureExtractBasicsPdSet, carind::Int
 		farind = carid2ind(pdset, carid, validfind_past)
 		curr = getc(pdset, :posFyaw, carind, validfind)
 		past = getc(pdset, :posFyaw, farind, validfind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
+		return deltaangle(curr, past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 	0.0
 end
 
 create_feature_basics( "TurnRate_Global", "rad/s", false, false, Inf, -Inf, false, :turnrate_global, L"\dot{\psi}^G", "turn rate in the global frame")
-function _get(::Feature_TurnRate_Global, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	# NOTE(tim): defaults to 0.0
-
-	lookback = DEFAULT_FRAME_PER_SEC
-
-	validfind_past = jumpframe(pdset, validfind, -lookback)
-	if validfind_past == 0 # Does not exist
-		return 0.0
-	end
-
-	if carind == CARIND_EGO
-		frameind_curr = validfind2frameind(pdset, validfind)
-		frameind_past = validfind2frameind(pdset, validfind_past)
-		curr = gete(pdset, :posGyaw, frameind_curr)
-		past = gete(pdset, :posGyaw, frameind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, validfind_past)
-		farind = carid2ind(pdset, carid, validfind_past)
-		curr = getc(pdset, :posGyaw, carind, validfind)
-		past = getc(pdset, :posGyaw, farind, validfind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
-	end
-	0.0
-end
-		 _get(::Feature_TurnRate_Global, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) =
-		 	_get(TURNRATE_GLOBAL, pdset, carind, validfind)
 function _get(::Feature_TurnRate_Global, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
@@ -3665,7 +1809,7 @@ function _get(::Feature_TurnRate_Global, basics::FeatureExtractBasicsPdSet, cari
 		frameind_past = validfind2frameind(pdset, validfind_past)
 		curr = gete(pdset, :posGyaw, frameind_curr)
 		past = gete(pdset, :posGyaw, frameind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
+		return deltaangle(curr, past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 
 	carid = carind2id(pdset, carind, validfind)
@@ -3673,44 +1817,12 @@ function _get(::Feature_TurnRate_Global, basics::FeatureExtractBasicsPdSet, cari
 		farind = carid2ind(pdset, carid, validfind_past)
 		curr = getc(pdset, :posGyaw, carind, validfind)
 		past = getc(pdset, :posGyaw, farind, validfind_past)
-		return deltaangle(curr, past) / (SEC_PER_FRAME*lookback)
+		return deltaangle(curr, past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 	0.0
 end
 
 create_feature_basics( "AccFx", "m/s2", false, false, Inf, -Inf, false, :accFx, L"a^F_x", "instantaneous acceleration along the lane")
-function _get(::Feature_AccFx, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	# NOTE(tim): defaults to 0.0
-
-	lookback = DEFAULT_FRAME_PER_SEC
-
-	validfind_past = jumpframe(pdset, validfind, -lookback) # look back five frames (for quarter-second lookback)
-	if validfind_past == 0 # Does not exist
-		return 0.0
-	end
-
-	if carind == CARIND_EGO
-		frameind_curr = validfind2frameind(pdset, validfind)
-		frameind_past = validfind2frameind(pdset, validfind_past)
-		curr = gete(pdset, :velFx, frameind_curr)
-		past = gete(pdset, :velFx, frameind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, validfind_past)
-		
-		carind_past = carid2ind(pdset, carid, validfind_past)
-
-		curr = getc(pdset, :velFx, carind,      validfind)
-		past = getc(pdset, :velFx, carind_past, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
-	end
-
-	0.0
-end
-	     _get(::Feature_AccFx, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) =
-		 	_get(ACCFX, pdset, carind, validfind)
 function _get(::Feature_AccFx, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
@@ -3727,7 +1839,7 @@ function _get(::Feature_AccFx, basics::FeatureExtractBasicsPdSet, carind::Int, v
 		frameind_past = validfind2frameind(pdset, validfind_past)
 		curr = gete(pdset, :velFx, frameind_curr)
 		past = gete(pdset, :velFx, frameind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
+		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 
 	carid = carind2id(pdset, carind, validfind)
@@ -3737,42 +1849,13 @@ function _get(::Feature_AccFx, basics::FeatureExtractBasicsPdSet, carind::Int, v
 
 		curr = getc(pdset, :velFx, carind,      validfind)
 		past = getc(pdset, :velFx, carind_past, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
+		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 
 	0.0
 end
 
 create_feature_basics( "AccFy", "m/s2", false, false, Inf, -Inf, false, :accFy, L"a^F_y", "instantaneous acceleration perpendicular to the lane")
-function _get(::Feature_AccFy, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	# NOTE(tim): defaults to 0.0
-
-	lookback = DEFAULT_FRAME_PER_SEC
-
-	validfind_past = jumpframe(pdset, validfind, -lookback)
-	if validfind_past == 0 # Does not exist
-		return 0.0
-	end
-
-	if carind == CARIND_EGO
-		frameind_curr = validfind2frameind(pdset, validfind)
-		frameind_past = validfind2frameind(pdset, validfind_past)
-		curr = gete(pdset, :velFy, frameind_curr)
-		past = gete(pdset, :velFy, frameind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, validfind_past)
-		farind = carid2ind(pdset, carid, validfind_past)
-		curr = getc(pdset, "velFy", carind, validfind)
-		past = getc(pdset, "velFy", farind, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
-	end
-	0.0
-end
-		 _get(::Feature_AccFy, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) =
-		 	_get(ACCFY, pdset, carind, validfind)
 function _get(::Feature_AccFy, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
@@ -3789,7 +1872,7 @@ function _get(::Feature_AccFy, basics::FeatureExtractBasicsPdSet, carind::Int, v
 		frameind_past = validfind2frameind(pdset, validfind_past)
 		curr = gete(pdset, :velFy, frameind_curr)
 		past = gete(pdset, :velFy, frameind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
+		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 
 	carid = carind2id(pdset, carind, validfind)
@@ -3797,39 +1880,12 @@ function _get(::Feature_AccFy, basics::FeatureExtractBasicsPdSet, carind::Int, v
 		farind = carid2ind(pdset, carid, validfind_past)
 		curr = getc(pdset, :velFy, carind, validfind)
 		past = getc(pdset, :velFy, farind, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
+		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 	0.0
 end
 
 create_feature_basics( "Acc", "m/s2", false, false, Inf, -Inf, false, :acc, L"a", "instantaneous ego longitudinal acceleration")
-function _get(::Feature_Acc, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	# NOTE(tim): defaults to 0.0
-
-	lookback = DEFAULT_FRAME_PER_SEC
-
-	validfind_past = int(jumpframe(pdset, validfind, -lookback))
-	if validfind_past == 0 # Does not exist
-		return 0.0
-	end
-
-	if carind == CARIND_EGO
-		curr = get(SPEED, pdset, carind, validfind)
-		past = get(SPEED, pdset, carind, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, validfind_past)
-		farind = int(carid2ind(pdset, carid, validfind_past))
-		curr = get(SPEED, pdset, carind, validfind)
-		past = get(SPEED, pdset, farind, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
-	end
-	0.0
-end
-		 _get(::Feature_Acc, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) =
-		 	_get(ACC, pdset, carind, validfind)
 function _get(::Feature_Acc, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
@@ -3844,7 +1900,7 @@ function _get(::Feature_Acc, basics::FeatureExtractBasicsPdSet, carind::Int, val
 	if carind == CARIND_EGO
 		curr = get(SPEED, basics, carind, validfind)
 		past = get(SPEED, basics, carind, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
+		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 
 	carid = carind2id(pdset, carind, validfind)
@@ -3852,64 +1908,20 @@ function _get(::Feature_Acc, basics::FeatureExtractBasicsPdSet, carind::Int, val
 		farind = int(carid2ind(pdset, carid, validfind_past))
 		curr = get(SPEED, basics, carind, validfind)
 		past = get(SPEED, basics, farind, validfind_past)
-		return (curr - past) / (SEC_PER_FRAME*lookback)
+		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
 	end
 	0.0
 end
 
 # ----------------------------------
 
-create_feature_basics( "D_OnRamp", "m", false, false, Inf, 0.0, true, :d_onramp, L"d_{onramp}", "the distance along the RHS until the next onramp")
-function  get(::Feature_D_OnRamp, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		d_onramp = gete(pdset, :d_onramp, frameind)
-		return isa(d_onramp, NAtype) ? NA_ALIAS : d_onramp
-	end
-	d_onramp = getc(pdset, "d_onramp", carind, validfind)
-	return isa(d_onramp, NAtype) ? NA_ALIAS : d_onramp
-end
-get(::Feature_D_OnRamp, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("d_onramp unsupported for StreetNetwork use d_merge instead")
-
-create_feature_basics( "D_OffRamp", "m", false, false, Inf, 0.0, true, :d_offramp, L"d_{offramp}", "the distance along the RHS until the next offramp")
-function  get(::Feature_D_OffRamp, pdset::PrimaryDataset, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		d_offramp = gete(pdset, :d_offramp, frameind)
-		return isa(d_offramp, NAtype) ? NA_ALIAS : d_offramp
-	end
-	d_offramp = getc(pdset, "d_offramp", carind, validfind)
-	return isa(d_offramp, NAtype) ? NA_ALIAS : d_offramp
-end
-get(::Feature_D_OffRamp, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("d_onramp unsupported for StreetNetwork use d_split instead")
-
 create_feature_basics( "D_Merge", "m", false, false, Inf, 0.0, true, :d_merge, L"d_{merge}", "the distance along the lane until it merges")
-get(::Feature_D_Merge, ::PrimaryDataset, ::Int, ::Int) = error("d_merge unsupported without StreetNetwork; use d_offramp instead")
-function get(::Feature_D_Merge, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		d_merge = gete(pdset, :d_merge, frameind)
-		return isa(d_merge, NAtype) ? NA_ALIAS : d_merge
-	end
-	d_merge = getc(pdset, "d_merge", carind, validfind)
-	return isa(d_merge, NAtype) ? NA_ALIAS : d_merge
-end
 function get(::Feature_D_Merge, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_merge = get(basics.pdset, :d_merge, carind, validfind)
 	return isa(d_merge, NAtype) ? NA_ALIAS : d_merge
 end
 
 create_feature_basics( "D_Split", "m", false, false, Inf, 0.0, true, :d_split, L"d_{split}", "the distance along the lane until it splits")
-get(::Feature_D_Split, ::PrimaryDataset, ::Int, ::Int) = error("d_split unsupported without StreetNetwork; use d_onramp instead")
-function  get(::Feature_D_Split, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		d_split = gete(pdset, :d_split, frameind)::Float64
-		return isa(d_split, NAtype) ? NA_ALIAS : d_split
-	end
-	d_split = getc(pdset, "d_split", carind, validfind)::Float64
-	return isa(d_split, NAtype) ? NA_ALIAS : d_split
-end
 function get(::Feature_D_Split, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_merge = get(basics.pdset, :d_split, carind, validfind)
 	return isa(d_merge, NAtype) ? NA_ALIAS : d_merge
@@ -3919,36 +1931,10 @@ end
 # Future
 
 create_feature_basics( "FutureTurnRate_250ms", "rad/s", false, false, Inf, -Inf, true, :f_turnrate_250ms, L"\dot{\psi}^{\text{fut}}_{250ms}", "the average rate of heading change over the next quarter second")
-function _get(::Feature_FutureTurnRate_250ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-	
-	const lookahead = 5
-	timestep = lookahead * SEC_PER_FRAME
-
-	futrvfind = jumpframe(pdset, validfind, lookahead)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :posFyaw, frameind)::Float64
-		fut = gete(pdset, :posFyaw, frameind+lookahead)::Float64
-		return deltaangle(fut, cur) / timestep
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, futrvfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		cur = getc(pdset, :posFyaw, carind, validfind)::Float64
-		fut = getc(pdset, :posFyaw, farind, futrvfind)::Float64
-		return deltaangle(fut, cur) / timestep
-	end
-	NA_ALIAS
-end
 function _get(::Feature_FutureTurnRate_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	
 	const lookahead = 5
-	timestep = lookahead * SEC_PER_FRAME
+	timestep = lookahead * DEFAULT_SEC_PER_FRAME
 
 	pdset = basics.pdset
 
@@ -3975,36 +1961,10 @@ function _get(::Feature_FutureTurnRate_250ms, basics::FeatureExtractBasicsPdSet,
 end
 
 create_feature_basics( "FutureTurnRate_500ms", "rad/s", false, false, Inf, -Inf, true, :f_turnrate_500ms, L"\dot{\psi}^{\text{fut}}_{500ms}", "the average rate of heading change over the next half second")
-function _get(::Feature_FutureTurnRate_500ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-	
-	const lookahead = 10
-	timestep = lookahead * SEC_PER_FRAME
-
-	futrvfind = jumpframe(pdset, validfind, lookahead)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :posFyaw, frameind)::Float64
-		fut = gete(pdset, :posFyaw, frameind+lookahead)::Float64
-		return deltaangle(fut, cur) / timestep
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, futrvfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		cur = getc(pdset, :posFyaw, carind, validfind)::Float64
-		fut = getc(pdset, :posFyaw, farind, futrvfind)::Float64
-		return deltaangle(fut, cur) / timestep
-	end
-	NA_ALIAS
-end
 function _get(::Feature_FutureTurnRate_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	
 	const lookahead = 10
-	timestep = lookahead * SEC_PER_FRAME
+	timestep = lookahead * DEFAULT_SEC_PER_FRAME
 
 	pdset = basics.pdset
 
@@ -4031,40 +1991,6 @@ function _get(::Feature_FutureTurnRate_500ms, basics::FeatureExtractBasicsPdSet,
 end
 
 create_feature_basics( "FutureAcceleration_250ms", "m/s2", false, false, Inf, -Inf, true, :f_accel_250ms, L"a^{\text{fut}}_{250ms}", "the average rate of speed change over the next quarter second")
-function _get(::Feature_FutureAcceleration_250ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-
-	const lookahead = 5
-
-	futrvfind = jumpframe(pdset, validfind, lookahead)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	timestep  = lookahead * SEC_PER_FRAME
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		curx = gete(pdset, :velFx, frameind)::Float64
-		cury = gete(pdset, :velFy, frameind)::Float64
-		cur  = hypot(curx, cury)
-		futx = gete(pdset, :velFx, frameind + lookahead)::Float64
-		futy = gete(pdset, :velFy, frameind + lookahead)::Float64
-		fut  = hypot(futx, futy)
-		return (fut - cur) / timestep
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, futrvfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		curx = getc(pdset, :velFx, carind, validfind)::Float64
-		cury = getc(pdset, :velFy, carind, validfind)::Float64
-		cur  = hypot(curx, cury)
-		futx = getc(pdset, :velFx, farind, futrvfind)::Float64
-		futy = getc(pdset, :velFy, farind, futrvfind)::Float64
-		fut  = hypot(futx, futy)
-		return (fut - cur) / timestep
-	end
-	NA_ALIAS
-end
 function _get(::Feature_FutureAcceleration_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	const lookahead = 5
 
@@ -4075,7 +2001,7 @@ function _get(::Feature_FutureAcceleration_250ms, basics::FeatureExtractBasicsPd
 		return NA_ALIAS
 	end
 
-	timestep  = lookahead * SEC_PER_FRAME
+	timestep  = lookahead * DEFAULT_SEC_PER_FRAME
 	if carind == CARIND_EGO
 		frameind = validfind2frameind(pdset, validfind)
 		curx = gete(pdset, :velFx, frameind)::Float64
@@ -4102,40 +2028,6 @@ function _get(::Feature_FutureAcceleration_250ms, basics::FeatureExtractBasicsPd
 end
 
 create_feature_basics( "FutureAcceleration_500ms", "m/s2", false, false, Inf, -Inf, true, :f_accel_500ms, L"a^{\text{fut}}_{500ms}", "the average rate of speed change over the next half second")
-function _get(::Feature_FutureAcceleration_500ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-
-	const lookahead = 10
-
-	futrvfind = jumpframe(pdset, validfind, lookahead)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	timestep  = lookahead * SEC_PER_FRAME
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		curx = gete(pdset, :velFx, frameind)::Float64
-		cury = gete(pdset, :velFy, frameind)::Float64
-		cur  = hypot(curx, cury)
-		futx = gete(pdset, :velFx, frameind + lookahead)::Float64
-		futy = gete(pdset, :velFy, frameind + lookahead)::Float64
-		fut  = hypot(futx, futy)
-		return (fut - cur) / timestep
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	if idinframe(pdset, carid, futrvfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		curx = getc(pdset, :velFx, carind, validfind)::Float64
-		cury = getc(pdset, :velFy, carind, validfind)::Float64
-		cur  = hypot(curx, cury)
-		futx = getc(pdset, :velFx, farind, futrvfind)::Float64
-		futy = getc(pdset, :velFy, farind, futrvfind)::Float64
-		fut  = hypot(futx, futy)
-		return (fut - cur) / timestep
-	end
-	NA_ALIAS
-end
 function _get(::Feature_FutureAcceleration_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	const lookahead = 10
@@ -4147,7 +2039,7 @@ function _get(::Feature_FutureAcceleration_500ms, basics::FeatureExtractBasicsPd
 		return NA_ALIAS
 	end
 
-	timestep  = lookahead * SEC_PER_FRAME
+	timestep  = lookahead * DEFAULT_SEC_PER_FRAME
 	if carind == CARIND_EGO
 		frameind = validfind2frameind(pdset, validfind)
 		curx = gete(pdset, :velFx, frameind)::Float64
@@ -4174,36 +2066,6 @@ function _get(::Feature_FutureAcceleration_500ms, basics::FeatureExtractBasicsPd
 end
 
 create_feature_basics( "FutureDesiredAngle_250ms", "rad", false, false, float64(π), -float64(π), true, :f_des_angle_250ms, L"\phi^{\text{des}}_{250ms}", "the inferred desired heading angle over the next quarter second")
-function _get(::Feature_FutureDesiredAngle_250ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-
-	const lookahead = 5
-
-	futrvfind = jumpframe(pdset, validfind, lookahead)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	curϕ = futϕ = 0.0
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		curϕ = gete(pdset, :posFyaw, frameind)::Float64
-		futϕ = gete(pdset, :posFyaw, frameind + lookahead)::Float64
-	else
-		carid = carind2id(pdset, carind, validfind)
-		if idinframe(pdset, carid, futrvfind)
-			farind = carid2ind(pdset, carid, futrvfind)
-			curϕ = getc(pdset, :posFyaw, carind, validfind)::Float64
-			futϕ = getc(pdset, :posFyaw, farind, futrvfind)::Float64
-		else
-			return NA_ALIAS
-		end
-	end
-
-	T  = lookahead * SEC_PER_FRAME
-	e = exp(-KP_DESIRED_ANGLE*T)
-
-	(futϕ - curϕ*e) / (1.0 - e)
-end
 function _get(::Feature_FutureDesiredAngle_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	const lookahead = 5
@@ -4231,43 +2093,13 @@ function _get(::Feature_FutureDesiredAngle_250ms, basics::FeatureExtractBasicsPd
 		end
 	end
 
-	T  = lookahead * SEC_PER_FRAME
-	e = exp(-KP_DESIRED_ANGLE*T)
+	T  = lookahead * DEFAULT_SEC_PER_FRAME
+	ex = exp(-KP_DESIRED_ANGLE*T)
 
-	(futϕ - curϕ*e) / (1.0 - e)
+	(futϕ - curϕ*ex) / (1.0 - ex)
 end
 
 create_feature_basics( "FutureDesiredAngle_500ms", "rad", false, false, float64(π), -float64(π), true, :f_des_angle_500ms, L"\phi^{\text{des}}_{500ms}", "the inferred desired heading angle over the next half second")
-function _get(::Feature_FutureDesiredAngle_500ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-
-	const lookahead = 10
-
-	futrvfind = jumpframe(pdset, validfind, lookahead)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	curϕ = futϕ = 0.0
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		curϕ = gete(pdset, :posFyaw, frameind)::Float64
-		futϕ = gete(pdset, :posFyaw, frameind + lookahead)::Float64
-	else
-		carid = carind2id(pdset, carind, validfind)
-		if idinframe(pdset, carid, futrvfind)
-			farind = carid2ind(pdset, carid, futrvfind)
-			curϕ = getc(pdset, :posFyaw, carind, validfind)::Float64
-			futϕ = getc(pdset, :posFyaw, farind, futrvfind)::Float64
-		else
-			return NA_ALIAS
-		end
-	end
-
-	T  = lookahead * SEC_PER_FRAME
-	e = exp(-KP_DESIRED_ANGLE*T)
-
-	(futϕ - curϕ*e) / (1.0 - e)
-end
 function _get(::Feature_FutureDesiredAngle_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	const lookahead = 10
@@ -4295,37 +2127,12 @@ function _get(::Feature_FutureDesiredAngle_500ms, basics::FeatureExtractBasicsPd
 		end
 	end
 
-	T  = lookahead * SEC_PER_FRAME
-	e = exp(-KP_DESIRED_ANGLE*T)
+	T  = lookahead * DEFAULT_SEC_PER_FRAME
+	ex = exp(-KP_DESIRED_ANGLE*T)
 
-	(futϕ - curϕ*e) / (1.0 - e)
+	(futϕ - curϕ*ex) / (1.0 - ex)
 end
 
-function _get_futuredesired_speed(pdset::PrimaryDataset, carind::Int, validfind::Int, lookahead::Int)
-
-	futrvfind = int(jumpframe(pdset, validfind, lookahead))
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	carid = carind2id(pdset, carind, validfind)
-	carind_fut = carid2ind_or_negative_two_otherwise(pdset, carid, futrvfind)
-
-	if carind_fut == -2
-		return NA_ALIAS
-	end
-
-	curv = get(SPEED, pdset, carind, validfind)::Float64
-	futv = get(SPEED, pdset, carind_fut, futrvfind)::Float64
-	if isinf(futv) || isinf(curv)
-		return NA_ALIAS
-	end
-
-	T = lookahead * SEC_PER_FRAME
-	e = exp(-KP_DESIRED_SPEED*T)
-
-	(futv - curv*e) / (1.0 - e) # - curv
-end
 function _get_futuredesired_speed(basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int, lookahead::Int)
 
 	pdset = basics.pdset
@@ -4348,21 +2155,17 @@ function _get_futuredesired_speed(basics::FeatureExtractBasicsPdSet, carind::Int
 		return NA_ALIAS
 	end
 
-	T = lookahead * SEC_PER_FRAME
-	e = exp(-KP_DESIRED_SPEED*T)
+	T = lookahead * DEFAULT_SEC_PER_FRAME
+	ex = exp(-KP_DESIRED_SPEED*T)
 
-	(futv - curv*e) / (1.0 - e) # - curv
+	(futv - curv*ex) / (1.0 - ex) # - curv
 end
 create_feature_basics( "FutureDesiredSpeed_250ms", "m/s", false, false, Inf, -Inf, true, :f_des_speed_250ms, L"|v|^{\text{des}}_{250ms}", "the inferred desired speed over the next quarter second")
 _get(::Feature_FutureDesiredSpeed_250ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) =
   _get_futuredesired_speed(pdset, carind, validfind,  5)
-_get(::Feature_FutureDesiredSpeed_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) =
-  _get_futuredesired_speed(basics, carind, validfind,  5)
 create_feature_basics( "FutureDesiredSpeed_500ms", "m/s", false, false, Inf, -Inf, true, :f_des_speed_500ms, L"|v|^{\text{des}}_{500ms}", "the inferred desired speed over the next half second")
 _get(::Feature_FutureDesiredSpeed_500ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) =
 	_get_futuredesired_speed(pdset, carind, validfind, 10)
-_get(::Feature_FutureDesiredSpeed_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) =
-  _get_futuredesired_speed(basics, carind, validfind,  10)
 
 function _get_futureaccel_control(pdset::PrimaryDataset, carind::Int, validfind::Int, lookahead::Int)
 
@@ -4384,7 +2187,7 @@ function _get_futureaccel_control(pdset::PrimaryDataset, carind::Int, validfind:
 		return NA_ALIAS
 	end
 
-	T = lookahead * SEC_PER_FRAME
+	T = lookahead * DEFAULT_SEC_PER_FRAME
 
 	a = (futv - curv) / T
 	a / (SPEED_LIMIT - curv) # Kp = a / (v_des - v)
@@ -4411,7 +2214,7 @@ function _get_futureaccel_control(basics::FeatureExtractBasicsPdSet, carind::Int
 		return NA_ALIAS
 	end
 
-	T = lookahead * SEC_PER_FRAME
+	T = lookahead * DEFAULT_SEC_PER_FRAME
 
 	a = (futv - curv) / T
 	a / (SPEED_LIMIT - curv) # Kp = a / (v_des - v)
@@ -4419,187 +2222,17 @@ end
 create_feature_basics( "FutureAccelControl_250ms", "m/s", false, false, Inf, -Inf, true, :f_acc_control_250ms, L"K^a_{250ms}", "the inferred speed control constant over the next quarter second")
 _get(::Feature_FutureAccelControl_250ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) =
 	_get_futureaccel_control(pdset, carind, validfind,  5)
-_get(::Feature_FutureAccelControl_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) =
-	_get_futureaccel_control(basics, carind, validfind,  5)
 create_feature_basics( "FutureAccelControl_500ms", "m/s", false, false, Inf, -Inf, true, :f_acc_control_500ms, L"K^a_{500ms}", "the inferred speed control constant over the next half second")
 _get(::Feature_FutureAccelControl_500ms, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) =
 	_get_futureaccel_control(pdset, carind, validfind, 10)
-_get(::Feature_FutureAccelControl_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) =
-	_get_futureaccel_control(basics, carind, validfind, 10)
-
-create_feature_basics( "FutureDeltaY2s", "m", false, false, Inf, -Inf, true, :f_deltaY2s, L"{\Delta Y}^{\text{fut}}_{2s}", "the change in frenet frame y coordinate in 2 seconds")
-function _get(::Feature_FutureDeltaY2s, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	timestep = 2.0
-	jump = iround(timestep / SEC_PER_FRAME) # number of frames to look ahead
-
-	futrvfind = jumpframe(pdset, validfind, jump)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	cur,fut = 0.0,0.0
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :posFy, frameind)::Float64
-		fut = gete(pdset, :posFy, frameind + jump)::Float64
-	elseif idinframe(pdset, carind2id(pdset, carind, validfind), futrvfind)
-		carid = carind2id(pdset, carind, validfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		cur = getc(pdset, :posFy, carind, validfind)::Float64
-		fut = getc(pdset, :posFy, farind, futrvfind)::Float64
-	else
-		return NA_ALIAS
-	end
-
-	fut-cur # positive is to the car's left
-end
-get(::Feature_FutureDeltaY2s, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("future delta Y 2s unsupported for StreetNetwork")
-get(::Feature_FutureDeltaY2s, ::FeatureExtractBasicsPdSet, ::Int, ::Int) = error("future delta Y 2s unsupported for StreetNetwork")
-
-create_feature_basics( "FutureDeltaY1s", "m", false, false, Inf, -Inf, true, :f_deltaY1s, L"{\Delta Y}^{\text{fut}}_{1s}", "the change in frenet frame y coordinate in 1 second")
-function _get(::Feature_FutureDeltaY1s, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	timestep = 1.0
-	jump = iround(timestep / SEC_PER_FRAME) # number of frames to look ahead
-
-	futrvfind = jumpframe(pdset, validfind, jump)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	cur,fut = 0.0,0.0
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :posFy, frameind)::Float64
-		fut = gete(pdset, :posFy, frameind + jump)::Float64
-	elseif idinframe(pdset, carind2id(pdset, carind, validfind), futrvfind)
-		carid = carind2id(pdset, carind, validfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		cur = getc(pdset, :posFy, carind, validfind)::Float64
-		fut = getc(pdset, :posFy, farind, futrvfind)::Float64
-	else
-		return NA_ALIAS
-	end
-
-	fut-cur # positive is to the car's left
-end
-get(::Feature_FutureDeltaY1s, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("future delta Y 1s unsupported for StreetNetwork")
-get(::Feature_FutureDeltaY1s, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = error("future delta Y 1s unsupported for StreetNetwork")
-
-create_feature_basics( "FutureDeltaY_250ms", "m", false, false, Inf, -Inf, true, :f_deltaY_250ms, L"{\Delta Y}^{\text{fut}}_{250ms}", "the change in frenet y over the next quarter second")
-function _get(::Feature_FutureDeltaY_250ms, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	timestep = 0.25
-	jump = iround(timestep / SEC_PER_FRAME) # number of frames to look ahead
-
-	futrvfind = jumpframe(pdset, validfind, jump)
-	if futrvfind == 0 # Does not exist
-		return NA_ALIAS
-	end
-
-	cur,fut = 0.0,0.0
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :posFy, frameind)::Float64
-		fut = gete(pdset, :posFy, frameind + jump)::Float64
-	elseif idinframe(pdset, carind2id(pdset, carind, validfind), futrvfind)
-		carid = carind2id(pdset, carind, validfind)
-		farind = carid2ind(pdset, carid, futrvfind)
-		cur = getc(pdset, "posFy", carind, validfind)::Float64
-		fut = getc(pdset, "posFy", farind, futrvfind)::Float64
-	else
-		return NA_ALIAS
-	end
-
-	fut-cur # positive is to the car's left\\\\t
-end
-get(::Feature_FutureDeltaY_250ms, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("future delta Y 250ms unsupported for StreetNetwork")
-get(::Feature_FutureDeltaY_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = error("future delta Y 250ms unsupported for StreetNetwork")
 
 create_feature_basics( "ID", "-", true, false, Inf, -1.0, false, :id, L"\text{id}", "the corresponding carid, -1 for the ego car")
-get(::Feature_ID, pdset::PrimaryDataset, carind::Int, validfind::Int) = float64(carind2id(pdset, carind, validfind))
-get(::Feature_ID, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int) = float64(carind2id(pdset, carind, validfind))
 get(::Feature_ID, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(carind2id(basics.pdset, carind, validfind))
 
 create_feature_basics( "LaneCurvature", "1/m", false, false, Inf, -Inf, false, :curvature, L"\kappa", "the local lane curvature")
-get(::Feature_LaneCurvature, pdset::PrimaryDataset, carind::Int, validfind::Int) = get(pdset, :curvature, carind, validfind)::Float64
-get(::Feature_LaneCurvature, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int) = get(pdset, :curvature, carind, validfind)::Float64
 get(::Feature_LaneCurvature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :curvature, carind, validfind)::Float64
 
 create_feature_basics( "TimeToLaneCrossing", "s", false, false, THRESHOLD_TIMETOLANECROSSING, 0.0, false, :timetolanecrossing, L"t_{\text{crossing}}^{+}", "the time until the next lane crossing")
-function _get(::Feature_TimeToLaneCrossing, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :lane, frameind)
-		jump = 0
-		fut = cur
-		while fut == cur && frameind_inbounds(pdset, frameind+jump+1)
-			jump += 1
-			fut = gete(pdset, :lane, frameind+jump)
-			if isa(fut, NAtype)
-				fut = cur
-			end
-		end
-		return fut != cur ? jump*SEC_PER_FRAME : NA_ALIAS
-	else
-		carid = carind2id(pdset, carind, validfind)
-		cur = getc(pdset, "lane", carind, validfind)
-		jump = 0
-		fut = cur
-		t_inview = getc(pdset, "t_inview", carind, validfind) # time in view
-		while fut == cur && jump*SEC_PER_FRAME < t_inview
-			jump += 1
-			futrvfind = jumpframe(pdset, validfind, jump)
-			if futrvfind != 0 && idinframe(pdset, carid, futrvfind)
-				farind = carid2ind(pdset, carid, futrvfind)
-				fut = getc(pdset, "lane", farind, futrvfind)
-			end
-		end
-		return fut != cur ? jump*SEC_PER_FRAME : NA_ALIAS
-	end
-end
-function _get(::Feature_TimeToLaneCrossing, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	# scan forward until the car is no longer in the same lane
-
-	frameind = validfind2frameind(pdset, validfind)
-	t_orig = gete(pdset, :time, frameind)::Float64
-
-	cur_lanetag = get(pdset, :lanetag, carind, frameind, validfind)::LaneTag
-	cur_lane = get_lane(sn, cur_lanetag)
-	cur_frameind = frameind
-
-	finished = false
-	while !finished
-		cur_frameind += 1
-		cur_validfind = frameind2validfind(pdset, cur_frameind)
-		if cur_validfind != 0 && indinframe(pdset, carind, cur_validfind)
-			Δt = gete(pdset, :time, cur_frameind) - t_orig
-			if Δt > THRESHOLD_TIMETOLANECROSSING
-				return THRESHOLD_TIMETOLANECROSSING
-			end
-
-			fut_lanetag = get(pdset, :lanetag, carind, cur_frameind, cur_validfind)::LaneTag
-			if fut_lanetag != cur_lanetag				
-				if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
-					return Δt
-				else
-					cur_lane = next_lane(sn, cur_lane)
-					cur_lanetag = LaneTag(sn, cur_lane)
-					if fut_lanetag != cur_lanetag
-						return Δt
-					end
-				end
-			end
-		else
-			return THRESHOLD_TIMETOLANECROSSING
-		end
-	end
-
-	error("INVALID CODEPATH")
-	return THRESHOLD_TIMETOLANECROSSING
-end
 function _get(::Feature_TimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# scan forward until the car is no longer in the same lane
 
@@ -4645,46 +2278,6 @@ function _get(::Feature_TimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, c
 end
 
 create_feature_basics( "TimeSinceLaneCrossing", "s", false, false, THRESHOLD_TIMESINCELANECROSSING, 0.0, false, :timesincelanecrossing, L"t_{\text{crossing}}^{-}", "the time since the last lane crossing")
-function _get(::Feature_TimeSinceLaneCrossing, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	# scan backward until the car is no longer in the same lane
-	# NOTE(tim): returns positive time values
-
-	frameind = validfind2frameind(pdset, validfind)
-	t_orig = gete(pdset, :time, frameind)::Float64
-
-	cur_lanetag = get(pdset, :lanetag, carind, frameind, validfind)::LaneTag
-	cur_lane = get_lane(sn, cur_lanetag)
-	cur_frameind = frameind
-
-	finished = false
-	while !finished
-		cur_frameind -= 1
-		cur_validfind = frameind2validfind(pdset, cur_frameind)
-		if cur_validfind != 0 && indinframe(pdset, carind, cur_validfind)
-			Δt = t_orig - gete(pdset, :time, cur_frameind)
-			if Δt > THRESHOLD_TIMESINCELANECROSSING
-				return THRESHOLD_TIMESINCELANECROSSING
-			end
-			past_lanetag = get(pdset, :lanetag, carind, cur_frameind, cur_validfind)::LaneTag
-			if past_lanetag != cur_lanetag					
-				if same_tile(cur_lanetag, past_lanetag) || !has_prev_lane(sn, cur_lane)
-					return Δt
-				else
-					cur_lane = prev_lane(sn, cur_lane)
-					cur_lanetag = LaneTag(sn, cur_lane)
-					if past_lanetag != cur_lanetag
-						return Δt
-					end
-				end
-			end
-		else
-			return THRESHOLD_TIMESINCELANECROSSING
-		end
-	end
-
-	error("INVALID CODEPATH")
-	return THRESHOLD_TIMESINCELANECROSSING
-end
 function _get(::Feature_TimeSinceLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# scan backward until the car is no longer in the same lane
 	# NOTE(tim): returns positive time values
@@ -4730,51 +2323,6 @@ function _get(::Feature_TimeSinceLaneCrossing, basics::FeatureExtractBasicsPdSet
 end
 
 create_feature_basics( "Time_Consecutive_Brake", "s", false, false, THRESHOLD_TIMECONSECUTIVEACCEL, 0.0, false, :time_consecutive_brake, L"t_\text{brake}", "the consecutive time during which the car has been decelerating")
-function _get(::Feature_Time_Consecutive_Brake, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	# scan backward until the car is no longer braking
-	# NOTE(tim): returns positive time values
-
-	const THRESHOLD_BRAKING = -0.05 # [m/s²]
-
-	frameind = validfind2frameind(pdset, validfind)
-	t_orig = gete(pdset, :time, frameind)::Float64
-
-	past_validfind = int(jumpframe(pdset, validfind, -1))
-	if past_validfind == 0
-		meta[carind][:time_consecutive_accel] = 0.0
-		return 0.0 # default
-	end
-
-	cur_accel = get(ACC, pdset, sn, carind, validfind)
-	if cur_accel > THRESHOLD_BRAKING
-		return 0.0
-	end
-
-	meta[carind][:time_consecutive_accel] = 0.0
-
-	past_frameind = frameind
-	finished = false
-	while !finished
-		past_frameind -= 1
-		past_validfind = int(jumpframe(pdset, past_validfind, -1))
-		if past_validfind != 0
-			past_accel = _get(ACC, pdset, sn, carind, past_validfind)
-			if past_accel > THRESHOLD_BRAKING
-				return t_orig - gete(pdset, :time, past_frameind+1)
-			end
-
-			Δt = t_orig - gete(pdset, :time, past_frameind)	
-			if Δt > THRESHOLD_TIMECONSECUTIVEACCEL
-				return THRESHOLD_TIMECONSECUTIVEACCEL
-			end
-		else
-			return t_orig - gete(pdset, :time, past_frameind+1)
-		end
-	end
-
-	error("INVALID CODEPATH")
-	return 0.0
-end
 function _get(::Feature_Time_Consecutive_Brake, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# scan backward until the car is no longer braking
 	# NOTE(tim): returns positive time values
@@ -4800,8 +2348,8 @@ function _get(::Feature_Time_Consecutive_Brake, basics::FeatureExtractBasicsPdSe
 	basics[(carind, validfind, :time_consecutive_accel)] = 0.0
 
 	past_frameind = frameind
-	done = false
-	while !done
+	finished = false
+	while !finished
 		past_frameind -= 1
 		past_validfind = int(jumpframe(pdset, past_validfind, -1))
 		if past_validfind != 0
@@ -4824,52 +2372,6 @@ function _get(::Feature_Time_Consecutive_Brake, basics::FeatureExtractBasicsPdSe
 end
 
 create_feature_basics( "Time_Consecutive_Accel", "s", false, false, THRESHOLD_TIMECONSECUTIVEACCEL, 0.0, false, :time_consecutive_accel, L"t_\text{accel}", "the consecutive time during which the car has been accelerating")
-function _get(::Feature_Time_Consecutive_Accel, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	# scan backward until the car is no longer braking
-	# NOTE(tim): returns positive time values
-
-	const THRESHOLD_ACCELERATION = 0.05 # [m/s²]
-
-	frameind = validfind2frameind(pdset, validfind)
-	t_orig = gete(pdset, :time, frameind)::Float64
-
-	past_validfind = int(jumpframe(pdset, validfind, -1))
-	if past_validfind == 0
-		meta[carind][:time_consecutive_brake] = 0.0
-		return 0.0 # default
-	end
-
-	cur_accel = get(ACC, pdset, sn, carind, validfind)
-	if cur_accel < THRESHOLD_ACCELERATION
-		return 0.0
-	end
-
-	meta[carind][:time_consecutive_brake] = 0.0
-
-	past_frameind = frameind
-	done = false
-	while !done
-		past_frameind -= 1
-		past_validfind = int(jumpframe(pdset, past_validfind, -1))
-		if past_validfind != 0
-
-			past_accel = _get(ACC, pdset, sn, carind, past_validfind)
-			if past_accel < THRESHOLD_ACCELERATION
-				return t_orig - gete(pdset, :time, past_frameind+1)
-			end
-
-			Δt = t_orig - gete(pdset, :time, past_frameind)	
-			if Δt > THRESHOLD_TIMECONSECUTIVEACCEL
-				return THRESHOLD_TIMECONSECUTIVEACCEL
-			end
-		else
-			return t_orig - gete(pdset, :time, past_frameind+1)
-		end
-	end
-
-	error("INVALID CODEPATH")
-	return 0.0
-end
 function _get(::Feature_Time_Consecutive_Accel, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# scan backward until the car is no longer braking
 	# NOTE(tim): returns positive time values
@@ -4895,8 +2397,8 @@ function _get(::Feature_Time_Consecutive_Accel, basics::FeatureExtractBasicsPdSe
 	basics[(carind, validfind, :time_consecutive_brake)] = 0.0
 
 	past_frameind = frameind
-	done = false
-	while !done
+	finished = false
+	while !finished
 		past_frameind -= 1
 		past_validfind = int(jumpframe(pdset, past_validfind, -1))
 		if past_validfind != 0
@@ -4920,17 +2422,6 @@ function _get(::Feature_Time_Consecutive_Accel, basics::FeatureExtractBasicsPdSe
 end
 
 create_feature_basics( "Time_Consecutive_Throttle", "s", false, false, THRESHOLD_TIMECONSECUTIVEACCEL, 0.0, false, :time_consecutive_throttle, L"t_\text{throttle}", "a union between time_consecutive_accel and time_consecutive_brake")
-function _get(::Feature_Time_Consecutive_Throttle, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-	
-	# returns a positive value if t_consec_accel
-	# returns a negative value if t_consec_brake
-
-	t_consec_accel = get(TIME_CONSECUTIVE_ACCEL, pdset, sn, carind, validfind)
-	if t_consec_accel > 0
-		return t_consec_accel
-	end
-	-get(TIME_CONSECUTIVE_BRAKE, pdset, sn, carind, validfind)
-end
 function _get(::Feature_Time_Consecutive_Throttle, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	
 	# returns a positive value if t_consec_accel
@@ -4943,149 +2434,10 @@ function _get(::Feature_Time_Consecutive_Throttle, basics::FeatureExtractBasicsP
 	-get(TIME_CONSECUTIVE_BRAKE, basics, carind, validfind)
 end
 
-create_feature_basics( "LaneChangeDir", "s", true, false, 1.0, -1.0, true, :lanechangedir, L"\delta_{lc}", "the direction of the next lane change. Positive is to the left")
-function _get(::Feature_LaneChangeDir, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-	ttlc = get(TIMETOLANECROSSING, pdset, carind, validfind)
-	if ttlc == NA_ALIAS
-		return NA_ALIAS
-	end
-
-	jump = iround(ttlc / SEC_PER_FRAME)
-
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		cur = gete(pdset, :lane, frameind)
-		fut = gete(pdset, :lane, frameind + jump)
-		return fut > cur ? 1.0 : -1.0
-	else
-		carid = carind2id(pdset, carind, validfind)
-		futrvfind = jumpframe(pdset, validfind, jump)
-		farind = carid2ind(pdset, carid, futrvfind)
-		cur = getc(pdset, :lane, carind, validfind)
-		fut = getc(pdset, :lane, farind, futrvfind)
-		return fut > cur ? 1.0 : -1.0
-	end
-	error("IMPOSSIBLE LOCATION REACHED")
-end
-get(::Feature_LaneChangeDir, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("lane change dir not supported for StreetNetwork")
-get(::Feature_LaneChangeDir, ::FeatureExtractBasicsPdSet, ::Int, ::Int) = error("lane change dir not supported for FeatureExtractBasicsPdSet")
-
-# create_feature_basics_boolean( "LaneChange2s", true, :lanechange2s, L"\Delta L_{2s}", "whether the car is in another lane two seconds in the future")
-# function _get(::Feature_LaneChange2s, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-# 	timestep = 2.0
-# 	jump = iround(timestep / SEC_PER_FRAME) # number of frames to look ahead
-
-# 	futrvfind = jumpframe(pdset, validfind, jump)
-# 	if futrvfind == 0 # Does not exist
-# 		return NA_ALIAS
-# 	end
-
-# 	cur,fut = 0.0,0.0
-# 	if carind == CARIND_EGO
-# 		frameind = validfind2frameind(pdset, validfind)
-# 		cur = gete(pdset, :lane, frameind)
-# 		fut = gete(pdset, :lane, frameind + jump)
-# 	elseif idinframe(pdset, carind2id(pdset, carind, validfind), futrvfind)
-# 		carid = carind2id(pdset, carind, validfind)
-# 		farind = carid2ind(pdset, carid, futrvfind)
-# 		cur = getc(pdset, "lane", carind, validfind)
-# 		fut = getc(pdset, "lane", farind, futrvfind)
-# 	else
-# 		return NA_ALIAS
-# 	end
-
-# 	islanechange = iround(cur) != iround(fut)
-# 	islanechange ? 1.0 : 0.0
-# end
-# get(::Feature_LaneChange2s, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("lane change 2s not supported for StreetNetwork")
-
-# create_feature_basics_boolean( "LaneChange1s", true, :lanechange1s, L"\Delta L_{1s}", "whether the car is in another lane one second in the future")
-# function _get(::Feature_LaneChange1s, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-# 	timestep = 1.0
-# 	jump = iround(timestep / SEC_PER_FRAME) # number of frames to look ahead
-
-# 	futrvfind = jumpframe(pdset, validfind, jump)
-# 	if futrvfind == 0 # Does not exist
-# 		return NA_ALIAS
-# 	end
-
-# 	cur,fut = 0.0,0.0
-# 	if carind == CARIND_EGO
-# 		frameind = validfind2frameind(pdset, validfind)
-# 		cur = gete(pdset, :lane, frameind)
-# 		fut = gete(pdset, :lane, frameind + jump)
-# 	elseif idinframe(pdset, carind2id(pdset, carind, validfind), futrvfind)
-# 		carid = carind2id(pdset, carind, validfind)
-# 		farind = carid2ind(pdset, carid, futrvfind)
-# 		cur = getc(pdset, "lane", carind, validfind)
-# 		fut = getc(pdset, "lane", farind, futrvfind)
-# 	else
-# 		return NA_ALIAS
-# 	end
-
-# 	islanechange = iround(cur) != iround(fut)
-# 	islanechange ? 1.0 : 0.0
-# end
-# get(::Feature_LaneChange1s, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("lane change 1s not supported for StreetNetwork")
-
-# create_feature_basics_boolean( "LaneChange500ms", true, :lanechange500ms, L"\Delta L_{0.5s}", "whether the car is in another lane a half second in the future")
-# function _get(::Feature_LaneChange500ms, pdset::PrimaryDataset, carind::Int, validfind::Int)
-
-# 	timestep = 0.5
-# 	jump = iround(timestep / SEC_PER_FRAME) # number of frames to look ahead
-
-# 	futrvfind = jumpframe(pdset, validfind, jump)
-# 	if futrvfind == 0 # Does not exist
-# 		return NA_ALIAS
-# 	end
-
-# 	cur,fut = 0.0,0.0
-# 	if carind == CARIND_EGO
-# 		frameind = validfind2frameind(pdset, validfind)
-# 		cur = gete(pdset, :lane, frameind)
-# 		fut = gete(pdset, :lane, frameind + jump)
-# 	elseif idinframe(pdset, carind2id(pdset, carind, validfind), futrvfind)
-# 		carid = carind2id(pdset, carind, validfind)
-# 		farind = carid2ind(pdset, carid, futrvfind)
-# 		cur = getc(pdset, "lane", carind, validfind)
-# 		fut = getc(pdset, "lane", farind, futrvfind)
-# 	else
-# 		return NA_ALIAS
-# 	end
-
-# 	islanechange = iround(cur) != iround(fut)
-# 	islanechange ? 1.0 : 0.0
-# end
-# get(::Feature_LaneChange500ms, ::PrimaryDataset, ::StreetNetwork, ::Int, ::Int) = error("lane change 500ms not supported for StreetNetwork")
-
 # ----------------------------------
 # submodels
 
 create_feature_basics_boolean( "Subset_Emergency", false, :subset_emergency, L"\mathcal{D}_\text{emerg}", "subset of data for emergency behavior")
-function _get(::Feature_Subset_Emergency, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	threshold_acc :: Float64 = 2.0, 
-	threshold_turnrate :: Float64 = 0.05
-	)
-
-	# emergency
-	# - events close to a collision
-	# - can be found when the driver does a big accel?
-	# - definition
-	#   - |acc| > threshold
-	#           or
-	#   - |turnrate| > threshold
-
-	a = get(ACC,      pdset, sn, carind, validfind)
-	ω = get(TURNRATE, pdset, sn, carind, validfind)
-
-	retval = abs(a) > threshold_acc ||
-	         abs(ω) < threshold_turnrate
-
-	float64(retval)
-end
 function _get(::Feature_Subset_Emergency, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	threshold_acc :: Float64 = 2.0, 
 	threshold_turnrate :: Float64 = 0.05
@@ -5109,19 +2461,6 @@ function _get(::Feature_Subset_Emergency, basics::FeatureExtractBasicsPdSet, car
 end
 
 create_feature_basics_boolean( "Subset_Free_Flow", false, :subset_free_flow, L"\mathcal{D}_\text{free}", "subset of data for free flow")
-function _get(::Feature_Subset_Free_Flow, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	threshold_timegap_front :: Float64 = 3.0, 
-	threshold_d_v_front     :: Float64 = 0.5
-	)
-
-	ΔT = get(TIMEGAP_X_FRONT, pdset, sn, carind, validfind)
-	dv = get(      V_X_FRONT, pdset, sn, carind, validfind)
-
-	retval =     ΔT > threshold_timegap_front ||
-	             dv > threshold_d_v_front
-
-	float64(retval)
-end
 function _get(::Feature_Subset_Free_Flow, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	threshold_timegap_front :: Float64 = 3.0, 
 	threshold_d_v_front     :: Float64 = 0.5
@@ -5137,32 +2476,6 @@ function _get(::Feature_Subset_Free_Flow, basics::FeatureExtractBasicsPdSet, car
 end
 
 create_feature_basics_boolean( "Subset_Car_Following", false, :subset_car_following, L"\mathcal{D}_\text{follow}", "subset of data for car following")
-function _get(::Feature_Subset_Car_Following, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	threshold_timegap_front :: Float64 = 3.0,
-	threshold_d_v_front     :: Float64 = 0.5
-	)
-
-	# following
-	# - when there is a car in front of you
-	# - you typically modulate your speed to match theirs and maintain a certain distance
-	#   - distance is proportional to speed?
-	#   - maintain a time gap?
-	# - interesting:
-	#   - what form does the timegap take?
-	#   - how rigid is the tracking?
-	#   - what sort of delays are there?
-	# - definition
-	#   - timegap_front < threshold
-	#   - d_v_front < threshold
-
-	ΔT = get(TIMEGAP_X_FRONT, pdset, sn, carind, validfind)
-	dv = get(      V_X_FRONT, pdset, sn, carind, validfind)
-
-	retval =    !(ΔT > threshold_timegap_front ||
-	              dv > threshold_d_v_front)
-
-	float64(retval)
-end
 function _get(::Feature_Subset_Car_Following, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	threshold_timegap_front :: Float64 = 3.0,
 	threshold_d_v_front     :: Float64 = 0.5
@@ -5191,26 +2504,6 @@ function _get(::Feature_Subset_Car_Following, basics::FeatureExtractBasicsPdSet,
 end
 
 create_feature_basics_boolean( "Subset_Lane_Crossing", false, :subset_lane_crossing, L"\mathcal{D}_\text{crossing}", "subset of data near lane crossing")
-function _get(::Feature_Subset_Lane_Crossing, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	max_time_to_lane_change::Float64 = 2.0, # [s]
-	max_time_since_lane_change::Float64 = 2.0
-	)
-
-	# lane change
-	# - when the driver changes lanes
-	# - interesting:
-	#   - what causes a driver to change lanes?
-	# - definition
-	#   - a lane crossing has occurred
-
-	time_to_lane_change = get(TIMETOLANECROSSING, pdset, sn, carind, validfind)
-	time_since_lane_change = get(TIMESINCELANECROSSING, pdset, sn, carind, validfind)
-
-	retval = time_to_lane_change    < max_time_to_lane_change ||
-	         time_since_lane_change < max_time_since_lane_change
-
-	float64(retval)
-end
 function _get(::Feature_Subset_Lane_Crossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	max_time_to_lane_change::Float64 = 2.0, # [s]
 	max_time_since_lane_change::Float64 = 2.0
@@ -5233,64 +2526,6 @@ function _get(::Feature_Subset_Lane_Crossing, basics::FeatureExtractBasicsPdSet,
 end
 
 create_feature_basics_boolean( "Subset_Sustained_Crossing", false, :subset_sustained_crossing, L"\mathcal{D}_\text{sustained}", "subset of data with a sustained lane crossing")
-function _get(::Feature_Subset_Sustained_Crossing, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	max_time_to_lane_change     :: Float64 = 2.0, # [s]
-	max_time_since_lane_change  :: Float64 = 2.0, # [s]
-	min_abs_d_cl_at_extrema     :: Float64 = 1.0, # [m]
-	req_time_d_cl_threshold_met :: Float64 = 0.1, # [s] amount of time at extrema of segment that must meet d_cl requirements
-	)
-
-	had_lane_crossing = _get(SUBSET_LANE_CROSSING, pdset, sn, carind, validfind,
-							max_time_to_lane_change = max_time_to_lane_change,
-							max_time_since_lane_change = max_time_since_lane_change)
-
-	if isapprox(had_lane_crossing, 0.0)
-		return float64(false)
-	end
-	
-	carid = carind2id(pdset, carind, validfind)
-	frameind = validfind2frameind(pdset, validfind)
-	t = gete(pdset, :time, frameind)::Float64
-
-	time_to_lane_crossing    = get(TIMETOLANECROSSING,    pdset, sn, carind, validfind)
-	time_since_lane_crossing = get(TIMESINCELANECROSSING, pdset, sn, carind, validfind)
-
-	if time_to_lane_crossing < time_since_lane_crossing
-		Δt = time_to_lane_crossing
-	else
-		Δt = -time_since_lane_crossing
-	end
-
-	closest_validfind = Trajdata.closest_validfind(pdset, t + Δt)
-	@assert(closest_validfind != 0)
-	closest_frameind = validfind2frameind(pdset, closest_validfind)
-	@assert(closest_frameind != 0)
-
-	find, vind = closest_frameind, closest_validfind
-	dir  = convert(typeof(closest_frameind), sign(Δt))
-	t    = gete(pdset, :time, closest_frameind)::Float64
-	dt   = 0.0
-	carind_fut = carid2ind_or_negative_two_otherwise(pdset, carid, vind)
-	
-	while dt < req_time_d_cl_threshold_met && carind_fut != -2
-		d_cl = get(pdset, :d_cl, carind_fut, find, vind)::Float64
-		if abs(d_cl) > min_abs_d_cl_at_extrema
-			return float64(false)
-		end
-	
-		find += dir
-		vind  = frameind2validfind(pdset, find)
-		while vind == 0
-			find += dir
-			vind  = frameind2validfind(pdset, find)
-		end
-
-		carind_fut = carid2ind_or_negative_two_otherwise(pdset, carid, vind)
-		dt = abs(gete(pdset, :time, find)::Float64 - t)
-	end
-
-	float64(true)
-end
 function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	max_time_to_lane_change     :: Float64 = 2.0, # [s]
 	max_time_since_lane_change  :: Float64 = 2.0, # [s]
@@ -5320,45 +2555,38 @@ function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsP
 		Δt = -time_since_lane_crossing
 	end
 
-	closest_validfind = Trajdata.closest_validfind(pdset, t + Δt)
-	@assert(closest_validfind != 0)
-	closest_frameind = validfind2frameind(pdset, closest_validfind)
+	the_closest_validfind = Trajdata.closest_validfind(pdset, t + Δt)
+	@assert(the_closest_validfind != 0)
+	closest_frameind = validfind2frameind(pdset, the_closest_validfind)
 	@assert(closest_frameind != 0)
 
-	find, vind = closest_frameind, closest_validfind
+	frameind, vind = closest_frameind, the_closest_validfind
 	dir  = convert(typeof(closest_frameind), sign(Δt))
 	t    = gete(pdset, :time, closest_frameind)::Float64
 	dt   = 0.0
 	carind_fut = carid2ind_or_negative_two_otherwise(pdset, carid, vind)
 	
 	while dt < req_time_d_cl_threshold_met && carind_fut != -2
-		d_cl = get(pdset, :d_cl, carind_fut, find, vind)::Float64
+		d_cl = get(pdset, :d_cl, carind_fut, frameind, vind)::Float64
 		if abs(d_cl) > min_abs_d_cl_at_extrema
 			return float64(false)
 		end
 	
-		find += dir
-		vind  = frameind2validfind(pdset, find)
+		frameind += dir
+		vind  = frameind2validfind(pdset, frameind)
 		while vind == 0
-			find += dir
-			vind  = frameind2validfind(pdset, find)
+			frameind += dir
+			vind  = frameind2validfind(pdset, frameind)
 		end
 
 		carind_fut = carid2ind_or_negative_two_otherwise(pdset, carid, vind)
-		dt = abs(gete(pdset, :time, find)::Float64 - t)
+		dt = abs(gete(pdset, :time, frameind)::Float64 - t)
 	end
 
 	float64(true)
 end
 
 create_feature_basics_boolean( "Subset_At_SixtyFive", false, :subset_at_sixtyfive, L"\mathcal{D}_{v=65\text{mph}}", "subset of data where the car is close to 65 mph")
-function _get(::Feature_Subset_At_SixtyFive, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int;
-	speed_tolerance :: Float64 = 2.235 # [m/s²]
-	)
-
-	V = get(SPEED, pdset, sn, carind, validfind)
-	float64(abs(V - SPEED_LIMIT) < speed_tolerance)
-end
 function _get(::Feature_Subset_At_SixtyFive, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
 	speed_tolerance :: Float64 = 2.235 # [m/s²]
 	)
@@ -5368,15 +2596,6 @@ function _get(::Feature_Subset_At_SixtyFive, basics::FeatureExtractBasicsPdSet, 
 end
 
 create_feature_basics_boolean( "Subset_Auto", false, :subset_auto, L"s_\text{auto}", "subset of data where the car is in autonomous mode")
-function _get(::Feature_Subset_Auto, pdset::PrimaryDataset, sn::StreetNetwork, carind::Int, validfind::Int)
-
-	if carind != CARIND_EGO
-		return float64(false)
-	end
-
-	status = gete_validfind(pdset, :control_status, validfind)::Int
-	return float64(status == Trajdata.CONTROL_STATUS_AUTO)
-end
 function _get(::Feature_Subset_Auto, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	if carind != CARIND_EGO
@@ -5389,32 +2608,6 @@ end
 
 # ----------------------------------
 
-clearmeta() = empty!(meta)
-function checkmeta(carind::Int, validfind::Int)
-	global meta_validfind
-	global meta
-
-	if meta_validfind != validfind
-		clearmeta()
-		meta_validfind = validfind
-		meta[carind] = Dict{Symbol,Float64}()
-		return false
-	elseif !haskey(meta, carind)
-		meta[carind] = Dict{Symbol,Float64}()
-		return false
-	end
-
-	return true
-end
-function checkmeta(carind::Int, validfind::Int, symb::Symbol)
-	
-	if !checkmeta(carind, validfind)
-		return false
-	end	
-
-	haskey(meta[carind], symb)
-end
-
 function ticks_to_time_string( ticks::Int )
 	n_secs = ticks//DEFAULT_FRAME_PER_SEC
 	unit = "s"
@@ -5426,23 +2619,14 @@ function ticks_to_time_string( ticks::Int )
 	(num(n_secs), unit)
 end
 
-# ----------------------------------
-
-# signed delta angle
-deltaangle( a::Real, b::Real ) = atan2(sin(a-b), cos(a-b))
-# distance between two angles
-angledist( a::Real, b::Real ) = abs(tan2(sin(a-b), cos(a-b)))
-
 function is_pt_left_of_ray(x::Float64, y::Float64, raySx::Float64, raySy::Float64, rayEx::Float64, rayEy::Float64)
 
   	(y-raySy)*(rayEx-raySx) > (x-raySx)*(rayEy-raySy)
 end
 function is_pt_left_of_ray(x::Float64, y::Float64, rX::Float64, rY::Float64, rθ::Float64)
 
-	is_pt_left_of_ray(x, y, rX, rY, rX + cos(θ), rY + sin(θ))
+	is_pt_left_of_ray(x, y, rX, rY, rX + cos(rθ), rY + sin(rθ))
 end
-
-# ----------------------------------
 
 function replace_featuresymbols_in_string_with_latex(str::String)
 

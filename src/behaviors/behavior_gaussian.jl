@@ -14,10 +14,10 @@ type VehicleBehaviorGaussian <: AbstractVehicleBehavior
 end
 
 function select_action(
-    basics::FeatureExtractBasicsPdSet,
+    ::FeatureExtractBasicsPdSet,
     behavior::VehicleBehaviorGaussian,
-    carind::Int,
-    frameind::Int
+    ::Int,
+    ::Int
     )
 
     action = rand(behavior.Σ)
@@ -30,10 +30,10 @@ function select_action(
 end
 
 function calc_action_loglikelihood(
-    basics::FeatureExtractBasicsPdSet,
+    ::FeatureExtractBasicsPdSet,
     behavior::VehicleBehaviorGaussian,
-    carind::Int,
-    validfind::Int,
+    ::Int,
+    ::Int,
     action_lat::Float64,
     action_lon::Float64
     )
@@ -54,7 +54,7 @@ function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args:
 
     nframes = size(trainingframes, 1)
 
-    count = 0
+    total = 0
     trainingmatrix = Array(Float64, 2, nframes)
     for i = 1 : nframes
 
@@ -64,12 +64,12 @@ function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args:
         if !isnan(action_lat) && !isnan(action_lon) &&
            !isinf(action_lat) && !isinf(action_lon)
 
-            count += 1
-            trainingmatrix[1, count] = action_lat
-            trainingmatrix[2, count] = action_lon
+            total += 1
+            trainingmatrix[1, total] = action_lat
+            trainingmatrix[2, total] = action_lon
         end
     end
-    trainingmatrix = trainingmatrix[:, 1:count]
+    trainingmatrix = trainingmatrix[:, 1:total]
 
     VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
 end

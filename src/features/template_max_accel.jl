@@ -14,51 +14,6 @@ for ticks in tick_list
 
 
 	@eval begin
-		function _get(::$feature_name, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-
-			maxjump = -$ticks
-
-			val = 0.0
-			total = 0
-
-			carid = (carind == CARIND_EGO ? CARID_EGO : carind2id(pdset, carind, validfind))
-
-			jump = -N_FRAMES_PER_SIM_FRAME
-			while jump ≥ maxjump + N_FRAMES_PER_SIM_FRAME
-
-				jvfind1 = jumpframe(pdset, validfind, jump)
-				jvfind2 = jumpframe(pdset, validfind, jump-N_FRAMES_PER_SIM_FRAME)
-				jump -= N_FRAMES_PER_SIM_FRAME
-
-				if jvfind1 == 0 || jvfind2 == 0 # Does not exist
-					continue
-				end
-
-				cur, fut = 0.0, 0.0
-				if carind == CARIND_EGO
-					f1 = validfind2frameind(pdset, jvfind1)
-					f2 = validfind2frameind(pdset, jvfind2)
-					cur = gete(pdset, :velFx, f1)
-					fut = gete(pdset, :velFx, f2)
-				elseif idinframe(pdset, carid, jvfind1) && idinframe(pdset, carid, jvfind2)
-					ind1 = carid2ind(pdset, carid, jvfind1)
-					ind2 = carid2ind(pdset, carid, jvfind2)
-					cur = getc(pdset, :velFx, ind1, jvfind1)
-					fut = getc(pdset, :velFx, ind2, jvfind2)	
-				else
-					continue
-				end
-
-				total += 1
-				acc = (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
-				val = abs(acc) > abs(val) ? acc : val
-			end
-
-			if total == 0
-				return NA_ALIAS
-			end
-			val
-		end
 		function _get(::$feature_name, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 			pdset = basics.pdset
@@ -96,7 +51,7 @@ for ticks in tick_list
 				end
 
 				total += 1
-				acc = (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
+				acc = (fut - cur)/(DEFAULT_SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
 				val = abs(acc) > abs(val) ? acc : val
 			end
 
@@ -117,53 +72,6 @@ for ticks in tick_list
 	create_feature_basics( fname_str, "m/s2", false, false, Inf, -Inf, true, sym_feature, lstr, str_description)
 
 	@eval begin
-		function _get(::$feature_name, pdset::PrimaryDataset, ::StreetNetwork, carind::Int, validfind::Int)
-
-			maxjump = -$ticks
-
-			val = 0.0
-			total = 0
-
-			carid = (carind == CARIND_EGO ? CARID_EGO : carind2id(pdset, carind, validfind))
-
-			jump = -N_FRAMES_PER_SIM_FRAME
-			while jump ≥ maxjump + N_FRAMES_PER_SIM_FRAME
-
-				jvfind1 = jumpframe(pdset, validfind, jump)
-				jvfind2 = jumpframe(pdset, validfind, jump-N_FRAMES_PER_SIM_FRAME)
-				jump -= N_FRAMES_PER_SIM_FRAME
-
-				if jvfind1 == 0 || jvfind2 == 0 # Does not exist
-					continue
-				end
-
-				cur, fut = 0.0, 0.0
-				if carind == CARIND_EGO
-					f1 = validfind2frameind(pdset, jvfind1)
-					f2 = validfind2frameind(pdset, jvfind2)
-					cur = gete(pdset, :velFy, f1)
-					fut = gete(pdset, :velFy, f2)
-				elseif idinframe(pdset, carid, jvfind1) && idinframe(pdset, carid, jvfind2)
-					ind1 = carid2ind(pdset, carid, jvfind1)
-					ind2 = carid2ind(pdset, carid, jvfind2)
-					cur = getc(pdset, :velFy, ind1, jvfind1)
-					fut = getc(pdset, :velFy, ind2, jvfind2)	
-				else
-					continue
-				end
-
-				total += 1
-				acc = (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
-				val = abs(acc) > abs(val) ? acc : val
-
-				jump -= N_FRAMES_PER_SIM_FRAME
-			end
-
-			if total == 0
-				return NA_ALIAS
-			end
-			val
-		end
 		function _get(::$feature_name, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 			pdset = basics.pdset
@@ -201,7 +109,7 @@ for ticks in tick_list
 				end
 
 				total += 1
-				acc = (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
+				acc = (fut - cur)/(DEFAULT_SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
 				val = abs(acc) > abs(val) ? acc : val
 
 				jump -= N_FRAMES_PER_SIM_FRAME

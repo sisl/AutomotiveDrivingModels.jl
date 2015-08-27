@@ -7,10 +7,10 @@ type VehicleBehaviorDriveStraight <: AbstractVehicleBehavior end
 const VEHICLE_BEHAVIOR_DRIVE_STRAIGHT = VehicleBehaviorDriveStraight()
 
 function select_action(
-    basics::FeatureExtractBasicsPdSet,
-    behavior::VehicleBehaviorDriveStraight,
-    carind::Int,
-    frameind::Int
+    ::FeatureExtractBasicsPdSet,
+    ::VehicleBehaviorDriveStraight,
+    ::Int,
+    ::Int
     )
 
     action_lat = 0.0
@@ -20,10 +20,10 @@ function select_action(
 end
 
 function calc_action_loglikelihood(
-    basics::FeatureExtractBasicsPdSet,
-    behavior::VehicleBehaviorDriveStraight,
-    carind::Int,
-    validfind::Int,
+    ::FeatureExtractBasicsPdSet,
+    ::VehicleBehaviorDriveStraight,
+    ::Int,
+    ::Int,
     action_lat::Float64,
     action_lon::Float64
     )
@@ -35,7 +35,7 @@ function calc_action_loglikelihood(
     end
 end
 
-function train(::Type{VehicleBehaviorDriveStraight}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
+function train(::Type{VehicleBehaviorDriveStraight}, ::DataFrame; args::Dict=Dict{Symbol,Any}())
 
     for (k,v) in args
         warn("Train VehicleBehaviorDriveStraight: ignoring $k")

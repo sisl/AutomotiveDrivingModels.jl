@@ -1,7 +1,7 @@
 using Base.Test
 using Lint
 
-# lintpkg("AutomotiveDrivingModels")
+lintpkg("AutomotiveDrivingModels")
 
 # using AutomotiveDrivingModels
 

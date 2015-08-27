@@ -261,7 +261,7 @@ function lla2xyz( lat::Real, lon::Real, alt::Real )
 	y = (RN + alt)*cos(lat)*sin(lon)
 	z = (RN*(1-eccentricity^2)+alt)*sin(lat)
 
-	return (x,y,z)
+	return Vec3E(x,y,z)
 end
 function ll2utm( lat::Real, lon::Real, zone::Integer=-1; map_datum::Symbol=:WGS_84)
 	# see DMATM 8358.2 by the Army
@@ -638,7 +638,7 @@ function closest_node_above_extind(sn::StreetNetwork, lane::StreetLane, extind::
 		end
 
 		c = div( a+b, 2 )
-		fc = n.extind - extind
+		fc = lane.nodes[c].extind - extind
 
 		if 0 ≤ fc < isapprox_threshold
 			return lane.nodes[c]
@@ -1285,7 +1285,7 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 			ids_generally_increasing = sum([(ids[new_order[i]] - ids[new_order[i-1]] > 0.0) for i in 2:length(ids)]) > 0.0
 			node = node_map[WaypointID(segment.id, lane.id.lane, ids[new_order[1]])]
 
-			i = 2
+			local i = 2
 			while i ≤ length(new_order)
 				nextnode = node_map[WaypointID(segment.id, lane.id.lane, ids[new_order[i]])]
 				ids_generally_increasing ? add_edge!(G, node, nextnode) : add_edge!(G, nextnode, node)

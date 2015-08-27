@@ -167,7 +167,7 @@ function add_waypoint!(lane::RNDF_Lane, waypoint::WaypointID, lla::LatLonAlt; ov
 	return lane
 end
 function add_waypoint!(lane::RNDF_Lane, pt_id::Integer, lla::LatLonAlt; override::Bool=false)
-	override || !haskey(lane.waypoints, pt_id) || error("lane already contains waypoint $(pt_pt)") 
+	override || !haskey(lane.waypoints, pt_id) || error("lane already contains waypoint $(pt_id)") 
 	lane.waypoints[pt_id] = lla
 	return lane
 end
@@ -225,19 +225,19 @@ function load_rndf( filepath::String )
 	close(fin)
 
 	readparam(str::ASCIIString) = str[searchindex(str, " ")+1:end-1]
-	function readparam(str::ASCIIString, param_name::String, S::Type{Int})
+	function readparam(str::ASCIIString, param_name::String, ::Type{Int})
 		@assert(beginswith(str, param_name))
 		return int(str[searchindex(str, " ")+1:end-1])
 	end
-	function readparam(str::ASCIIString, param_name::String, S::Type{Float64})
+	function readparam(str::ASCIIString, param_name::String, ::Type{Float64})
 		@assert(beginswith(str, param_name))
 		return float(str[searchindex(str, " ")+1:end-1])
 	end
-	function readparam(str::ASCIIString, param_name::String, S::Type{String})
+	function readparam(str::ASCIIString, param_name::String, ::Type{String})
 		@assert(beginswith(str, param_name))
 		return str[searchindex(str, " ")+1:end-1]
 	end
-	function readparam(str::ASCIIString, param_name::String, S::Type{LaneID})
+	function readparam(str::ASCIIString, param_name::String, ::Type{LaneID})
 		@assert(beginswith(str, param_name))
 		str = str[searchindex(str, " ")+1:end-1]
 		@assert(ismatch(REGEX_LANEID, str))
@@ -245,7 +245,7 @@ function load_rndf( filepath::String )
 		@assert(length(matches) == 2)
 		LaneID(uint(matches[1]), uint(matches[2]))
 	end
-	function readparam(str::ASCIIString, param_name::String, S::Type{WaypointID})
+	function readparam(str::ASCIIString, param_name::String, ::Type{WaypointID})
 		@assert(beginswith(str, param_name))
 		str = str[searchindex(str, " ")+1:end-1]
 		@assert(ismatch(REGEX_WAYPOINT, str))
@@ -260,8 +260,8 @@ function load_rndf( filepath::String )
 	num_zones = -1
 	n_lines_skipped = 0
 
-	current_segment::Union(Nothing, RNDF_Segment) = nothing
-	current_lane::Union(Nothing, RNDF_Lane) = nothing
+	current_segment = nothing
+	current_lane = nothing
 
 	predicted_num_lanes = Dict{Int,Int}() # seg_id -> n_lanes
 	predicted_num_waypoints = Dict{LaneID,Int}() # seg_id -> n_lanes

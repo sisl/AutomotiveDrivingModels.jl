@@ -2,7 +2,6 @@ export
         ParamsHistobin,
 
         calc_trace_deviation,
-        calc_traceset_deviations,
         
         allocate_empty_histobin,
         update_histobin!,
@@ -11,7 +10,7 @@ export
         KL_divergence_categorical,
         KL_divergence_dirichlet,
         KL_divergence_univariate_gaussian,
-        coordinate_descent_histobin_fit!
+        # coordinate_descent_histobin_fit!
 
 type ParamsHistobin
     discx :: LinearDiscretizer
@@ -20,7 +19,7 @@ type ParamsHistobin
     ParamsHistobin(discx::LinearDiscretizer, discy::LinearDiscretizer) = new(discx, discy)
     function ParamsHistobin(binedgesx::Vector{Float64}, binedgesy::Vector{Float64})
         discx = LinearDiscretizer(binedgesx)
-        discy = LinearDiscretizer(binedgesx)
+        discy = LinearDiscretizer(binedgesy)
         new(discx, discy)
     end
 end
@@ -64,51 +63,6 @@ function calc_trace_deviation(pdset::PrimaryDataset, sn::StreetNetwork, seg::Pds
     @assert(!isnan(Δt))
     
     (Δt, Δd)
-end
-function calc_trace_deviation(simlog::Matrix{Float64}, history::Int)
-    
-    initial_speed = simlog[history,LOG_COL_V]
-
-    Δx = simlog[end,LOG_COL_X] - simlog[history,LOG_COL_X]
-    Δy = simlog[end,LOG_COL_Y] - simlog[history,LOG_COL_Y]
-    Δt = Δx / initial_speed
-    
-    (Δt, Δy)
-end
-calc_trace_deviation(trace::VehicleTrace) = calc_trace_deviation(trace.log, trace.history)
-
-function calc_traceset_deviations(tracesets::Vector{Vector{VehicleTrace}})
-
-    m = length(tracesets)
-    Δt_arr = Array(Float64, m) # x-deviation divided by initial speed
-    Δy_arr = Array(Float64, m)
-
-    for (i,traceset) in enumerate(tracesets)
-
-        egotrace = traceset[1]
-        Δt, Δy = calc_trace_deviation(egotrace)
-
-        Δt_arr[i] = Δt
-        Δy_arr[i] = Δy
-    end
-
-    (Δt_arr, Δy_arr)
-end
-function calc_traceset_deviations(simlogs::Vector{Matrix{Float64}}, history::Int)
-
-    m = length(simlogs)
-    Δt_arr = Array(Float64, m) # x-deviation divided by initial speed
-    Δy_arr = Array(Float64, m)
-
-    for (i,simlog) in enumerate(simlogs)
-        
-        Δt, Δy = calc_trace_deviation(simlog, history)
-
-        Δt_arr[i] = Δt
-        Δy_arr[i] = Δy
-    end
-
-    (Δt_arr, Δy_arr)
 end
 
 function allocate_empty_histobin(histobin_params::ParamsHistobin)
@@ -191,39 +145,6 @@ function calc_histobin(Δt_arr::Vector{Float64}, Δy_arr::Vector{Float64}, histo
 
     histobin
 end
-function calc_histobin(tracesets::Vector{Vector{VehicleTrace}}, histobin_params::ParamsHistobin)
-
-    histobin = allocate_empty_histobin(histobin_params)
-
-    for (i,traceset) in enumerate(tracesets)
-
-        egotrace = traceset[1]
-        Δt, Δy = calc_trace_deviation(egotrace)
-
-        bin_x = encode(histobin_params.discx, Δt)
-        bin_y = encode(histobin_params.discy, Δy)
-
-        histobin[bin_x, bin_y] += 1.0
-    end
-
-    histobin
-end
-function calc_histobin(simlogs::Vector{Matrix{Float64}}, histobin_params::ParamsHistobin, history::Int)
-
-    histobin = allocate_empty_histobin(histobin_params)
-
-    for (i,simlog) in enumerate(simlogs)
-
-        Δt, Δy = calc_trace_deviation(simlog, history)
-
-        bin_x = encode(histobin_params.discx, Δt)
-        bin_y = encode(histobin_params.discy, Δy)
-
-        histobin[bin_x, bin_y] += 1.0
-    end
-
-    histobin
-end
 
 function KL_divergence_categorical(histobinA::Matrix{Float64}, histobinB::Matrix{Float64})
     
@@ -253,115 +174,115 @@ function KL_divergence_univariate_gaussian(μ1::Float64, μ2::Float64, σ1::Floa
     log(σ2/σ1) + (σ1*σ1 + Δμ*Δμ)/(2σ2*σ2) - 0.5
 end
 
-function coordinate_descent_histobin_fit!{B<:AbstractVehicleBehavior}(
-    simlogs         :: Vector{Matrix{Float64}},
-    behaviors       :: Vector{B},
-    road            :: StraightRoadway,
-    history         :: Int,
-    target_histobin :: Matrix{Float64},
-    histobin_params :: ParamsHistobin,
-    simparams       :: SimParams,    
-    KLdiv_method    :: Symbol; # ∈ :Dirichlet, :Categorical
-    verbosity       :: Int = 0
-    )
+# function coordinate_descent_histobin_fit!{B<:AbstractVehicleBehavior}(
+#     simlogs         :: Vector{Matrix{Float64}},
+#     behaviors       :: Vector{B},
+#     road            :: StraightRoadway,
+#     history         :: Int,
+#     target_histobin :: Matrix{Float64},
+#     histobin_params :: ParamsHistobin,
+#     simparams       :: SimParams,    
+#     KLdiv_method    :: Symbol; # ∈ :Dirichlet, :Categorical
+#     verbosity       :: Int = 0
+#     )
 
-    if KLdiv_method == :Dirichlet
-        KL_div_function = KL_divergence_dirichlet
-    elseif KLdiv_method == :Categorical
-        KL_div_function = KL_divergence_categorical
-    else
-        error("unknown KL divergence method $KLdiv_method")
-    end
+#     if KLdiv_method == :Dirichlet
+#         KL_div_function = KL_divergence_dirichlet
+#     elseif KLdiv_method == :Categorical
+#         KL_div_function = KL_divergence_categorical
+#     else
+#         error("unknown KL divergence method $KLdiv_method")
+#     end
 
-    if verbosity > 0
-        println("Coordinte descent $KLdiv_method")
-        tic()
-    end
+#     if verbosity > 0
+#         println("Coordinte descent $KLdiv_method")
+#         tic()
+#     end
 
-    target_histobin_with_prior = target_histobin .+ 1.0
+#     target_histobin_with_prior = target_histobin .+ 1.0
 
-    param_options = (
-        [SAMPLE_UNIFORM, SAMPLE_BIN_CENTER, SAMPLE_UNIFORM_ZERO_BIN],
-        [(:none, 1), (:SMA, 2), (:SMA, 3), (:SMA, 4), (:SMA, 5),
-                     (:WMA, 2), (:WMA, 3), (:WMA, 4), (:WMA, 5)],
-        [SAMPLE_UNIFORM, SAMPLE_BIN_CENTER, SAMPLE_UNIFORM_ZERO_BIN],
-        [(:none, 1), (:SMA, 2), (:SMA, 3), (:SMA, 4), (:SMA, 5),
-                     (:WMA, 2), (:WMA, 3), (:WMA, 4), (:WMA, 5)]
-    )
+#     param_options = (
+#         [SAMPLE_UNIFORM, SAMPLE_BIN_CENTER, SAMPLE_UNIFORM_ZERO_BIN],
+#         [(:none, 1), (:SMA, 2), (:SMA, 3), (:SMA, 4), (:SMA, 5),
+#                      (:WMA, 2), (:WMA, 3), (:WMA, 4), (:WMA, 5)],
+#         [SAMPLE_UNIFORM, SAMPLE_BIN_CENTER, SAMPLE_UNIFORM_ZERO_BIN],
+#         [(:none, 1), (:SMA, 2), (:SMA, 3), (:SMA, 4), (:SMA, 5),
+#                      (:WMA, 2), (:WMA, 3), (:WMA, 4), (:WMA, 5)]
+#     )
 
-    n_params = length(param_options)
-    params_tried = Set{Vector{Int}}() # paraminds
-    paraminds = ones(Int, n_params)
-    egobehavior = behaviors[1]
+#     n_params = length(param_options)
+#     params_tried = Set{Vector{Int}}() # paraminds
+#     paraminds = ones(Int, n_params)
+#     egobehavior = behaviors[1]
 
-    converged = false
-    best_KLdiv = Inf
-    iter = 0
-    while !converged
-        iter += 1
-        converged = true
-        if verbosity > 0
-            println("iteration ", iter)
-            toc()
-            tic()
-        end
+#     converged = false
+#     best_KLdiv = Inf
+#     iter = 0
+#     while !converged
+#         iter += 1
+#         converged = true
+#         if verbosity > 0
+#             println("iteration ", iter)
+#             toc()
+#             tic()
+#         end
         
-        for coordinate = 1 : n_params
-            if verbosity > 1
-                println("\tcoordinate ", coordinate)
-            end
+#         for coordinate = 1 : n_params
+#             if verbosity > 1
+#                 println("\tcoordinate ", coordinate)
+#             end
 
-            for ip in 1 : length(param_options[coordinate])
+#             for ip in 1 : length(param_options[coordinate])
 
-                newparams = copy(paraminds)
-                newparams[coordinate] = ip
+#                 newparams = copy(paraminds)
+#                 newparams[coordinate] = ip
 
-                if !in(newparams, params_tried)
-                    push!(params_tried, newparams)
+#                 if !in(newparams, params_tried)
+#                     push!(params_tried, newparams)
                     
-                    egobehavior.simparams_lat.sampling_scheme  = param_options[1][newparams[1]]
-                    egobehavior.simparams_lon.sampling_scheme  = param_options[3][newparams[3]]
-                    egobehavior.simparams_lat.smoothing        = param_options[2][newparams[2]][1]
-                    egobehavior.simparams_lat.smoothing_counts = param_options[2][newparams[2]][2]
-                    egobehavior.simparams_lon.smoothing        = param_options[4][newparams[4]][1]
-                    egobehavior.simparams_lon.smoothing_counts = param_options[4][newparams[4]][2]
+#                     egobehavior.simparams_lat.sampling_scheme  = param_options[1][newparams[1]]
+#                     egobehavior.simparams_lon.sampling_scheme  = param_options[3][newparams[3]]
+#                     egobehavior.simparams_lat.smoothing        = param_options[2][newparams[2]][1]
+#                     egobehavior.simparams_lat.smoothing_counts = param_options[2][newparams[2]][2]
+#                     egobehavior.simparams_lon.smoothing        = param_options[4][newparams[4]][1]
+#                     egobehavior.simparams_lon.smoothing_counts = param_options[4][newparams[4]][2]
                     
-                    simulate!(simlogs, behaviors, road, history, simparams)
-                    # TODO(tim): compute histobin directly
-                    (Δt_arr, Δy_arr) = calc_traceset_deviations(simlogs, history)
-                    histobin = calc_histobin(Δt_arr, Δy_arr, histobin_params)
-                    histobin .+= 1.0
-                    KLdiv = KL_div_function(target_histobin_with_prior,histobin)
+#                     simulate!(simlogs, behaviors, road, history, simparams)
+#                     # TODO(tim): compute histobin directly
+#                     (Δt_arr, Δy_arr) = calc_traceset_deviations(simlogs, history)
+#                     histobin = calc_histobin(Δt_arr, Δy_arr, histobin_params)
+#                     histobin .+= 1.0
+#                     KLdiv = KL_div_function(target_histobin_with_prior,histobin)
 
-                    if KLdiv < best_KLdiv
-                        best_KLdiv = KLdiv
-                        paraminds[coordinate] = ip
-                        converged = false
-                        if verbosity > 0
-                            println("\tfound better: ", coordinate, " -> ", param_options[coordinate][ip])
-                            println("\t\tKL: ", best_KLdiv)
-                        end
-                    end
+#                     if KLdiv < best_KLdiv
+#                         best_KLdiv = KLdiv
+#                         paraminds[coordinate] = ip
+#                         converged = false
+#                         if verbosity > 0
+#                             println("\tfound better: ", coordinate, " -> ", param_options[coordinate][ip])
+#                             println("\t\tKL: ", best_KLdiv)
+#                         end
+#                     end
 
-                end
-            end
-        end
-    end
+#                 end
+#             end
+#         end
+#     end
 
-    if verbosity > 0
-        toc()
-        println("optimal params: ", paraminds)
-        println("KL-divergence: ", best_KLdiv)
-    end
+#     if verbosity > 0
+#         toc()
+#         println("optimal params: ", paraminds)
+#         println("KL-divergence: ", best_KLdiv)
+#     end
 
 
-    (ModelSimParams(
-        param_options[1][paraminds[1]],
-        param_options[2][paraminds[2]][1],
-        param_options[2][paraminds[2]][2]),
-     ModelSimParams(
-        param_options[3][paraminds[3]],
-        param_options[4][paraminds[4]][1],
-        param_options[4][paraminds[4]][2]),
-     best_KLdiv)
-end
+#     (ModelSimParams(
+#         param_options[1][paraminds[1]],
+#         param_options[2][paraminds[2]][1],
+#         param_options[2][paraminds[2]][2]),
+#      ModelSimParams(
+#         param_options[3][paraminds[3]],
+#         param_options[4][paraminds[4]][1],
+#         param_options[4][paraminds[4]][2]),
+#      best_KLdiv)
+# end

@@ -12,7 +12,6 @@ using Vec
 
 import Base: start, next, done, get
 
-
 export 
 	PrimaryDataset,                     # type containing precomputed road network data
 
@@ -545,37 +544,17 @@ function closest_validfind( pdset::PrimaryDataset, time::Float64 )
 end
 
 
+gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego_primary[frameind, sym]
+gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer ) = pdset.df_ego_primary[validfind2frameind(pdset, validfind), sym]
+
 getc_symb( str::String, carind::Integer ) = symbol(@sprintf("%s_%d", str, carind))
 function getc( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer )
 	# @assert(haskey(trajdata, symbol(@sprintf("id_%d", carind))))
 	trajdata[frameind, symbol(@sprintf("%s_%d", str, carind))]
 end
 function getc( pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer )
-	# sym_orig = symbol(@sprintf("%s_%d", string(sym), carind))
-	# println(names(pdset.df_other_primary))
-	# println(findfirst(names(pdset.df_other_primary), sym_orig))
-
-	# print(carind, "  ", col, "  ", sym, "  ")
-	# println(names(pdset.df_other_primary)[col])
-	
 	col = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind
 	pdset.df_other_primary[validfind, col]
-end
-function getc( pdset::PrimaryDataset, str::String, carind::Integer, validfind::Integer )
-	# @assert(haskey(pdset.df_other_primary, symbol(@sprintf("id_%d", carind))))
-	sym = symbol(@sprintf("%s_%d", str, carind))
-	pdset.df_other_primary[validfind, sym]
-end
-gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego_primary[frameind, sym]
-function gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer )
-	pdset.df_ego_primary[validfind2frameind(pdset, validfind), sym]
-end
-function get(pdset::PrimaryDataset, str::String, carind::Integer, validfind::Integer)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		return gete(pdset, symbol(str), frameind)
-	end
-	getc(pdset, str, carind, validfind)
 end
 function get(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer)
 	if carind == CARIND_EGO
@@ -584,14 +563,11 @@ function get(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Int
 	end
 	getc(pdset, sym, carind, validfind)
 end
-function get(pdset::PrimaryDataset, sym::Symbol, str::String, carind::Integer, frameind::Integer, validfind::Integer)
-	# a more efficient version
-	carind == CARIND_EGO ? gete(pdset, sym, frameind) : getc(pdset, sym, carind, validfind)
-end
 function get(pdset::PrimaryDataset, sym::Symbol, carind::Integer, frameind::Integer, validfind::Integer)
 	# a more efficient version
 	carind == CARIND_EGO ? gete(pdset, sym, frameind) : getc(pdset, sym, carind, validfind)
 end
+
 function setc!( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer, val::Any )
 	@assert(haskey(trajdata, symbol(@sprintf("id_%d", carind))))
 	trajdata[symbol(@sprintf("%s_%d", str, carind))][frameind] = val
@@ -600,20 +576,9 @@ function sete!( pdset::PrimaryDataset, sym::Symbol, frameind::Integer, val::Any 
 	@assert(1 <= frameind && frameind <= length(pdset.frameind2validfind))
 	pdset.df_ego_primary[frameind, sym] = val
 end
-function setc!( pdset::PrimaryDataset, str::String, carind::Integer, validfind::Integer, val::Any )
-	@assert(haskey(pdset.df_other_primary, symbol(@sprintf("id_%d", carind))))
-	pdset.df_other_primary[validfind, symbol(@sprintf("%s_%d", str, carind))] = val
-end
 function setc!( pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer, val::Any )
 	col = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind	
 	pdset.df_other_primary[validfind, col] = val
-end
-function set!(pdset::PrimaryDataset, str::String, carind::Integer, validfind::Integer, val::Any)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		return sete!(pdset, symbol(str), frameind, val)
-	end
-	setc!(pdset, str, carind, validfind, val)
 end
 function set!(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer, val::Any)
 	if carind == CARIND_EGO
@@ -622,6 +587,7 @@ function set!(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::In
 	end
 	setc!(pdset, sym, carind, validfind, val)
 end
+
 function getc_has( trajdata::DataFrame, carid::Integer, frameind::Integer )
 	@assert(haskey(trajdata, symbol(@sprintf("has_%d", carid))))
 	return int(trajdata[symbol(@sprintf("has_%d", carid))][frameind])
@@ -930,7 +896,6 @@ function export_trajdata( filename::String, trajdata::DataFrame )
 
 	close(fout)
 end
-
 
 function add_car_to_validfind!(pdset::PrimaryDataset, carid::Integer, validfind::Integer)
 
@@ -1519,6 +1484,8 @@ function euler2quat( roll::Real, pitch::Real, yaw::Real )
 
 	return [w2, x2, y2, z2]
 end
+
+# TODO(tim): use geomE2 instead
 function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real )
 
 	# pt = [posGx, posGy]

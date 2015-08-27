@@ -266,48 +266,48 @@ function closest_point_extind_to_curve( curve::Curve, x::Real, y::Real )
 
 	ind = closest_point_ind_to_curve(curve, x, y)
 
-	pt = Vec2f(x, y)
+	pt = VecE2(x, y)
 
 	# interpolate farther
 	if ind > 1 && ind < length(curve)
-		t_lo = proj_rel( Vec2f(curve.x[ind-1], curve.y[ind-1]), Vec2f(curve.x[ind], curve.y[ind]), pt )
-		t_hi = proj_rel( Vec2f(curve.x[ind], curve.y[ind]), Vec2f(curve.x[ind+1], curve.y[ind+1]), pt )
+		t_lo = proj_rel( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), pt )
+		t_hi = proj_rel( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), pt )
 
-		p_lo = lerp( Vec2f(curve.x[ind-1], curve.y[ind-1]), Vec2f(curve.x[ind], curve.y[ind]), t_lo )
-		p_hi = lerp( Vec2f(curve.x[ind], curve.y[ind]), Vec2f(curve.x[ind+1], curve.y[ind+1]), t_hi )
+		p_lo = lerp( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), t_lo )
+		p_hi = lerp( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), t_hi )
 
 		d_lo = dist( p_lo, pt )
 		d_hi = dist( p_hi, pt )
 
 		return d_lo < d_hi ? ind-1.0+t_lo : ind+t_hi
 	elseif ind == 1
-		return ind + proj_rel( Vec2f(curve.x[ind], curve.y[ind]), Vec2f(curve.x[ind+1], curve.y[ind+1]), pt )
+		return ind + proj_rel( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), pt )
 	else
-		return ind -1.0 + proj_rel( Vec2f(curve.x[ind-1], curve.y[ind-1]), Vec2f(curve.x[ind], curve.y[ind]), pt )
+		return ind -1.0 + proj_rel( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), pt )
 	end
 end
 function closest_point_extind_to_curve_guess( curve::Curve, x::Real, y::Real, extind_guess::Real )
 
 	ind = closest_point_ind_to_curve_guess(curve, x, y, int(extind_guess))
 
-	pt = Vec2f(x, y)
+	pt = VecE2(x, y)
 
 	# interpolate farther
 	if ind > 1 && ind < length(curve)
-		t_lo = proj_rel( Vec2f(curve.x[ind-1], curve.y[ind-1]), Vec2f(curve.x[ind], curve.y[ind]), pt )
-		t_hi = proj_rel( Vec2f(curve.x[ind], curve.y[ind]), Vec2f(curve.x[ind+1], curve.y[ind+1]), pt )
+		t_lo = proj_rel( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), pt )
+		t_hi = proj_rel( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), pt )
 
-		p_lo = lerp( Vec2f(curve.x[ind-1], curve.y[ind-1]), Vec2f(curve.x[ind], curve.y[ind]), t_lo )
-		p_hi = lerp( Vec2f(curve.x[ind], curve.y[ind]), Vec2f(curve.x[ind+1], curve.y[ind+1]), t_hi )
+		p_lo = lerp( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), t_lo )
+		p_hi = lerp( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), t_hi )
 
 		d_lo = dist(p_lo, pt)
 		d_hi = dist(p_hi, pt)
 
 		return d_lo < d_hi ? ind-1.0+t_lo : ind+t_hi
 	elseif ind == 1
-		return ind + proj_rel( Vec2f(curve.x[ind], curve.y[ind]), Vec2f(curve.x[ind+1], curve.y[ind+1]), pt )
+		return ind + proj_rel( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), pt )
 	else
-		return ind -1.0 + proj_rel( Vec2f(curve.x[ind-1], curve.y[ind-1]), Vec2f(curve.x[ind], curve.y[ind]), pt )
+		return ind -1.0 + proj_rel( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), pt )
 	end
 end
 function closest_point_extind_to_curve( curve::Curve, s::Real )
@@ -835,7 +835,7 @@ function proj_rel( P0::Array, P1::Array, Q::Array )
 
 	return clamp(t, 0.0, 1.0)
 end
-function proj_rel( P₀::Vec2f, P₁::Vec2f, Q::Vec2f )
+function proj_rel( P₀::VecE2, P₁::VecE2, Q::VecE2 )
 
 	#=
 	Project the point (Q - P₀) onto (P₁ - P₀) and return the relative distance along
@@ -844,7 +844,7 @@ function proj_rel( P₀::Vec2f, P₁::Vec2f, Q::Vec2f )
 	b = P₁ - P₀
 	a = Q - P₀
 
-	c = proj(a, b, Vec2f)
+	c = proj(a, b, VecE2)
 
 	if b.x != 0.0
 		t = c.x / b.x

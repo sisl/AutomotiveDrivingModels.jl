@@ -6,8 +6,6 @@ export
     create_metrics_set_no_tracemetrics,
 
     calc_rmse_predicted_vs_ground_truth,
-    calc_loglikelihood_of_trace,
-    calc_mean_trace_loglikelihood,
 
     calc_tracemetrics,
     calc_aggregate_metric,
@@ -107,8 +105,7 @@ end
 function calc_tracemetrics(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
-    seg::PdsetSegment,
-    simparams::SimParams;
+    seg::PdsetSegment;
     basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset, sn),
     pdset_frames_per_sim_frame::Int=5
     )
@@ -194,7 +191,7 @@ function calc_tracemetrics(
 
                 # TODO(tim): these attributes should be in PdSet
                 # TODO(tim): we should be using a better method for collision checking
-                if abs(Δx) < CAR_LENGTH && abs(Δy) < CAR_WIDTH 
+                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
                     has_collision_activecar = true
                     # NOTE(tim): anything after a collision is invalid - break here
                     break
@@ -209,7 +206,7 @@ function calc_tracemetrics(
             
                         # TODO(tim): these attributes should be in PdSet
                         # TODO(tim): we should be using a better method for collision checking
-                        if abs(Δx) < CAR_LENGTH && abs(Δy) < CAR_WIDTH 
+                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
                             has_collision = true
                         end
                     end                    
@@ -239,11 +236,9 @@ function calc_tracemetrics(
 end
 function calc_tracemetrics(
     behavior::AbstractVehicleBehavior,
-    pdset_original::PrimaryDataset,
     pdset_simulation::PrimaryDataset,
     sn::StreetNetwork,
-    seg::PdsetSegment,
-    simparams::SimParams;
+    seg::PdsetSegment;
     basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset_simulation, sn),
     pdset_frames_per_sim_frame::Int=5
     )
@@ -335,7 +330,7 @@ function calc_tracemetrics(
 
                 # TODO(tim): these attributes should be in PdSet
                 # TODO(tim): we should be using a better method for collision checking
-                if abs(Δx) < CAR_LENGTH && abs(Δy) < CAR_WIDTH 
+                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
                     has_collision_activecar = true
                     # NOTE(tim): anything after a collision is invalid - break here
                     break
@@ -350,7 +345,7 @@ function calc_tracemetrics(
             
                         # TODO(tim): these attributes should be in PdSet
                         # TODO(tim): we should be using a better method for collision checking
-                        if abs(Δx) < CAR_LENGTH && abs(Δy) < CAR_WIDTH 
+                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
                             has_collision = true
                         end
                     end                    
@@ -386,7 +381,6 @@ function calc_tracemetrics(
     pdsets::Vector{PrimaryDataset},
     streetnets::Vector{StreetNetwork},
     pdset_segments::Vector{PdsetSegment},
-    simparams::SimParams,
     fold::Integer,
     pdsetseg_fold_assignment::Vector{Int},
     match_fold::Bool
@@ -400,7 +394,7 @@ function calc_tracemetrics(
         if is_in_fold(fold, fold_assignment, match_fold)
 
             i += 1
-            metrics[i] = calc_tracemetrics(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg, simparams)
+            metrics[i] = calc_tracemetrics(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg)
         end
     end
     metrics
@@ -408,10 +402,10 @@ end
 
 function calc_aggregate_metric(sym::Symbol, ::Type{Int}, metricset::Vector{Dict{Symbol, Any}})
 
-    counts = Dict{Int,Int}()
-    for i = 1 : length(metricset)
-        counts[metricset[i][sym]] = get(counts, metricset[i][sym], 0) + 1
-    end
+    # counts = Dict{Int,Int}()
+    # for i = 1 : length(metricset)
+    #     counts[metricset[i][sym]] = get(counts, metricset[i][sym], 0) + 1
+    # end
 
     t_arr = [metricset[i][:elapsed_time] for i in 1 : length(metricset)]
     tot_time = sum(t_arr)

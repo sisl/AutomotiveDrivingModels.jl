@@ -62,83 +62,83 @@ type Projection
     max::Float64 # maximum coordinate along axis
 end
 
-function intersects(simlog::Matrix{Float64};
-    startframe::Int=1,
-    endframe::Int=get_nframes(simlog)
-    )
+# function intersects(simlog::Matrix{Float64};
+#     startframe::Int=1,
+#     endframe::Int=get_nframes(simlog)
+#     )
 
-    # check whether any vehicles intersect anywhere along the trajectory
+#     # check whether any vehicles intersect anywhere along the trajectory
 
-    carA = Vehicle()
-    carB = Vehicle()
+#     carA = Vehicle()
+#     carB = Vehicle()
 
-    ncars = get_ncars(simlog)
+#     ncars = get_ncars(simlog)
 
-    for frameind in startframe : endframe
-        for carindA = 1 : ncars-1
-            pull_vehicle!(carA, simlog, calc_logindexbase(carindA), frameind)
-            for carindB = carindA + 1 : ncars
-                # println(carA, "  ", carB)
-                pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
-                if intersects(carA, carB)
-                    return true
-                end
-            end
-        end
-    end
+#     for frameind in startframe : endframe
+#         for carindA = 1 : ncars-1
+#             pull_vehicle!(carA, simlog, calc_logindexbase(carindA), frameind)
+#             for carindB = carindA + 1 : ncars
+#                 # println(carA, "  ", carB)
+#                 pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
+#                 if intersects(carA, carB)
+#                     return true
+#                 end
+#             end
+#         end
+#     end
 
-    false
-end
-function intersects(carind::Int, simlog::Matrix{Float64};
-    startframe::Int=1,
-    endframe::Int=get_nframes(simlog)
-    )
+#     false
+# end
+# function intersects(carind::Int, simlog::Matrix{Float64};
+#     startframe::Int=1,
+#     endframe::Int=get_nframes(simlog)
+#     )
 
-    # check whether any vehicles intersect the given vehicel anywhere along the trajectory
+#     # check whether any vehicles intersect the given vehicel anywhere along the trajectory
 
-    carA = Vehicle()
-    carB = Vehicle()
+#     carA = Vehicle()
+#     carB = Vehicle()
 
-    baseindA = calc_logindexbase(carindA)
+#     baseindA = calc_logindexbase(carindA)
 
-    ncars = get_ncars(simlog)
+#     ncars = get_ncars(simlog)
 
-    for frameind in startframe : endframe
-        pull_vehicle!(carA, simlog, basindA, frameind)
-        for carindB = 1 : ncars
-            if carB != carA
-                pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
-                if intersects(carA, carB)
-                    return true
-                end
-            end
-        end
-    end
+#     for frameind in startframe : endframe
+#         pull_vehicle!(carA, simlog, basindA, frameind)
+#         for carindB = 1 : ncars
+#             if carB != carA
+#                 pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
+#                 if intersects(carA, carB)
+#                     return true
+#                 end
+#             end
+#         end
+#     end
 
-    false
-end
-function intersects(carindA::Int, carindB::Int, simlog::Matrix{Float64};
-    startframe::Int=1,
-    endframe::Int=get_nframes(simlog)
-    )
-    # check whether the two vehicles intersect anywhere along the trajectory
+#     false
+# end
+# function intersects(carindA::Int, carindB::Int, simlog::Matrix{Float64};
+#     startframe::Int=1,
+#     endframe::Int=get_nframes(simlog)
+#     )
+#     # check whether the two vehicles intersect anywhere along the trajectory
 
-    carA = Vehicle()
-    carB = Vehicle()
+#     carA = Vehicle()
+#     carB = Vehicle()
 
-    baseindA = calc_logindexbase(carindA)
-    baseindB = calc_logindexbase(carindB)
+#     baseindA = calc_logindexbase(carindA)
+#     baseindB = calc_logindexbase(carindB)
 
-    for frameind in startframe : endframe
-        pull_vehicle!(carA, simlog, baseindA, frameind)
-        pull_vehicle!(carB, simlog, baseindA, frameind)
-        if intersects(carA, carB)
-            return true
-        end
-    end
+#     for frameind in startframe : endframe
+#         pull_vehicle!(carA, simlog, baseindA, frameind)
+#         pull_vehicle!(carB, simlog, baseindA, frameind)
+#         if intersects(carA, carB)
+#             return true
+#         end
+#     end
 
-    false
-end
+#     false
+# end
 function intersects(carA::Vehicle, carB::Vehicle)
     # INTERSECTS: Given two car configurations, uses the separating axis theorem to determine
     #             whether their rectangular body-aligned bounding boxes intersect

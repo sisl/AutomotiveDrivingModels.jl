@@ -194,23 +194,23 @@ const FEATURES = [
         OCCUPANCYSCHEDULEGRID_TIME_FRONTLEFT,  OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONTLEFT, 
 
         TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE,
-        #      PASTACC250MS,      PASTACC500MS,      PASTACC750MS,      PASTACC1S,
-        # PASTTURNRATE250MS, PASTTURNRATE500MS, PASTTURNRATE750MS, PASTTURNRATE1S,
-        #    PASTVELFY250MS,    PASTVELFY500MS,    PASTVELFY750MS,    PASTVELFY1S,
-        #     PASTD_CL250MS,     PASTD_CL500MS,     PASTD_CL750MS,     PASTD_CL1S,
+             PASTACC250MS,      PASTACC500MS,      PASTACC750MS,      PASTACC1S,
+        PASTTURNRATE250MS, PASTTURNRATE500MS, PASTTURNRATE750MS, PASTTURNRATE1S,
+           PASTVELFY250MS,    PASTVELFY500MS,    PASTVELFY750MS,    PASTVELFY1S,
+            PASTD_CL250MS,     PASTD_CL500MS,     PASTD_CL750MS,     PASTD_CL1S,
 
-        #     MAXACCFX500MS,     MAXACCFX750MS,     MAXACCFX1S,     MAXACCFX1500MS,     MAXACCFX2S,     MAXACCFX2500MS,     MAXACCFX3S,     MAXACCFX4S,
-        #     MAXACCFY500MS,     MAXACCFY750MS,     MAXACCFY1S,     MAXACCFY1500MS,     MAXACCFY2S,     MAXACCFY2500MS,     MAXACCFY3S,     MAXACCFY4S,
-        #  MAXTURNRATE500MS,  MAXTURNRATE750MS,  MAXTURNRATE1S,  MAXTURNRATE1500MS,  MAXTURNRATE2S,  MAXTURNRATE2500MS,  MAXTURNRATE3S,  MAXTURNRATE4S,
-        #    MEANACCFX500MS,    MEANACCFX750MS,    MEANACCFX1S,    MEANACCFX1500MS,    MEANACCFX2S,    MEANACCFX2500MS,    MEANACCFX3S,    MEANACCFX4S,
-        #    MEANACCFY500MS,    MEANACCFY750MS,    MEANACCFY1S,    MEANACCFY1500MS,    MEANACCFY2S,    MEANACCFY2500MS,    MEANACCFY3S,    MEANACCFY4S,
-        # MEANTURNRATE500MS, MEANTURNRATE750MS, MEANTURNRATE1S, MEANTURNRATE1500MS, MEANTURNRATE2S, MEANTURNRATE2500MS, MEANTURNRATE3S, MEANTURNRATE4S,
-        #     STDACCFX500MS,     STDACCFX750MS,     STDACCFX1S,     STDACCFX1500MS,     STDACCFX2S,     STDACCFX2500MS,     STDACCFX3S,     STDACCFX4S,
-        #     STDACCFY500MS,     STDACCFY750MS,     STDACCFY1S,     STDACCFY1500MS,     STDACCFY2S,     STDACCFY2500MS,     STDACCFY3S,     STDACCFY4S,
-        #  STDTURNRATE500MS,  STDTURNRATE750MS,  STDTURNRATE1S,  STDTURNRATE1500MS,  STDTURNRATE2S,  STDTURNRATE2500MS,  STDTURNRATE3S,  STDTURNRATE4S,
+            MAXACCFX500MS,     MAXACCFX750MS,     MAXACCFX1S,     MAXACCFX1500MS,     MAXACCFX2S,     MAXACCFX2500MS,     MAXACCFX3S,     MAXACCFX4S,
+            MAXACCFY500MS,     MAXACCFY750MS,     MAXACCFY1S,     MAXACCFY1500MS,     MAXACCFY2S,     MAXACCFY2500MS,     MAXACCFY3S,     MAXACCFY4S,
+         MAXTURNRATE500MS,  MAXTURNRATE750MS,  MAXTURNRATE1S,  MAXTURNRATE1500MS,  MAXTURNRATE2S,  MAXTURNRATE2500MS,  MAXTURNRATE3S,  MAXTURNRATE4S,
+           MEANACCFX500MS,    MEANACCFX750MS,    MEANACCFX1S,    MEANACCFX1500MS,    MEANACCFX2S,    MEANACCFX2500MS,    MEANACCFX3S,    MEANACCFX4S,
+           MEANACCFY500MS,    MEANACCFY750MS,    MEANACCFY1S,    MEANACCFY1500MS,    MEANACCFY2S,    MEANACCFY2500MS,    MEANACCFY3S,    MEANACCFY4S,
+        MEANTURNRATE500MS, MEANTURNRATE750MS, MEANTURNRATE1S, MEANTURNRATE1500MS, MEANTURNRATE2S, MEANTURNRATE2500MS, MEANTURNRATE3S, MEANTURNRATE4S,
+            STDACCFX500MS,     STDACCFX750MS,     STDACCFX1S,     STDACCFX1500MS,     STDACCFX2S,     STDACCFX2500MS,     STDACCFX3S,     STDACCFX4S,
+            STDACCFY500MS,     STDACCFY750MS,     STDACCFY1S,     STDACCFY1500MS,     STDACCFY2S,     STDACCFY2500MS,     STDACCFY3S,     STDACCFY4S,
+         STDTURNRATE500MS,  STDTURNRATE750MS,  STDTURNRATE1S,  STDTURNRATE1500MS,  STDTURNRATE2S,  STDTURNRATE2500MS,  STDTURNRATE3S,  STDTURNRATE4S,
 
-        # FUTUREACCELERATION_250MS, FUTURETURNRATE_250MS, FUTUREDESIREDANGLE_250MS, FUTUREDESIREDSPEED_250MS, FUTUREACCELCONTROL_250MS,
-        # FUTUREACCELERATION_500MS, FUTURETURNRATE_500MS, FUTUREDESIREDANGLE_500MS, FUTUREDESIREDSPEED_500MS, FUTUREACCELCONTROL_500MS,
+        FUTUREACCELERATION_250MS, FUTURETURNRATE_250MS, FUTUREDESIREDANGLE_250MS, FUTUREDESIREDSPEED_250MS, FUTUREACCELCONTROL_250MS,
+        FUTUREACCELERATION_500MS, FUTURETURNRATE_500MS, FUTUREDESIREDANGLE_500MS, FUTUREDESIREDSPEED_500MS, FUTUREACCELCONTROL_500MS,
         TIMETOLANECROSSING, TIMESINCELANECROSSING,
 
         SUBSET_EMERGENCY, SUBSET_FREE_FLOW, SUBSET_CAR_FOLLOWING, SUBSET_LANE_CROSSING, SUBSET_SUSTAINED_CROSSING,
@@ -555,7 +555,7 @@ function does_violate_filter{F<:AbstractFeature}(filters::AbstractVector{F}, pds
     end
     false
 end
-function gen_featureset{F <: AbstractFeature, G <: AbstractFeature}(
+function gen_featureset{F<:AbstractFeature, G<:AbstractFeature}(
     carid::Integer,
     pdset::PrimaryDataset,
     validfind_regions::Vector{Int}, # array where subsequent pairs are validfinds of the particular behavior ([1,10,20,30]) means 1->10 and 20->30 are that behavior
@@ -720,7 +720,7 @@ function extract(
     verbosity::Int=0
     )
 
-    featuresets = Array(DataFrame, length(csvfileset))
+    featuresets = Array(DataFrame, length(CSVFILESETS))
     featuresetind = 0
 
     for csvfileset in CSVFILESETS
@@ -738,32 +738,32 @@ function extract(
     
     featuresets[1:featuresetind]
 end
-function extract(
-    features::Vector{AbstractFeature}=FEATURES,
-    behaviors::Vector{String}=BEHAVIORS,
-    streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
-    filters::Vector{AbstractFeature}=AbstractFeature[],
-    verbosity::Int=0
-    )
+# function extract(
+#     features::Vector{AbstractFeature}=FEATURES,
+#     behaviors::Vector{String}=BEHAVIORS,
+#     streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
+#     filters::Vector{AbstractFeature}=AbstractFeature[],
+#     verbosity::Int=0
+#     )
 
-    aggregate_datafiles = Array(DataFrame, length(featuresets))
+#     aggregate_datafiles = Array(DataFrame, length(featuresets))
 
-    i = 0
-    for behavior in behaviors
+#     i = 0
+#     for behavior in behaviors
 
-        verbosity == 0 || println(uppercase(behavior))
+#         verbosity == 0 || println(uppercase(behavior))
 
-        output_name = "ego_" * behavior
+#         output_name = "ego_" * behavior
 
-        verbosity == 0 || tic()
-        featuresets = extract(behavior, features, streetnet_cache, filters=filters, verbosity=verbosity)
-        verbosity == 0 || toc()
+#         verbosity == 0 || tic()
+#         featuresets = extract(behavior, features, streetnet_cache, filters=filters, verbosity=verbosity)
+#         verbosity == 0 || toc()
 
-        aggregate_datafiles[i+=1] = _aggregate(featuresets)
-    end
+#         aggregate_datafiles[i+=1] = _aggregate(featuresets)
+#     end
 
-    aggregate_datafiles
-end
+#     aggregate_datafiles
+# end
 
 function extract_and_save(
     output_name::String,
@@ -787,22 +787,22 @@ function extract_and_save(
 
     featureset
 end
-function extract_and_save(
-    output_name::String,
-    featureset_name::String,
-    f_regions::Function,
-    features::Vector{AbstractFeature}=FEATURES,
-    streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
-    filters::Vector{AbstractFeature}=AbstractFeature[],
-    )
+# function extract_and_save(
+#     output_name::String,
+#     featureset_name::String,
+#     f_regions::Function,
+#     features::Vector{AbstractFeature}=FEATURES,
+#     streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
+#     filters::Vector{AbstractFeature}=AbstractFeature[],
+#     )
 
-    featuresets = extract(featureset_name, f_regions, features, streetnet_cache, filters=filters, verbosity=verbosity)
-    aggregate_datafile = _aggregate(featuresets)
+#     featuresets = extract(featureset_name, f_regions, features, streetnet_cache, filters=filters, verbosity=verbosity)
+#     aggregate_datafile = _aggregate(featuresets)
 
-    outfile = joinpath(FEATUREMATRIX_DIR, output_name*".jld")
-    save(outfile, "data", aggregate_datafile)
+#     outfile = joinpath(FEATUREMATRIX_DIR, output_name*".jld")
+#     save(outfile, "data", aggregate_datafile)
 
-    aggregate_datafile
-end
+#     aggregate_datafile
+# end
 
 end # module

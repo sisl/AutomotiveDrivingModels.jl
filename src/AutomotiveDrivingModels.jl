@@ -1,7 +1,7 @@
 module AutomotiveDrivingModels
 
 using Reexport
-# using StreamStats
+using StreamStats
 
 @reexport using Vec
 @reexport using DataFrames
