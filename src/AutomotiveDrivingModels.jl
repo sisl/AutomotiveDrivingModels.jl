@@ -1,29 +1,37 @@
 module AutomotiveDrivingModels
 
 using Reexport
+# using StreamStats
+
 @reexport using Vec
 @reexport using DataFrames
 @reexport using Discretizers
 @reexport using Distributions
-using StreamStats
-using BayesNets
 @reexport using JLD
 @reexport using LaTeXStrings
 
-include("utils/Curves.jl")
-# using Trajdata
-# using StreetNetworks
-# include("features/Features.jl")
-# using Features
+include("utils/CommonTypes.jl")
+@reexport using .CommonTypes
 
+include("utils/Curves.jl")
 @reexport using .Curves
+
+include("utils/Trajdata.jl")
+@reexport using .Trajdata
+
+include("utils/StreetNetworks.jl")
+@reexport using .StreetNetworks
+
+include("features/Features.jl")
+@reexport using .Features
+
 
 
 
 import Base: get, ==
 
 # include("utils/polynomials.jl")
-# include("utils/common.jl")
+include("utils/common.jl")
 # include("utils/collision.jl")
 # # include("feature_extract.jl")
 # include("behaviors/behaviors.jl")

@@ -1,11 +1,9 @@
 using Base.Test
 using Lint
 
-@lintpragma( "Ignore undefined module [Features]" )
-@lintpragma( "Ignore use of undeclared variable [NA_ALIAS]" )
-@lintpragma( "Ignore unstable type variable [AbstractFeature]" )
+# lintpkg("AutomotiveDrivingModels")
 
-lintpkg("CarEM")
+# using AutomotiveDrivingModels
 
-# using CarEM
+# include("test_curves.jl")
 

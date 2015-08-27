@@ -7,17 +7,18 @@
 ##
 ##############################################################################
 
-# module Features
+module Features
 
 import Base: symbol, get
 import Base.Meta: quot
 
 using LaTeXStrings
-
-using Curves
-using Trajdata
 using DataArrays
-using StreetNetworks
+
+using AutomotiveDrivingModels.CommonTypes
+using AutomotiveDrivingModels.Curves
+using AutomotiveDrivingModels.Trajdata
+using AutomotiveDrivingModels.StreetNetworks
 # ----------------------------------
 # exports
 
@@ -88,8 +89,7 @@ const THRESHOLD_TIMEGAP                = 10.0 # maximum timegap
 const THRESHOLD_TIMETOLANECROSSING     = 10.0 # [s]
 const THRESHOLD_TIMESINCELANECROSSING  = 10.0 # [s]
 const THRESHOLD_TIMECONSECUTIVEACCEL   = 10.0 # [s]
-const N_FRAMES_PER_SIM_FRAME           = 5    # [frames]
-const SPEED_LIMIT                      = 29.06 # [m/s]
+const SPEED_LIMIT                      = 29.06 # [m/s] TODO(tim): remove this and make it a StreetNetwork query
 const KP_DESIRED_ANGLE                 = 1.0 # [-] TODO(tim): tune this
 const KP_DESIRED_SPEED                 = 0.2 # [-] TODO(tim): tune this
 const OCCUPANCY_SCHEDULE_GRID_DIM_S    = 4.0 # [m] longitudinal dimension per cell in the grid
@@ -153,7 +153,6 @@ lowerbound( ::AbstractFeature) = error("Not implemented!") # min value of the fe
 couldna(    ::AbstractFeature) = true                      # whether the given variable could produce the NA alias
 symbol(     ::AbstractFeature) = error("Not implemented!")
 lsymbol(    ::AbstractFeature) = error("Not implemented!")
-get(        ::AbstractFeature, ::TrafficScene, carind::Int) = error("Not implemented!")
 get(        ::AbstractFeature, ::PrimaryDataset, carind::Int, validfind::Int) = error("Not implemented!")
 
 allfeatures() = collect(values(sym2ftr)) # array of all features
@@ -3565,7 +3564,7 @@ create_feature_basics( "TurnRate", "rad/s", false, false, Inf, -Inf, false, :tur
 function _get(::Feature_TurnRate, pdset::PrimaryDataset, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 
 	validfind_past = jumpframe(pdset, validfind, -lookback)
 	if validfind_past == 0 # Does not exist
@@ -3594,7 +3593,7 @@ end
 function _get(::Feature_TurnRate, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 	pdset = basics.pdset
 
 	validfind_past = jumpframe(pdset, validfind, -lookback)
@@ -3624,7 +3623,7 @@ create_feature_basics( "TurnRate_Global", "rad/s", false, false, Inf, -Inf, fals
 function _get(::Feature_TurnRate_Global, pdset::PrimaryDataset, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 
 	validfind_past = jumpframe(pdset, validfind, -lookback)
 	if validfind_past == 0 # Does not exist
@@ -3653,7 +3652,7 @@ end
 function _get(::Feature_TurnRate_Global, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 	pdset = basics.pdset
 
 	validfind_past = jumpframe(pdset, validfind, -lookback)
@@ -3683,7 +3682,7 @@ create_feature_basics( "AccFx", "m/s2", false, false, Inf, -Inf, false, :accFx, 
 function _get(::Feature_AccFx, pdset::PrimaryDataset, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 
 	validfind_past = jumpframe(pdset, validfind, -lookback) # look back five frames (for quarter-second lookback)
 	if validfind_past == 0 # Does not exist
@@ -3715,7 +3714,7 @@ end
 function _get(::Feature_AccFx, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 	pdset = basics.pdset
 
 	validfind_past = jumpframe(pdset, validfind, -lookback) # look back five frames (for quarter-second lookback)
@@ -3748,7 +3747,7 @@ create_feature_basics( "AccFy", "m/s2", false, false, Inf, -Inf, false, :accFy, 
 function _get(::Feature_AccFy, pdset::PrimaryDataset, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 
 	validfind_past = jumpframe(pdset, validfind, -lookback)
 	if validfind_past == 0 # Does not exist
@@ -3777,7 +3776,7 @@ end
 function _get(::Feature_AccFy, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 	pdset = basics.pdset
 
 	validfind_past = jumpframe(pdset, validfind, -lookback)
@@ -3807,7 +3806,7 @@ create_feature_basics( "Acc", "m/s2", false, false, Inf, -Inf, false, :acc, L"a"
 function _get(::Feature_Acc, pdset::PrimaryDataset, carind::Int, validfind::Int)
 	# NOTE(tim): defaults to 0.0
 
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 
 	validfind_past = int(jumpframe(pdset, validfind, -lookback))
 	if validfind_past == 0 # Does not exist
@@ -3835,7 +3834,7 @@ function _get(::Feature_Acc, basics::FeatureExtractBasicsPdSet, carind::Int, val
 	# NOTE(tim): defaults to 0.0
 
 	pdset = basics.pdset
-	lookback = N_FRAMES_PER_SIM_FRAME
+	lookback = DEFAULT_FRAME_PER_SEC
 
 	validfind_past = int(jumpframe(pdset, validfind, -lookback))
 	if validfind_past == 0 # Does not exist
@@ -5417,7 +5416,7 @@ function checkmeta(carind::Int, validfind::Int, symb::Symbol)
 end
 
 function ticks_to_time_string( ticks::Int )
-	n_secs = ticks//FRAME_PER_SEC
+	n_secs = ticks//DEFAULT_FRAME_PER_SEC
 	unit = "s"
 	if den(n_secs) != 1
 		unit = "ms"
@@ -5468,16 +5467,16 @@ end
 tick_list = [5,10,15,20,30,40,50,60,80]
 tick_list_short = [5,10,15,20]
 
-include("features/template_past_accel.jl")
-include("features/template_past_turnrate.jl")
-include("features/template_past_velFy.jl")
-include("features/template_past_d_cl.jl")
+include("template_past_accel.jl")
+include("template_past_turnrate.jl")
+include("template_past_velFy.jl")
+include("template_past_d_cl.jl")
 
-include("features/template_max_accel.jl")
-include("features/template_max_turnrate.jl")
-include("features/template_mean_accel.jl")
-include("features/template_mean_turnrate.jl")
-include("features/template_std_accel.jl")
-include("features/template_std_turnrate.jl")
+include("template_max_accel.jl")
+include("template_max_turnrate.jl")
+include("template_mean_accel.jl")
+include("template_mean_turnrate.jl")
+include("template_std_accel.jl")
+include("template_std_turnrate.jl")
 
-# end # end module
+end # end module
