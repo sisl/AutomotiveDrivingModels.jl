@@ -25,24 +25,30 @@ include("utils/StreetNetworks.jl")
 include("features/Features.jl")
 @reexport using .Features
 
+include("utils/FeaturesetExtractor.jl")
+@reexport using .FeaturesetExtractor
 
+include("utils/PrimaryDataExtractor.jl")
+@reexport using .PrimaryDataExtractor
 
+include("utils/ValidationTraceExtractor.jl")
+@reexport using .ValidationTraceExtractor
 
 import Base: get, ==
 
-# include("utils/polynomials.jl")
+include("utils/polynomials.jl")
 include("utils/common.jl")
-# include("utils/collision.jl")
-# # include("feature_extract.jl")
-# include("behaviors/behaviors.jl")
-# include("io/io.jl")
-# include("simulation/candidate_trajectories.jl")
-# include("simulation/simulation.jl")
-# include("evaluation/sim_param_calibration.jl")
-# include("evaluation/sim_metrics.jl")
-# include("evaluation/risk_estimation.jl")
-# include("evaluation/model_evaluation.jl")
+include("utils/collision.jl")
+include("behaviors/behaviors.jl")
+include("io/io.jl")
+include("simulation/candidate_trajectories.jl")
+include("simulation/simulation.jl")
+include("evaluation/sim_param_calibration.jl")
+include("evaluation/sim_metrics.jl")
+include("evaluation/risk_estimation.jl")
+include("evaluation/model_evaluation.jl")
 
-# include("behaviors/drive_straight.jl")
-# include("behaviors/behavior_gaussian.jl")
+include("behaviors/drive_straight.jl")
+include("behaviors/behavior_gaussian.jl")
+
 end # module

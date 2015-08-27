@@ -23,15 +23,14 @@ type MetricsSet
     aggmetrics::Dict{Symbol,Any} # mean and stdev metrics across traces
 end
 
-function calc_kl_div_gaussian(μA::Float64, σA::Float64, μB::Float64, σB::Float64)
-
-    log(σB/σA) + (σA*σA + (μA-μB)^2)/(2σB*σB) - 0.5
-end
+calc_kl_div_gaussian(μA::Float64, σA::Float64, μB::Float64, σB::Float64) = log(σB/σA) + (σA*σA + (μA-μB)^2)/(2σB*σB) - 0.5
 function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_target::Dict{Symbol,Any}, sym::Symbol)
 
-    # Compute the kl divergence for the given aggregate metric
-    #   `sym' must refer to an entry in aggmetrics which contains but sym_mean and sym_stdev
-    #    ex: :mean_timegap -> :mean_timegap_mean and :mean_timegap_stdev
+    #=
+    Compute the kl divergence for the given aggregate metric
+    `sym' must refer to an entry in aggmetrics which contains but sym_mean and sym_stdev
+     ex: :mean_timegap -> :mean_timegap_mean and :mean_timegap_stdev
+    =#
 
     str = string(sym)
     sym_mean = symbol(str * "_mean")
@@ -44,31 +43,7 @@ function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_
 
     calc_kl_div_gaussian(μ_orig, σ_orig, μ_target, σ_target)
 end
-function calc_rmse_predicted_vs_ground_truth(
-    simlog_predicted::Matrix{Float64},
-    simlog_truth::Matrix{Float64},
-    logindexbase::Int,
-    frame_start::Int,
-    frame_end::Int
-    )
 
-    n = frame_end - frame_start + 1
-    @assert(n > 0)
-
-    total = 0.0
-    for i = frame_start : frame_end
-        pos_x_predicted = simlog_predicted[i, logindexbase+LOG_COL_X]
-        pos_x_truth = simlog_truth[i, logindexbase+LOG_COL_X]
-        pos_y_predicted = simlog_predicted[i, logindexbase+LOG_COL_Y]
-        pos_y_truth = simlog_truth[i, logindexbase+LOG_COL_Y]
-
-        Δx = pos_x_predicted - pos_x_truth
-        Δy = pos_y_predicted - pos_y_truth
-
-        total += Δx*Δx + Δy*Δy
-    end
-    sqrt(total / n)
-end
 function calc_rmse_predicted_vs_ground_truth(
     pdset_predicted::PrimaryDataset,
     pdset_truth::PrimaryDataset,
@@ -127,147 +102,6 @@ calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, binwidth:
 function calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, disc::LinearDiscretizer, binindex::Int)
     width_of_bin = binwidth(disc, binindex)
     calc_probability_for_uniform_sample_from_bin(bindiscreteprob, width_of_bin)
-end
-
-function calc_loglikelihood_of_trace(
-    basics::FeatureExtractBasics,
-    behavior::AbstractVehicleBehavior,
-    carind::Int,
-    frame_start::Int,
-    frame_end::Int
-    )
-
-    #=
-    Compute the log-likelihood of a trace given a behavior model
-    =#
-
-    logl = 0.0
-    for frameind = frame_start : frame_end-1
-        logl += calc_action_loglikelihood(basics, behavior, carind, frameind)
-    end
-    logl
-end
-function calc_mean_trace_loglikelihood(
-    simlogs::Vector{Matrix{Float64}},
-    behavior::AbstractVehicleBehavior,
-    road::StraightRoadway,
-    sec_per_frame::Float64,
-    history::Int,
-    carind::Int
-    )
-
-    mean_trace_logl = 0.0
-    extracted_feature_cache = ExtractedFeatureCache()
-    basics_seed = 1
-    for simlog in simlogs
-        basics = FeatureExtractBasics(simlog, road, sec_per_frame, extracted_feature_cache, basics_seed+=1)
-        mean_trace_logl += calc_loglikelihood_of_trace(basics, behavior, carind, history, get_nframes(simlog))
-    end
-    mean_trace_logl / length(simlogs)
-end
-
-function calc_tracemetrics(simlog::Matrix{Float64}, road::StraightRoadway, simparams::SimParams, history::Int)
-
-    Δt = simparams.sec_per_frame
-
-    n = size(simlog,1)
-
-    has_collision_ego = false # whether ego car collides with another car
-    n_lanechanges_ego = 0 # whether ego car makes a lange change
-    elapsed_time = (size(simlog, 1)-history) * Δt
-    has_other_cars = size(simlog,2) > LOG_NCOLS_PER_CAR
-
-    mean_speed_ego = mean(simlog[:,LOG_COL_V]) # mean ego speed
-    mean_centerline_offset_ego = 0.0
-    std_speed_ego  = std(simlog[:,LOG_COL_V])  # stdev of ego speed
-    time_of_first_offroad = Inf
-    n_frames_offroad_ego = 0
-
-    arr_v_x = (simlog[2:end,LOG_COL_X] - simlog[1:end-1,LOG_COL_X]) ./ Δt
-    arr_v_y = (simlog[2:end,LOG_COL_Y] - simlog[1:end-1,LOG_COL_Y]) ./ Δt
-    arr_a_x = (arr_v_x[2:end] - arr_v_x[1:end-1]) ./ Δt
-    arr_a_y = (arr_v_y[2:end] - arr_v_y[1:end-1]) ./ Δt
-    abs_arr_j_x = abs((arr_a_x[2:end] - arr_a_x[1:end-1]) ./ Δt)
-    abs_arr_j_y = abs((arr_a_y[2:end] - arr_a_y[1:end-1]) ./ Δt)
-    abs_jerk_mean_x = mean(abs_arr_j_x[history:end])
-    abs_jerk_std_x = stdm(abs_arr_j_x[history:end], abs_jerk_mean_x)
-    abs_jerk_mean_y = mean(abs_arr_j_y[history:end])
-    abs_jerk_std_y = stdm(abs_arr_j_y[history:end], abs_jerk_mean_y)
-
-    numcars = get_ncars(simlog)
-    if numcars > 1
-        mean_headway = mean(simlog[history:end,LOG_NCOLS_PER_CAR+LOG_COL_X] - simlog[history:end,LOG_COL_X])
-        mean_timegap = mean((simlog[history:end,LOG_NCOLS_PER_CAR+LOG_COL_X] - simlog[history:end,LOG_COL_X]) ./ simlog[history:end,LOG_COL_V])
-    else
-        mean_headway = 0.0
-        mean_timegap = 0.0
-    end
-
-    lane_centers = get_lanecenters(road) # [0,lw,2lw,...]
-
-    for i = history : n
-        # check for lange change (by ego car)
-        lane_dists = abs(lane_centers .- simlog[i,  LOG_COL_Y])
-        cl_cur = indmin(lane_dists)
-        mean_centerline_offset_ego += lane_dists[cl_cur]
-
-        if i > 1
-            cl_old = indmin(abs(lane_centers .- simlog[i-1,LOG_COL_Y]))
-            if cl_old != cl_cur
-                n_lanechanges_ego += 1
-            end
-        end
-
-        if !is_onroad(simlog[i, LOG_COL_Y], road)
-            n_frames_offroad_ego += 1
-            time_of_first_offroad = min(i*Δt, time_of_first_offroad)
-        end
-
-        # check for collision
-        if has_other_cars
-            # TODO(tim): make work for more than 1 other car
-            dx = simlog[i,LOG_COL_X] - simlog[i,LOG_COL_X+LOG_NCOLS_PER_CAR]
-            dy = simlog[i,LOG_COL_Y] - simlog[i,LOG_COL_Y+LOG_NCOLS_PER_CAR]
-            if abs(dx) < CAR_LENGTH && abs(dy) < CAR_WIDTH
-                has_collision_ego = true
-                # NOTE(tim): anything after a collision is invalid - break here
-                break
-            end
-        end
-    end
-
-    mean_centerline_offset_ego /= (n-history)
-
-    [
-     :has_collision_ego=>has_collision_ego,
-     :n_lanechanges_ego=>n_lanechanges_ego,
-     :mean_speed_ego=>mean_speed_ego,
-     :mean_centerline_offset_ego=>mean_centerline_offset_ego,
-     :std_speed_ego=>std_speed_ego,
-     :n_sec_offroad_ego=>n_frames_offroad_ego * Δt,
-     :elapsed_time=>elapsed_time,
-     :time_of_first_offroad=>time_of_first_offroad,
-     :went_offroad=>time_of_first_offroad!=Inf,
-     :jerk_mean_x=>abs_jerk_mean_x,
-     :jerk_std_x=>abs_jerk_std_x,
-     :jerk_mean_y=>abs_jerk_mean_y,
-     :jerk_std_y=>abs_jerk_std_y,
-     :final_x=>simlog[end,LOG_COL_X],
-     :final_y=>simlog[end,LOG_COL_Y],
-     :initial_speed=>simlog[history,LOG_COL_V],
-     :mean_headway=>mean_headway,
-     :mean_timegap=>mean_timegap,
-     :log_lat=>sum(simlog[history:end,LOG_COL_LOGL_LAT]),
-     :log_lon=>sum(simlog[history:end,LOG_COL_LOGL_LON]),
-    ]::Dict{Symbol, Any}
-end
-function calc_tracemetrics(simlogs::Vector{Matrix{Float64}}, road::StraightRoadway, simparams::SimParams, history::Int)
-
-    metrics = Array(Dict{Symbol, Any}, length(simlogs))
-    for (i, simlog) in enumerate(simlogs)
-        metrics[i] = calc_tracemetrics(simlog, road, simparams, history)
-    end
-    metrics
 end
 
 function calc_tracemetrics(
@@ -572,35 +406,6 @@ function calc_tracemetrics(
     metrics
 end
 
-# NOTE(tim): deprecated due to pdsets not being reverted back to their original state between sims
-# function calc_tracemetrics(
-#     behavior::AbstractVehicleBehavior,
-#     pdsets_original::Vector{PrimaryDataset},
-#     pdsets_simulation::Vector{PrimaryDataset},
-#     streetnets::Vector{StreetNetwork},
-#     pdset_segments::Vector{PdsetSegment},
-#     simparams::SimParams,
-#     fold::Integer,
-#     pdsetseg_fold_assignment::Vector{Int},
-#     match_fold::Bool
-#     )
-    
-#     fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
-
-#     metrics = Array(Dict{Symbol, Any}, fold_size)
-#     i = 0
-#     for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
-#         if is_in_fold(fold, fold_assignment, match_fold)
-
-#             i += 1
-#             metrics[i] = calc_tracemetrics(behavior, pdsets_original[seg.pdset_id], 
-#                                            pdsets_simulation[seg.pdset_id],
-#                                            streetnets[seg.streetnet_id], seg, simparams)
-#         end
-#     end
-#     metrics
-# end
-
 function calc_aggregate_metric(sym::Symbol, ::Type{Int}, metricset::Vector{Dict{Symbol, Any}})
 
     counts = Dict{Int,Int}()
@@ -705,74 +510,6 @@ function calc_aggregate_metrics(
     aggmetrics
 end
 
-# function _calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
-
-#     aggmetrics = (Symbol=>Any)[]
-
-#     calc_and_add!(sym::Symbol, ::Type{Float64}, use_abs::Bool=false) = begin
-#         res = calc_aggregate_metric(sym, Float64, metricset, use_abs)
-#         aggmetrics[symbol(string(sym)*"_mean")] = res[1]
-#         aggmetrics[symbol(string(sym)*"_stdev")] = res[2]
-#     end
-#     add!(sym::Symbol, ::Type{Float64}) = begin
-#         aggmetrics[symbol(string(sym)*"_mean")] = NaN
-#         aggmetrics[symbol(string(sym)*"_stdev")] = NaN
-#     end
-
-#     calc_and_add!(:mean_centerline_offset_ego, Float64, true)
-#     calc_and_add!(:mean_speed_ego, Float64)
-#     calc_and_add!(:time_of_first_offroad, Float64)
-#     calc_and_add!(:n_lanechanges_ego, Float64)
-#     calc_and_add!(:jerk_mean_x, Float64)
-#     calc_and_add!(:jerk_mean_y, Float64)
-#     calc_and_add!(:jerk_std_x, Float64)
-#     calc_and_add!(:jerk_std_y, Float64)
-#     calc_and_add!(:mean_headway, Float64)
-#     calc_and_add!(:mean_timegap, Float64)
-
-#     for key in (
-#             :mean_speed_ego, :time_of_first_offroad, :n_lanechanges_ego, :jerk_mean_x, :jerk_mean_y, :jerk_std_x, :jerk_std_y, :mean_headway, :mean_timegap,
-#             :logl, :rmse_1000ms, :rmse_2000ms, :rmse_3000ms, :rmse_4000ms
-#         )
-#         if haskey(metricset[1], key)
-#             calc_and_add!(key, Float64)
-#         else
-#             add!(key, Float64)
-#         end
-#     end
-
-#     res = calc_aggregate_metric(:went_offroad, Bool, metricset)
-#     aggmetrics[:went_offroad_odds_true_per_run] = res[1]
-#     aggmetrics[:went_offroad_odds_true_per_sec] = res[2]
-#     aggmetrics[:went_offroad_ave_time_to_true] = res[3]
-
-#     aggmetrics[:total_log_prob_lat] = sum([metricset[i][:log_lat] for i in 1 : length(metricset)])
-#     aggmetrics[:total_log_prob_lon] = sum([metricset[i][:log_lon] for i in 1 : length(metricset)])
-#     aggmetrics[:total_log_prob] = aggmetrics[:total_log_prob_lat] + aggmetrics[:total_log_prob_lon]
-
-#     aggmetrics
-# end
-# function calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
-
-#     aggmetrics = _calc_aggregate_metrics(metricset)
-
-#     aggmetrics[:mean_lane_offset_kldiv] = 0.0
-#     aggmetrics[:mean_speed_ego_kldiv] = 0.0
-#     aggmetrics[:mean_timegap_kldiv] = 0.0
-
-#     aggmetrics
-# end
-# function calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}}, aggmetrics_original::Dict{Symbol, Any})
-
-#     aggmetrics = _calc_aggregate_metrics(metricset)
-
-#     aggmetrics[:mean_lane_offset_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_ego)
-#     aggmetrics[:mean_speed_ego_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_ego)
-#     aggmetrics[:mean_timegap_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)
-
-#     aggmetrics
-# end
-
 function create_metrics_set(
     pdsets_original::Vector{PrimaryDataset},
     streetnets::Vector{StreetNetwork},
@@ -824,128 +561,6 @@ function create_metrics_set_no_tracemetrics(
     aggmetrics = calc_aggregate_metrics(tracemetrics)
 
     MetricsSet(histobin, 0.0, Dict{Symbol, Any}[], aggmetrics)
-end
-
-# NOTE(tim): deprecated due to pdsets not being reverted back to their original state between sims
-# function create_metrics_set(
-#     behavior::AbstractVehicleBehavior,
-#     original_metrics_set::MetricsSet,
-#     pdsets_original::Vector{PrimaryDataset},
-#     pdsets_sim::Vector{PrimaryDataset},
-#     streetnets::Vector{StreetNetwork},
-#     pdset_segments::Vector{PdsetSegment},
-#     simparams::SimParams,
-#     histobin_params::ParamsHistobin,
-#     histobin_original_with_prior::Matrix{Float64},
-#     fold::Integer,
-#     pdsetseg_fold_assignment::Vector{Int},
-#     match_fold::Bool
-#     )
-
-#     histobin = calc_histobin(pdsets_sim, streetnets, pdset_segments, histobin_params,
-#                              fold, pdsetseg_fold_assignment, match_fold)
-#     histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
-#     tracemetrics = calc_tracemetrics(behavior, pdsets_original, pdsets_sim, streetnets, pdset_segments, simparams,
-#                                      fold, pdsetseg_fold_assignment, match_fold)
-#     aggmetrics = calc_aggregate_metrics(tracemetrics, original_metrics_set.aggmetrics, histobin_kldiv)
-
-#     MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
-# end
-
-function create_metrics_set(
-    simlogs_original::Vector{Matrix{Float64}},
-    road::StraightRoadway,
-    history::Int,
-    simparams::SimParams,
-    histobin_params::ParamsHistobin
-    )
-
-    #=
-    Computes the MetricsSet for the original data
-
-    Note that this will NOT compute trace log likelihoods or RMSE values
-    as it makes no sense to compare against itself
-    =#
-
-    histobin = calc_histobin(simlogs_original, histobin_params, history)
-    tracemetrics = calc_tracemetrics(simlogs_original, road, simparams, history)
-    aggmetrics = calc_aggregate_metrics(tracemetrics)
-
-    MetricsSet(histobin, 0.0, tracemetrics, aggmetrics)
-end
-function create_metrics_set(
-    egobehavior::AbstractVehicleBehavior,
-    original_metrics_set::MetricsSet,
-    simlogs_original::Vector{Matrix{Float64}},
-    simlogs::Vector{Matrix{Float64}},
-    road::StraightRoadway,
-    history::Int,
-    simparams::SimParams,
-    histobin_params::ParamsHistobin,
-    histobin_original_with_prior::Matrix{Float64}
-    )
-
-    #=
-    Evaluates the candidate ego behavior by:
-      - running the egobehavior on all of the simlogs
-      - computing the validation metrics on the results:
-          - histobin
-          - set of metrics
-    =#
-
-    carind = 1
-    logbaseindex = calc_logindexbase(carind)
-
-    histobin = calc_histobin(simlogs, histobin_params, history)
-    histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1 )
-    tracemetrics = calc_tracemetrics(simlogs, road, simparams, history)
-
-    for i in 1 : length(simlogs)
-
-        simlog_model = simlogs[i]
-        simlog_original = simlogs_original[i]
-
-        basics_original = FeatureExtractBasics(simlog_original, road, simparams.sec_per_frame, simparams.extracted_feature_cache, i)
-        end_frame = get_nframes(simlog_model)
-
-        # log likelihood of the original trajectory
-        tracemetrics[i][:logl] = calc_loglikelihood_of_trace(basics_original, egobehavior, carind, history, end_frame)
-
-        for rmse_endframe in [history+2 : 2 : end_frame]
-            Δt = (rmse_endframe - history) * simparams.sec_per_frame # [sec]
-            sym = symbol(@sprintf("rmse_%dms", Δt*1000))
-            tracemetrics[i][sym] = calc_rmse_predicted_vs_ground_truth(simlog_model, simlog_original,
-                                                                 logbaseindex, history, rmse_endframe)
-        end
-    end
-    
-    aggmetrics = calc_aggregate_metrics(tracemetrics, original_metrics_set.aggmetrics)
-
-    MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
-end
-
-function create_metrics_sets{B<:AbstractVehicleBehavior}(
-    behaviors::Vector{B},
-    original_metrics_set::MetricsSet,
-    simlogs_original::Vector{Matrix{Float64}},
-    behavior_simlogs::Vector{Vector{Matrix{Float64}}},
-    road::StraightRoadway,
-    history::Int,
-    simparams::SimParams,
-    histobin_params::ParamsHistobin
-    )
-
-    @assert(length(behaviors) == length(behavior_simlogs))
-
-    histobin_original_with_prior = calc_histobin(simlogs_original, histobin_params, history)
-    histobin_original_with_prior .+= 1.0
-
-    retval = Array(MetricsSet, length(behaviors))
-    for (i, egobehavior) in enumerate(behaviors)
-        retval[i] = create_metrics_set(egobehavior, original_metrics_set, simlogs_original, behavior_simlogs[i],
-                                      road, history, simparams, histobin_params, histobin_original_with_prior)
-    end
-    retval
 end
 
 function compute_metric_summary_table{S<:String}(

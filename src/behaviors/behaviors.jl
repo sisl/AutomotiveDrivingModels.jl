@@ -17,20 +17,8 @@ export  AbstractVehicleBehavior,
         VEHICLE_BEHAVIOR_NONE
         
 
-# abstract type
-# An AbstractVehicleBehavior should implement tick!() in sim.jl
-# and calc_loglikelihood_of_frame() in sim_metrics.jl
 abstract AbstractVehicleBehavior
 
-function select_action(
-    basics::FeatureExtractBasics,
-    behavior::AbstractVehicleBehavior,
-    carind::Int, 
-    frameind::Int
-    )
-
-    error("select action not defined for $typeof(behavior)")
-end
 function calc_action_loglikelihood(
     basics::FeatureExtractBasicsPdSet,
     behavior::AbstractVehicleBehavior,
