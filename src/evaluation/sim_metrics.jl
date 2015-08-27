@@ -75,6 +75,12 @@ function calc_rmse_predicted_vs_ground_truth(
     seg::PdsetSegment,
     nframes::Int=get_horizon(seg)
     )
+    
+    #=
+    RMSE: Root-Mean Square Error
+
+    the square root of the mean square error
+    =#
 
     @assert(nframes > 0)
     @assert(nframes ≤ get_horizon(seg))
@@ -87,13 +93,30 @@ function calc_rmse_predicted_vs_ground_truth(
         carind_predicted = carid2ind(pdset_predicted, seg.carid, validfind)
         carind_truth     = carid2ind(pdset_truth,     seg.carid, validfind)
 
-        pos_x_predicted = get(pdset_predicted, "posGx", carind_predicted, validfind)
-        pos_y_predicted = get(pdset_predicted, "posGy", carind_predicted, validfind)
-        pos_x_truth     = get(pdset_truth,     "posGx", carind_predicted, validfind)
-        pos_y_truth     = get(pdset_truth,     "posGy", carind_predicted, validfind)
+        pos_x_predicted = get(pdset_predicted, :posGx, carind_predicted, validfind)::Float64
+        pos_y_predicted = get(pdset_predicted, :posGy, carind_predicted, validfind)::Float64
+        pos_x_truth     = get(pdset_truth,     :posGx, carind_truth,     validfind)::Float64
+        pos_y_truth     = get(pdset_truth,     :posGy, carind_truth,     validfind)::Float64
 
         Δx = pos_x_predicted - pos_x_truth
         Δy = pos_y_predicted - pos_y_truth
+
+        if i == 1
+            if abs(Δx) > 0.01 || abs(Δy) > 0.01
+                println("validfind:        ", validfind)
+                println("Δx:               ", Δx)
+                println("Δy:               ", Δy)
+                println("pos_x_predicted:  ", pos_x_predicted)
+                println("pos_y_predicted:  ", pos_y_predicted)
+                println("pos_x_truth:      ", pos_x_truth)
+                println("pos_y_truth:      ", pos_y_truth)
+                println("carind_predicted: ", carind_predicted)
+                println("carind_truth:     ", carind_truth)
+                println("seg:              ", seg)
+            end
+            @assert(abs(Δx) < 0.01, "Must have no initial deviation")
+            @assert(abs(Δy) < 0.01, "Must have no initial deviation")
+        end
 
         total += Δx*Δx + Δy*Δy
     end
@@ -252,7 +275,8 @@ function calc_tracemetrics(
     sn::StreetNetwork,
     seg::PdsetSegment,
     simparams::SimParams;
-    basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset, sn)
+    basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset, sn),
+    pdset_frames_per_sim_frame::Int=5
     )
 
     has_collision = false # whether any collision occurs
@@ -271,7 +295,7 @@ function calc_tracemetrics(
     cur_lanetag = get(pdset, "lanetag", carid2ind(pdset, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
     cur_lane = get_lane(sn, cur_lanetag)
 
-    for validfind in seg.validfind_start : seg.validfind_end
+    for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
         # NOTE(tim): this assumes that the validfinds are continuous
 
         carind_active = carid2ind(pdset, seg.carid, validfind)
@@ -386,7 +410,8 @@ function calc_tracemetrics(
     sn::StreetNetwork,
     seg::PdsetSegment,
     simparams::SimParams;
-    basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset_simulation, sn)
+    basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset_simulation, sn),
+    pdset_frames_per_sim_frame::Int=5
     )
 
     has_collision = false # whether any collision occurs
@@ -407,7 +432,7 @@ function calc_tracemetrics(
     cur_lanetag = get(pdset_simulation, :lanetag, carid2ind(pdset_simulation, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
     cur_lane = get_lane(sn, cur_lanetag)
 
-    for validfind in seg.validfind_start : seg.validfind_end
+    for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
         # NOTE(tim): this assumes that the validfinds are continuous
 
         carind_active = carid2ind(pdset_simulation, seg.carid, validfind)

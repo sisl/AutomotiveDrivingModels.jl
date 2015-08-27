@@ -162,11 +162,6 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
         aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig.aggmetrics, histobin_kldiv)
 
         retval[i+1] = MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
-        # retval[i+1] = create_metrics_set(behavior, metrics_set_orig, 
-        #                                  pdsets_original, pdsets_for_simulation,
-        #                                  streetnets, pdset_segments, simparams,
-        #                                  histobin_params, histobin_original_with_prior,
-        #                                  fold, pdsetseg_fold_assignment, match_fold)
     end
 
     retval
@@ -268,7 +263,8 @@ function _cross_validate(
         aggregate_metric_sets_validation[i] = Array(Dict{Symbol,Any}, nfolds)
     end
 
-    max_dataframe_training_frames = length(frame_assignment) - _max_count_of_unique_value(frame_assignment)
+
+    max_dataframe_training_frames = length(frame_assignment) - _min_count_of_unique_value(frame_assignment)
     dataframe_for_training = similar(dataframe, max_dataframe_training_frames)
     pdsets_for_simulation = deepcopy(pdsets) # these will be overwritten for the simulation
 
@@ -307,16 +303,6 @@ function _cross_validate(
 
         println("done training")
 
-        print("computing training metrics sets"); tic()
-        metrics_sets_training = create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
-                                                          streetnets, pdset_segments, evalparams,
-                                                          fold, pdsetseg_fold_assignment, false)
-        for (i,metrics_set) in enumerate(metrics_sets_training)
-            aggregate_metric_sets_training[i][fold] = metrics_set.aggmetrics
-            metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
-        end
-        print(" [DONE] "); toc()
-
         print("computing validation metrics sets"); tic()
         metrics_sets_validation = create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
                                                             streetnets, pdset_segments, evalparams,
@@ -329,6 +315,16 @@ function _cross_validate(
 
         
         if isa(incremental_model_save_file, String)
+
+            print("computing training metrics sets"); tic()
+            metrics_sets_training = create_metrics_sets(model_behaviors, pdsets, pdsets_for_simulation,
+                                                              streetnets, pdset_segments, evalparams,
+                                                              fold, pdsetseg_fold_assignment, false)
+            for (i,metrics_set) in enumerate(metrics_sets_training)
+                aggregate_metric_sets_training[i][fold] = metrics_set.aggmetrics
+                metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
+            end
+            print(" [DONE] "); toc()
             
             println("saving incremental file"); tic()
             # NOTE: "dir/file.jld" → "dir/file_<fold>.jld"
@@ -461,7 +457,7 @@ end
 function _cross_validate_fold(
     fold::Integer,
     behaviorset::BehaviorSet,
-    pdset_filepaths::Vector{String},
+    pdsets::Vector{PrimaryDataset},
     streetnet_filepaths::Vector{String},
     pdset_segments::Vector{PdsetSegment},
     dataframe::DataFrame,
@@ -471,17 +467,15 @@ function _cross_validate_fold(
     incremental_model_save_file::Union(Nothing, String)=nothing
     )
 
-    pdsets = Array(PrimaryDataset, length(pdset_filepaths))
-    for (i,pdset_filepath) in enumerate(pdset_filepaths)
-        pdsets[i] = load(pdset_filepath, "pdset")
-    end
+    pdsets_for_simulation = deepcopy(pdsets)
 
     streetnets = Array(StreetNetwork, length(streetnet_filepaths))
     for (i,streetnet_filepath) in enumerate(streetnet_filepaths)
         streetnets[i] = load(streetnet_filepath, "streetmap")
     end
 
-    model_behaviors = train(behaviorset, dataframe[frame_assignment != fold,:])
+    nbehaviors = length(behaviorset.behaviors)
+    model_behaviors = train(behaviorset, dataframe[frame_assignment .!= fold,:])
     
     metrics_sets_validation = create_metrics_sets_no_tracemetrics(model_behaviors, pdsets, pdsets_for_simulation,
                                                                   streetnets, pdset_segments, evalparams,
@@ -524,19 +518,24 @@ function cross_validate_parallel(
     incremental_model_save_file::Union(Nothing, String)=nothing
     )
 
+    pdsets = Array(PrimaryDataset, length(pdset_filepaths))
+    for (i,pdset_filepath) in enumerate(pdset_filepaths)
+        pdsets[i] = load(pdset_filepath, "pdset")
+    end
+
     nfolds = maximum(frame_assignment)
     all_the_aggmetric_sets_validation = pmap(1:nfolds) do fold
-        cross_validate_fold(fold, behaviorset, pdset_filepaths, streetnet_filepaths, pdset_segments,
-                            dataframe, frame_assignment, pdsetseg_fold_assignment, evalparams,
-                            incremental_model_save_file=incremental_model_save_file) 
+        _cross_validate_fold(fold, behaviorset, pdsets, streetnet_filepaths, pdset_segments,
+                             dataframe, frame_assignment, pdsetseg_fold_assignment, evalparams,
+                             incremental_model_save_file=incremental_model_save_file) 
     end
 
     n_cv_metrics = length(all_the_aggmetric_sets_validation[1])
     cross_validation_metrics = Array(Dict{Symbol,Any}, n_cv_metrics)
-    aggs = Array(MetricsSet, nfolds)
+    aggs = Array(Dict{Symbol,Any}, nfolds)
     for i in 1 : n_cv_metrics
-        for (j,s) in enumerate(all_the_aggmetric_sets_validation[i])
-            aggs[j] = s    
+        for j = 1 : nfolds
+            aggs[j] = all_the_aggmetric_sets_validation[j][i]
         end
         cross_validation_metrics[i] = calc_mean_cross_validation_metrics(aggs)
     end
@@ -652,4 +651,11 @@ function _max_count_of_unique_value(arr::AbstractArray)
         dict[v] = get(dict, v, 0) + 1
     end
     maximum(values(dict))::Int
+end
+function _min_count_of_unique_value(arr::AbstractArray)
+    dict = Dict{Any,Int}()
+    for v in arr
+        dict[v] = get(dict, v, 0) + 1
+    end
+    minimum(values(dict))::Int
 end

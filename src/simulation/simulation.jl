@@ -41,7 +41,7 @@ function simulate!(
     n_euler_steps   :: Int = 2
     )
 
-    for validfind in validfind_start : pdset_frames_per_sim_frame : validfind_end
+    for validfind in validfind_start : pdset_frames_per_sim_frame : validfind_end-1
         action_lat, action_lon = select_action(basics, behavior, carid, validfind)
         propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon, 
                    pdset_frames_per_sim_frame, n_euler_steps)
@@ -58,7 +58,7 @@ function simulate!(
     n_euler_steps   :: Int = 2
     )
 
-    for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end
+    for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
         for (behavior,carid) in behavior_pairs
             if !isa(behavior, VehicleBehaviorNone)
                 action_lat, action_lon = select_action(basics, behavior, carid, validfind)

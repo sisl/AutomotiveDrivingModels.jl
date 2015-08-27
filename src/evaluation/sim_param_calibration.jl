@@ -158,6 +158,24 @@ function calc_histobin(
 
     histobin
 end
+function calc_histobin(
+    pdsets::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+    histobin_params::ParamsHistobin
+    )
+
+    histobin = allocate_empty_histobin(histobin_params)
+
+    for seg in pdset_segments
+        update_histobin!(histobin, 
+                         pdsets[seg.pdset_id], 
+                         streetnets[seg.streetnet_id],
+                         seg, histobin_params)
+    end
+
+    histobin
+end
 
 function calc_histobin(Δt_arr::Vector{Float64}, Δy_arr::Vector{Float64}, histobin_params::ParamsHistobin)
 
