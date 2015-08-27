@@ -18,7 +18,7 @@ export
     get_nframes,
     get_horizon
 
-using Vec
+using AutomotiveDrivingModels.Vec
 
 const DEFAULT_CAR_LENGTH = 4.6 # [m]
 const DEFAULT_CAR_WIDTH  = 2.0 # [m]

@@ -3,7 +3,7 @@ export
     IntegratorState,
 
     get_quartic_coefficients,
-    get_quintic_coefficients,
+    get_quintic_coefficients
 
     # calc_candidate_trajectory_bezier_followlane,
     # set_trajectory_relative_to_lane!,

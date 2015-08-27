@@ -18,9 +18,9 @@ module Curves
 # ----------------------------------------------------------------
 
 using DataFrames
-using Vec
 
-import Vec: lerp, proj
+using AutomotiveDrivingModels.Vec
+import AutomotiveDrivingModels.Vec: lerp, proj
 
 # ----------------------------------------------------------------
 

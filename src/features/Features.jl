@@ -14,8 +14,8 @@ import Base.Meta: quot
 
 using LaTeXStrings
 using DataArrays
-using Vec
 
+using AutomotiveDrivingModels.Vec
 using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Curves
 using AutomotiveDrivingModels.Trajdata

@@ -9,7 +9,7 @@ export
 
         KL_divergence_categorical,
         KL_divergence_dirichlet,
-        KL_divergence_univariate_gaussian,
+        KL_divergence_univariate_gaussian
         # coordinate_descent_histobin_fit!
 
 type ParamsHistobin

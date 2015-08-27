@@ -3,12 +3,14 @@ module AutomotiveDrivingModels
 using Reexport
 using StreamStats
 
-@reexport using Vec
 @reexport using DataFrames
 @reexport using Discretizers
 @reexport using Distributions
 @reexport using JLD
 @reexport using LaTeXStrings
+
+include("utils/vec/Vec.jl")
+@reexport using .Vec
 
 include("utils/CommonTypes.jl")
 @reexport using .CommonTypes

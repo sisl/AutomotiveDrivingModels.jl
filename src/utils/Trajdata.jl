@@ -8,7 +8,8 @@ module Trajdata
 
 using DataFrames
 using DataArrays
-using Vec
+
+using AutomotiveDrivingModels.Vec
 
 import Base: start, next, done, get
 
