@@ -33,7 +33,7 @@ function inertial2body(inertial::VecSE2, reference::VecSE2)
     s, c = sin(reference.θ), cos(reference.θ)
     Δx = inertial.x - reference.x
     Δy = inertial.y - reference.y
-    VecSE2(c*Δx + s*Δy, c*Δy - s*Δx, inertial.θ - bpdy.θ)
+    VecSE2(c*Δx + s*Δy, c*Δy - s*Δx, inertial.θ - reference.θ)
 end
 function body2inertial(inertial::VecE2, reference::VecSE2)
 
@@ -53,5 +53,5 @@ function body2inertial(inertial::VecSE2, reference::VecSE2)
     =#
 
     c, s = cos(reference.θ), sin(reference.θ)
-    VecSE2(c*inertial.x -s*inertial.y + reference.x, s*inertial.x +c*inertial.y + reference.y, referece.θ + inertial.θ)
+    VecSE2(c*inertial.x -s*inertial.y + reference.x, s*inertial.x +c*inertial.y + reference.y, reference.θ + inertial.θ)
 end

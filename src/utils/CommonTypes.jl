@@ -1,12 +1,8 @@
 module CommonTypes
+
 export
     Vehicle,
     PdsetSegment,
-
-    INPUT_EMSTATS_FOLDER,
-    TRACE_DIR,
-    OUTPUT_FOLDER_DIRICHLET,
-    OUTPUT_FOLDER_CATEGORICAL,
 
     DEFAULT_CAR_LENGTH,
     DEFAULT_CAR_WIDTH,
@@ -27,12 +23,6 @@ const DEFAULT_LANE_WIDTH = 3.25 # [m]
 const DEFAULT_FRAME_PER_SEC = 20 # [frame / s]
 const DEFAULT_SEC_PER_FRAME = 1.0 / DEFAULT_FRAME_PER_SEC # [s]
 const N_FRAMES_PER_SIM_FRAME = 5
-
-# TODO(tim): move this
-const INPUT_EMSTATS_FOLDER      = "/media/tim/DATAPART1/Data/Bosch/processed/plots/graph_feature_selection_NEW/"
-const TRACE_DIR                 = "/media/tim/DATAPART1/Data/Bosch/processed/traces/"
-const OUTPUT_FOLDER_DIRICHLET   = "/media/tim/DATAPART1/Data/Bosch/processed/plots/sim/dirichlet/"
-const OUTPUT_FOLDER_CATEGORICAL = "/media/tim/DATAPART1/Data/Bosch/processed/plots/sim/categorical/"
 
 type Vehicle
     pos    :: VecSE2 # [m,m,rad]

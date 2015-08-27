@@ -11,7 +11,7 @@ immutable VecSE2 <: VecSE
     VecSE2(a::VecE2, θ::Real=0.0) = VecSE2(a.x, a.y, θ)
 end
 
-Base.length(VecSE2) = 3
+Base.length(::VecSE2) = 3
 Base.copy(a::VecSE2) = VecSE2(a.x, a.y, a.θ)
 Base.convert(::Type{Vector{Float64}}, a::VecSE2) = [a.x, a.y, a.θ]
 Base.convert(::Type{VecE3}, a::VecSE2) = VecE3(a.x, a.y, a.θ)

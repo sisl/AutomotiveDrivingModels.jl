@@ -7,7 +7,7 @@ immutable VecE2 <: VecE
     y :: Float64
 end
 
-Base.length(VecE2) = 2
+Base.length(::VecE2) = 2
 Base.copy(a::VecE2) = VecE2(a.x, a.y)
 Base.convert(::Type{Vector{Float64}}, a::VecE2) = [a.x, a.y]
 function Base.convert{R<:Real}(::Type{VecE2}, a::AbstractArray{R})

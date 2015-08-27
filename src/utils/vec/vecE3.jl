@@ -9,7 +9,7 @@ immutable VecE3 <: VecE
     z :: Float64
 end
 
-Base.length(VecE3) = 3
+Base.length(::VecE3) = 3
 Base.copy(a::VecE3) = VecE3(a.x, a.y, a.z)
 Base.convert(::Type{Vector{Float64}}, a::VecE3) = [a.x, a.y, a.z]
 function Base.convert{R<:Real}(::Type{VecE3}, a::AbstractArray{R})
