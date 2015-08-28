@@ -6,6 +6,7 @@ Discretizers
 JLD
 LaTeXStrings
 StreamStats
+Graphs
 
 Compat
 Lint
