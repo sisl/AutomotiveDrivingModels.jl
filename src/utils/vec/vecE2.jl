@@ -5,6 +5,9 @@ VecE2: a 2d euclidean vector
 immutable VecE2 <: VecE
     x :: Float64
     y :: Float64
+
+    VecE2() = new(0.0,0.0)
+    VecE2(x::Real, y::Real) = new(x,y)
 end
 
 Base.length(::VecE2) = 2
@@ -36,7 +39,6 @@ Base.isequal(a::VecE2, b::VecE2) = isequal(a.x, b.x) && isequal(a.y, b.y)
 Base.isfinite(a::VecE2) = isfinite(a.x) && isfinite(a.y)
 Base.isinf(a::VecE2) = isinf(a.x) || isinf(a.y)
 Base.isnan(a::VecE2) = isnan(a.x) || isnan(a.y)
-
 
 Base.round(a::VecE2) = VecE2(round(a.x), round(a.y))
 Base.floor(a::VecE2) = VecE2(floor(a.x), floor(a.y))

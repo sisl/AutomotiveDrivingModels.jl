@@ -7,6 +7,9 @@ immutable VecE3 <: VecE
     x :: Float64
     y :: Float64
     z :: Float64
+
+    VecE3() = new(0.0,0.0,0.0)
+    VecE3(x::Real, y::Real, z::Real) = new(x,y,z)
 end
 
 Base.length(::VecE3) = 3
@@ -30,7 +33,7 @@ end
 ^(a::VecE3, b::Integer) = VecE3(a.x^b, a.y^b, a.z^b)
 ^(a::VecE3, b::FloatingPoint) = VecE3(a.x^b, a.y^b, a.z^b)
 
-%(a::VecE3, b::Real) = VecE3(a.x%b, a.y%b, a.z%b)
+# %(a::VecE3, b::Real) = VecE3(a.x%b, a.y%b, a.z%b)
 
 ==(a::VecE3, b::VecE3) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.z, b.z)
 Base.isequal(a::VecE3, b::VecE3) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.z, b.z)
@@ -45,11 +48,10 @@ Base.ceil(a::VecE3) = VecE3(ceil(a.x), ceil(a.y), ceil(a.z))
 Base.trunc(a::VecE3) = VecE3(trunc(a.x), trunc(a.y), trunc(a.z))
 
 Base.abs(a::VecE3) = sqrt(a.x*a.x + a.y*a.y + a.z*a.z)
-Base.hypot(a::VecE3) = sqrt(a.x*a.x + a.y*a.y + a.z*a.z)
 Base.abs2(a::VecE3) = a.x*a.x + a.y*a.y + a.z*a.z
 function Base.norm(a::VecE3)
     m = abs(a)
-    Vec2f(a.x/m, a.y/m, a.z/m)
+    VecE3(a.x/m, a.y/m, a.z/m)
 end
 
 function dist(a::VecE3, b::VecE3)
@@ -83,7 +85,7 @@ function rot(a::VecE3, axis::VecE3, θ::Real)
     =#
 
     x,y,z = a.x, a.y, a.z
-    u,v,w = axis.u, axis.v, axis.w
+    u,v,w = axis.x, axis.y, axis.z
 
     u² = u*u
     v² = v*v
@@ -116,7 +118,7 @@ function rot_normalized(a::VecE3, axis::VecE3, θ::Real)
     =#
 
     x,y,z = a.x, a.y, a.z
-    u,v,w = axis.u, axis.v, axis.w
+    u,v,w = axis.x, axis.y, axis.z
 
     u² = u*u
     v² = v*v
