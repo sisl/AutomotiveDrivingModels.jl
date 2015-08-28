@@ -7,7 +7,7 @@ deltaangle( a::Real, b::Real ) = atan2(sin(a-b), cos(a-b))
 # distance between two angles
 angledist( a::Real, b::Real ) = abs(tan2(sin(a-b), cos(a-b)))
 
-function inertial2body(inertial::VecE2, reference::VecSE2)
+function inertial2body(point::VecE2, reference::VecSE2)
 
     #=
     Convert a point in an inertial cartesian coordinate frame
@@ -17,11 +17,11 @@ function inertial2body(inertial::VecE2, reference::VecSE2)
     =#
 
     s, c = sin(reference.θ), cos(reference.θ)
-    Δx = inertial.x - reference.x
-    Δy = inertial.y - reference.y
+    Δx = point.x - reference.x
+    Δy = point.y - reference.y
     VecE2(c*Δx + s*Δy, c*Δy - s*Δx)
 end
-function inertial2body(inertial::VecSE2, reference::VecSE2)
+function inertial2body(point::VecSE2, reference::VecSE2)
 
     #=
     Convert a point in an inertial cartesian coordinate frame
@@ -31,11 +31,11 @@ function inertial2body(inertial::VecSE2, reference::VecSE2)
     =#
 
     s, c = sin(reference.θ), cos(reference.θ)
-    Δx = inertial.x - reference.x
-    Δy = inertial.y - reference.y
-    VecSE2(c*Δx + s*Δy, c*Δy - s*Δx, inertial.θ - reference.θ)
+    Δx = point.x - reference.x
+    Δy = point.y - reference.y
+    VecSE2(c*Δx + s*Δy, c*Δy - s*Δx, point.θ - reference.θ)
 end
-function body2inertial(inertial::VecE2, reference::VecSE2)
+function body2inertial(point::VecE2, reference::VecSE2)
 
     #=
     Convert a point in a body-relative cartesian coordinate frame
@@ -43,9 +43,9 @@ function body2inertial(inertial::VecE2, reference::VecSE2)
     =#
 
     c, s = cos(reference.θ), sin(reference.θ)
-    VecE2(c*inertial.x -s*inertial.y + reference.x, s*inertial.x +c*inertial.y + reference.y)
+    VecE2(c*point.x -s*point.y + reference.x, s*point.x +c*point.y + reference.y)
 end
-function body2inertial(inertial::VecSE2, reference::VecSE2)
+function body2inertial(point::VecSE2, reference::VecSE2)
 
     #=
     Convert a point in a body-relative cartesian coordinate frame
@@ -53,5 +53,5 @@ function body2inertial(inertial::VecSE2, reference::VecSE2)
     =#
 
     c, s = cos(reference.θ), sin(reference.θ)
-    VecSE2(c*inertial.x -s*inertial.y + reference.x, s*inertial.x +c*inertial.y + reference.y, reference.θ + inertial.θ)
+    VecSE2(c*point.x -s*point.y + reference.x, s*point.x +c*point.y + reference.y, reference.θ + inertial.θ)
 end

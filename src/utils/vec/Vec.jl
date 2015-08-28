@@ -11,6 +11,8 @@ export
     VecE3, # three-element Float64 vector, {x, y, z}
     VecSE2, # point in special euclidean group of order 2, {x, y, θ}
 
+    polar, # construct a polar vector with (r,θ)
+
     proj,  # vector projection
            # proj(a::vec, b::vec, ::Type{Float64}) will do scalar projection of a onto b
            # proj(a::vec, b::vec, ::Type{Vec}) will do vector projection of a onto b

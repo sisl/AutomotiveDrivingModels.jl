@@ -10,6 +10,8 @@ immutable VecE2 <: VecE
     VecE2(x::Real, y::Real) = new(x,y)
 end
 
+polar(r::Real, θ::Real) = VecE2(r*cos(θ), r*sin(θ))
+
 Base.length(::VecE2) = 2
 Base.copy(a::VecE2) = VecE2(a.x, a.y)
 Base.convert(::Type{Vector{Float64}}, a::VecE2) = [a.x, a.y]

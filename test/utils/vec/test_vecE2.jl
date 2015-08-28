@@ -15,6 +15,11 @@ b = VecE2(0.0,0.0)
 @test convert(Vector{Float64}, a) == [0.0,0.0]
 @test convert(VecE2, [0.0,0.0]) == a
 
+@test isapprox(polar(1.0,0.0), VecE2(1.0,0.0))
+@test isapprox(polar(2.0,π/2), VecE2(0.0,2.0))
+@test isapprox(polar(3.0,-π/2), VecE2(0.0,-3.0))
+@test isapprox(polar(-0.5,1.0*π), VecE2(0.5,0.0))
+
 a = VecE2(0.0,1.0)
 b = VecE2(0.5,2.0)
 
