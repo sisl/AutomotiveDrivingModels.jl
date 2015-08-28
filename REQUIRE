@@ -5,6 +5,7 @@ DataFrames
 Discretizers
 JLD
 LaTeXStrings
+StreamStats
 
 Compat
 Lint
