@@ -7,9 +7,11 @@ immutable VecSE2 <: VecSE
     y :: Float64
     θ :: Float64
 
-    VecSE2(x::Real=0.0, y::Real=0.0, θ::Real=0.0) = VecSE2(x, y, θ)
-    VecSE2(a::VecE2, θ::Real=0.0) = VecSE2(a.x, a.y, θ)
+    VecSE2(x::Real=0.0, y::Real=0.0, θ::Real=0.0) = new(x, y, θ)
+    VecSE2(a::VecE2, θ::Real=0.0) = new(a.x, a.y, θ)
 end
+
+polar(r::Real, ϕ::Real, θ::Real) = VecSE2(r*cos(ϕ), r*sin(ϕ), θ)
 
 Base.length(::VecSE2) = 3
 Base.copy(a::VecSE2) = VecSE2(a.x, a.y, a.θ)

@@ -17,6 +17,11 @@ b = VecE3(0.0,0.0,0.0)
 @test convert(Vector{Float64}, a) == [0.0,0.0,0.0]
 @test convert(VecE3, [0.0,0.0,0.0]) == a
 
+# @test isapprox(polar(1.0,0.0,0.0), VecE3(1.0,0.0,0.0))
+# @test isapprox(polar(2.0,π/2,1.0), VecE3(0.0,2.0,1.0))
+# @test isapprox(polar(3.0,-π/2,-0.5), VecE3(0.0,-3.0,-0.5))
+# @test isapprox(polar(-0.5,1.0*π,1.0*π), VecE3(0.5,0.0,1.0*π))
+
 a = VecE3(0.0,1.0, 2.0)
 b = VecE3(0.5,2.0,-3.0)
 
