@@ -69,7 +69,7 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
     histobin_params = evalparams.histobin_params
 
     # compute original metrics
-    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams, histobin_params,
+    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, histobin_params,
                                                           fold, pdsetseg_fold_assignment, match_fold)
     histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
     retval[1] = metrics_set_orig
@@ -99,7 +99,7 @@ function create_metrics_sets{B<:AbstractVehicleBehavior}(
 
                 # update the MetricsSet calculation
                 update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
-                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, basics.pdset, basics.sn, seg, simparams, basics=basics)
+                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, basics=basics)
 
                 # now override the pdset with the original values once more
                 copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
@@ -139,7 +139,7 @@ function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
     histobin_params = evalparams.histobin_params
 
     # compute original metrics
-    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams, histobin_params,
+    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, histobin_params,
                                                           fold, pdsetseg_fold_assignment, match_fold)
     histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
     retval[1] = metrics_set_orig
@@ -169,7 +169,7 @@ function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
 
                 # update the MetricsSet calculation
                 update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
-                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, simparams, basics=basics)
+                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, basics=basics)
 
                 # now override the pdset with the original values once more
                 copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
@@ -297,7 +297,7 @@ function _cross_validate(
     end
     cross_validation_metrics
 end
-function cross_validate(
+function _cross_validate(
     behaviorset::BehaviorSet,
     pdset_filepaths::Vector{String},
     streetnet_filepaths::Vector{String},
@@ -376,7 +376,7 @@ function _cross_validate_fold(
 
     aggregate_metric_sets_validation
 end
-function cross_validate_parallel(
+function _cross_validate_parallel(
     behaviorset::BehaviorSet,
     pdset_filepaths::Vector{String},
     streetnet_filepaths::Vector{String},
@@ -410,6 +410,31 @@ function cross_validate_parallel(
         cross_validation_metrics[i] = calc_mean_cross_validation_metrics(aggs)
     end
     cross_validation_metrics
+end
+
+function cross_validate(
+    behaviorset::BehaviorSet,
+    pdset_filepaths::Vector{String},
+    streetnet_filepaths::Vector{String},
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    pdsetseg_fold_assignment::Vector{Int},
+    evalparams::EvaluationParams;
+    verbosity::Int=1,
+    incremental_model_save_file::Union(Nothing, String)=nothing
+    )
+
+    if nworkers() > 1
+        _cross_validate_parallel(behaviorset, pdset_filepaths, streetnet_filepaths, pdset_segments,
+                                 dataframe, frame_assignment, pdsetseg_fold_assignment,
+                                 evalparams, incremental_model_save_file=incremental_model_save_file)
+    else
+        _cross_validate(behaviorset, pdset_filepaths, streetnet_filepaths, pdset_segments,
+                        dataframe, frame_assignment, pdsetseg_fold_assignment,
+                        evalparams, verbosity=verbosity,
+                        incremental_model_save_file=incremental_model_save_file)
+    end    
 end
 
 function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)

@@ -23,11 +23,12 @@ export
         get_validfind_regions,
         merge_region_segments,
 
-        gen_featureset
+        gen_featureset,
+        extract_csvfile_set,
+        extract_csvfile_sets
+
         # extract,
         # extract_and_save,
-        # extract_csvfile_set,
-        # extract_csvfile_sets
 
 
 type CSVFileSet

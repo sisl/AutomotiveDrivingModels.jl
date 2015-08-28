@@ -123,7 +123,7 @@ function calc_tracemetrics(
     validfind_of_first_offroad = -1
     n_frames_offroad = 0
 
-    cur_lanetag = get(pdset, "lanetag", carid2ind(pdset, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
+    cur_lanetag = get(pdset, :lanetag, carid2ind(pdset, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
     cur_lane = get_lane(sn, cur_lanetag)
 
     for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
@@ -132,7 +132,7 @@ function calc_tracemetrics(
         carind_active = carid2ind(pdset, seg.carid, validfind)
         
         if validfind > seg.validfind_start
-            fut_lanetag = get(pdset, "lanetag", carind_active, validfind)::LaneTag
+            fut_lanetag = get(pdset, :lanetag, carind_active, validfind)::LaneTag
             if fut_lanetag != cur_lanetag
                 if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
                     lane_change_occurred = true
@@ -236,6 +236,7 @@ function calc_tracemetrics(
 end
 function calc_tracemetrics(
     behavior::AbstractVehicleBehavior,
+    pdset_original::PrimaryDataset,
     pdset_simulation::PrimaryDataset,
     sn::StreetNetwork,
     seg::PdsetSegment;
@@ -534,7 +535,6 @@ function create_metrics_set_no_tracemetrics(
     pdsets_original::Vector{PrimaryDataset},
     streetnets::Vector{StreetNetwork},
     pdset_segments::Vector{PdsetSegment},
-    simparams::SimParams,
     histobin_params::ParamsHistobin,
     fold::Integer,
     pdsetseg_fold_assignment::Vector{Int},
@@ -550,7 +550,7 @@ function create_metrics_set_no_tracemetrics(
 
     histobin = calc_histobin(pdsets_original, streetnets, pdset_segments, histobin_params,
                              fold, pdsetseg_fold_assignment, match_fold)
-    tracemetrics = calc_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams,
+    tracemetrics = calc_tracemetrics(pdsets_original, streetnets, pdset_segments,
                                      fold, pdsetseg_fold_assignment, match_fold)
     aggmetrics = calc_aggregate_metrics(tracemetrics)
 
