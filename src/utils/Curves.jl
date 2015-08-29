@@ -24,7 +24,6 @@ import AutomotiveDrivingModels.Vec: lerp, proj
 
 # ----------------------------------------------------------------
 
-export SIND, XIND, YIND, TIND, KIND, KDIND, CURVE_PT_VEC_LEN
 export Curve, CurveSet, CurvePt
 export fit_curve
 export curve_at, closest_point_ind_to_curve, closest_point_ind_to_curve_guess
@@ -39,14 +38,6 @@ export arcdist_to_extind
 export s_length
 
 # ----------------------------------------------------------------
-
-const SIND  = 1
-const XIND  = 2
-const YIND  = 3
-const TIND  = 4
-const KIND  = 5
-const KDIND = 6
-const CURVE_PT_VEC_LEN = 6
 
 immutable CurvePt
 	s::Float64

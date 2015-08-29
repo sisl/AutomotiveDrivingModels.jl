@@ -3,7 +3,7 @@ module Renderer
 using Cairo
 using Colors
 
-include("../utils/vec/Vec.jl")
+include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "vec", "Vec.jl"))
 using .Vec
 
 export
@@ -183,7 +183,7 @@ function render_car(
     color_fill    :: Colorant,
     color_stroke  :: Colorant = color_fill;
 
-    color_arrow   :: Colorant = Color(1.0,1.0,1.0),
+    color_arrow   :: Colorant = RGB(1.0,1.0,1.0),
     car_length    :: Float64 = 4.6, # [m]
     car_width     :: Float64 = 2.0, # [m]
     corner_radius :: Float64 = 0.3, # [m]
@@ -683,7 +683,7 @@ function render(rendermodel::RenderModel, ctx::CairoContext, canvas_width::Integ
     translate(ctx, canvas_width/2, canvas_height/2)                              # translate to image center
     scale(ctx, rendermodel.camera_zoom, -rendermodel.camera_zoom )               # [pix -> m]
     rotate(ctx, rendermodel.camera_rotation)
-    translate(ctx, -rendermodel.camera_center[1], -rendermodel.camera_center[2]) # translate to camera location
+    translate(ctx, -rendermodel.camera_center.x, -rendermodel.camera_center.y) # translate to camera location
 
     # execute all instructions
     for tup in rendermodel.instruction_set

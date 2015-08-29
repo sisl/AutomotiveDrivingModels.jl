@@ -4,8 +4,8 @@ using Cairo
 using Reel
 using Interact
 
-using Renderer
-using ColorScheme
+# include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
+# include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
 
 import Graphs: edges, num_vertices, vertices
 
@@ -244,10 +244,10 @@ function render_car!(
     posGθ = trajdata[frameind, :yawG]
 
     if carind != CARIND_EGO
-        posEx = getc(trajdata, "posEx", carind, frameind)
-        posEy = getc(trajdata, "posEy", carind, frameind)
-        velEx = getc(trajdata, "velEx", carind, frameind)
-        velEy = getc(trajdata, "velEy", carind, frameind)
+        posEx = getc(trajdata, :posEx, carind, frameind)
+        posEy = getc(trajdata, :posEy, carind, frameind)
+        velEx = getc(trajdata, :velEx, carind, frameind)
+        velEy = getc(trajdata, :velEy, carind, frameind)
 
         posGx, posGy = Trajdata.ego2global(posGx, posGy, posGθ, posEx, posEy)
 
@@ -279,6 +279,7 @@ function render_scene!(
     for carind in IterAllCarindsInFrame(pdset, validfind)
         carid = carind2id(pdset, carind, validfind)
         color = carid == active_carid ? color_active : color_oth
+
         render_car!(rm, pdset, carind, frameind, color=color)
     end
 
@@ -318,7 +319,7 @@ function camera_center_on_ego!(
     posGx = gete(pdset, :posGx, frameind)
     posGy = gete(pdset, :posGy, frameind)
 
-    camera_set(posGx, posGy, zoom, rendermodel=rm)
+    camera_set!(rm, posGx, posGy, zoom)
     rm
 end
 function camera_center_on_ego!(
@@ -331,7 +332,7 @@ function camera_center_on_ego!(
     posGx = trajdata[frameind, :posGx]
     posGy = trajdata[frameind, :posGy]
 
-    camera_set(posGx, posGy, zoom, rendermodel=rm)
+    camera_set!(rm, posGx, posGy, zoom)
     rm
 end
 function camera_center_on_carid!(
@@ -346,48 +347,48 @@ function camera_center_on_carid!(
 
     validfind = frameind2validfind(pdset, frameind)
     carind = carid2ind(pdset, carid, validfind)
-    posGx = get(pdset, "posGx", carind, validfind)
-    posGy = get(pdset, "posGy", carind, validfind)
+    posGx = get(pdset, :posGx, carind, validfind)
+    posGy = get(pdset, :posGy, carind, validfind)
 
-    camera_set(posGx, posGy, zoom, rendermodel=rm)
+    camera_set!(rm, posGx, posGy, zoom)
     rm
 end
 
-function reel_it(
-    runlog :: Matrix{Float64},
-    canvas_width :: Int,
-    canvas_height :: Int,
-    rm::RenderModel = RenderModel();
-    timescale::Int = 4
-    )
+# function reel_it(
+#     runlog :: Matrix{Float64},
+#     canvas_width :: Int,
+#     canvas_height :: Int,
+#     rm::RenderModel = RenderModel();
+#     timescale::Int = 4
+#     )
 
-    frameind = 1
+#     frameind = 1
 
-    function reel_render(t, dt, runlog::Matrix{Float64}, rm::RenderModel, canvas_width::Int, canvas_height::Int)
-        # t is the time into the sequence
-        # dt is the time to advance for the next frame
+#     function reel_render(t, dt, runlog::Matrix{Float64}, rm::RenderModel, canvas_width::Int, canvas_height::Int)
+#         # t is the time into the sequence
+#         # dt is the time to advance for the next frame
         
-        subframeind = int(t*10)+1
+#         subframeind = int(t*10)+1
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
 
-        clear_setup!(rm)
-        set_background_color!(rm, colorscheme["background"])
-        render_road!(rm, road, -50.0, 5000.0)
-        render_scene_subframe!(rm, runlog, subframeind, 4)
+#         clear_setup!(rm)
+#         set_background_color!(rm, colorscheme["background"])
+#         render_road!(rm, road, -50.0, 5000.0)
+#         render_scene_subframe!(rm, runlog, subframeind, 4)
 
-        # camera_set(runlog[frameind, LOG_COL_X], runlog[frameind, LOG_COL_Y], 12.0, rendermodel=rm)
-        render(rm, ctx, canvas_width, canvas_height)
+#         # camera_set!(rn, runlog[frameind, LOG_COL_X], runlog[frameind, LOG_COL_Y], 12.0)
+#         render(rm, ctx, canvas_width, canvas_height)
 
-        s
-    end
+#         s
+#     end
 
-    f = (t,dt) -> reel_render(t, dt, runlog, rm, canvas_width, canvas_height)
-    film = roll(f, fps=10, duration=(timescale*calc_nframes(runlog)/10)-1.0)
-    # write("output.gif", film)
-    return film
-end
+#     f = (t,dt) -> reel_render(t, dt, runlog, rm, canvas_width, canvas_height)
+#     film = roll(f, fps=10, duration=(timescale*calc_nframes(runlog)/10)-1.0)
+#     # write("output.gif", film)
+#     return film
+# end
 
 function plot_traces(
     pdset::PrimaryDataset,
@@ -402,8 +403,8 @@ function plot_traces(
     camerazoom::Real=6.5,
     camerax::Real=get(pdset, :posGx, CARIND_EGO, validfind),
     cameray::Real=get(pdset, :posGy, CARIND_EGO, validfind),
-    color_history::Colorant=RGB(0.7,0.3,0.0,0.8),
-    color_horizon::Colorant=RGB(0.3,0.3,0.7,0.8),
+    color_history::Colorant=RGBA(0.7,0.3,0.0,0.8),
+    color_horizon::Colorant=RGBA(0.3,0.3,0.7,0.8),
     )
 
 

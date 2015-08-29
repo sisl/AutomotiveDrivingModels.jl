@@ -33,7 +33,7 @@ function simulate!(
     carid           :: Int,
     validfind_start :: Int,
     validfind_end   :: Int;
-    pdset_frames_per_sim_frame::Int=5,
+    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
     n_euler_steps   :: Int = 2
     )
 
@@ -50,7 +50,7 @@ function simulate!(
     behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
-    pdset_frames_per_sim_frame::Int=5,
+    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
     n_euler_steps   :: Int = 2
     )
 

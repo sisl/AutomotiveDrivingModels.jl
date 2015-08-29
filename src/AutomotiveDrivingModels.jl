@@ -18,11 +18,11 @@ include("utils/CommonTypes.jl")
 include("utils/Curves.jl")
 @reexport using .Curves
 
-include("utils/Trajdata.jl")
-@reexport using .Trajdata
-
 include("utils/StreetNetworks.jl")
 @reexport using .StreetNetworks
+
+include("utils/Trajdata.jl")
+@reexport using .Trajdata
 
 include("features/Features.jl")
 @reexport using .Features

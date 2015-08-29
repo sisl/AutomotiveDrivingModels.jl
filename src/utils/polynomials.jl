@@ -3,7 +3,7 @@ export
     Quartic,
     Quintic,
 
-    p₁, p₂, p₃, p₄, p₁₂, p₁₂₃,
+    p₁, p₂, p₃, p₄, p₁₂, p₂₃, p₁₂₃,
     translate
 
 abstract Polynomial
@@ -34,6 +34,7 @@ p₃(q::Quartic, t::Float64) = 2q.x₃ + t*(6q.x₄ + t*(12q.x₅ + t*20q.x₆))
 p₄(q::Quartic, t::Float64) = 6q.x₄ + t*(24q.x₅ + t*60q.x₆) # third derivative
 
 p₁₂(p::Polynomial, t::Float64) = (p₁(p,t), p₂(p,t))
+p₂₃(p::Polynomial, t::Float64) = (p₂(p,t), p₃(p,t))
 p₁₂₃(p::Polynomial, t::Float64) = (p₁(p,t), p₂(p,t), p₃(p,t))
 
 translate(q::Quintic, Δ₁::Float64) = Quintic(q.x₁+Δ₁, q.x₂, q.x₃, q.x₄, q.x₅)

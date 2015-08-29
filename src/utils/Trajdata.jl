@@ -10,11 +10,15 @@ using DataFrames
 using DataArrays
 
 using AutomotiveDrivingModels.Vec
+using AutomotiveDrivingModels.CommonTypes
 
 import Base: start, next, done, get
+import AutomotiveDrivingModels: LaneTag
 
 export 
 	PrimaryDataset,                     # type containing precomputed road network data
+
+	LaneTag,                            # reexport
 
 	CARIND_EGO,                         # index value associated with ego vehicle
 	CARID_EGO,							# id value associated with ego vehicle
@@ -33,6 +37,8 @@ export
 	CONTROL_STATUS_INIT,                #
 	CONTROL_STATUS_PASSIVE,             #
 	CONTROL_STATUS_VIRES_AUTO,          # system was simulated by Vires
+
+	create_empty_pdset,                 # generate a new one
 
 	validfind_inbounds,                 # true if the given valid frame index is inbounds
 	frameind_inbounds,                  # true if the given frame index is inbounds
@@ -150,14 +156,14 @@ type PrimaryDataset
 	df_other_ncol_per_entry :: Int               # number of entries per column in df_other
 	df_other_column_map :: Dict{Symbol, Int}     # maps symbol to column index
 
-	PrimaryDataset(
+	function PrimaryDataset(
 		df_ego_primary     :: DataFrame, 
 		df_other_primary   :: DataFrame,
 		dict_trajmat       :: Dict{Uint32,DataFrame},
 		dict_other_idmap   :: Dict{Uint32,Uint16},
 		mat_other_indmap   :: Matrix{Int16},
 		ego_car_on_freeway :: BitVector
-		) = begin
+		)
 
 		n_frames = size(df_ego_primary, 1)
 		n_valid  = sum(ego_car_on_freeway)
@@ -207,6 +213,76 @@ type PrimaryDataset
 			df_other_column_map
 			)
 	end
+end
+
+function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=0; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
+
+	@assert(nframes ≥ 0)
+	@assert(n_other_vehicles ≥ 0)
+	@assert(sec_per_frame > 0.0)
+
+	df_ego_primary = DataFrame(
+					        time           = DataArray(Float64, nframes),
+					        frame          = DataArray(Int,     nframes),     
+					        control_status = DataArray(Int,     nframes),    
+					        posGx          = DataArray(Float64, nframes),
+					        posGy          = DataArray(Float64, nframes),
+					        posGyaw        = DataArray(Float64, nframes),
+					        posFx          = DataArray(Float64, nframes),
+					        posFy          = DataArray(Float64, nframes),
+					        posFyaw        = DataArray(Float64, nframes),
+					        velFx          = DataArray(Float64, nframes),
+					        velFy          = DataArray(Float64, nframes),
+					        lanetag        = DataArray(LaneTag, nframes),
+					        nll            = DataArray(Int8,    nframes),
+					        nlr            = DataArray(Int8,    nframes),
+					        curvature      = DataArray(Float64, nframes),
+					        d_cl           = DataArray(Float64, nframes),
+					        d_ml           = DataArray(Float64, nframes),
+					        d_mr           = DataArray(Float64, nframes),
+					        d_merge        = DataArray(Float64, nframes),
+					        d_split        = DataArray(Float64, nframes) 
+					    )
+
+	df_other_primary = DataFrame()
+    add_symbol! = (str,ind,typ)->df_other_primary[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, nframes)
+    add_slot!   = (cind)->begin
+                                add_symbol!("posGx",     cind, Float64)
+                                add_symbol!("posGy",     cind, Float64)
+                                add_symbol!("posGyaw",   cind, Float64)
+                                add_symbol!("posFx",     cind, Float64)
+                                add_symbol!("posFy",     cind, Float64)
+                                add_symbol!("posFyaw",   cind, Float64)
+                                add_symbol!("velFx",     cind, Float64)
+                                add_symbol!("velFy",     cind, Float64)
+                                add_symbol!("lanetag",   cind, LaneTag)
+                                add_symbol!("nlr",       cind, Int8)
+                                add_symbol!("nll",       cind, Int8)
+                                add_symbol!("curvature", cind, Float64)
+                                add_symbol!("d_cl",      cind, Float64)
+                                add_symbol!("d_mr",      cind, Float64)
+                                add_symbol!("d_ml",      cind, Float64)
+                                add_symbol!("d_merge",   cind, Float64)
+                                add_symbol!("d_split",   cind, Float64)
+                                add_symbol!("id",        cind, Uint32)
+                                add_symbol!("t_inview",  cind, Float64)
+                                add_symbol!("trajind",   cind, Uint32)
+                              end
+    for cind = 0 : n_other_vehicles # NOTE: indexing starts from 0, like in Trajdata
+        add_slot!(cind)
+    end
+
+    dict_trajmat = Dict{Uint32,DataFrame}()
+    dict_other_idmap = Dict{Uint32,Uint16}()
+    mat_other_indmap = Array(Int16, nframes, 0)
+    ego_car_on_freeway = trues(nframes)
+
+    for frame = 1 : nframes
+    	df_ego_primary[frame, :frame] = frame
+    	df_ego_primary[frame, :time] = (frame-1)*sec_per_frame
+    end
+
+    PrimaryDataset(df_ego_primary, df_other_primary, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
 
 export IterOtherCarindsInFrame, IterAllCarindsInFrame
