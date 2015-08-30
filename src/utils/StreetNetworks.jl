@@ -199,6 +199,8 @@ immutable LaneTag
 		new(tile.index_e, tile.index_n, seg.id, lane.id)
 	end
 end
+Base.convert(::Type{LaneID}, tag::LaneTag) = LaneID(tag.segment, tag.lane)
+
 type TilePoint2DProjectionResult
 	curvept    :: CurvePt
 	extind     :: Float64
