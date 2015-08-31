@@ -5,6 +5,5 @@ using Base.Test
 
 using AutomotiveDrivingModels
 
-# include("test_curves.jl")
-
 include("utils/vec/test_vec.jl")
+include("utils/test_trajdata.jl")

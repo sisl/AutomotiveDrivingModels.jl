@@ -189,6 +189,7 @@ immutable LaneTag
 	segment :: Int
 	lane    :: Int
 
+	LaneTag(index_e::Int, index_n::Int, segment::Int, lane::Int) = new(index_e, index_n, segment, lane)
 	LaneTag(tile::NetworkTile, laneid::LaneID) = new(tile.index_e, tile.index_n, int(laneid.segment), int(laneid.lane))
 	LaneTag(tile::NetworkTile, segid::Int, laneid::Int) = new(tile.index_e, tile.index_n, segid, laneid)
 	function LaneTag(sn::StreetNetwork, lane::StreetLane)

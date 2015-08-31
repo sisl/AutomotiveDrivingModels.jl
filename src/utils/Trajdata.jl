@@ -39,6 +39,7 @@ export
 	CONTROL_STATUS_VIRES_AUTO,          # system was simulated by Vires
 
 	create_empty_pdset,                 # generate a new one
+	expand!,                            # increase the number of rows
 
 	validfind_inbounds,                 # true if the given valid frame index is inbounds
 	frameind_inbounds,                  # true if the given frame index is inbounds
@@ -78,10 +79,12 @@ export
 	copy_vehicle!,
 	load_trajdata,
 	export_trajdata,
+	find_slot_for_car!,
+	add_carid!,
+	add_car_to_validfind!,
 	remove_car_from_frame!,
 	remove_cars_from_frame!,
 	remove_car!,
-	find_slot_for_car!,
 	get_num_other_cars_in_frame,
 	get_num_cars_in_frame,
 	add_car_slot!,
@@ -145,7 +148,7 @@ type PrimaryDataset
 
 	df_ego_primary     :: DataFrame              # [frameind,  :feature] -> value
 	df_other_primary   :: DataFrame              # [validfind, :feature] -> value, missing features are NA
-	dict_trajmat       :: Dict{Uint32,DataFrame} # [carid] -> trajmat
+	dict_trajmat       :: Dict{Uint32,DataFrame} # [carid] -> trajmat (DEPRECATED)
 	dict_other_idmap   :: Dict{Uint32,Uint16}    # [carid] -> matind
 	mat_other_indmap   :: Matrix{Int16}          # [validfind, matind] -> carind, -1 if not present
 	ego_car_on_freeway :: BitVector              # [frameind] -> bool
@@ -215,7 +218,10 @@ type PrimaryDataset
 	end
 end
 
-function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=0; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
+function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
+
+	# NOTE(tim): this always adds at least one other vehicle
+	n_other_vehicles = max(n_other_vehicles, 1)
 
 	@assert(nframes ≥ 0)
 	@assert(n_other_vehicles ≥ 0)
@@ -268,7 +274,7 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=0; sec
                                 add_symbol!("t_inview",  cind, Float64)
                                 add_symbol!("trajind",   cind, Uint32)
                               end
-    for cind = 0 : n_other_vehicles # NOTE: indexing starts from 0, like in Trajdata
+    for cind = 0 : n_other_vehicles-1 # NOTE: indexing starts from 0, like in Trajdata
         add_slot!(cind)
     end
 
@@ -283,6 +289,42 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=0; sec
     end
 
     PrimaryDataset(df_ego_primary, df_other_primary, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+end
+function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
+
+	#=
+	Extend the length of the pdset by one row
+	- ego_car_on_freeway is set to true and the number of validfinds is increased
+	=#
+
+	append!(pdset.df_ego_primary, similar(pdset.df_ego_primary, nframes))
+	append!(pdset.df_other_primary, similar(pdset.df_other_primary, nframes))
+
+    pdset.mat_other_indmap = vcat(pdset.mat_other_indmap, fill(int16(-1), nframes, size(pdset.mat_other_indmap,2)))
+    append!(pdset.ego_car_on_freeway, trues(nframes))
+
+    nframes_before = length(pdset.frameind2validfind)
+    nvalidfinds_before = length(pdset.validfind2frameind)
+    append!(pdset.validfind2frameind, ones(Int32, nframes))
+    append!(pdset.frameind2validfind, ones(Int32, nframes))
+
+    for i = 1: nframes
+    	frameind = int32(nframes_before + i)
+    	validfind = int32(nvalidfinds_before + i)
+
+    	pdset.validfind2frameind[validfind] = frameind
+    	pdset.frameind2validfind[frameind] = validfind
+
+    	if frameind > 1
+    		pdset.df_ego_primary[frameind, :frame] = pdset.df_ego_primary[frameind-1, :frame] + 1
+    		pdset.df_ego_primary[frameind, :time] = pdset.df_ego_primary[frameind-1, :time] + sec_per_frame
+    	else
+    		pdset.df_ego_primary[frameind, :frame] = 1
+    		pdset.df_ego_primary[frameind, :time] = 0.0
+    	end    	
+    end
+
+    pdset
 end
 
 export IterOtherCarindsInFrame, IterAllCarindsInFrame
@@ -738,6 +780,32 @@ function carid_exists( trajdata::DataFrame, carid::Integer, frameind::Integer)
 	return (carid == CARID_EGO) || getc_has( trajdata, carid, frameind ) != -1
 end
 
+function get_num_other_cars_in_frame( trajdata::DataFrame, frameind::Integer, maxncars = -2 )
+
+	if maxncars < -1
+		maxncars = get_max_num_cars(trajdata)
+	end
+
+	ncars = 0
+	for carind = 0 : maxncars
+		if carind_exists(trajdata, carind, frameind)
+			ncars += 1
+		end
+	end
+	ncars
+end
+function get_num_other_cars_in_frame( pdset::PrimaryDataset, validfind::Integer )
+	ncars = 0
+	for carind = 0 : pdset.maxcarind
+		if indinframe(pdset, carind, validfind)
+			ncars += 1
+		end
+	end
+	ncars
+end
+get_num_cars_in_frame( pdset::PrimaryDataset, validfind::Integer ) = get_num_other_cars_in_frame(pdset, validfind) + 1
+
+
 function get_valid_frameinds( pdset::PrimaryDataset ) 
 
 	all_inds = [1:size(pdset.df_ego_primary,1)]
@@ -974,6 +1042,17 @@ function export_trajdata( filename::String, trajdata::DataFrame )
 	close(fout)
 end
 
+function add_carid!(pdset::PrimaryDataset, carid::Integer)
+
+	carid_32 = uint32(carid)
+	if !haskey(pdset.dict_other_idmap, carid_32)
+		pdset.dict_other_idmap[carid_32] = length(pdset.dict_other_idmap)+1
+		pdset.mat_other_indmap = hcat(pdset.mat_other_indmap, fill(int16(-1), size(pdset.mat_other_indmap,1), 1))
+	end
+
+	pdset
+end
+
 function add_car_to_validfind!(pdset::PrimaryDataset, carid::Integer, validfind::Integer)
 
 	#=
@@ -983,13 +1062,185 @@ function add_car_to_validfind!(pdset::PrimaryDataset, carid::Integer, validfind:
 
 	assert(validfind2frameind(pdset, validfind) != 0)
 
+	carid_32 = uint32(carid)
+	add_carid!(pdset, carid_32)
 	carind = find_slot_for_car!(pdset, validfind)
-	matind = pdset.dict_other_idmap[carid]
+	matind = pdset.dict_other_idmap[uint32(carid_32)]
+	
 	pdset.mat_other_indmap[validfind, matind] = carind
 
-    setc!("id",        carind, validfind, carid)
+    setc!(pdset, :id, carind, validfind, carid_32)
 
     pdset
+end
+
+function copy_trace!(
+    dest::PrimaryDataset,
+    source::PrimaryDataset,
+    carid::Integer,
+    validfind_start_source::Integer,
+    validfind_end_source::Integer,
+    validfind_start_dest::Integer=validfind_start_source,
+    )
+
+    #=
+    Copy all instances of a given vehicle in source::PrimaryDataset
+    between the given validfinds
+
+    This will skip any validfinds in which the vehicle is not present
+
+    This will fail if the validfinds given are not inbounds or decreasing
+    =#
+
+    @assert(validfind_end_source ≥ validfind_start_source)
+
+    validfind_dest = validfind_start_dest - 1
+    for validfind = validfind_start_source : validfind_end_source
+    	validfind_dest += 1
+
+        carind = carid2ind_or_negative_two_otherwise(source, carid, validfind)
+        if carind != -2
+            copy_vehicle!(dest, source, carind, validfind, validfind_dest)
+        end
+    end
+    
+    dest
+end
+function copy_vehicle!(
+    dest::PrimaryDataset,
+    source::PrimaryDataset,
+    carind_source::Integer,
+    validfind_source::Integer,
+    validfind_dest::Integer=validfind_source,
+    )
+
+    #=
+    Copy the data for a single vehicle in source to dest
+    This will fail if the validfind is invalid
+    This will fail if the carid is not in source
+    =#
+
+    @assert(validfind_inbounds(source, validfind_source))
+    @assert(validfind_inbounds(dest, validfind_dest))
+
+    # ---------------------------
+    # get / create carind_dest
+
+    carid = carind2id(source, carind_source, validfind_source)
+    if !idinframe(dest, carid, validfind_dest)
+        add_car_to_validfind!(dest, carid, validfind_dest)
+    end
+    carind_dest = carid2ind(dest, carid, validfind_dest)
+    
+    # ---------------------------
+    # set values
+
+    if carind_dest == CARIND_EGO
+        frameind_source = validfind2frameind(source, validfind_source)
+        frameind_dest = validfind2frameind(dest, validfind_dest)
+
+        for col = 1 : ncol(source.df_ego_primary)
+            dest.df_ego_primary[frameind_dest, col] = source.df_ego_primary[frameind_source, col]
+        end
+    else
+        col_source = dest.df_other_ncol_per_entry * carind_source
+        col_dest = dest.df_other_ncol_per_entry * carind_dest
+        for col_ind in 1 : dest.df_other_ncol_per_entry
+            col_source += 1
+            col_dest += 1
+            dest.df_other_primary[validfind_dest, col_dest] = source.df_other_primary[validfind_source, col_source]
+        end
+    end
+
+    dest
+end
+
+function add_car_slot!( trajdata::DataFrame, maxncars = -2 )
+	# increases the number of observed car column sets by 1
+
+	if maxncars < -1
+		maxncars = get_max_num_cars(trajdata)
+	end
+
+	carind = maxncars+1
+
+	na_arr = Array(Any, size(trajdata,1))
+	fill!(na_arr, NA)
+
+	trajdata[symbol(@sprintf("id_%d",            carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("posEx_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("posEy_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("velEx_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("velEy_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("posGx_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("posGy_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("velGx_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("velGy_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("yawG_%d",          carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("lane_%d",          carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("lane_offset_%d",   carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("lane_tangent_%d",  carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("angle_to_lane_%d", carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("velLs_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("velLd_%d",         carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("posRLs_%d",        carind))] = copy(na_arr)
+	trajdata[symbol(@sprintf("posRLd_%d",        carind))] = copy(na_arr)
+
+	return maxncars+1
+end
+function add_car_slot!( pdset::PrimaryDataset )
+
+	#=
+	increases the number of observed car column sets by 1
+	returns the index of the newly added slot
+  	=#
+
+	num_rows = nrow(pdset.df_other_primary)
+	carind = pdset.maxcarind + 1 # new index to add
+	pdset.maxcarind += 1
+
+	column_keys = collect(keys(pdset.df_other_column_map))
+	for col in 1 : pdset.df_other_ncol_per_entry
+		sym = column_keys[findfirst(key->pdset.df_other_column_map[key]==col, column_keys)]
+		str = string(sym)
+		typ = eltype(pdset.df_other_primary[col])
+		pdset.df_other_primary[symbol(@sprintf("%s_%d",str,carind))] = DataArray(typ, num_rows)
+	end
+
+	return carind
+end
+
+function find_slot_for_car!( trajdata::DataFrame, frameind::Integer, maxncars = -2 )
+
+	# returns the index within the frame to which the car can be added
+	# adds a new slot if necessary
+
+	if maxncars < -1
+		maxncars = get_max_num_cars(trajdata)
+	end
+
+	ncars = get_num_cars_in_frame( trajdata, frameind, maxncars)
+	if ncars > maxncars
+		# we have no extra slots, make one
+		return add_car_slot!( trajdata )
+	else
+		# we have enough slots; use the first one
+		return ncars
+	end
+end
+function find_slot_for_car!( pdset::PrimaryDataset, validfind::Integer )
+
+	# returns the index within the frame to which the car can be added
+	# adds a new slot if necessary
+
+	ncars = get_num_cars_in_frame( pdset, validfind )
+	if ncars > pdset.maxcarind
+		# we have no extra slots, make one
+		return add_car_slot!( pdset )
+	else
+		# we have enough slots; use the first one
+		return ncars # this is correct since ncars-1 is the last ind and we want +1 from that
+	end
 end
 
 function remove_car_from_frame!( pdset::PrimaryDataset, carind::Integer, validfind::Integer )
@@ -1209,213 +1460,6 @@ function remove_car!( pdset::PrimaryDataset, carid::Integer )
 
 	pdset
 end
-
-function find_slot_for_car!( trajdata::DataFrame, frameind::Integer, maxncars = -2 )
-
-	# returns the index within the frame to which the car can be added
-	# adds a new slot if necessary
-
-	if maxncars < -1
-		maxncars = get_max_num_cars(trajdata)
-	end
-
-	ncars = ncars_in_frame( trajdata, frameind, maxncars)
-	if ncars > maxncars
-		# we have no extra slots, make one
-		return add_car_slot!( trajdata )
-	else
-		# we have enough slots; use the first one
-		return ncars
-	end
-end
-function find_slot_for_car!( pdset::DataFrame, validfind::Integer )
-
-	# returns the index within the frame to which the car can be added
-	# adds a new slot if necessary
-
-	ncars = ncars_in_frame( pdset, validfind )
-	if ncars > pdset.maxcarind
-		# we have no extra slots, make one
-		return add_car_slot!( pdset )
-	else
-		# we have enough slots; use the first one
-		return ncars # this is correct since ncars-1 is the last ind and we want +1 from that
-	end
-end
-
-function copy_trace!(
-    dest::PrimaryDataset,
-    source::PrimaryDataset,
-    carid::Integer,
-    validfind_start_source::Integer,
-    validfind_end_source::Integer,
-    validfind_start_dest::Integer=validfind_start_source,
-    )
-
-    #=
-    Copy all instances of a given vehicle in source::PrimaryDataset
-    between the given validfinds
-
-    This will skip any validfinds in which the vehicle is not present
-
-    This will fail if the validfinds given are not inbounds or decreasing
-    =#
-
-    @assert(validfind_end_source ≥ validfind_start_source)
-
-    validfind_dest = validfind_start_dest - 1
-    for validfind = validfind_start_source : validfind_end_source
-    	validfind_dest += 1
-
-        carind = carid2ind_or_negative_two_otherwise(source, carid, validfind)
-        if carind != -2
-            copy_vehicle!(dest, source, carind, validfind, validfind_dest)
-        end
-    end
-    
-    dest
-end
-function copy_vehicle!(
-    dest::PrimaryDataset,
-    source::PrimaryDataset,
-    carind_source::Integer,
-    validfind_source::Integer,
-    validfind_dest::Integer=validfind_source,
-    )
-
-    #=
-    Copy the data for a single vehicle in source to dest
-    This will fail if the validfind is invalid
-    This will fail if the carid is not in source
-    =#
-
-    @assert(validfind_inbounds(source, validfind_source))
-    @assert(validfind_inbounds(dest, validfind_dest))
-
-    # ---------------------------
-    # get / create carind_dest
-
-    carid = carind2id(source, carind_source, validfind_source)
-    if !idinframe(dest, carid, validfind_dest)
-        add_car_to_validfind!(dest, carid, validfind_dest)
-    end
-    carind_dest = carid2ind(dest, carid, validfind_dest)
-    
-    # ---------------------------
-    # set values
-
-    if carind_dest == CARIND_EGO
-        frameind_source = validfind2frameind(source, validfind_source)
-        frameind_dest = validfind2frameind(dest, validfind_dest)
-
-        for col = 1 : ncol(source.df_ego_primary)
-            dest.df_ego_primary[frameind_dest, col] = source.df_ego_primary[frameind_source, col]
-        end
-    else
-        col_source = dest.df_other_ncol_per_entry * carind_source
-        col_dest = dest.df_other_ncol_per_entry * carind_dest
-        for col_ind in 1 : dest.df_other_ncol_per_entry
-            col_source += 1
-            col_dest += 1
-            dest.df_other_primary[validfind_dest, col_dest] = source.df_other_primary[validfind_source, col_source]
-        end
-    end
-
-    dest
-end
-
-function get_num_other_cars_in_frame( trajdata::DataFrame, frameind::Integer, maxncars = -2 )
-
-	if maxncars < -1
-		maxncars = get_max_num_cars(trajdata)
-	end
-
-	ncars = 0
-	for carind = 0 : maxncars
-		if carind_exists(trajdata, carind, frameind)
-			ncars += 1
-		end
-	end
-	ncars
-end
-function get_num_other_cars_in_frame( pdset::PrimaryDataset, validfind::Integer )
-	ncars = 0
-	for carind = 0 : pdset.maxcarind
-		if indinframe(pdset, carind, validfind)
-			ncars += 1
-		end
-	end
-	ncars
-end
-get_num_cars_in_frame( pdset::PrimaryDataset, validfind::Integer ) = get_num_other_cars_in_frame(pdset, validfind) + 1
-
-function add_car_slot!( trajdata::DataFrame, maxncars = -2 )
-	# increases the number of observed car column sets by 1
-
-	if maxncars < -1
-		maxncars = get_max_num_cars(trajdata)
-	end
-
-	carind = maxncars+1
-
-	na_arr = Array(Any, size(trajdata,1))
-	fill!(na_arr, NA)
-
-	trajdata[symbol(@sprintf("id_%d",            carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("posEx_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("posEy_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("velEx_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("velEy_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("posGx_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("posGy_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("velGx_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("velGy_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("yawG_%d",          carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("lane_%d",          carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("lane_offset_%d",   carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("lane_tangent_%d",  carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("angle_to_lane_%d", carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("velLs_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("velLd_%d",         carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("posRLs_%d",        carind))] = copy(na_arr)
-	trajdata[symbol(@sprintf("posRLd_%d",        carind))] = copy(na_arr)
-
-	return maxncars+1
-end
-# function add_car_slot!( pdset::PrimaryDataset )
-# 	# increases the number of observed car column sets by 1
-# 	# returns the index of the newly added slot
-#   # DEPRECATED BECAUSE LaneTag is not in Trajdata.jl
-# 	num_rows = nrow(pdset.df_other_primary)
-# 	carind = pdset.maxcarind + 1 # new index to add
-
-# 	for (str, typ) in (("posGx",    Float64),
-# 					   ("posGy",    Float64),
-# 					   ("posGyaw",  Float64),
-# 					   ("posFx",    Float64),
-# 					   ("posFy",    Float64),
-# 					   ("posFyaw",  Float64),
-# 					   ("velFx",    Float64),
-# 					   ("velFy",    Float64),
-# 					   ("lanetag",  LaneTag),
-# 					   ("nlr",      Int8),
-# 					   ("nll",      Int8),
-# 					   ("curvature",Float64),
-# 					   ("d_cl",     Float64),
-# 					   ("d_mr",     Float64),
-# 					   ("d_ml",     Float64),
-# 					   ("d_merge",  Float64),
-# 					   ("d_split",  Float64),
-# 					   ("id",       Uint32),
-# 					   ("t_inview", Float64),
-# 					   ("trajind",  Uint32),
-# 					  )
-
-# 		pdset.df_other_primary[symbol(@sprintf("%s_%d",str,carind))] = DataArray(typ, num_rows)
-# 	end
-
-# 	return carind
-# end
 
 function frames_contain_carid( trajdata::DataFrame, carid::Integer, startframeind::Int, horizon::Int; frameskip::Int=1 )
 		
