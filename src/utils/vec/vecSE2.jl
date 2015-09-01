@@ -34,13 +34,13 @@ end
 #     dist2(x, y) <= atol + rtol*max(_absx, _absy)
 # end
 
-+(a::VecSE2, b::VecE2) = VecSE2(a.x+b.x, a.y+b.y, a.θ)
-+(a::VecSE2, b::VecSE2) = VecSE2(a.x+b.x, a.y+b.y, a.θ+b.θ)
+Base.(:(+))(a::VecSE2, b::VecE2) = VecSE2(a.x+b.x, a.y+b.y, a.θ)
+Base.(:(+))(a::VecSE2, b::VecSE2) = VecSE2(a.x+b.x, a.y+b.y, a.θ+b.θ)
 
--(a::VecSE2, b::VecE2) = VecSE2(a.x-b.x, a.y-b.y, a.θ)
--(a::VecSE2, b::VecSE2) = VecSE2(a.x-b.x, a.y-b.y, a.θ-b.θ)
+Base.(:(-))(a::VecSE2, b::VecE2) = VecSE2(a.x-b.x, a.y-b.y, a.θ)
+Base.(:(-))(a::VecSE2, b::VecSE2) = VecSE2(a.x-b.x, a.y-b.y, a.θ-b.θ)
 
-==(a::VecSE2, b::VecSE2) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.θ, b.θ)
+Base.(:(==))(a::VecSE2, b::VecSE2) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.θ, b.θ)
 Base.isequal(a::VecSE2, b::VecSE2) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.θ, b.θ)
 
 Base.abs(a::VecSE2) = hypot(a.x, a.y)

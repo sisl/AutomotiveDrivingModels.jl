@@ -20,22 +20,22 @@ function Base.convert{R<:Real}(::Type{VecE3}, a::AbstractArray{R})
     VecE3(a[1], a[2], a[3])
 end
 
-+(a::VecE3, b::Real) = VecE3(a.x+b, a.y+b, a.z+b)
-+(a::VecE3, b::VecE3) = VecE3(a.x+b.x, a.y+b.y, a.z+b.z)
+Base.(:(+))(a::VecE3, b::Real) = VecE3(a.x+b, a.y+b, a.z+b)
+Base.(:(+))(a::VecE3, b::VecE3) = VecE3(a.x+b.x, a.y+b.y, a.z+b.z)
 
--(a::VecE3, b::Real) = VecE3(a.x-b, a.y-b, a.z-b)
--(a::VecE3, b::VecE3) = VecE3(a.x-b.x, a.y-b.y, a.z-b.z)
+Base.(:(-))(a::VecE3, b::Real) = VecE3(a.x-b, a.y-b, a.z-b)
+Base.(:(-))(a::VecE3, b::VecE3) = VecE3(a.x-b.x, a.y-b.y, a.z-b.z)
 
-*(a::VecE3, b::Real) = VecE3(a.x*b, a.y*b, a.z*b)
+Base.(:(*))(a::VecE3, b::Real) = VecE3(a.x*b, a.y*b, a.z*b)
 
-/(a::VecE3, b::Real) = VecE3(a.x/b, a.y/b, a.z/b)
+Base.(:(/))(a::VecE3, b::Real) = VecE3(a.x/b, a.y/b, a.z/b)
 
-^(a::VecE3, b::Integer) = VecE3(a.x^b, a.y^b, a.z^b)
-^(a::VecE3, b::FloatingPoint) = VecE3(a.x^b, a.y^b, a.z^b)
+Base.(:(^))(a::VecE3, b::Integer) = VecE3(a.x^b, a.y^b, a.z^b)
+Base.(:(^))(a::VecE3, b::FloatingPoint) = VecE3(a.x^b, a.y^b, a.z^b)
 
 # %(a::VecE3, b::Real) = VecE3(a.x%b, a.y%b, a.z%b)
 
-==(a::VecE3, b::VecE3) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.z, b.z)
+Base.(:(==))(a::VecE3, b::VecE3) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.z, b.z)
 Base.isequal(a::VecE3, b::VecE3) = isequal(a.x, b.x) && isequal(a.y, b.y) && isequal(a.z, b.z)
 
 Base.isfinite(a::VecE3) = isfinite(a.x) && isfinite(a.y) && isfinite(a.z)

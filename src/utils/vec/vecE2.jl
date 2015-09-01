@@ -20,22 +20,22 @@ function Base.convert{R<:Real}(::Type{VecE2}, a::AbstractArray{R})
     VecE2(a[1], a[2])
 end
 
-+(a::VecE2, b::Real) = VecE2(a.x+b, a.y+b)
-+(a::VecE2, b::VecE2) = VecE2(a.x+b.x, a.y+b.y)
+Base.(:(+))(a::VecE2, b::Real) = VecE2(a.x+b, a.y+b)
+Base.(:(+))(a::VecE2, b::VecE2) = VecE2(a.x+b.x, a.y+b.y)
 
--(a::VecE2, b::Real) = VecE2(a.x-b, a.y-b)
--(a::VecE2, b::VecE2) = VecE2(a.x-b.x, a.y-b.y)
+Base.(:(-))(a::VecE2, b::Real) = VecE2(a.x-b, a.y-b)
+Base.(:(-))(a::VecE2, b::VecE2) = VecE2(a.x-b.x, a.y-b.y)
 
-*(a::VecE2, b::Real) = VecE2(a.x*b, a.y*b)
+Base.(:(*))(a::VecE2, b::Real) = VecE2(a.x*b, a.y*b)
 
-/(a::VecE2, b::Real) = VecE2(a.x/b, a.y/b)
+Base.(:(/))(a::VecE2, b::Real) = VecE2(a.x/b, a.y/b)
 
-^(a::VecE2, b::Integer) = VecE2(a.x^b, a.y^b)
-^(a::VecE2, b::FloatingPoint) = VecE2(a.x^b, a.y^b)
+Base.(:(^))(a::VecE2, b::Integer) = VecE2(a.x^b, a.y^b)
+Base.(:(^))(a::VecE2, b::FloatingPoint) = VecE2(a.x^b, a.y^b)
 
-%(a::VecE2, b::Real) = VecE2(a.x%b, a.y%b)
+Base.(:(%))(a::VecE2, b::Real) = VecE2(a.x%b, a.y%b)
 
-==(a::VecE2, b::VecE2) = isequal(a.x, b.x) && isequal(a.y, b.y)
+Base.(:(==))(a::VecE2, b::VecE2) = isequal(a.x, b.x) && isequal(a.y, b.y)
 Base.isequal(a::VecE2, b::VecE2) = isequal(a.x, b.x) && isequal(a.y, b.y)
 
 Base.isfinite(a::VecE2) = isfinite(a.x) && isfinite(a.y)

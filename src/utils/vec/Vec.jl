@@ -1,7 +1,5 @@
 module Vec
 
-import Base: +, -, *, /, ^, %
-
 export
     AbstractVec,
     VecE,  # an abstract euclidean-group vector
