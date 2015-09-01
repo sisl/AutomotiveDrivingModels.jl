@@ -59,6 +59,9 @@ export
 	getc,
 	gete,
 	gete_validfind,
+	get_inertial,                       # pull the inertial position as a VecSE2
+	get_inertial_ego,                   # pull the inertial position as a VecSE2
+	get_inertial_other,                 # pull the inertial position as a VecSE2
 	setc!,
 	sete!,
 	set!,
@@ -218,6 +221,30 @@ type PrimaryDataset
 	end
 end
 
+function _create_df_ego_primary(nframes::Integer)
+	DataFrame(
+	        time           = DataArray(Float64, nframes),
+	        frame          = DataArray(Int,     nframes),     
+	        control_status = DataArray(Int,     nframes),    
+	        posGx          = DataArray(Float64, nframes),
+	        posGy          = DataArray(Float64, nframes),
+	        posGyaw        = DataArray(Float64, nframes),
+	        posFx          = DataArray(Float64, nframes),
+	        posFy          = DataArray(Float64, nframes),
+	        posFyaw        = DataArray(Float64, nframes),
+	        velFx          = DataArray(Float64, nframes),
+	        velFy          = DataArray(Float64, nframes),
+	        lanetag        = DataArray(LaneTag, nframes),
+	        nll            = DataArray(Int8,    nframes),
+	        nlr            = DataArray(Int8,    nframes),
+	        curvature      = DataArray(Float64, nframes),
+	        d_cl           = DataArray(Float64, nframes),
+	        d_ml           = DataArray(Float64, nframes),
+	        d_mr           = DataArray(Float64, nframes),
+	        d_merge        = DataArray(Float64, nframes),
+	        d_split        = DataArray(Float64, nframes) 
+	    )
+end
 function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
 
 	# NOTE(tim): this always adds at least one other vehicle
@@ -227,29 +254,7 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec
 	@assert(n_other_vehicles ≥ 0)
 	@assert(sec_per_frame > 0.0)
 
-	df_ego_primary = DataFrame(
-					        time           = DataArray(Float64, nframes),
-					        frame          = DataArray(Int,     nframes),     
-					        control_status = DataArray(Int,     nframes),    
-					        posGx          = DataArray(Float64, nframes),
-					        posGy          = DataArray(Float64, nframes),
-					        posGyaw        = DataArray(Float64, nframes),
-					        posFx          = DataArray(Float64, nframes),
-					        posFy          = DataArray(Float64, nframes),
-					        posFyaw        = DataArray(Float64, nframes),
-					        velFx          = DataArray(Float64, nframes),
-					        velFy          = DataArray(Float64, nframes),
-					        lanetag        = DataArray(LaneTag, nframes),
-					        nll            = DataArray(Int8,    nframes),
-					        nlr            = DataArray(Int8,    nframes),
-					        curvature      = DataArray(Float64, nframes),
-					        d_cl           = DataArray(Float64, nframes),
-					        d_ml           = DataArray(Float64, nframes),
-					        d_mr           = DataArray(Float64, nframes),
-					        d_merge        = DataArray(Float64, nframes),
-					        d_split        = DataArray(Float64, nframes) 
-					    )
-
+	df_ego_primary = _create_df_ego_primary(nframes)
 	df_other_primary = DataFrame()
     add_symbol! = (str,ind,typ)->df_other_primary[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, nframes)
     add_slot!   = (cind)->begin
@@ -280,7 +285,7 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec
 
     dict_trajmat = Dict{Uint32,DataFrame}()
     dict_other_idmap = Dict{Uint32,Uint16}()
-    mat_other_indmap = Array(Int16, nframes, 0)
+    mat_other_indmap = fill(int16(-1), nframes, 0)
     ego_car_on_freeway = trues(nframes)
 
     for frame = 1 : nframes
@@ -527,10 +532,8 @@ function carind2id( pdset::PrimaryDataset, carind::Integer, validfind::Integer )
 	if carind == CARIND_EGO
 		return CARID_EGO
 	end
-	# @assert(haskey(pdset.df_other_primary, symbol(@sprintf("id_%d", carind))))
-	# carid = pdset.df_other_primary[validfind, symbol(@sprintf("id_%d", carind))]
 	col = pdset.df_other_column_map[:id] + pdset.df_other_ncol_per_entry * carind
-	carid = pdset.df_other_primary[validfind, col]
+	carid = pdset.df_other_primary[validfind, col]::Uint32
 	@assert(carid != -1)
 	int(carid)
 end
@@ -662,9 +665,30 @@ function closest_validfind( pdset::PrimaryDataset, time::Float64 )
 	return dp ≤ dn ? fp : fn
 end
 
-
 gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego_primary[frameind, sym]
 gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer ) = pdset.df_ego_primary[validfind2frameind(pdset, validfind), sym]
+
+function get_inertial_ego(pdset::PrimaryDataset, frameind::Integer)
+	VecSE2(pdset.df_ego_primary[frameind, :posGx],
+		   pdset.df_ego_primary[frameind, :posGy],
+		   pdset.df_ego_primary[frameind, :posGyaw])
+end
+function get_inertial_other(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	baseindex = pdset.df_other_ncol_per_entry * carind
+	VecSE2(
+		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGx] + baseindex],
+		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGy] + baseindex],
+		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGyaw] + baseindex]
+		)
+end
+function get_inertial(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	if carind == CARIND_EGO
+		frameind = validfind2frameind(pdset, validfind)
+		get_inertial_ego(pdset, frameind)
+	else
+		get_inertial_other(pdset, carind, validfind)
+	end
+end
 
 getc_symb( str::String, carind::Integer ) = symbol(@sprintf("%s_%d", str, carind))
 function getc( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer )
@@ -1042,6 +1066,39 @@ function export_trajdata( filename::String, trajdata::DataFrame )
 	close(fout)
 end
 
+function find_slot_for_car!( trajdata::DataFrame, frameind::Integer, maxncars = -2 )
+
+	# returns the index within the frame to which the car can be added
+	# adds a new slot if necessary
+
+	if maxncars < -1
+		maxncars = get_max_num_cars(trajdata)
+	end
+
+	ncars = get_num_cars_in_frame( trajdata, frameind, maxncars)
+	if ncars > maxncars
+		# we have no extra slots, make one
+		return add_car_slot!( trajdata )
+	else
+		# we have enough slots; use the first one
+		return ncars
+	end
+end
+function find_slot_for_car!( pdset::PrimaryDataset, validfind::Integer )
+
+	# returns the index within the frame to which the car can be added
+	# adds a new slot if necessary
+
+	max_carind_in_frame = get_num_other_cars_in_frame(pdset, validfind)-1
+	if max_carind_in_frame == pdset.maxcarind
+		# we have no extra slots, make one
+		return add_car_slot!( pdset )
+	else
+		# we have enough slots; use the first one
+		return max_carind_in_frame+1
+	end
+end
+
 function add_carid!(pdset::PrimaryDataset, carid::Integer)
 
 	carid_32 = uint32(carid)
@@ -1052,7 +1109,6 @@ function add_carid!(pdset::PrimaryDataset, carid::Integer)
 
 	pdset
 end
-
 function add_car_to_validfind!(pdset::PrimaryDataset, carid::Integer, validfind::Integer)
 
 	#=
@@ -1208,39 +1264,6 @@ function add_car_slot!( pdset::PrimaryDataset )
 	end
 
 	return carind
-end
-
-function find_slot_for_car!( trajdata::DataFrame, frameind::Integer, maxncars = -2 )
-
-	# returns the index within the frame to which the car can be added
-	# adds a new slot if necessary
-
-	if maxncars < -1
-		maxncars = get_max_num_cars(trajdata)
-	end
-
-	ncars = get_num_cars_in_frame( trajdata, frameind, maxncars)
-	if ncars > maxncars
-		# we have no extra slots, make one
-		return add_car_slot!( trajdata )
-	else
-		# we have enough slots; use the first one
-		return ncars
-	end
-end
-function find_slot_for_car!( pdset::PrimaryDataset, validfind::Integer )
-
-	# returns the index within the frame to which the car can be added
-	# adds a new slot if necessary
-
-	ncars = get_num_cars_in_frame( pdset, validfind )
-	if ncars > pdset.maxcarind
-		# we have no extra slots, make one
-		return add_car_slot!( pdset )
-	else
-		# we have enough slots; use the first one
-		return ncars # this is correct since ncars-1 is the last ind and we want +1 from that
-	end
 end
 
 function remove_car_from_frame!( pdset::PrimaryDataset, carind::Integer, validfind::Integer )

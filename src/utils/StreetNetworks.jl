@@ -3,6 +3,7 @@ module StreetNetworks
 using Graphs
 using HDF5
 
+using AutomotiveDrivingModels.Vec
 using AutomotiveDrivingModels.Curves
 
 include("RoadNetwork.jl")
@@ -13,14 +14,14 @@ using .RoadNetwork
 
 export TILE_WIDTH, TILE_HEIGHT, EASTING_BASE, NORTHING_BASE
 export DEFAULT_LANE_WIDTH
-export Pos3D, StreetNode, StreetLane, StreetSegment, NetworkTile, StreetNetwork
+export StreetNode, StreetLane, StreetSegment, NetworkTile, StreetNetwork
 export lla2xyz, ll2utm, utm2tileindex_east, utm2tileindex_north, utm2tileindex
 export tile_center_north, tile_center_east, tile_lowerbound_north, tile_lowerbound_east
 export tile_upperbound_north, tile_upperbound_east, tile_bounds, tile_center
 export get_tile, get_tile!, add_tile!, has_tile, same_tile
 export has_segment, get_segment, get_segment!
 export get_lane, has_lane, add_lane!, has_next_lane, next_lane, has_prev_lane, prev_lane
-export next_lanetag, prev_lanetag
+export get_lanetag, next_lanetag, prev_lanetag
 export next_node, prev_node, add_node
 export same_lane, same_lane_and_tile
 export closest_node_to_extind, closest_node_above_extind
@@ -30,7 +31,7 @@ export TilePoint2DProjectionResult
 export project_point_to_tile, project_point_to_streetmap
 export distance_to_lane_split, distance_to_lane_merge, distance_to_lane_end, distance_to_node
 export frenet_distance_between_points
-export num_lanes_on_sides, marker_distances
+export num_lanes_on_sides, marker_distances, get_neighbor_lanetag_left, get_neighbor_lanetag_right
 export rndf2streetnetwork, curves2streetnetwork
 export curves2rndf
 
@@ -59,16 +60,9 @@ const THRESHOLD_DISTANCE_TO_NODE        = 500.0 # [m]
 
 # ===============================================================================
 
-immutable Pos3D
-	x :: Float64
-	y :: Float64
-	z :: Float64
-
-	Pos3D(x::Float64=0.0, y::Float64=0.0, z::Float64=0.0) = new(x,y,z)
-end
 type StreetNode 
 	id :: WaypointID
-	pos :: Pos3D # (UTM-e, UTM-n, alt [m])
+	pos :: VecE3 # (UTM-e, UTM-n, alt [m])
 
 	extind  :: Float64 # the extind of the node in its lane curve
 	d_along :: Float64 # distance along the lane, 0.0 at source node [m]
@@ -83,7 +77,7 @@ type StreetNode
 	marker_dist_left :: Float64 # estimated distance to left lane marker [m]
 	marker_dist_right :: Float64 # estimated distance to right lane marker [m]
 
-	function StreetNode(id::WaypointID, pos::Pos3D;
+	function StreetNode(id::WaypointID, pos::VecE3;
 		extind ::Float64=NaN,
 		d_along::Float64=NaN, 
 		d_merge::Float64=NaN, 
@@ -446,6 +440,13 @@ get_lane(tile::NetworkTile, id::WaypointID) = tile.segments[id.segment].lanes[id
 get_lane(sn::StreetNetwork, tag::LaneTag) = sn.tile_dict[(tag.index_e, tag.index_n)].segments[tag.segment].lanes[tag.lane]
 get_lane(sn::StreetNetwork, node::StreetNode) = get_lane(get_tile(sn, node.pos.x, node.pos.y), node.id)
 get_lane(proj::TilePoint2DProjectionResult) = get_lane(proj.tile, proj.laneid)
+
+function get_lanetag(easting::Float64, northing::Float64, sn::StreetNetwork)
+    proj = project_point_to_streetmap(easting, northing, sn)
+    @assert(proj.successful)
+    LaneTag(proj.tile, proj.laneid)
+end
+
 function add_lane!(segment::StreetSegment, lane::StreetLane; override=false)
 	if !override && haskey(segment.lanes, lane.id)
 		error("segment already has lane: ", lane)
@@ -547,7 +548,7 @@ same_tile(a::StreetNode, b::StreetNode) = utm2tileindex_east(a.pos.x)  == utm2ti
 										  utm2tileindex_north(a.pos.y) == utm2tileindex_north(b.pos.y)
 same_lane_and_tile(a::StreetNode, b::StreetNode) = same_lane(a,b) && same_tile(a,b)
 
-add_node(sn::StreetNetwork, pos::Pos3D) = add_vertex!(sn.graph, pos)
+add_node(sn::StreetNetwork, pos::VecE3) = add_vertex!(sn.graph, pos)
 function closest_node_to_extind(lane::StreetLane, extind::Float64; sq_dist_threshold = 0.1)
 	
 	#=
@@ -1203,6 +1204,33 @@ function marker_distances(
 	(node.marker_dist_left, node.marker_dist_right)
 end
 
+function get_neighbor_lanetag_left(sn::StreetNetwork, lane::StreetLane, closest_node::StreetNode)
+    @assert(closest_node.n_lanes_left > 0)
+    @assert(!isnan(closest_node.marker_dist_left))
+    
+    dcl = closest_node.marker_dist_left + 0.1
+    footpoint = curve_at(lane.curve, closest_node.extind)
+    footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
+    inertial = footvec + Vec.polar(dcl, π/2 + footvec.θ, footvec.θ)
+    
+    proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
+    @assert(proj.successful)
+    LaneTag(proj.tile, proj.laneid)
+end
+function get_neighbor_lanetag_right(sn::StreetNetwork, lane::StreetLane, closest_node::StreetNode)
+    @assert(closest_node.n_lanes_left > 0)
+    @assert(!isnan(closest_node.marker_dist_left))
+    
+    dcl = closest_node.marker_dist_left + 0.1
+    footpoint = curve_at(lane.curve, closest_node.extind)
+    footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
+    inertial = footvec + Vec.polar(dcl, -π/2 + footvec.θ, footvec.θ)
+    
+    proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
+    @assert(proj.successful)
+    LaneTag(proj.tile, proj.laneid)
+end
+
 function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=true)
 	# convert the given rndf to a street network
 
@@ -1230,7 +1258,7 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 				else
 					eas, nor = lat, lon
 				end
-				pos = Pos3D(eas,nor,0.0)
+				pos = VecE3(eas,nor,0.0)
 				node = StreetNode(WaypointID(segment.id, lane.id.lane, waypoint_index), pos)
 				node_map[WaypointID(segment.id, lane.id.lane, waypoint_index)] = node
 				add_vertex!(G, node)
@@ -1618,19 +1646,6 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 	sn
 end
 
-function _calc_num_lanes_on_side!(sn::StreetNetwork)
-	for tile in values(sn.tile_dict)
-		for seg in values(tile.segments)
-			for lane in values(seg.lanes)
-				for node in lane.nodes
-					_calc_num_lanes_on_side!(sn, tile, node)
-				end
-			end
-		end
-	end
-
-	sn
-end
 function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, node::StreetNode)
 
 	const THRESHOLD_PROJECTION_DELTA_ALONG_LANE = 0.5 # [m]
@@ -1739,109 +1754,20 @@ function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, n
 		end
 	end
 
-	# NOTE(tim)
-	#   for each node, find all lanes in the neighboring tiles that:
-	#      1 - share the same segment but are in a different lane
-	#      2 - project to within THRESHOLD_PROJECTION_DELTA_ALONG_LANE of this curve
-	#      3 - are within THRESHOLD_FLOW_ANGLE_DIFFERENCE of being parallel
-	
-	#   then, run out left and right grabbing nodes in order of lane-spaces 
-
-	# candidate_pts = (Bool, Float64)[] # (on_left, dist_perp)
-
-	# for tile in extisting_neighbor_tiles_inclusive(sn, center_tile)
-	# 	if has_segment(tile, seg_id)
-	# 		seg = get_segment(tile, seg_id)
-	# 		for lane in values(seg.lanes)
-	# 			if lane.id != lane_id && !in(lane.id, lanes_seen)
-
-	# 				# NOTE(tim): find the point on their curve that is closest
-	# 				extind = closest_point_extind_to_curve(lane.curve, x, y)
-	# 				pt_vec = curve_at(lane.curve, extind)
-
-	# 				px, py, pθ = pt_vec[XIND], pt_vec[YIND], pt_vec[TIND]
-
-	# 				# NOTE(tim): project to our local linearly approximated curve
-	# 				vA = [px-x,py-y]
-	# 				proj_loc = unit_v.*dot(vA,unit_v)
-	# 				proj_dist_along = norm(proj_loc, 2)
-	# 				proj_dist_perp  = norm(vA - proj_loc, 2)
-
-	# 				if proj_dist_along < THRESHOLD_PROJECTION_DELTA_ALONG_LANE && 
-	# 					proj_dist_perp < THRESHOLD_PROJECTION_DELTA_PERP_LANE && 
-	# 				 	abs(_signed_dist_btw_angles(θ, pθ)) < THRESHOLD_FLOW_ANGLE_DIFFERENCE
-
-	# 					push!(lanes_seen, lane.id)
-	# 					push!(candidate_pts, (unit_v[1]*vA[2] > unit_v[2]*vA[1], proj_dist_perp))
-	# 				end
-	# 			end
-	# 		end
-	# 	end
-	# end
-
-	# n_lanes_left = 0
-	# marker_dist_left = DEFAULT_LANE_WIDTH/2
-	# dist_base = 0.0 # [m]
-	# while true
-
-	# 	threshold_lo = dist_base + LANE_SEP_MIN
-	# 	threshold_hi = dist_base + LANE_SEP_MAX
-
-	# 	best_dist = Inf
-
-	# 	for (on_left, proj_dist_perp) in candidate_pts
-	# 		if on_left && (threshold_lo < proj_dist_perp < threshold_hi) && proj_dist_perp < best_dist
-	# 			best_dist = proj_dist_perp
-	# 		end
-	# 	end
-
-	# 	if !isinf(best_dist)
-	# 		n_lanes_left += 1
-	# 		dist_base = best_dist
-
-	# 		if n_lanes_left == 1
-	# 			marker_dist_left = best_dist / 2
-	# 		end
-	# 	else
-	# 		break
-	# 	end
-	# end
-
-	# n_lanes_right = 0
-	# marker_dist_right = DEFAULT_LANE_WIDTH/2
-	# dist_base = 0.0 # [m]
-	# while true
-
-	# 	threshold_lo = dist_base + LANE_SEP_MIN
-	# 	threshold_hi = dist_base + LANE_SEP_MAX
-
-	# 	best_dist = Inf
-
-	# 	for (on_left, proj_dist_perp) in candidate_pts
-	# 		if !on_left && threshold_lo < proj_dist_perp < threshold_hi && proj_dist_perp < best_dist
-	# 			best_dist = proj_dist_perp
-	# 		end
-	# 	end
-
-	# 	if !isinf(best_dist)
-	# 		n_lanes_right += 1
-	# 		dist_base = best_dist
-			
-	# 		if n_lanes_right == 1
-	# 			marker_dist_right = best_dist / 2
-	# 		end
-	# 	else
-	# 		break
-	# 	end
-	# end
-
-
-	# node.n_lanes_left = n_lanes_left
-	# node.n_lanes_right = n_lanes_right
-	# node.marker_dist_left = marker_dist_left
-	# node.marker_dist_right = marker_dist_right
-
 	node
+end
+function _calc_num_lanes_on_side!(sn::StreetNetwork)
+	for tile in values(sn.tile_dict)
+		for seg in values(tile.segments)
+			for lane in values(seg.lanes)
+				for node in lane.nodes
+					_calc_num_lanes_on_side!(sn, tile, node)
+				end
+			end
+		end
+	end
+
+	sn
 end
 
 function curves2streetnetwork(curves::CurveSet; verbosity::Int=0)
