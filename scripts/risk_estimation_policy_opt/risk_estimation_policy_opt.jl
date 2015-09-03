@@ -107,18 +107,20 @@ while validfind < validfind_end
     validfind += N_FRAMES_PER_SIM_FRAME
 end
 
+write("scenario_default_policy.gif", roll(frames, fps=3))
+
 #################
 
 candidate_policies = RiskEstimationPolicy[]
 
 nsimulations = 1
 speed_deltas = [0.0]
-# for nsimulations in [1,10,100,1000]
-    # for speed_deltas in ([0.0], [-2.235, 0.0, 2.235], [-2.235*1.5, 0.0, 2.235*1.5])
+for nsimulations in [1,10,100,1000]
+    for speed_deltas in ([0.0], [-2.235, 0.0, 2.235], [-2.235*1.5, 0.0, 2.235*1.5])
         push!(candidate_policies, RiskEstimationPolicy(human_behavior, 
                                      nsimulations=nsimulations, speed_deltas=speed_deltas))
-    # end
-# end
+    end
+end
 
 ncandidate_policies = length(candidate_policies)
 evaluations = Array(Float64, ncandidate_policies)
@@ -128,8 +130,10 @@ tic()
 for i in 1 : ncandidate_policies
     println(i, " / ", ncandidate_policies)
     tic()
-    evaluations[i] = map(policy->evaluate_policy(scenario, active_carid, policy, 2), policy)
+    evaluations[i] = evaluate_policy(scenario, active_carid, candidate_policies[i], 100)
     times[i] = toq()
+    println("ncollisions: ", evaluations[i])
+    println("time:        ", times[i])
 end
 toc()
 
