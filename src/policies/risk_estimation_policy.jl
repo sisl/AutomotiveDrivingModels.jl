@@ -140,8 +140,6 @@ function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink},
         basics_for_sim, behavior_pairs, 
         validfind, validfind+horizon-1,
         nsimulations=nsimulations)
-
-    collision_risk
 end
 
 function generate_candidate_trajectories(
@@ -164,7 +162,8 @@ function generate_candidate_trajectories(
     lane = get_lane(sn, cur_lanetag)
     proj = project_point_to_streetmap(start_inertial.x, start_inertial.y, sn)
     extind = proj.extind
-    closest_node = closest_node_to_extind(lane, extind)
+    closest_node_index = closest_node_to_extind(sn, lane, extind)
+    closest_node = sn.nodes[closest_node_index]
 
     lanetags = [cur_lanetag]
     if closest_node.n_lanes_left > 0
@@ -242,7 +241,8 @@ function propagate!(
     policy::RiskEstimationPolicy,
     active_carid::Int,
     validfind::Int,
-    pdset_frames_per_sim_frame::Int
+    pdset_frames_per_sim_frame::Int,
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME
     )
 
     #=
@@ -256,6 +256,7 @@ function propagate!(
     # 1 - generate candidate trajectories
     
     candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
+    extracted_trajdefs = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
     ###########################################################
     # 2 - simulate candidate trajectories to estimate risk

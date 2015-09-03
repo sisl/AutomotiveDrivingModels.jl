@@ -327,18 +327,18 @@ function _set_vehicle_other_nocheck!(
     setc!(pdset, :d_cl,      carind, validfind, dcl)
 
     seg = get_segment(sn, lanetag)
-    d_merge = distance_to_lane_merge(seg, lane_index, extind)
-    d_split = distance_to_lane_split(seg, lane_index, extind)
+    d_merge = distance_to_lane_merge(sn, seg, lane_index, extind)
+    d_split = distance_to_lane_split(sn, seg, lane_index, extind)
     setc!(pdset, :d_merge,   carind, validfind, isinf(d_merge) ? NA : d_merge)
     setc!(pdset, :d_split,   carind, validfind, isinf(d_split) ? NA : d_split)
 
-    nll, nlr = num_lanes_on_sides(seg, lane_index, extind)
+    nll, nlr = num_lanes_on_sides(sn, seg, lane_index, extind)
     @assert(nll ≥ 0)
     @assert(nlr ≥ 0)
     setc!(pdset, :nll,       carind, validfind, nll)
     setc!(pdset, :nlr,       carind, validfind, nlr)
 
-    lane_width_left, lane_width_right = marker_distances(seg, lane_index, extind)
+    lane_width_left, lane_width_right = marker_distances(sn, seg, lane_index, extind)
     setc!(pdset, :d_mr,      carind, validfind, (dcl <  lane_width_left)  ?  lane_width_left - dcl  : Inf)
     setc!(pdset, :d_ml,      carind, validfind, (dcl > -lane_width_right) ?  dcl - lane_width_right : Inf)
 
@@ -381,7 +381,7 @@ function _set_vehicle_ego_nocheck!(
     sete!(pdset, :d_merge,   frameind, isinf(d_merge) ? NA : d_merge)
     sete!(pdset, :d_split,   frameind, isinf(d_split) ? NA : d_split)
 
-    nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, lane_index, extind)
+    nll, nlr = num_lanes_on_sides(sn, seg, lane_index, extind)
     @assert(nll ≥ 0)
     @assert(nlr ≥ 0)
     sete!(pdset, :nll,       frameind, nll)

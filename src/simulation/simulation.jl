@@ -168,7 +168,7 @@ function _propagate_one_pdset_frame!(
     laneid = int(proj.laneid.lane)
     tile = proj.tile
     seg = get_segment(tile, int(proj.laneid.segment))
-    d_end = distance_to_lane_end(seg, laneid, proj.extind)
+    d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
 
     if carind == CARIND_EGO
         frameind_fut = validfind2frameind(pdset, validfind_fut)
@@ -187,18 +187,18 @@ function _propagate_one_pdset_frame!(
         sete!(pdset, :curvature, frameind_fut, ptG.k)
         sete!(pdset, :d_cl, frameind_fut, d)
 
-        d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-        d_split = distance_to_lane_split(seg, laneid, proj.extind)
+        d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+        d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
         sete!(pdset, :d_merge, frameind_fut, isinf(d_merge) ? NA : d_merge)
         sete!(pdset, :d_split, frameind_fut, isinf(d_split) ? NA : d_split)
 
-        nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+        nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
         @assert(nll ≥ 0)
         @assert(nlr ≥ 0)
         sete!(pdset, :nll, frameind_fut, nll)
         sete!(pdset, :nlr, frameind_fut, nlr)
 
-        lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+        lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
         sete!(pdset, :d_mr, frameind_fut, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
         sete!(pdset, :d_ml, frameind_fut, (d > -lane_width_right) ?  d - lane_width_right : Inf)
     else
@@ -218,18 +218,18 @@ function _propagate_one_pdset_frame!(
         setc!(pdset, :curvature, carind_fut, validfind_fut, ptG.k)
         setc!(pdset, :d_cl,      carind_fut, validfind_fut, d)
 
-        d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-        d_split = distance_to_lane_split(seg, laneid, proj.extind)
+        d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+        d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
         setc!(pdset, :d_merge, carind_fut, validfind_fut, isinf(d_merge) ? NA : d_merge)
         setc!(pdset, :d_split, carind_fut, validfind_fut, isinf(d_split) ? NA : d_split)
 
-        nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+        nll, nlr = num_lanes_on_sides(sn, seg, laneid, proj.extind)
         @assert(nll ≥ 0)
         @assert(nlr ≥ 0)
         setc!(pdset, :nll, carind_fut, validfind_fut, nll)
         setc!(pdset, :nlr, carind_fut, validfind_fut, nlr)
 
-        lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+        lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
         setc!(pdset, :d_mr, carind_fut, validfind_fut, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
         setc!(pdset, :d_ml, carind_fut, validfind_fut, (d > -lane_width_right) ?  d - lane_width_right : Inf)
 

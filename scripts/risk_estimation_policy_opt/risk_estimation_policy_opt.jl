@@ -69,8 +69,8 @@ MPH_5 = 2.235
 
 nsimulations = 1
 speed_deltas = [0.0]
-# for nsimulations in (1,10,100,1000)
-    for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5)]
+for nsimulations in (1,10,100,1000)
+    for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5), (2,MPH_5)]
 
         if speed_delta_count == 0
             speed_deltas = [0.0]
@@ -82,7 +82,7 @@ speed_deltas = [0.0]
                                      nsimulations=nsimulations, speed_deltas=speed_deltas))
         push!(df_results, (nsimulations, speed_delta_count, speed_delta_jump, NaN, -999, NaN, NaN))
     end
-# end
+end
 
 ncandidate_policies = length(candidate_policies)
 evaluations = Array(PolicyEvaluationResults, ncandidate_policies)
