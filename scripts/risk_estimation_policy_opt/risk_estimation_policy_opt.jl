@@ -122,7 +122,7 @@ speed_deltas = [0.0]
 
 ncandidate_policies = length(candidate_policies)
 evaluations = Array(Float64, ncandidate_policies)
-times = Array(Float64, ncandidate_policies))
+times = Array(Float64, ncandidate_policies)
 
 tic()
 for i in 1 : ncandidate_policies

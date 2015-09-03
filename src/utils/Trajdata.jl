@@ -12,8 +12,8 @@ using DataArrays
 using AutomotiveDrivingModels.Vec
 using AutomotiveDrivingModels.CommonTypes
 
-import Base: start, next, done, get
-import AutomotiveDrivingModels: LaneTag
+import Base: get
+import AutomotiveDrivingModels: LaneTag, Vehicle
 
 export 
 	PrimaryDataset,                     # type containing precomputed road network data
@@ -56,15 +56,27 @@ export
 	validfind2frameind,
 	frameind2validfind,
 	jumpframe,
+
 	getc,
 	gete,
 	gete_validfind,
-	get_inertial,                       # pull the inertial position as a VecSE2
-	get_inertial_ego,                   # pull the inertial position as a VecSE2
-	get_inertial_other,                 # pull the inertial position as a VecSE2
+
 	setc!,
 	sete!,
 	set!,
+
+	get_speed,                          # pull the speed [m/s]
+	get_speed_ego,                      # pull the speed [m/s]
+	get_speed_other,                    # pull the speed [m/s]
+
+	get_inertial,                       # pull the inertial position as a VecSE2
+	get_inertial_ego,                   # pull the inertial position as a VecSE2
+	get_inertial_other,                 # pull the inertial position as a VecSE2
+
+	get_vehicle!,                       # pull the given vehicle
+	get_vehicle_ego!,                   # pull the given vehicle
+	get_vehicle_other!,                 # pull the given vehicle
+
 	idinframe,
 	indinframe,
 	getc_symb,
@@ -355,14 +367,14 @@ type IterAllCarindsInFrame
 	validfind :: Int
 end
 
-start(::IterOtherCarindsInFrame) = 0
-function done(I::IterOtherCarindsInFrame, carind::Int)
+Base.start(::IterOtherCarindsInFrame) = 0
+function Base.done(I::IterOtherCarindsInFrame, carind::Int)
 	!validfind_inbounds(I.pdset, I.validfind) || !indinframe(I.pdset, carind, I.validfind)
 end
-next(::IterOtherCarindsInFrame, carind::Int) = (carind, carind+1)
+Base.next(::IterOtherCarindsInFrame, carind::Int) = (carind, carind+1)
 
-start(::IterAllCarindsInFrame) = -1
-function done(I::IterAllCarindsInFrame, carind::Int)
+Base.start(::IterAllCarindsInFrame) = -1
+function Base.done(I::IterAllCarindsInFrame, carind::Int)
 	# NOTE(tim): the state is the carind
 	if !validfind_inbounds(I.pdset, I.validfind)
 		return true
@@ -372,7 +384,7 @@ function done(I::IterAllCarindsInFrame, carind::Int)
 	end
 	!indinframe(I.pdset, carind, I.validfind)
 end
-next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
+Base.next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
 
 # TrajData Data Definition:
 
@@ -668,28 +680,6 @@ end
 gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego_primary[frameind, sym]
 gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer ) = pdset.df_ego_primary[validfind2frameind(pdset, validfind), sym]
 
-function get_inertial_ego(pdset::PrimaryDataset, frameind::Integer)
-	VecSE2(pdset.df_ego_primary[frameind, :posGx],
-		   pdset.df_ego_primary[frameind, :posGy],
-		   pdset.df_ego_primary[frameind, :posGyaw])
-end
-function get_inertial_other(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
-	baseindex = pdset.df_other_ncol_per_entry * carind
-	VecSE2(
-		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGx] + baseindex],
-		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGy] + baseindex],
-		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGyaw] + baseindex]
-		)
-end
-function get_inertial(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(pdset, validfind)
-		get_inertial_ego(pdset, frameind)
-	else
-		get_inertial_other(pdset, carind, validfind)
-	end
-end
-
 getc_symb( str::String, carind::Integer ) = symbol(@sprintf("%s_%d", str, carind))
 function getc( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer )
 	# @assert(haskey(trajdata, symbol(@sprintf("id_%d", carind))))
@@ -729,6 +719,67 @@ function set!(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::In
 		return sete!(pdset, sym, frameind, val)
 	end
 	setc!(pdset, sym, carind, validfind, val)
+end
+
+function get_speed_ego(pdset::PrimaryDataset, frameind::Integer)
+	velFx = pdset.df_ego_primary[frameind, :velFx]::Float64
+	velFy = pdset.df_ego_primary[frameind, :velFy]::Float64
+	sqrt(velFx*velFx + velFy*velFy) # NOTE: faster than hypot
+end
+function get_speed_other(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	baseindex = pdset.df_other_ncol_per_entry * carind
+	velFx = pdset.df_other_primary[validfind, pdset.df_other_column_map[:velFx] + baseindex]::Float64
+	velFy = pdset.df_other_primary[validfind, pdset.df_other_column_map[:velFy] + baseindex]::Float64
+	sqrt(velFx*velFx + velFy*velFy) # NOTE: faster than hypot
+end
+function get_speed(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	if carind == CARIND_EGO
+		frameind = validfind2frameind(pdset, validfind)
+		get_speed_ego(pdset, frameind)
+	else
+		get_speed_other(pdset, carind, validfind)
+	end
+end
+
+function get_inertial_ego(pdset::PrimaryDataset, frameind::Integer)
+	VecSE2(pdset.df_ego_primary[frameind, :posGx],
+		   pdset.df_ego_primary[frameind, :posGy],
+		   pdset.df_ego_primary[frameind, :posGyaw])
+end
+function get_inertial_other(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	baseindex = pdset.df_other_ncol_per_entry * carind
+	VecSE2(
+		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGx] + baseindex],
+		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGy] + baseindex],
+		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGyaw] + baseindex]
+		)
+end
+function get_inertial(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	if carind == CARIND_EGO
+		frameind = validfind2frameind(pdset, validfind)
+		get_inertial_ego(pdset, frameind)
+	else
+		get_inertial_other(pdset, carind, validfind)
+	end
+end
+
+function get_vehicle_ego!(vehicle::Vehicle, pdset::PrimaryDataset, frameind::Integer)
+	vehicle.pos = get_inertial_ego(pdset, frameind)
+	vehicle.speed = get_speed_ego(pdset, frameind)
+	vehicle
+end
+function get_vehicle_other!(vehicle::Vehicle, pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	vehicle.pos = get_inertial_other(pdset, carind, validfind)
+	vehicle.speed = get_speed_other(pdset, carind, validfind)
+	vehicle
+end
+function get_vehicle!(vehicle::Vehicle, pdset::PrimaryDataset, carind::Integer, validfind::Integer)
+	if carind == CARIND_EGO
+		frameind = validfind2frameind(pdset, validfind)
+		get_vehicle_ego!(vehicle, pdset, frameind)
+	else
+		get_vehicle_other!(vehicle, pdset, carind, validfind)
+	end
 end
 
 function getc_has( trajdata::DataFrame, carid::Integer, frameind::Integer )
@@ -828,7 +879,6 @@ function get_num_other_cars_in_frame( pdset::PrimaryDataset, validfind::Integer 
 	ncars
 end
 get_num_cars_in_frame( pdset::PrimaryDataset, validfind::Integer ) = get_num_other_cars_in_frame(pdset, validfind) + 1
-
 
 function get_valid_frameinds( pdset::PrimaryDataset ) 
 

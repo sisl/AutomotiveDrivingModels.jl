@@ -1018,7 +1018,7 @@ function extract_trajdefs(
     for (i,links) in enumerate(trajectories)
         new_trajdef = copy_trajdef_start(trajdef)
         append!(new_trajdef.links, links)
-        frameind_start = validfind2frameind(basics.pdset, valifind)
+        frameind_start = validfind2frameind(basics.pdset, validfind)
         extracted_trajdefs[i] = extract_trajdef(basics.sn, new_trajdef, active_carid, frameind_start, sec_per_frame)
     end
     extracted_trajdefs
