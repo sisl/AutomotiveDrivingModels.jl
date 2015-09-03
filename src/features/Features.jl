@@ -130,6 +130,13 @@ type FeatureExtractBasicsPdSet
 	end
 end 
 
+function Base.deepcopy(basics::FeatureExtractBasicsPdSet)
+	FeatureExtractBasicsPdSet(
+			deepcopy(basics.pdset),
+			deepcopy(basics.sn)
+		)
+end
+
 # key :: (carind, validfind, feature_symbol)
 Base.setindex!(basics::FeatureExtractBasicsPdSet, feature_value::Float64, key::(Int, Int, Symbol)) = basics.cache[key] = (feature_value, basics.runid)
 Base.getindex(basics::FeatureExtractBasicsPdSet, key::(Int, Int, Symbol)) = basics.cache[key][1]

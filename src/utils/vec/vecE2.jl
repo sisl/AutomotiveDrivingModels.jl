@@ -20,13 +20,15 @@ function Base.convert{R<:Real}(::Type{VecE2}, a::AbstractArray{R})
     VecE2(a[1], a[2])
 end
 
-Base.(:(+))(a::VecE2, b::Real) = VecE2(a.x+b, a.y+b)
+Base.(:(+))(a::VecE2, b::Real)  = VecE2(a.x+b, a.y+b)
+Base.(:(+))(b::Real,  a::VecE2) = VecE2(a.x+b, a.y+b)
 Base.(:(+))(a::VecE2, b::VecE2) = VecE2(a.x+b.x, a.y+b.y)
 
-Base.(:(-))(a::VecE2, b::Real) = VecE2(a.x-b, a.y-b)
+Base.(:(-))(a::VecE2, b::Real)  = VecE2(a.x-b, a.y-b)
 Base.(:(-))(a::VecE2, b::VecE2) = VecE2(a.x-b.x, a.y-b.y)
 
 Base.(:(*))(a::VecE2, b::Real) = VecE2(a.x*b, a.y*b)
+Base.(:(*))(b::Real, a::VecE2) = VecE2(a.x*b, a.y*b)
 
 Base.(:(/))(a::VecE2, b::Real) = VecE2(a.x/b, a.y/b)
 

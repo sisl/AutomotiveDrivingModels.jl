@@ -1,8 +1,8 @@
 using AutomotiveDrivingModels
 
-include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
-include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
-reload(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
+# include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
+# include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
+# reload(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
 
 scenario = let
 
@@ -43,100 +43,71 @@ basics = FeatureExtractBasicsPdSet(scenario_pdset, sn)
 
 active_carid = CARID_EGO
 
-write("scenario.gif", reel_pdset(scenario_pdset, sn, active_carid=active_carid))
+# write("scenario.gif", reel_pdset(scenario_pdset, sn, active_carid=active_carid))
 
 human_behavior = VehicleBehaviorGaussian(0.01, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
 
 #################
 
-canvas_width = 1100
-canvas_height = 200
-rendermodel = RenderModel()
-
-camerazoom = 8.0
-
-validfind_start = history
-validfind_end   = nvalidfinds(scenario_pdset)
-
-frames = CairoSurface[]
-validfind = validfind_start
-
-s = CairoRGBSurface(canvas_width, canvas_height)
-ctx = creategc(s)
-clear_setup!(rendermodel)
-
-frameind = validfind2frameind(scenario_pdset, validfind)
-render_streetnet_roads!(rendermodel, sn)
-render_scene!(rendermodel, scenario_pdset, frameind, active_carid=active_carid)
-
-camerax = get(scenario_pdset, :posGx, active_carid, validfind) + 60.0
-cameray = get(scenario_pdset, :posGy, active_carid, validfind)
-
-camera_setzoom!(rendermodel, camerazoom)
-camera_set_pos!(rendermodel, camerax, cameray)
-
-render(rendermodel, ctx, canvas_width, canvas_height)
-
-push!(frames, s)
-
-while validfind < validfind_end
-        
-    candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
-    extracted_trajdefs = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
-
-    camerax = get(scenario_pdset, :posGx, active_carid, validfind) + 60.0
-    push!(frames, plot_extracted_trajdefs(scenario_pdset, sn, extracted_trajdefs, validfind, active_carid, camerax=camerax, camerazoom=8.0, canvas_height=200))
-    
-    collision_risk = calc_collision_risk_monte_carlo!(basics, policy, extracted_trajdefs, active_carid, validfind)
-    push!(frames, plot_extracted_trajdefs(scenario_pdset, sn, extracted_trajdefs, collision_risk, validfind, active_carid, camerax=camerax, camerazoom=8.0, canvas_height=200))
-    
-    costs = calc_costs(policy, candidate_trajectories, collision_risk)
-    push!(frames, plot_extracted_trajdefs(scenario_pdset, sn, extracted_trajdefs, costs, validfind, active_carid, camerax=camerax, camerazoom=8.0, canvas_height=200))
-    
-    best = indmin(costs)
-    extracted_best = extracted_trajdefs[best]
-    push!(frames, plot_extracted_trajdefs(scenario_pdset, sn, [extracted_best], [costs[best]], validfind, active_carid, camerax=camerax, camerazoom=8.0, canvas_height=200))
-    
-    insert!(scenario_pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
-    for validfind_vis in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
-        camerax = get(scenario_pdset, :posGx, active_carid, validfind_vis) + 60.0
-        push!(frames, plot_extracted_trajdefs(scenario_pdset, sn, [extracted_best], [costs[best]], validfind_vis, active_carid, camerax=camerax, camerazoom=8.0, canvas_height=200))
-    end
-    
-    validfind += N_FRAMES_PER_SIM_FRAME
-end
-
-write("scenario_default_policy.gif", roll(frames, fps=3))
+# write("scenario_default_policy.gif", reel_scenario_playthrough(scenario, policy, pdset=scenario_pdset))
 
 #################
 
 candidate_policies = RiskEstimationPolicy[]
 
+df_results = DataFrame(p_nsimulations      = Int[],     # number of simulations per risk est in policy
+                       p_speed_delta_count = Int[],     # 0 → only generate trajectories with current speed, 1 → do [-δ,0,+δ], 2 → [-2δ,-δ,0,+δ,+2δ], etc.
+                       p_speed_delta_jump  = Float64[], # δ used in speed generation
+                       e_time_per_tick     = Float64[], # average time per policy tick
+                       e_ncollisions       = Int[],     # number of collisions during policy evaluation
+                       e_performance       = Float64[], # overall policy performance measure
+                       total_eval_time     = Float64[], # total time spent in evaluation
+                      )
+
+MPH_5 = 2.235
+
 nsimulations = 1
 speed_deltas = [0.0]
-for nsimulations in [1,10,100,1000]
-    for speed_deltas in ([0.0], [-2.235, 0.0, 2.235], [-2.235*1.5, 0.0, 2.235*1.5])
+# for nsimulations in (1,10,100,1000)
+    for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5)]
+
+        if speed_delta_count == 0
+            speed_deltas = [0.0]
+        else
+            speed_deltas = [-speed_delta_count : speed_delta_count].*speed_delta_jump
+        end
+
         push!(candidate_policies, RiskEstimationPolicy(human_behavior, 
                                      nsimulations=nsimulations, speed_deltas=speed_deltas))
+        push!(df_results, (nsimulations, speed_delta_count, speed_delta_jump, NaN, -999, NaN, NaN))
     end
-end
+# end
 
 ncandidate_policies = length(candidate_policies)
-evaluations = Array(Float64, ncandidate_policies)
-times = Array(Float64, ncandidate_policies)
+evaluations = Array(PolicyEvaluationResults, ncandidate_policies)
 
 tic()
 for i in 1 : ncandidate_policies
     println(i, " / ", ncandidate_policies)
-    tic()
-    evaluations[i] = evaluate_policy(scenario, active_carid, candidate_policies[i], 100)
-    times[i] = toq()
-    println("ncollisions: ", evaluations[i])
-    println("time:        ", times[i])
+
+    policy = candidate_policies[i]
+
+    starttime = time()
+    evaluations[i] = evaluate_policy(scenario, active_carid, policy, 100)
+    total_eval_time = time() - starttime
+    
+    println("eval: ", evaluations[i])
+
+    df_results[i, :e_time_per_tick] = evaluations[i].time_per_tick
+    df_results[i, :e_ncollisions] = evaluations[i].ncollisions
+    df_results[i, :e_performance] = evaluations[i].performance
+    df_results[i, :total_eval_time] = total_eval_time
+
+    writetable("risk_estimation_results.csv", df_results)
 end
 toc()
 
-println("evaluations: ", evaluations)
-println("times:       ", times)
+writetable("risk_estimation_results.csv", df_results)
+
 

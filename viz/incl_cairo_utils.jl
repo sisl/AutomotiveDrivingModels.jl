@@ -8,8 +8,6 @@ Reel.set_output_type("gif")
 # include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
 # include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
 
-import Graphs: edges, num_vertices, vertices
-
 colorscheme = getcolorscheme("monokai")
 
 function render_car!(
@@ -106,21 +104,23 @@ function render_lane_curve!(
     n = length(lane.curve.x)
     pts = Array(Float64, 2, n)
     pts[1,:] = lane.curve.x
-    pts[2,:] = lane.curve.y
+    pts[2,:] = lane.curve.y # + rand(length(lane.curve.y))
+
     add_instruction!(rm, render_line, (pts, color, line_width))
 end
 function render_streetnet_nodes!(
     rm::RenderModel,
     sn::StreetNetwork,
-    color_nodes :: Colorant = Color(0xBB, 0xBB, 0xFF),
+    color_nodes :: Colorant = colorant"white",
     size_nodes  :: Real = 0.25, # [m]
     )
 
-    npts = num_vertices(sn.graph)
+    npts = nv(sn.graph)
 
     pts = Array(Float64, 2, npts)
 
-    for (i,node) in enumerate(vertices(sn.graph))
+    for (i,node_index) in enumerate(vertices(sn.graph))
+        node = sn.nodes[node_index]
         pts[1,i] = node.pos.x
         pts[2,i] = node.pos.y
     end
@@ -138,10 +138,13 @@ function render_streetnet_edges!(
 
     for e in edges(sn.graph)
     
-        pts = [e.source.pos.x e.target.pos.x;
-               e.source.pos.y e.target.pos.y]
+        a = sn.nodes[e.first]
+        b = sn.nodes[e.second]
 
-        Renderer.add_instruction(rm, render_line, (pts, color, line_width))
+        pts = [a.pos.x b.pos.x;
+               a.pos.y b.pos.y]
+
+        Renderer.add_instruction!(rm, render_line, (pts, color, line_width))
     end
     
     rm
@@ -205,18 +208,345 @@ function render_streetnet_roads!(
         for seg in values(tile.segments)
             for lane in values(seg.lanes)
                 n = length(lane.curve.x)
-                pts_left = Array(Float64, 2, length(lane.nodes))
-                pts_right = Array(Float64, 2, length(lane.nodes))
-                for (i,node) in enumerate(lane.nodes)
-                    θ = Curves.curve_at(lane.curve, node.extind).θ
+                pts_left = Array(Float64, 2, length(lane.node_indeces))
+                pts_right = Array(Float64, 2, length(lane.node_indeces))
+
+                for (i,node_index) in enumerate(lane.node_indeces)
+                    node = sn.nodes[node_index]
+                    θ = curve_at(lane.curve, node.extind).θ
                     v = [cos(θ), sin(θ)]
                     p = [node.pos.x, node.pos.y]
                     pts_left[:,i]   = p + node.marker_dist_left * rotL * v
                     pts_right[:,i]  = p + node.marker_dist_right * rotR * v
                 end
 
+                if has_next_lane(sn, lane)
+
+                    nextlane = next_lane(sn, lane)
+                    node_index_B = nextlane.node_indeces[1]
+                    node = sn.nodes[node_index_B]
+
+                    θ = curve_at(nextlane.curve, node.extind).θ
+                    v = [cos(θ), sin(θ)]
+                    p = [node.pos.x, node.pos.y]
+
+                    pts_left = hcat(pts_left, p + node.marker_dist_left * rotL * v)
+                    pts_right = hcat(pts_right, p + node.marker_dist_right * rotR * v)
+                end
+
                 add_instruction!(rm, render_line, (pts_left, color_lane_markings, lane_marking_width))
                 add_instruction!(rm, render_line, (pts_right, color_lane_markings, lane_marking_width))
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_segments!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    line_width::Real = 0.1,
+    seed::Uint=zero(Uint)
+    )
+
+    srand(seed)
+
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            color = RGB(rand(), rand(), rand())
+            for lane in values(seg.lanes)
+                render_lane_curve!(rm, lane, color=color, line_width=line_width)
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_lanes!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    line_width :: Real = 0.1,
+    seed::Uint=zero(Uint)
+    )
+
+    srand(seed)
+
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            for lane in values(seg.lanes)
+                color = RGB(rand(), rand(), rand())
+                render_lane_curve!(rm, lane, color=color, line_width=line_width)
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_marker_dist_left!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color       :: Colorant=RGB(1.0,0.0,0.0), 
+    )
+
+    for node in sn.nodes
+    
+        lane = get_lane(sn, node) 
+        center = VecE2(node.pos.x, node.pos.y)
+        θ = curve_at(lane.curve, node.extind).θ
+        left = center + Vec.polar(1.0, θ + π/2)*node.marker_dist_left
+
+        pts = [center.x left.x;
+               center.y left.y]
+
+        add_instruction!(rm, render_line, (pts, color, 0.1))
+    end
+    
+    rm
+end
+function render_streetnet_marker_dist_right!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color       :: Colorant=RGB(0.0,0.0,1.0),
+    )
+
+    for node in sn.nodes
+    
+        lane = get_lane(sn, node) 
+        center = VecE2(node.pos.x, node.pos.y)
+        θ = curve_at(lane.curve, node.extind).θ
+        left = center + Vec.polar(1.0, θ - π/2)*node.marker_dist_right
+
+        pts = [center.x left.x;
+               center.y left.y]
+
+        add_instruction!(rm, render_line, (pts, color, 0.1))
+    end
+    
+    rm
+end
+function render_streetnet_n_lanes_left!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color       :: Colorant=RGB(1.0,0.0,0.0),
+    lanewidth::Real = DEFAULT_LANE_WIDTH
+    )
+
+    for node in sn.nodes
+    
+        lane = get_lane(sn, node) 
+        center = VecE2(node.pos.x, node.pos.y)
+        θ = curve_at(lane.curve, node.extind).θ
+        left = center + Vec.polar(1.0, θ + π/2)*node.n_lanes_left*lanewidth
+
+        pts = [center.x left.x;
+               center.y left.y]
+
+        add_instruction!(rm, render_line, (pts, color, 0.1))
+    end
+    
+    rm
+end
+function render_streetnet_n_lanes_right!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color       :: Colorant=RGB(0.0,0.0,1.0),
+    lanewidth::Real = DEFAULT_LANE_WIDTH
+    )
+
+    for node in sn.nodes
+    
+        lane = get_lane(sn, node) 
+        center = VecE2(node.pos.x, node.pos.y)
+        θ = curve_at(lane.curve, node.extind).θ
+        left = center + Vec.polar(1.0, θ - π/2)*node.n_lanes_right*lanewidth
+
+        pts = [center.x left.x;
+               center.y left.y]
+
+        add_instruction!(rm, render_line, (pts, color, 0.1))
+    end
+    
+    rm
+end
+function render_streetnet_d_end!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color_lo::Colorant=RGB(1.0,0.0,0.0),
+    color_hi::Colorant=RGB(0.0,1.0,0.0),
+    )
+
+    for node in sn.nodes
+    
+        center = VecE2(node.pos.x, node.pos.y)
+
+        @assert(node.d_end ≥ 0.0)
+        t = node.d_end / StreetNetworks.SATURATION_DISTANCE_TO_LANE_END
+        color = lerp_color(color_lo, color_hi, t)
+
+        add_instruction!(rm, render_circle, (center.x, center.y, 1.0, color))
+    end
+    
+    rm
+end
+function render_streetnet_next_nodes!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color::Colorant=colorant"white",
+    )
+
+    for node_index in 1 : length(sn.nodes)
+        nextnode_index = next_node_index(sn, node_index)
+        if nextnode_index != node_index
+            node = sn.nodes[nextnode_index]
+            center = VecE2(node.pos.x, node.pos.y)
+            add_instruction!(rm, render_circle, (center.x, center.y, 1.0, color))
+        end
+    end
+    
+    rm
+end
+function render_streetnet_lane_nodes!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color::Colorant=colorant"green",
+    )
+
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            for lane in values(seg.lanes)
+                for node_index in lane.node_indeces
+                    node = sn.nodes[node_index]
+                    center = VecE2(node.pos.x, node.pos.y)
+                    add_instruction!(rm, render_circle, (center.x, center.y, 0.3, color))
+                end
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_lane_first_nodes!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color::Colorant=colorant"blue",
+    )
+
+    
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            for lane in values(seg.lanes)
+                node_index = lane.node_indeces[1]
+                node = sn.nodes[node_index]
+                center = VecE2(node.pos.x, node.pos.y)
+                add_instruction!(rm, render_circle, (center.x, center.y, 1.0, color))
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_lane_last_nodes!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color::Colorant=colorant"red",
+    )
+
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            for lane in values(seg.lanes)
+                node_index = lane.node_indeces[end]
+                node = sn.nodes[node_index]
+                center = VecE2(node.pos.x, node.pos.y)
+                add_instruction!(rm, render_circle, (center.x, center.y, 1.0, color))
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_lane_connections!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color::Colorant=colorant"cyan",
+    )
+
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            for lane in values(seg.lanes)
+                
+                if has_next_lane(sn, lane)
+
+                    nextlane = next_lane(sn, lane)
+
+                    node_index_A = lane.node_indeces[end]
+                    node_A = sn.nodes[node_index_A]
+
+                    node_index_B = nextlane.node_indeces[1]
+                    node_B = sn.nodes[node_index_B]
+
+                    pts = [node_A.pos.x node_B.pos.x;
+                           node_A.pos.y node_B.pos.y]
+
+                    add_instruction!(rm, render_line, (pts, color, 0.3))
+                end
+            end
+        end
+    end
+    
+    rm
+end
+function render_streetnet_headings!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color  :: Colorant=colorant"magenta",
+    radius::Real=2.0
+    )
+
+    for node in sn.nodes
+    
+        lane = get_lane(sn, node) 
+        center = VecE2(node.pos.x, node.pos.y)
+        θ = curve_at(lane.curve, node.extind).θ
+        left = center + Vec.polar(1.0, θ)*radius
+
+        pts = [center.x left.x;
+               center.y left.y]
+
+        add_instruction!(rm, render_line, (pts, color, 0.1))
+    end
+    
+    rm
+end
+function render_streetnet_curve_headings!(
+    rm::RenderModel,
+    sn::StreetNetwork;
+    color :: Colorant = RGB(0xCC, 0x44, 0x44),
+    dist::Real=0.1,
+    seed::Uint=zero(Uint)
+    )
+
+    color2 = RGB(0xCC, 0x88, 0x88)
+
+    srand(seed)
+
+    for tile in values(sn.tile_dict)
+        for seg in values(tile.segments)
+            for lane in values(seg.lanes)
+
+                n = length(lane.curve.x)
+                
+                for (x,y,θ) in zip(lane.curve.x, lane.curve.y, lane.curve.t)
+
+                    center = VecE2(x, y) # + VecE2(0.0, rand())
+                    farther = center + Vec.polar(1.0, θ)*dist
+
+                    pts = [center.x farther.x;
+                           center.y farther.y]
+
+                    add_instruction!(rm, render_circle, (center.x, center.y, 0.1, color2))
+                    add_instruction!(rm, render_line, (pts, color, 0.05))
+                end
+                
             end
         end
     end
@@ -353,50 +683,72 @@ function render_scene!(
 end
 
 function camera_center_on_ego!(
-    rm::RenderModel,
+    rendermodel::RenderModel,
     pdset::PrimaryDataset,
     frameind::Int,
-    zoom::Real = rm.camera_zoom # [pix/m]
+    zoom::Real = rendermodel.camera_zoom # [pix/m]
     )
-        
-    @assert(frameind_inbounds(pdset, frameind))
-
+    
     posGx = gete(pdset, :posGx, frameind)
     posGy = gete(pdset, :posGy, frameind)
 
-    camera_set!(rm, posGx, posGy, zoom)
-    rm
+    camera_set!(rendermodel, posGx, posGy, zoom)
+    rendermodel
 end
 function camera_center_on_ego!(
-    rm::RenderModel,
+    rendermodel::RenderModel,
     trajdata::DataFrame,
     frameind::Int,
-    zoom::Real = rm.camera_zoom # [pix/m]
+    zoom::Real = rendermodel.camera_zoom # [pix/m]
     )
 
     posGx = trajdata[frameind, :posGx]
     posGy = trajdata[frameind, :posGy]
 
-    camera_set!(rm, posGx, posGy, zoom)
-    rm
+    camera_set!(rendermodel, posGx, posGy, zoom)
+    rendermodel
 end
 function camera_center_on_carid!(
-    rm::RenderModel,
+    rendermodel::RenderModel,
     pdset::PrimaryDataset,
     carid::Integer,
     frameind::Integer,
-    zoom::Real = rm.camera_zoom # [pix/m]
+    zoom::Real = rendermodel.camera_zoom # [pix/m]
     )
         
-    @assert(frameind_inbounds(pdset, frameind))
+    if carid == CARID_EGO
+        camera_center_on_ego!(rendermodel, pdset, frameind, zoom)
+    else
+        validfind = frameind2validfind(pdset, frameind)
+        carind = carid2ind(pdset, carid, validfind)
+        posGx = get(pdset, :posGx, carind, validfind)
+        posGy = get(pdset, :posGy, carind, validfind)
 
-    validfind = frameind2validfind(pdset, frameind)
-    carind = carid2ind(pdset, carid, validfind)
-    posGx = get(pdset, :posGx, carind, validfind)
-    posGy = get(pdset, :posGy, carind, validfind)
+        camera_set!(rendermodel, posGx, posGy, zoom)
+    end
 
-    camera_set!(rm, posGx, posGy, zoom)
-    rm
+    rendermodel
+end
+
+function set_camera_in_front_of_carid!(
+    rendermodel::RenderModel,
+    pdset::PrimaryDataset,
+    carid::Integer,
+    frameind::Integer,
+    camera_forward_offset::Real,
+    )
+
+    
+    if carid == CARID_EGO
+        inertial = get_inertial_ego(pdset, frameind)
+    else
+        validfind = frameind2validfind(pdset, frameind)
+        carind = carid2ind(pdset, carid, validfind)
+        inertial = get_inertial(pdset, carind, validfind)
+    end
+
+    posG = convert(VecE2, inertial) + Vec.polar(camera_forward_offset, inertial.θ)
+    camera_set_pos!(rendermodel, posG)
 end
 
 # function reel_it(
@@ -435,6 +787,33 @@ end
 #     return film
 # end
 
+function plot_scene(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    validfind::Integer,
+    active_carid::Integer=CARID_EGO;
+
+    canvas_width::Integer=1100,
+    canvas_height::Integer=300,
+    rendermodel::RenderModel=RenderModel(),
+
+    camera_forward_offset::Float64=60.0, # [m]
+    camerazoom::Real=6.5, # [pix/m]
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    frameind = validfind2frameind(pdset, validfind)
+    render_streetnet_roads!(rendermodel, sn)
+    render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
+
+    camera_setzoom!(rendermodel, camerazoom)
+    set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
+
+    render(rendermodel, ctx, canvas_width, canvas_height)
+end
 function plot_traces(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -479,12 +858,13 @@ function plot_extracted_trajdefs(
     extracted_trajdefs::Vector{ExtractedTrajdef},
     validfind::Integer,
     active_carid::Integer=CARID_EGO;
+    
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=500, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
-    camerax::Real=get(pdset, :posGx, active_carid, validfind),
-    cameray::Real=get(pdset, :posGy, active_carid, validfind),
+    camera_forward_offset::Float64=60.0, # [m]
+
     color_trace::Colorant=RGBA(0.7,0.0,0.3,0.8),
     )
 
@@ -501,8 +881,10 @@ function plot_extracted_trajdefs(
 
     render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
 
+    frameind = validfind2frameind(pdset, validfind)
     camera_setzoom!(rendermodel, camerazoom)
-    camera_set_pos!(rendermodel, camerax, cameray)
+    set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
+
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end
@@ -518,8 +900,8 @@ function plot_extracted_trajdefs(
     canvas_height::Integer=500, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
-    camerax::Real=get(pdset, :posGx, active_carid, validfind),
-    cameray::Real=get(pdset, :posGy, active_carid, validfind),
+    camera_forward_offset::Float64=60.0, # [m]
+
     trajdef_color_lo::Colorant=RGB(0.0,0.0,1.0),
     trajdef_color_hi::Colorant=RGB(1.0,0.0,0.0),
     )
@@ -538,8 +920,10 @@ function plot_extracted_trajdefs(
 
     render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
 
+    frameind = validfind2frameind(pdset, validfind)
     camera_setzoom!(rendermodel, camerazoom)
-    camera_set_pos!(rendermodel, camerax, cameray)
+    set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
+
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end
@@ -593,6 +977,30 @@ function lerp_color_rgb(a::Colorant, b::Colorant, t::Real, alpha::Real)
     RGBA(r,g,b, alpha)
 end
 
+function plot_manipulable_pdset(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    active_carid::Integer=CARID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camera_forward_offset::Real=0.0,
+    )
+
+    nvalidfinds_total = nvalidfinds(pdset)
+    validfind = 1
+    @manipulate for validfind = 1 : nvalidfinds_total
+
+        plot_scene(pdset, sn, validfind, active_carid, 
+                   canvas_width=canvas_width,
+                   canvas_height=canvas_height,
+                   rendermodel=rendermodel,
+                   camera_forward_offset=camera_forward_offset,
+                   camerazoom=camerazoom)
+    end
+end
 function plot_manipulable_generated_future_traces(
     behavior::AbstractVehicleBehavior,
     pdset::PrimaryDataset,
@@ -659,33 +1067,6 @@ function plot_manipulable_generated_future_traces(
         camera_setzoom!(rendermodel, camerazoom)
         camera_set_pos!(rendermodel, camerax, cameray)
         render!(ctx, canvas_width, canvas_height, rendermodel)
-        s
-    end
-end
-function plot_manipulable_pdset(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork;
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=500, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    active_carid::Integer=CARID_EGO
-    )
-
-    nvalidfinds_total = nvalidfinds(pdset)
-    validfind = 1
-    @manipulate for validfind = 1 : nvalidfinds_total
-
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
-
-        frameind = validfind2frameind(pdset, validfind)
-        render_streetnet_roads!(rendermodel, sn)
-        render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
-        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
-        
-        render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
 end
@@ -1097,37 +1478,100 @@ end
 
 function reel_pdset(
     pdset::PrimaryDataset,
-    sn::StreetNetwork;
+    sn::StreetNetwork,
+    active_carid::Integer=CARID_EGO;
+
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=300, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
-    active_carid::Integer=CARID_EGO,
+    camera_forward_offset::Real=0.0,
     fps::Integer=40,
     )
 
     frames = Array(CairoSurface, nvalidfinds(pdset))
-    for (roll_index, validfind) = enumerate(1 : nvalidfinds(pdset))
-            
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+    for (roll_index, validfind) in enumerate(1 : nvalidfinds(pdset))
 
-        frameind = validfind2frameind(pdset, validfind)
-        render_streetnet_roads!(rendermodel, sn)
-        render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
-        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
-
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        
-        frames[roll_index] = s
+        frames[roll_index] = plot_scene(pdset, sn, validfind, active_carid, 
+                                        canvas_width=canvas_width,
+                                        canvas_height=canvas_height,
+                                        rendermodel=rendermodel,
+                                        camera_forward_offset=camera_forward_offset,
+                                        camerazoom=camerazoom)
     end
 
-    film = roll(frames, fps=fps) # write("output.gif", film)
+    roll(frames, fps=fps) # write("output.gif", film)
 end
+function reel_scenario_playthrough(
+    scenario::Scenario,
+    policy::RiskEstimationPolicy;
 
+    pdset::PrimaryDataset=create_scenario_pdset(scenario),
+    validfind_start::Integer=scenario.history,
+    validfind_end::Integer=nvalidfinds(pdset),
 
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=8.0,
+    camera_forward_offset::Real=0.0,
 
+    fps::Integer=3,
+    )
+
+    frames = CairoSurface[]
+
+    push!(frames, plot_scene(pdset, sn, validfind_start, active_carid, 
+                                        canvas_width=canvas_width,
+                                        canvas_height=canvas_height,
+                                        rendermodel=rendermodel,
+                                        camera_forward_offset=camera_forward_offset,
+                                        camerazoom=camerazoom))
+
+    validfind = validfind_start
+    while validfind < validfind_end
+            
+        candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
+        extracted_trajdefs = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
+
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extract_trajdefs, validfind, active_carid,
+                                              canvas_width=canvas_width, canvas_height=canvas_height,
+                                              rendermodel=rendermodel, camerazoom=camerazoom,
+                                              camera_forward_offset=camera_forward_offset))
+        
+        collision_risk = calc_collision_risk_monte_carlo!(basics, policy, extracted_trajdefs, active_carid, validfind)
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extract_trajdefs, collision_risk, validfind, active_carid,
+                                              canvas_width=canvas_width, canvas_height=canvas_height,
+                                              rendermodel=rendermodel, camerazoom=camerazoom,
+                                              camera_forward_offset=camera_forward_offset))
+        
+        costs = calc_costs(policy, candidate_trajectories, collision_risk)
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extract_trajdefs, costs, validfind, active_carid,
+                                              canvas_width=canvas_width, canvas_height=canvas_height,
+                                              rendermodel=rendermodel, camerazoom=camerazoom,
+                                              camera_forward_offset=camera_forward_offset))
+        
+        best = indmin(costs)
+        extracted_best = extracted_trajdefs[best]
+        push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], [costs[best]], validfind, active_carid,
+                                              canvas_width=canvas_width, canvas_height=canvas_height,
+                                              rendermodel=rendermodel, camerazoom=camerazoom,
+                                              camera_forward_offset=camera_forward_offset))
+        
+        insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
+        for validfind_vis in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
+            camerax = get(pdset, :posGx, active_carid, validfind_vis) + 60.0
+            push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], [costs[best]], validfind_viz, active_carid,
+                                              canvas_width=canvas_width, canvas_height=canvas_height,
+                                              rendermodel=rendermodel, camerazoom=camerazoom,
+                                              camera_forward_offset=camera_forward_offset))
+        end
+        
+        validfind += N_FRAMES_PER_SIM_FRAME
+    end
+
+    roll(frames, fps=fps)
+end
 
 function generate_and_plot_manipulable_gridcount_set(
     behavior::AbstractVehicleBehavior,

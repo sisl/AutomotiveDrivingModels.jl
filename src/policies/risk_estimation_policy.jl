@@ -1,9 +1,12 @@
 export 
     RiskEstimationPolicy,
+    PolicyEvaluationResults,
 
     calc_integrated_squared_jerk,
     calc_cost,
     calc_costs,
+
+    parallel_eval,
 
     generate_candidate_trajectories,
     calc_collision_risk_monte_carlo!,
@@ -106,6 +109,41 @@ function calc_cost(
     k_c*collision_prob + (J_d + k_s*J_s) + k_v*Δv
 end
 
+function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64))
+
+    pdset_for_sim  = tup[1]
+    sn             = tup[2]
+    links          = tup[3]
+    active_carid   = tup[4]
+    validfind      = tup[5]
+    nsimulations   = tup[6]
+    human_behavior = tup[7]
+    sec_per_frame  = tup[8]
+
+    behavior_pairs = (AbstractVehicleBehavior, Int)[]
+    for carid in get_carids(pdset_for_sim)
+        if carid != active_carid
+            push!(behavior_pairs, (human_behavior,carid))
+        end
+    end
+
+    basics_for_sim = FeatureExtractBasicsPdSet(pdset_for_sim, sn)
+    trajdef = TrajDef(pdset_for_sim, sn, active_carid, validfind)
+    append!(trajdef.links, links)
+
+    frameind_start = validfind2frameind(pdset_for_sim, validfind)
+    extracted = extract_trajdef(sn, trajdef, active_carid, frameind_start, sec_per_frame)
+
+    insert!(pdset_for_sim, extracted)
+    horizon = get_num_pdset_frames(extracted)-1
+    calc_collision_risk_monte_carlo!(
+        basics_for_sim, behavior_pairs, 
+        validfind, validfind+horizon-1,
+        nsimulations=nsimulations)
+
+    collision_risk
+end
+
 function generate_candidate_trajectories(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
@@ -154,51 +192,37 @@ end
 function calc_collision_risk_monte_carlo!(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
-    extracted_trajdefs::Vector{ExtractedTrajdef},
+    candidate_trajectories::Vector{Vector{TrajDefLink}},
     active_carid::Integer,
     validfind::Integer,
+    sec_per_frame::Float64,
     )
 
     pdset, sn = basics.pdset, basics.sn
 
     n_othercars = get_num_cars_in_frame(pdset, validfind)-1
-    n_candidatetrajs = length(extracted_trajdefs)
+    n_candidatetrajs = length(candidate_trajectories)
 
     # allocate pdset for sim 
     # TODO(tim): allocate one for *horizon*, but copy the past
     pdset_for_sim = deepcopy(pdset)
 
-    max_validfind = maximum([validfind + get_num_pdset_frames(extracted) for extracted in extracted_trajdefs])::Integer
+    max_validfind = maximum([validfind + get_num_pdset_frames(links) for links in candidate_trajectories])::Integer
     if max_validfind > nvalidfinds(pdset_for_sim)
         expand!(pdset_for_sim, max_validfind - nvalidfinds(pdset_for_sim))
     end
 
-    basics_for_sim = FeatureExtractBasicsPdSet(pdset_for_sim, sn)
+    nsimulations = policy.nsimulations
+    human_behavior = policy.human_behavior
 
-    behavior_pairs = (AbstractVehicleBehavior, Int)[]
-    for carid in get_carids(pdset_for_sim)
-        if carid != active_carid
-            push!(behavior_pairs, (policy.human_behavior,carid))
-        end
+    tups = Array((PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64), length(candidate_trajectories))
+    for (i,links) in enumerate(candidate_trajectories)
+        tups[i] = (pdset_for_sim, sn, links, active_carid, validfind, nsimulations, human_behavior, sec_per_frame)
     end
 
-    start_points = calc_start_points(pdset, behavior_pairs, validfind)
-    collision_risk = Array(Float64, n_candidatetrajs)
-    for (i,extracted) in enumerate(extracted_trajdefs)
+    collision_risks = pmap(parallel_eval, tups)
 
-        insert!(pdset_for_sim, extracted)
-
-        horizon = get_num_pdset_frames(extracted)-1
-
-        # TODO(tim): make this terminate early
-        # TODO(tim): parallelize?
-        collision_risk[i] = calc_collision_risk_monte_carlo!(
-                                    basics_for_sim, behavior_pairs, 
-                                    validfind, validfind+horizon-1,
-                                    nsimulations=policy.nsimulations)
-    end
-
-    collision_risk
+    collision_risks
 end
 function calc_costs(
     policy::RiskEstimationPolicy,
@@ -232,13 +256,13 @@ function propagate!(
     # 1 - generate candidate trajectories
     
     candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
-    extracted_trajdefs = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
     ###########################################################
     # 2 - simulate candidate trajectories to estimate risk
 
-    collision_risk = calc_collision_risk_monte_carlo!(basics, policy, extracted_trajdefs, 
-                                                      active_carid, validfind)
+    sec_per_frame = calc_sec_per_frame(basics.pdset)
+    collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories, 
+                                                      active_carid, validfind, sec_per_frame)
 
     ###########################################################
     # 3 - select the highest-scoring trajectory
@@ -262,44 +286,72 @@ function propagate!(
     insert!(basics.pdset, extracted_trajdefs[best_trajectory_index], validfind+1, validfind+pdset_frames_per_sim_frame)
 end
 
-function evaluate_policy(
+immutable PolicyEvaluationResults
+    nruns::Int             # number of runs conducted to judge performance
+    ncollisions::Int       # number of collisions during policy evaluation
+    time_per_tick::Float64 # average time per policy tick
+    performance::Float64   # overall policy performance measure
+end
+immutable SinglePolicyRunEvalResults
+    had_collision::Bool    # whether a collision occurred
+    total_tick_time::Float64 # average time per policy tick
+    nticks::Int
+end
+
+function _evaluate_policy(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
     active_carid::Integer,
     validfind_start::Integer,
     validfind_end::Integer,
     )
-
+    
+    nticks = 0
+    total_tick_time = 0.0
     for validfind in validfind_start : N_FRAMES_PER_SIM_FRAME : validfind_end-1
 
+        starttime = time()    
         propagate!(basics, policy, active_carid, validfind, N_FRAMES_PER_SIM_FRAME)
+        total_tick_time += time() - starttime
+        nticks += 1
 
         if has_intersection(basics.pdset, validfind, min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end))
-            return true
+            return SinglePolicyRunEvalResults(true, total_tick_time, nticks)
         end
     end
     
-    return false
+    SinglePolicyRunEvalResults(false, total_tick_time, nticks)
 end
 function evaluate_policy(
     scenario::Scenario,
     active_carid::Integer,
     policy::RiskEstimationPolicy,
-    nsimulations::Integer
+    nruns::Integer;
+
+    r_collision_frequency::Float64 = -100.0, # weighting for collision frequency
+    r_time_per_tick::Float64       =   -1.0, # weighting for time per tick
     )
     
     pdset = create_scenario_pdset(scenario)
     sn = scenario.sn
     basics = FeatureExtractBasicsPdSet(pdset, sn)
 
-    collision_count = 0
-    for simulation in 1 : nsimulations
-        println("sim ", simulation)
-        it_has_intersection = evaluate_policy(basics, policy, active_carid, scenario.history, nframeinds(basics.pdset))
-        collision_count += it_has_intersection
-        if it_has_intersection
-            println("\tIT HAD INTERSECTION!")
-        end
+    ncollisions = 0
+    nticks = 0
+    total_tick_time = 0.0
+
+    for simulation in 1 : nruns
+        println("policy evaluation run ", simulation, " / ", nruns)
+        eval_results = _evaluate_policy(basics, policy, active_carid, scenario.history, nframeinds(basics.pdset))
+        ncollisions += eval_results.had_collision
+        total_tick_time += eval_results.total_tick_time
+        nticks += eval_results.nticks
     end
-    collision_count / nsimulations
+
+    collision_frequency = ncollisions/nruns
+    time_per_tick = total_tick_time/nticks
+    performance = r_collision_frequency * collision_frequency +
+                  r_time_per_tick * time_per_tick
+
+    PolicyEvaluationResults(nruns, ncollisions, time_per_tick, performance)
 end

@@ -147,6 +147,7 @@ end
 #         new(n_pdset_frames, lanetag, d, ddot, dddot, s, sdot, sddot)
 #     end
 # end
+
 immutable TrajDefLink #TargetSpeed  <: TradDefLink
 
     n_pdset_frames::Int # duration of link [pdset frames]
@@ -174,7 +175,6 @@ immutable TrajDefLink #TargetSpeed  <: TradDefLink
         new(n_pdset_frames, lanetag, d, v, a, ϕ, ψ)
     end
 end
-
 type TrajDef
     lanetag::LaneTag # initial lanetag
     extind::Float64 # initial state along lanetag
@@ -275,13 +275,18 @@ type TrajDef
     end
 end
 
-function get_num_pdset_frames(trajdef::TrajDef)
+# reference trajectory -> takes the form of a lane tag and extind
+# original trajectory -> PolynomialFactoredTrajectory
+
+function get_num_pdset_frames(links::Vector{TrajDefLink})
     nframes = 1
-    for link in trajdef.links
+    for link in links
         nframes += link.n_pdset_frames
     end
     nframes
 end
+get_num_pdset_frames(trajdef::TrajDef) = get_num_pdset_frames(trajdef.links)
+
 function Base.push!(trajdef::TrajDef, link::TrajDefLink)
     push!(trajdef.links, link)
     trajdef
@@ -327,7 +332,7 @@ function _set_vehicle_other_nocheck!(
     setc!(pdset, :d_merge,   carind, validfind, isinf(d_merge) ? NA : d_merge)
     setc!(pdset, :d_split,   carind, validfind, isinf(d_split) ? NA : d_split)
 
-    nll, nlr = StreetNetworks.num_lanes_on_sides(seg, lane_index, extind)
+    nll, nlr = num_lanes_on_sides(seg, lane_index, extind)
     @assert(nll ≥ 0)
     @assert(nlr ≥ 0)
     setc!(pdset, :nll,       carind, validfind, nll)
@@ -371,18 +376,18 @@ function _set_vehicle_ego_nocheck!(
     sete!(pdset, :d_cl,      frameind, dcl)
 
     seg = get_segment(sn, lanetag)
-    d_merge = distance_to_lane_merge(seg, lane_index, extind)
-    d_split = distance_to_lane_split(seg, lane_index, extind)
+    d_merge = distance_to_lane_merge(sn, seg, lane_index, extind)
+    d_split = distance_to_lane_split(sn, seg, lane_index, extind)
     sete!(pdset, :d_merge,   frameind, isinf(d_merge) ? NA : d_merge)
     sete!(pdset, :d_split,   frameind, isinf(d_split) ? NA : d_split)
 
-    nll, nlr = StreetNetworks.num_lanes_on_sides(seg, lane_index, extind)
+    nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, lane_index, extind)
     @assert(nll ≥ 0)
     @assert(nlr ≥ 0)
     sete!(pdset, :nll,       frameind, nll)
     sete!(pdset, :nlr,       frameind, nlr)
 
-    lane_width_left, lane_width_right = marker_distances(seg, lane_index, extind)
+    lane_width_left, lane_width_right = marker_distances(sn, seg, lane_index, extind)
     sete!(pdset, :d_mr,      frameind, (dcl <  lane_width_left)  ?  lane_width_left - dcl  : Inf)
     sete!(pdset, :d_ml,      frameind, (dcl > -lane_width_right) ?  dcl - lane_width_right : Inf)
 
@@ -565,14 +570,14 @@ function _add_trajlink_to_pdset!(
         new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, prev_extind)
         while is_extind_at_curve_end(lane.curve, new_extind)
 
-            new_s -= lane.nodes[end].d_along
-            footpoint_s_ajdust -= lane.nodes[end].d_along
+            new_s -= sn.nodes[lane.node_indeces[end]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[end]].d_along
 
             lane = next_lane(sn, lane)
             lanetag = LaneTag(sn, lane)
 
-            new_s -= lane.nodes[2].d_along
-            footpoint_s_ajdust -= lane.nodes[2].d_along
+            new_s -= sn.nodes[lane.node_indeces[2]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
             
             new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, 1.5)
         end
@@ -761,18 +766,18 @@ function _set_vehicle_nocheck!(
     df[frameind,:d_cl] = dcl
 
     seg = get_segment(sn, lanetag)
-    d_merge = distance_to_lane_merge(seg, lane_index, extind)
-    d_split = distance_to_lane_split(seg, lane_index, extind)
+    d_merge = distance_to_lane_merge(sn, seg, lane_index, extind)
+    d_split = distance_to_lane_split(sn, seg, lane_index, extind)
     df[frameind,:d_merge] = isinf(d_merge) ? NA : d_merge
     df[frameind,:d_split] = isinf(d_split) ? NA : d_split
 
-    nll, nlr = StreetNetworks.num_lanes_on_sides(seg, lane_index, extind)
+    nll, nlr = num_lanes_on_sides(sn, seg, lane_index, extind)
     @assert(nll ≥ 0)
     @assert(nlr ≥ 0)
     df[frameind,:nll] = nll
     df[frameind,:nlr] = nlr
 
-    lane_width_left, lane_width_right = marker_distances(seg, lane_index, extind)
+    lane_width_left, lane_width_right = marker_distances(sn, seg, lane_index, extind)
     df[frameind,:d_mr] = (dcl <  lane_width_left)  ?  lane_width_left - dcl  : Inf
     df[frameind,:d_ml] = (dcl > -lane_width_right) ?  dcl - lane_width_right : Inf
 
@@ -854,14 +859,14 @@ function _add_trajlink_to_extracted!(
         new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, prev_extind)
         while is_extind_at_curve_end(lane.curve, new_extind)
 
-            new_s -= lane.nodes[end].d_along
-            footpoint_s_ajdust -= lane.nodes[end].d_along
+            new_s -= sn.nodes[lane.node_indeces[end]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[end]].d_along
 
             lane = next_lane(sn, lane)
             lanetag = LaneTag(sn, lane)
 
-            new_s -= lane.nodes[2].d_along
-            footpoint_s_ajdust -= lane.nodes[2].d_along
+            new_s -= sn.nodes[lane.node_indeces[2]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
             
             new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, 1.5)
         end

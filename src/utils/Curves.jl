@@ -125,6 +125,8 @@ function fit_curve(
 	
 	@assert(size(pts, 1) == 2)
 
+	# println("pts: ", pts)
+
 	spline_coeffs = fit_cubic_spline(pts)
 
 	L = calc_curve_length(spline_coeffs[1], spline_coeffs[2], n_intervals_per_segment=n_intervals_in_arclen)
@@ -135,10 +137,18 @@ function fit_curve(
 	s_arr = linspace(0.0,L,n)
 	t_arr = calc_curve_param_given_arclen(spline_coeffs[1], spline_coeffs[2], s_arr, 
 		curve_length=L, max_iterations=max_iterations, epsilon=epsilon, n_intervals_in_arclen=n_intervals_in_arclen)
-	# println(t_arr)
+	
+	# println("s_arr: ", s_arr)
+	# println("t_arr: ", t_arr)
+
 	x_arr = sample_spline(spline_coeffs[1], t_arr)
 	y_arr = sample_spline(spline_coeffs[2], t_arr)
 	θ_arr = sample_spline_theta(spline_coeffs[1], spline_coeffs[2], t_arr)
+
+	# println("x_arr: ", x_arr)
+	# println("y_arr: ", y_arr)
+	# println("θ_arr: ", θ_arr)
+
 	κ_arr = sample_spline_curvature(spline_coeffs[1], spline_coeffs[2], t_arr)
 	κd_arr = sample_spline_derivative_of_curvature(spline_coeffs[1], spline_coeffs[2], t_arr)
 	

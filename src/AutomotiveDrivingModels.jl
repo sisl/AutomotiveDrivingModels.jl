@@ -8,6 +8,7 @@ using StreamStats
 @reexport using Distributions
 @reexport using JLD
 @reexport using LaTeXStrings
+@reexport using LightGraphs
 
 include("utils/vec/Vec.jl")
 @reexport using .Vec

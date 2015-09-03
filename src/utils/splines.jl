@@ -106,43 +106,15 @@ function _fit_closed(pts::AbstractVector{Float64} )
 
 	spline_coeffs
 end
-function _fit_open(pts::Matrix{Float64})
+function _fit_open(pts::Matrix{Float64}) # 2×n {x,y}
+
+	# see http://mathworld.wolfram.com/CubicSpline.html
+
 	d,n = size(pts)
 	n -= 1
 
 	Y = Array(Float64, n+1)
 
-	# build M once
-	# len = 3n+1
-	# i_arr = Array(Int, len)
-	# j_arr = Array(Int, len)
-	# v_arr = Array(Float64, len)
-	
-	# i_arr[1] = 1
-	# j_arr[1] = 1
-	# v_arr[1] = 2.0
-	# i_arr[2] = n+1
-	# j_arr[2] = n+1
-	# v_arr[2] = 2.0
-
-	# count = 2
-	# for i = 2 : n
-	# 	count += 1
-	# 	i_arr[count] = i
-	# 	j_arr[count] = i
-	# 	v_arr[count] = 4.0
-	# end
-	# for i = 1:n
-	# 	count += 1
-	# 	i_arr[count] = i
-	# 	j_arr[count] = i+1
-	# 	v_arr[count] = 1.0
-	# 	count += 1
-	# 	i_arr[count] = i+1
-	# 	j_arr[count] = i
-	# 	v_arr[count] = 1.0
-	# end
-	# M = sparse(i_arr, j_arr, v_arr)
 	M = zeros(Float64, n+1,n+1)
 	for i = 1 : n
 		M[i,i] = 4
@@ -164,11 +136,11 @@ function _fit_open(pts::Matrix{Float64})
 
 		D = iM*Y
 
-		spline_coeffs = Array(Float64, 4, n) # col is <a,b,c,d>
-		spline_coeffs[1,:] = pts[k,1:n]
-		spline_coeffs[2,:] = D[1:n]
-		spline_coeffs[3,:] = 3*(pts[k,2:n+1]' - pts[k,1:n]') -2*D[1:n]-D[2:n+1]
-		spline_coeffs[4,:] = 2*(pts[k,1:n]' - pts[k,2:n+1]') + D[1:n] + D[2:n+1]
+		spline_coeffs = Array(Float64, 4, n) # col is <a,b,c,d> for a + b⋅t + c⋅t² + d⋅t³
+		spline_coeffs[1,:] = pts[k,1:n] # x₀
+		spline_coeffs[2,:] = D[1:n]     # x'₀
+		spline_coeffs[3,:] = 3*(pts[k,2:n+1]' - pts[k,1:n]') -2*D[1:n] - D[2:n+1] # -3x₀ + 3x₁ - 2x'₀ - x'₁
+		spline_coeffs[4,:] = 2*(pts[k,1:n]' - pts[k,2:n+1]') +  D[1:n] + D[2:n+1] #  2x₀ - 2x₁ +  x'₀ + x'₁
 
 		retval[k] = spline_coeffs
 	end
@@ -182,6 +154,7 @@ function _fit_closed(pts::AbstractMatrix{Float64})
 	end
 	retval
 end
+
 function fit_cubic_spline(pts::AbstractArray{Float64}; open::Bool=true)
 	if open
 		return _fit_open(pts)

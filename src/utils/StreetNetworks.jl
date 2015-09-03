@@ -1,6 +1,6 @@
 module StreetNetworks
 
-using Graphs
+using LightGraphs
 using HDF5
 
 using AutomotiveDrivingModels.Vec
@@ -9,6 +9,7 @@ using AutomotiveDrivingModels.Curves
 include("RoadNetwork.jl")
 using .RoadNetwork
 
+import .RoadNetwork: LaneID, WaypointID
 
 # ===============================================================================
 
@@ -22,7 +23,7 @@ export get_tile, get_tile!, add_tile!, has_tile, same_tile
 export has_segment, get_segment, get_segment!
 export get_lane, has_lane, add_lane!, has_next_lane, next_lane, has_prev_lane, prev_lane
 export get_lanetag, next_lanetag, prev_lanetag
-export next_node, prev_node, add_node
+export next_node_index, prev_node_index
 export same_lane, same_lane_and_tile
 export closest_node_to_extind, closest_node_above_extind
 export neighbor_north, neighbor_east, neighbor_south, neighbor_west
@@ -36,8 +37,6 @@ export rndf2streetnetwork, curves2streetnetwork, curves2rndf
 export generate_straight_nlane_streetmap
 
 export LaneID, WaypointID, LaneTag
-
-import Base: isequal, ==
 
 # ===============================================================================
 
@@ -60,7 +59,7 @@ const THRESHOLD_DISTANCE_TO_NODE        = 500.0 # [m]
 
 # ===============================================================================
 
-type StreetNode 
+immutable StreetNode
 	id :: WaypointID
 	pos :: VecE3 # (UTM-e, UTM-n, alt [m])
 
@@ -76,49 +75,24 @@ type StreetNode
 
 	marker_dist_left :: Float64 # estimated distance to left lane marker [m]
 	marker_dist_right :: Float64 # estimated distance to right lane marker [m]
-
-	function StreetNode(id::WaypointID, pos::VecE3;
-		extind ::Float64=NaN,
-		d_along::Float64=NaN, 
-		d_merge::Float64=NaN, 
-		d_split::Float64=NaN,
-		d_end  ::Float64=NaN,
-		n_lanes_left::Int = -1,
-		n_lanes_right::Int = -1,
-		marker_dist_left::Float64=NaN,
-		marker_dist_right::Float64=NaN,
-		)
-
-		self = new()
-		self.id = id
-		self.pos = pos
-		self.extind = extind
-		self.d_along = d_along
-		self.d_merge = d_merge
-		self.d_split = d_split
-		self.d_end   = d_end
-		self.n_lanes_left = n_lanes_left
-		self.n_lanes_right = n_lanes_right
-		self.marker_dist_left = marker_dist_left
-		self.marker_dist_right = marker_dist_right
-		self
-	end
 end
 type StreetLane
 	# an ordered list of centerline nodes comprising a lane
-	id :: Int
-	width :: Float64 # [m]
-	boundary_left :: Symbol # TODO(tim): make this a LaneBoundary type?
-	boundary_right :: Symbol # ∈ {:double_yellow, :solid_yellow, :solid_white, :broken_white, :unknown}
-	nodes :: Vector{StreetNode} # only includes nodes in this lane
-	curve :: Curve # this curve stretches from 1 node before source to 1 node after end, if applicable
-	               # x = 0.0 occurs at source node and is measured positive along the centerline
+
+	id             :: Int
+	width          :: Float64 # [m]
+	boundary_left  :: Symbol  # TODO(tim): make this a LaneBoundary type?
+	boundary_right :: Symbol  # ∈ {:double_yellow, :solid_yellow, :solid_white, :broken_white, :unknown}
+	node_indeces   :: Vector{Int} # indeces within the streenet nodes array
+	                              # only includes nodes in this lane, not leading or trailing nodes
+	curve          :: Curve # this curve stretches from 1 node before source to 1 node after end, if applicable
+	                        # x = 0.0 occurs at source node and is measured positive along the centerline
 
 	has_leading_node :: Bool # true iff curve includes a source node leading into this lane
 	has_trailing_node :: Bool # true iff curve includes a destination node leaving this lane
 end
 type StreetSegment
-	# an ordered list of lanes forming a single road with a common direction
+	# a list of lanes forming a single road with a common direction
 	id :: Int  # > 0
 	lanes :: Dict{Int, StreetLane}
 
@@ -139,36 +113,35 @@ type NetworkTile
 	end
 end
 type StreetNetwork
-	tile_dict :: Dict{(Int,Int),NetworkTile}
-	graph :: Graph{StreetNode,Edge{StreetNode}}
+	nodes::Vector{StreetNode}
+	tile_dict::Dict{(Int,Int),NetworkTile} # (index_n, index_e)
+	graph::DiGraph # vertices in the graph are indeces in the nodes vector
 
+	function StreetNetwork()
+
+		nodes = StreetNode[]
+		tile_dict = Dict{(Int,Int),NetworkTile}()
+		graph = DiGraph()
+		
+		new(nodes, tile_dict, graph)
+	end
 	function StreetNetwork(
-		tile_dict = Dict{(Int,Int),NetworkTile}(),
-		graph::Graph{StreetNode,Edge{StreetNode}}=graph(StreetNode[],Edge{StreetNode}[])
+		nodes::Vector{StreetNode},
+		tile_dict::Dict{(Int,Int),NetworkTile},
+		graph::DiGraph
 		)
-		new(tile_dict, graph)
+
+		new(nodes, tile_dict, graph)
 	end
 end
 
-function Base.deepcopy(node::StreetNode)
-	StreetNode(node.id, node.pos,
-			   extind = node.extind,
-			   d_along = node.d_along,
-			   d_merge = node.d_merge,
-			   d_split = node.d_split,
-			   d_end   = node.d_end,
-			   n_lanes_left = node.n_lanes_left,
-			   n_lanes_right = node.n_lanes_right,
-			   marker_dist_left = node.marker_dist_left,
-			   marker_dist_right = node.marker_dist_right)
-end
 function Base.deepcopy(lane::StreetLane)
 	StreetLane(
 		lane.id,
 		lane.width,
 		lane.boundary_left,
 		lane.boundary_right,
-		deepcopy(lane.nodes),
+		deepcopy(lane.node_indeces),
 		deepcopy(lane.curve),
 		lane.has_leading_node,
 		lane.has_trailing_node
@@ -176,6 +149,7 @@ function Base.deepcopy(lane::StreetLane)
 end
 Base.deepcopy(seg::StreetSegment) = StreetSegment(seg.id, deepcopy(seg.lanes))
 Base.deepcopy(tile::NetworkTile) = NetworkTile(tile.index_e, tile.index_n, deepcopy(tile.segments))
+Base.deepcopy(sn::StreetNetwork) = StreetNetwork(deepcopy(sn.nodes, sn.tile_dict, sn.graph))
 
 immutable LaneTag
 	index_e :: Int
@@ -187,7 +161,7 @@ immutable LaneTag
 	LaneTag(tile::NetworkTile, laneid::LaneID) = new(tile.index_e, tile.index_n, int(laneid.segment), int(laneid.lane))
 	LaneTag(tile::NetworkTile, segid::Int, laneid::Int) = new(tile.index_e, tile.index_n, segid, laneid)
 	function LaneTag(sn::StreetNetwork, lane::StreetLane)
-		tile = get_tile(sn, lane.nodes[1].pos.x, lane.nodes[1].pos.y)
+		tile = get_tile(sn, sn.nodes[lane.node_indeces[1]].pos.x, sn.nodes[lane.node_indeces[1]].pos.y)
 		tile_segments = collect(values(tile.segments))
 		seg_ind = findfirst(s->in(lane, values(s.lanes)), tile_segments)
 		seg = tile_segments[seg_ind]
@@ -232,11 +206,11 @@ function Base.show(io::IO, proj::TilePoint2DProjectionResult)
 	println(io, "\tsuccessful: ", proj.successful)
 end
 
-==(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && 
+Base.(:(==))(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && 
 							 A.index_n == B.index_n &&
 							 A.segment == B.segment &&
 							 A.lane    == B.lane
-isequal(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && 
+Base.isequal(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && 
 							      A.index_n == B.index_n &&
 							      A.segment == B.segment &&
 							      A.lane    == B.lane
@@ -244,19 +218,21 @@ same_tile(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && A.index_n == B.ind
 
 # ===============================================================================
 
+
+# TODO(tim): move coordinate conversions to a utility file
 function lla2xyz( lat::Real, lon::Real, alt::Real )
 	# convert a point in geo (lat, lon, alt) to a point in ECEX (x,y,z)
 
 	# WGS84
 	const a = 6378137.0 # equatorial radius [m]
 	const b = 6356752.3142 # polar radius [m]
-	const eccentricity = sqrt(1.0-(b/a)^2) # eccentricity
+	local const e = sqrt(1.0-(b/a)^2) # eccentricity
 
-	RN = a / (1 - eccentricity^2*sin(lat)^2)^0.5
+	RN = a / (1 - e^2*sin(lat)^2)^0.5
 
 	x = (RN + alt)*cos(lat)*cos(lon)
 	y = (RN + alt)*cos(lat)*sin(lon)
-	z = (RN*(1-eccentricity^2)+alt)*sin(lat)
+	z = (RN*(1-e^2)+alt)*sin(lat)
 
 	return Vec3E(x,y,z)
 end
@@ -343,18 +319,19 @@ function ll2utm( lat::Real, lon::Real, zone::Integer=-1; map_datum::Symbol=:WGS_
 end
 
 # NOTE(tim): returns the smallest in magnitude signed angle a must be rotated by to get to b
+# TODO(tim): move to a utility file
 _signed_dist_btw_angles(a::Real, b::Real) = atan2(sin(b-a), cos(b-a))
 
 utm2tileindex_east(utm_easting::Real) = int(round((utm_easting  - EASTING_BASE)  / TILE_WIDTH))
 utm2tileindex_north(utm_northing::Real) = int(round((utm_northing - NORTHING_BASE) / TILE_HEIGHT))
 utm2tileindex(utm_easting::Real, utm_northing::Real) = (utm2tileindex_east(utm_easting), utm2tileindex_north(utm_northing))
 
-tile_center_north(index_n::Int)     =  index_n      * TILE_HEIGHT + NORTHING_BASE
-tile_lowerbound_north(index_n::Int) = (index_n-0.5) * TILE_HEIGHT + NORTHING_BASE
-tile_upperbound_north(index_n::Int) = (index_n+0.5) * TILE_HEIGHT + NORTHING_BASE
-tile_center_east(index_e::Int)      =  index_e      * TILE_WIDTH  + EASTING_BASE
-tile_lowerbound_east(index_e::Int)  = (index_e-0.5) * TILE_WIDTH  + EASTING_BASE
-tile_upperbound_east(index_e::Int)  = (index_e+0.5) * TILE_WIDTH  + EASTING_BASE
+tile_center_north(index_n::Integer)     =  index_n      * TILE_HEIGHT + NORTHING_BASE
+tile_lowerbound_north(index_n::Integer) = (index_n-0.5) * TILE_HEIGHT + NORTHING_BASE
+tile_upperbound_north(index_n::Integer) = (index_n+0.5) * TILE_HEIGHT + NORTHING_BASE
+tile_center_east(index_e::Integer)      =  index_e      * TILE_WIDTH  + EASTING_BASE
+tile_lowerbound_east(index_e::Integer)  = (index_e-0.5) * TILE_WIDTH  + EASTING_BASE
+tile_upperbound_east(index_e::Integer)  = (index_e+0.5) * TILE_WIDTH  + EASTING_BASE
 function tile_bounds(tile::NetworkTile)
 	index_e, index_n = tile.index_e, tile.index_n
 	min_e = tile_lowerbound_east(index_e)
@@ -366,11 +343,7 @@ end
 tile_center(tile::NetworkTile) = (tile_center_east(tile.index_e), tile_center_north(tile.index_n))
 
 function get_tile(sn::StreetNetwork, index_e::Int, index_n::Int)
-	key = (index_e, index_n)
-	if !haskey(sn.tile_dict, key)
-		error("tile not found: ", key)
-	end
-	retval = sn.tile_dict[key]
+	retval = sn.tile_dict[(index_e, index_n)]
 	@assert(retval.index_e == index_e && retval.index_n == index_n)
 	retval
 end
@@ -380,6 +353,7 @@ function get_tile(sn::StreetNetwork, easting::Float64, northing::Float64)
 end
 get_tile(sn::StreetNetwork, node::StreetNode) = get_tile(sn, node.pos.x, node.pos.y)
 get_tile(sn::StreetNetwork, tag::LaneTag) = get_tile(sn, tag.index_e, tag.index_n)
+
 function get_tile!(sn::StreetNetwork, index_e::Int, index_n::Int)
 	key = (index_e, index_n)
 	if !haskey(sn.tile_dict, key)
@@ -401,6 +375,7 @@ function add_tile!(sn::StreetNetwork, tile::NetworkTile; override=false)
 	sn.tile_dict[key] = tile
 	nothing
 end
+
 has_tile(sn::StreetNetwork, index_e::Int, index_n::Int) = haskey(sn.tile_dict, (index_e, index_n))
 
 has_segment(tile::NetworkTile, segment_id::Integer) = haskey(tile.segments, segment_id)
@@ -455,18 +430,18 @@ function add_lane!(segment::StreetSegment, lane::StreetLane; override=false)
 	nothing
 end
 function has_next_lane(sn::StreetNetwork, lane::StreetLane)
-	if isempty(lane.nodes)
+	if isempty(lane.node_indeces)
 		return false
 	end
-	out_degree(lane.nodes[end], sn.graph) > 0
+	outdegree(sn.graph, lane.node_indeces[end]) > 0
 end
 function next_lane(sn::StreetNetwork, lane::StreetLane)
-	last_node = lane.nodes[end]
-	next_node = _next_node(sn.graph, last_node)
-	if next_node === last_node
+	lastnode_index = lane.node_indeces[end]
+	nextnode_index = next_node_index(sn, lastnode_index)
+	if nextnode_index == lastnode_index
 		error("no next lane!")
 	end
-	get_lane(sn, next_node)
+	get_lane(sn, sn.nodes[nextnode_index])
 end
 function next_lanetag(sn::StreetNetwork, lanetag::LaneTag)
 	# retuns the current one if the next does not exist
@@ -476,14 +451,14 @@ function next_lanetag(sn::StreetNetwork, lanetag::LaneTag)
 	end
 	return lanetag
 end
-has_prev_lane(sn::StreetNetwork, lane::StreetLane) = !isempty(lane.nodes) && in_degree(lane.nodes[1], sn.graph) > 0
+has_prev_lane(sn::StreetNetwork, lane::StreetLane) = !isempty(lane.node_indeces) && indegree(sn.graph, lane.node_indeces[1]) > 0
 function prev_lane(sn::StreetNetwork, lane::StreetLane)
-	first_node = lane.nodes[1]
-	prev_node = _prev_node(sn.graph, first_node)
-	if prev_node === first_node
+	firstnode_index = lane.node_indeces[1]
+	prevnode_index = prev_node_index(sn, firstnode_index)
+	if prevnode_index == firstnode_index
 		error("no previous lane!")
 	end
-	get_lane(sn, prev_node)
+	get_lane(sn, sn.nodes[prevnode_index])
 end
 function prev_lanetag(sn::StreetNetwork, lanetag::LaneTag)
 	# retuns the current one if the prev does not exist
@@ -494,110 +469,135 @@ function prev_lanetag(sn::StreetNetwork, lanetag::LaneTag)
 	return lanetag
 end
 
-function _next_node(g::Graph{StreetNode,Edge{StreetNode}}, node::StreetNode)
-	# given the node, find the next one if there is one
-	# if there are none, return node
-	# if there are multiple, pick the one in the same lane
-	# if there are multiple by all in different lanes, pick the first one given by out_neighbors
+function next_node_index(sn::StreetNetwork, node_index::Int)
 
-	neighbors = out_neighbors(node, g)
-	if isempty(neighbors)
-		return node
+	#=
+	Given the node_index, find the next one if there is one
+		if there are none, return node_index
+		if there are multiple, pick the one in the same lane
+		if there are multiple by all in different lanes, pick the first one given by out_neighbors
+	=#
+
+	G = sn.graph
+
+	if outdegree(G, node_index) == 0
+		return node_index
 	end
 
+	node = sn.nodes[node_index]
 	laneid = node.id.lane
 	segid  = node.id.segment
 
-	best_node = node
+	best_node_index = node_index
 	found_new = false
-	for n in neighbors
-		if !found_new || (n.id.lane == laneid && n.id.segment == segid)
-			best_node = n
+	for new_node_index in out_neighbors(G, node_index)
+		new_node = sn.nodes[node_index]
+		if new_node.id.lane == laneid && new_node.id.segment == segid
+			return new_node_index
+		elseif !found_new
+			best_node_index = new_node_index
 			found_new = true
 		end
 	end
 
-	return best_node
+	best_node_index
 end
-next_node(sn::StreetNetwork, node::StreetNode) = _next_node(sn.graph, node)
-function _prev_node(g::Graph{StreetNode,Edge{StreetNode}}, node::StreetNode)
-	# given the node, find the previous one if there is one
-	# if there are none, return node
-	# if there are multiple, pick the one in the same lane
-	# if there are multiple by all in different lanes, pick the first one given by out_neighbors
+function prev_node_index(sn::StreetNetwork, node_index::Int)
 
-	neighbors = collect(in_neighbors(node, g))
-	if isempty(neighbors)
-		return node
+	#=
+	given the node, find the previous one if there is one
+		if there are none, return node
+		if there are multiple, pick the one in the same lane
+		if there are multiple by all in different lanes, pick the first one given by out_neighbors
+	=#
+
+	G = sn.graph
+
+	if outdegree(G, node_index) == 0
+		return node_index
 	end
 
+	node = sn.nodes[node_index]
 	laneid = node.id.lane
-	best_node = node
-	for n in neighbors
-		if best_node === node || n.id.lane == laneid
-			best_node = n
+	segid  = node.id.segment
+
+	best_node_index = node_index
+	found_new = false
+	for new_node_index in in_neighbors(G, node_index)
+		new_node = sn.nodes[node_index]
+		if !found_new || (new_node.id.lane == laneid && new_node.id.segment == segid)
+			best_node_index = new_node_index
+			found_new = true
 		end
 	end
 
-	return best_node
+	best_node_index
 end
-prev_node(sn::StreetNetwork, node::StreetNode) = _prev_node(sn.graph, node)
 
 same_lane(a::StreetNode, b::StreetNode) = a.id.lane == b.id.lane && a.id.segment == b.id.segment
 same_tile(a::StreetNode, b::StreetNode) = utm2tileindex_east(a.pos.x)  == utm2tileindex_east(b.pos.x) &&
 										  utm2tileindex_north(a.pos.y) == utm2tileindex_north(b.pos.y)
 same_lane_and_tile(a::StreetNode, b::StreetNode) = same_lane(a,b) && same_tile(a,b)
+same_lane_and_tile(sn::StreetNetwork, a::Integer, b::Integer) = same_lane_and_tile(sn.nodes[a], sn.nodes[b])
 
-add_node(sn::StreetNetwork, pos::VecE3) = add_vertex!(sn.graph, pos)
-function closest_node_to_extind(lane::StreetLane, extind::Float64; sq_dist_threshold = 0.1)
+function closest_node_to_extind(sn::StreetNetwork, lane::StreetLane, extind::Float64; sq_dist_threshold = 0.1)
 	
 	#=
 	Do a bisection search to get the closest node to the given extind
+	returns a node index
 	=#
 
 	a = 1
-	b = length(lane.nodes)
+	b = length(lane.node_indeces)
 
-	sqdist_a = (lane.nodes[a].extind - extind)*(lane.nodes[a].extind - extind)
-	sqdist_b = (lane.nodes[b].extind - extind)*(lane.nodes[b].extind - extind)
+	δ = sn.nodes[lane.node_indeces[a]].extind - extind
+	sqdist_a = δ*δ
+
+	δ = sn.nodes[lane.node_indeces[b]].extind - extind
+	sqdist_b = δ*δ
 
 	if b == a
-		return lane.nodes[a]
+		return lane.node_indeces[a]
 	elseif b == a + 1
-		return sqdist_b < sqdist_a ? lane.nodes[b] : lane.nodes[a]
+		return sqdist_b < sqdist_a ? lane.node_indeces[b] : lane.node_indeces[a]
 	end
 
 	c = div(a+b, 2)
-	sqdist_c = (lane.nodes[c].extind - extind)*(lane.nodes[c].extind - extind)
+	δ = sn.nodes[lane.node_indeces[c]].extind - extind
+	sqdist_c = δ*δ
 
 	n = 1
 	while true
 		if b == a
-			return lane.nodes[a]
+			return lane.node_indeces[a]
 		elseif b == a + 1
-			return sqdist_b < sqdist_a ? lane.nodes[b]: lane.nodes[a]
+			return sqdist_b < sqdist_a ? lane.node_indeces[b]: lane.node_indeces[a]
 		elseif c == a + 1 && c == b - 1
 			if sqdist_a < sqdist_b && sqdist_a < sqdist_c
-				return lane.nodes[a]
+				return lane.node_indeces[a]
 			elseif sqdist_b < sqdist_a && sqdist_b < sqdist_c
-				return lane.nodes[b]
+				return lane.node_indeces[b]
 			else
-				return lane.nodes[c]
+				return lane.node_indeces[c]
 			end
 		end
 
 		left = div(a+c, 2)
-		sqdist_l = (lane.nodes[left].extind - extind)*(lane.nodes[left].extind - extind)
+
+		δ = sn.nodes[lane.node_indeces[left]].extind - extind
+		sqdist_l = δ*δ
 
 		if sqdist_l < sq_dist_threshold
-			return lane.nodes[left]
+			return lane.node_indeces[left]
 		end
 
 		right = div(c+b, 2)
-		sqdist_r = (lane.nodes[right].extind - extind)*(lane.nodes[right].extind - extind)
+
+		δ = sn.nodes[lane.node_indeces[right]].extind - extind
+		sqdist_r = δ*δ
 
 		if sqdist_r < sq_dist_threshold
-			return lane.nodes[right]
+			return lane.node_indeces[right]
 		elseif sqdist_l < sqdist_r
 			b = c
 			c = left
@@ -608,44 +608,32 @@ function closest_node_to_extind(lane::StreetLane, extind::Float64; sq_dist_thres
 	end
 
 	error("invalid codepath")
-
-	# OLD LINEAR SEARCH CODE
-	# best_ind = 0
-	# best_diff = Inf
-	# for (i,n) in enumerate(lane.nodes)
-	# 	Δ = abs(n.extind - extind)
-	# 	if Δ < best_diff
-	# 		best_diff = Δ
-	# 		best_ind = i
-	# 	end
-	# end
-	# return lane.nodes[best_ind]
 end
 function closest_node_above_extind(sn::StreetNetwork, lane::StreetLane, extind::Float64; isapprox_threshold::Float64=0.1)
 	# do a linear search
+	# returns a node index
 	# NOTE(tim): returns last node if it is a dead-end
 
 	# TODO(tim): implement bisection search
 
-	if extind > lane.nodes[end].extind
-		node = lane.nodes[end]
-		return _next_node(sn.graph, node) 
+	if extind > sn.nodes[lane.node_indeces[end]].extind
+		return next_node_index(sn, lane.node_indeces[end])
 	end
 
 	a = 1
-	b = length(lane.nodes)
+	b = length(lane.node_indeces)
 
 	n = 1
 	while true
 		if b == a || b == a+1
-			return lane.nodes[b]
+			return lane.node_indeces[b]
 		end
 
 		c = div( a+b, 2 )
-		fc = lane.nodes[c].extind - extind
+		fc = sn.nodes[lane.node_indeces[c]].extind - extind
 
 		if 0 ≤ fc < isapprox_threshold
-			return lane.nodes[c]
+			return lane.node_indeces[c]
 		elseif fc < 0.0
 			a = c
 		else
@@ -654,17 +642,6 @@ function closest_node_above_extind(sn::StreetNetwork, lane::StreetLane, extind::
 	end
 
 	error("invalid codepath")
-
-	# best_ind = 0
-	# best_diff = Inf
-	# for (i,n) in enumerate(lane.nodes)
-	# 	Δ = n.extind - extind
-	# 	if 0.0 ≤ Δ < best_diff
-	# 		best_diff = Δ
-	# 		best_ind = i
-	# 	end
-	# end
-	# return lane.nodes[best_ind]
 end
 
 neighbor_north(sn::StreetNetwork, tile::NetworkTile) = get_tile(sn, tile.index_e,   tile.index_n+1)
@@ -896,21 +873,24 @@ function _distance_to_lane_merge(
 	)
 
 	# NOTE(tim): follow the nodes until we get to one that has two incoming edges
-	# follows next_node()
+	# follows next_node_index()
 	# returns Inf if the lane ends
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_above_extind(sn, lane, extind)
+	node_index = closest_node_above_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
 	dist = node.d_along - curve_at(lane.curve, extind).s
 
-	while in_degree(node, sn.graph) < 2
+	while indegree(sn.graph, node_index) < 2
 
-	    if out_degree(node, sn.graph) == 0
+	    if outdegree(sn.graph, node_index) == 0
 	        return max_dist # no merge
 	    end
 	    
-	    nextnode = next_node(sn, node)
-	    if same_lane_and_tile(node, nextnode)
+	    nextnode_index = next_node_index(sn, node_index)
+	    nextnode = sn.nodes[nextnode_index]
+
+	    if same_lane_and_tile(sn, node_index, nextnode_index)
 	        dist += nextnode.d_along - node.d_along
 	    else
 	    	# NOTE(tim): presumably the curve ends with the next node, so this is valid
@@ -924,7 +904,7 @@ function _distance_to_lane_merge(
 	    	@assert(lane.curve.s[end] - node.d_along ≥ 0.0)
 	    	dist += lane.curve.s[end] - node.d_along
 	    end
-	    node = nextnode
+	    node_index, node = nextnode_index, nextnode
 	    if dist > max_dist
 	    	return max_dist
 	    end
@@ -941,20 +921,23 @@ function _distance_to_lane_split(
 	)
 
 	# NOTE(tim): follow the nodes until we get to one that has two outgoing edges
-	# follows next_node()
+	# follows next_node_index()
 	# returns Inf if the lane ends
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_above_extind(sn, lane, extind)
+	node_index = closest_node_above_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
 	dist = node.d_along - curve_at(lane.curve, extind).s
 
-	while out_degree(node, sn.graph) < 2
+	while outdegree(sn.graph, node_index) < 2
 
-	    if out_degree(node, sn.graph) == 0
+	    if outdegree(sn.graph, node_index) == 0
 	        return max_dist
 	    end
 	    
-	    nextnode = next_node(sn, node)
+	    nextnode_index = next_node_index(sn, node_index)
+	    nextnode = sn.nodes[nextnode_index]
+
 	    if same_lane_and_tile(node, nextnode)
 	        dist += nextnode.d_along - node.d_along
 	    else
@@ -969,7 +952,7 @@ function _distance_to_lane_split(
 	    	@assert(lane.curve.s[end] - node.d_along ≥ 0.0)
 	    	dist += lane.curve.s[end] - node.d_along
 	    end
-	    node = nextnode
+	    node_index, node = nextnode_index, nextnode
 	    if dist > max_dist
 	    	return max_dist
 	    end
@@ -986,19 +969,22 @@ function _distance_to_lane_end(
 	)
 
 	# NOTE(tim): follow the nodes until we get to the end
-	# follows next_node()
+	# follows next_node_index()
 	# returns Inf if it gets back to a node is has previously seen (loop)
 
 	lane = segment.lanes[lane_index]
-	firstnode = node = closest_node_above_extind(sn, lane, extind)
+	firstnode_index = node_index = closest_node_above_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
 	dist = node.d_along - curve_at(lane.curve, extind).s
 
-	while out_degree(node, sn.graph) != 0
+	while outdegree(sn.graph, node_index) != 0
 	    
-	    nextnode = next_node(sn, node)
-	    if nextnode === firstnode
+	    nextnode_index = next_node_index(sn, node_index)
+	    if nextnode_index === firstnode_index
 	    	return max_dist
 	    end
+
+	    nextnode = sn.nodes[nextnode_index]
 
 	    if same_lane_and_tile(node, nextnode)
 	        dist += nextnode.d_along - node.d_along
@@ -1014,7 +1000,7 @@ function _distance_to_lane_end(
 	    	@assert(lane.curve.s[end] - node.d_along ≥ 0.0)
 	    	dist += lane.curve.s[end] - node.d_along
 	    end
-	    node = nextnode
+	    node_index, node = nextnode_index, nextnode
 
 	    if dist > max_dist
 	    	return max_dist
@@ -1025,6 +1011,7 @@ function _distance_to_lane_end(
 end
 
 function distance_to_lane_merge(
+	sn         :: StreetNetwork,
 	segment    :: StreetSegment,
 	lane_index :: Int,
 	extind     :: Float64;
@@ -1032,7 +1019,9 @@ function distance_to_lane_merge(
 	)
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_to_extind(lane, extind)
+	node_index = closest_node_to_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
+
 	if node.extind > extind
         min(node.d_along - curve_at(lane.curve, extind).s + node.d_merge, max_dist)
     else
@@ -1040,6 +1029,7 @@ function distance_to_lane_merge(
     end
 end
 function distance_to_lane_split(
+	sn         :: StreetNetwork,
 	segment    :: StreetSegment,
 	lane_index :: Int,
 	extind     :: Float64;
@@ -1047,7 +1037,9 @@ function distance_to_lane_split(
 	)
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_to_extind(lane, extind)
+	node_index = closest_node_to_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
+
     if node.extind > extind
         min(node.d_along - curve_at(lane.curve, extind).s + node.d_split, max_dist)
     else
@@ -1055,6 +1047,7 @@ function distance_to_lane_split(
     end
 end
 function distance_to_lane_end(
+	sn         :: StreetNetwork,
 	segment    :: StreetSegment,
 	lane_index :: Int,
 	extind     :: Float64;
@@ -1062,7 +1055,9 @@ function distance_to_lane_end(
 	)
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_to_extind(lane, extind)
+	node_index = closest_node_to_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
+
     if node.extind > extind
         min(node.d_along - curve_at(lane.curve, extind).s + node.d_end, max_dist)
     else
@@ -1070,19 +1065,21 @@ function distance_to_lane_end(
     end
 end
 function distance_to_node(
-	sn         :: StreetNetwork,
-	segment    :: StreetSegment,
-	lane_index :: Int,
-	extind     :: Float64,
-	target     :: StreetNode;
-	max_dist   :: Float64 = THRESHOLD_DISTANCE_TO_NODE # [m]
+	sn           :: StreetNetwork,
+	segment      :: StreetSegment,
+	lane_index   :: Int,
+	extind       :: Float64,
+	target_index :: Int; # Node
+	max_dist     :: Float64 = THRESHOLD_DISTANCE_TO_NODE # [m]
 	)
 
 	# TODO(tim): currently only follows primary search path
 	#            how should we handle offramps?
 
+	target = sn.nodes[target_index]
 	lane = segment.lanes[lane_index]
-	node = closest_node_to_extind(lane, extind)
+	node_index = closest_node_to_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
 	dist = node.d_along - curve_at(lane.curve, extind).s
 
 	if hypot(node.pos.x - target.pos.x, node.pos.y - target.pos.y) > max_dist
@@ -1090,13 +1087,15 @@ function distance_to_node(
 		return max_dist
 	end
 
-	if node === target
+	if node_index == target_index
 		return dist ≥ 0.0 ? dist : max_dist
 	end
 
-	while out_degree(node, sn.graph) > 0
+	while outdegree(sn.graph, node_index) > 0
 	    
-	    nextnode = next_node(sn, node)
+	    nextnode_index = next_node_index(sn, node_index)
+	    nextnode = sn.nodes[nextnode_index]
+
 	    if same_lane_and_tile(node, nextnode)
 	        dist += nextnode.d_along - node.d_along
 	    else
@@ -1107,17 +1106,18 @@ function distance_to_node(
 	    	@assert(lane.curve.s[end] - node.d_along ≥ 0.0)
 	    	dist += lane.curve.s[end] - node.d_along
 	    end
-	    node = nextnode
+
+	    if nextnode_index == target_index
+	    	return dist
+	    end
 	    if dist > max_dist
 	    	return max_dist
 	    end
 
-	    if nextnode === target
-	    	return dist
-	    end
+		node, node_index = nextnode, nextnode_index	    
 	end
 	
-	return max_dist
+	max_dist
 end
 function frenet_distance_between_points(
 	sn         :: StreetNetwork,
@@ -1180,13 +1180,15 @@ function frenet_distance_between_points(
 end
 
 function num_lanes_on_sides(
+	sn         :: StreetNetwork,
 	segment    :: StreetSegment,
 	lane_index :: Int,
 	extind     :: Float64
 	)
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_to_extind(lane, extind)
+	node_index = closest_node_to_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
 
 	@assert(node.n_lanes_left ≥ 0)
 	@assert(node.n_lanes_right ≥ 0)
@@ -1194,13 +1196,16 @@ function num_lanes_on_sides(
 	(node.n_lanes_left, node.n_lanes_right)
 end
 function marker_distances(
+	sn         :: StreetNetwork,
 	segment    :: StreetSegment,
 	lane_index :: Int,
 	extind     :: Float64
 	)
 
 	lane = segment.lanes[lane_index]
-	node = closest_node_to_extind(lane, extind)
+	node_index = closest_node_to_extind(sn, lane, extind)
+	node = sn.nodes[node_index]
+
 	(node.marker_dist_left, node.marker_dist_right)
 end
 
@@ -1231,7 +1236,12 @@ function get_neighbor_lanetag_right(sn::StreetNetwork, lane::StreetLane, closest
     LaneTag(proj.tile, proj.laneid)
 end
 
-function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=true)
+function rndf2streetnetwork(
+	rndf::RNDF; 
+	verbosity::Int=0,
+	convert_ll2utm::Bool=true,
+	CYCLE_CONNECTION_THRESHOLD::Float64=6.25 # [m]
+	)
 	# convert the given rndf to a street network
 
 	verbosity < 1 || println("RNDF 2 STREET NETWORK")
@@ -1242,7 +1252,7 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 
 	const EDGE_DIST_THRESHOLD = 50.0
 
-	node_map = Dict{WaypointID, StreetNode}()
+	node_map = Dict{WaypointID, Int}()
 	lane_ids = Dict{LaneID, Vector{Int}}()
 
 	# build the road network graph
@@ -1259,9 +1269,15 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 					eas, nor = lat, lon
 				end
 				pos = VecE3(eas,nor,0.0)
-				node = StreetNode(WaypointID(segment.id, lane.id.lane, waypoint_index), pos)
-				node_map[WaypointID(segment.id, lane.id.lane, waypoint_index)] = node
-				add_vertex!(G, node)
+
+				node = StreetNode(WaypointID(segment.id, lane.id.lane, waypoint_index), pos, 
+					              NaN, NaN, NaN, NaN, NaN, -999, -999, NaN, NaN)
+
+				push!(sn.nodes, node)
+				node_index = add_vertex!(G)
+				@assert(node_index == length(sn.nodes))
+
+				node_map[WaypointID(segment.id, lane.id.lane, waypoint_index)] = node_index
 			end
 
 			# starting with a root node, find the next closest node to either end of the chain
@@ -1271,18 +1287,22 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 			ids_yet_to_take = Set([2:length(ids)])
 			new_order = Int[1]
 			while !isempty(ids_yet_to_take)
-				closest_node_to_bot = -1
+				closest_node_to_bot = -1 # index in ids
 				best_dist_bot = Inf
-				closest_node_to_top = -1
+				closest_node_to_top = -1 # index in ids
 				best_dist_top = Inf
 
-				nodeT = node_map[WaypointID(segment.id, lane.id.lane, ids[root_top])]
-				nodeB = node_map[WaypointID(segment.id, lane.id.lane, ids[root_bot])]
+				node_index_T = node_map[WaypointID(segment.id, lane.id.lane, ids[root_top])]
+				node_index_B = node_map[WaypointID(segment.id, lane.id.lane, ids[root_bot])]
+				nodeT = sn.nodes[node_index_T]
+				nodeB = sn.nodes[node_index_B]
 				Tn, Te = nodeT.pos.x, nodeT.pos.y
 				Bn, Be = nodeB.pos.x, nodeB.pos.y
 
 				for id in ids_yet_to_take
-					node = node_map[WaypointID(segment.id, lane.id.lane, ids[id])]
+					node_index = node_map[WaypointID(segment.id, lane.id.lane, ids[id])]
+					node = sn.nodes[node_index]
+
 					index_n, index_e = node.pos.x, node.pos.y
 					dnT, deT = Tn-index_n, Te-index_e
 					dnB, deB = Bn-index_n, Be-index_e
@@ -1298,14 +1318,10 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 
 				@assert(min(best_dist_top, best_dist_bot) < EDGE_DIST_THRESHOLD)
 				if best_dist_bot < best_dist_top
-					# node = node_map[WaypointID(segment.id, lane.id.lane, ids[closest_node_to_bot])]
-					# add_edge!(G, node, nodeB)
 					root_bot = closest_node_to_bot
 					delete!(ids_yet_to_take, root_bot)
 					unshift!(new_order, closest_node_to_bot)
 				else
-					# node = node_map[WaypointID(segment.id, lane.id.lane, ids[closest_node_to_top])]
-					# add_edge!(G, nodeT, node)
 					root_top = closest_node_to_top
 					delete!(ids_yet_to_take, root_top)
 					push!(new_order, closest_node_to_top)
@@ -1314,26 +1330,28 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 
 			# infer direction from whether ids are generally increasing or decreasing
 			ids_generally_increasing = sum([(ids[new_order[i]] - ids[new_order[i-1]] > 0.0) for i in 2:length(ids)]) > 0.0
-			node = node_map[WaypointID(segment.id, lane.id.lane, ids[new_order[1]])]
+			node_index = node_map[WaypointID(segment.id, lane.id.lane, ids[new_order[1]])]
 
 			local i = 2
 			while i ≤ length(new_order)
-				nextnode = node_map[WaypointID(segment.id, lane.id.lane, ids[new_order[i]])]
-				ids_generally_increasing ? add_edge!(G, node, nextnode) : add_edge!(G, nextnode, node)
-				node = nextnode
+				nextnode_index = node_map[WaypointID(segment.id, lane.id.lane, ids[new_order[i]])]
+
+				ids_generally_increasing ? add_edge!(G, node_index, nextnode_index) : add_edge!(G, nextnode_index, node_index)
+				node_index = nextnode_index
 				i += 1
 			end
 
 			# if this is a cycle - connect it
 			# TODO(tim): use direction to infer whether this is correct
-			const CYCLE_CONNECTION_THRESHOLD = 6.25 # [m]
-			nodeT = node_map[WaypointID(segment.id, lane.id.lane, ids[root_top])]
-			nodeB = node_map[WaypointID(segment.id, lane.id.lane, ids[root_bot])]
+			node_index_T = node_map[WaypointID(segment.id, lane.id.lane, ids[root_top])]
+			nodeT = sn.nodes[node_index_T]
+			node_index_B = node_map[WaypointID(segment.id, lane.id.lane, ids[root_bot])]
+			nodeB = sn.nodes[node_index_B]
 			if dist(nodeT, nodeB) < CYCLE_CONNECTION_THRESHOLD
 				if ids_generally_increasing
-					add_edge!(G, nodeT, nodeB)
+					add_edge!(G, node_index_T, node_index_B)
 				else
-					add_edge!(G, nodeB, nodeT)
+					add_edge!(G, node_index_B, node_index_T)
 				end
 			end
 
@@ -1362,28 +1380,36 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 			# keep the curve in the tile
 			ids = lane_ids[lane.id]
 
-			first_node_index = 1
-			first_node = node_map[WaypointID(segment.id, lane.id.lane, ids[first_node_index])]
+			first_node_laneindex = 1 # NOTE(tim): index in lane
+			first_node = sn.nodes[node_map[WaypointID(segment.id, lane.id.lane, ids[first_node_laneindex])]]
 			index_e, index_n = utm2tileindex(first_node.pos.x, first_node.pos.y)
 			tile = get_tile!(sn, index_e, index_n)
 			n_pts_in_lane = length(lane.waypoints)
 			@assert(n_pts_in_lane == length(ids))
 			
-			while first_node_index ≤ n_pts_in_lane
+			while first_node_laneindex ≤ n_pts_in_lane
 				# find the last node in this lane that is still in the tile
-				final_node_index = findfirst(index->begin
-													node = node_map[WaypointID(segment.id, lane.id.lane, ids[index])]
+				final_node_laneindex = findfirst(index->begin
+													node_index = node_map[WaypointID(segment.id, lane.id.lane, ids[index])]
+													node = sn.nodes[node_index]
 													node_e, node_n = utm2tileindex(node.pos.x, node.pos.y)
 													return (index_e != node_e) || (index_n != node_n)
 												end, 
-											[(first_node_index+1) : n_pts_in_lane])
-				if final_node_index == 0
-					final_node_index = n_pts_in_lane
+											[(first_node_laneindex+1) : n_pts_in_lane])
+
+				if final_node_laneindex == 0
+					final_node_laneindex = n_pts_in_lane
 				else
-					final_node_index += first_node_index-1
+					final_node_laneindex += first_node_laneindex-1
 				end
 
-				nodes = map(index->node_map[WaypointID(segment.id, lane.id.lane, ids[index])], [first_node_index:final_node_index])
+				node_indeces = Array(Int, length(first_node_laneindex : final_node_laneindex))
+				nodes = Array(StreetNode, length(node_indeces))
+				for (k,laneindex) in enumerate(first_node_laneindex : final_node_laneindex)
+					node_index = node_map[WaypointID(segment.id, lane.id.lane, ids[laneindex])]
+					node_indeces[k] = node_index
+					nodes[k] = sn.nodes[node_index]
+				end
 
 				streetsegment = get_segment!(tile, segment.id)
 
@@ -1391,20 +1417,20 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 					# need to stitch lanes together
 					streetlane = streetsegment.lanes[lane.id.lane]
 
-					if dist(nodes[end], streetlane.nodes[1]) < dist(streetlane.nodes[end], nodes[1])
-						streetlane.nodes = [nodes, streetlane.nodes]
+					if dist(nodes[end], sn.nodes[streetlane.node_indeces[1]]) < dist(sn.nodes[streetlane.node_indeces[end]], nodes[1])
+						streetlane.node_indeces = [node_indeces, streetlane.node_indeces]
 					else
-						streetlane.nodes = [streetlane.nodes, nodes]
+						streetlane.node_indeces = [streetlane.node_indeces, node_indeces]
 					end
 				else
 					width = isnan(lane.width) ? DEFAULT_LANE_WIDTH : lane.width*METERS_PER_FOOT
-					streetlane = StreetLane(lane.id.lane, width, lane.boundary_left, lane.boundary_right, nodes, Curve(), false, false)
+					streetlane = StreetLane(lane.id.lane, width, lane.boundary_left, lane.boundary_right, node_indeces, Curve(), false, false)
 					add_lane!(streetsegment, streetlane)
 				end
 
-				first_node_index = final_node_index+1
-				if first_node_index ≤ n_pts_in_lane
-					node = node_map[WaypointID(segment.id, lane.id.lane, ids[first_node_index])]
+				first_node_laneindex = final_node_laneindex+1
+				if first_node_laneindex ≤ n_pts_in_lane
+					node = sn.nodes[node_map[WaypointID(segment.id, lane.id.lane, ids[first_node_laneindex])]]
 					index_e, index_n = utm2tileindex(node.pos.x, node.pos.y)
 					tile = get_tile!(sn, index_e, index_n)
 				end
@@ -1419,125 +1445,144 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 	const THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE  = deg2rad(20) # [rad]
 	const THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 = deg2rad(5) # [rad]
 
-	for node in vertices(sn.graph)
-		if out_degree(node, sn.graph) == 0 && in_degree(node, sn.graph) > 0
-			# NOTE(tim): this is an ending node
-			prevnode = _prev_node(sn.graph, node)
-			θ = atan2(node.pos.y - prevnode.pos.y, node.pos.x - prevnode.pos.x)
-			E = [node.pos.x, node.pos.y]
-			vE = [cos(θ), sin(θ)]
+	for node_index in vertices(G)
+		
+		node = sn.nodes[node_index]
 
-			best_node = node
+		if outdegree(G, node_index) == 0 && indegree(G, node_index) > 0
+			# NOTE(tim): this is an ending node
+			
+			prevnode_index = prev_node_index(sn, node_index)
+			prevnode = sn.nodes[prevnode_index]
+
+			θ = atan2(node.pos.y - prevnode.pos.y, node.pos.x - prevnode.pos.x)
+			E = VecE2(node.pos.x, node.pos.y)
+			vE = Vec.polar(1.0, θ)
+
+			best_node_index = node_index
 			best_score = Inf
 
 			tile = get_tile(sn, node)
 			for seg in values(tile.segments)
 				for lane in values(seg.lanes)
-					if (seg.id == node.id.segment && lane.id == node.id.lane) || length(lane.nodes) < 2
+					if (seg.id == node.id.segment && lane.id == node.id.lane) || length(lane.node_indeces) < 2
 						continue
 					end
 
-					for (i,testnode) in enumerate(lane.nodes)
+					for (i,testnode_index) in enumerate(lane.node_indeces)
 
-						θ2 = i > 1 ? atan2(testnode.pos.y - lane.nodes[i-1].pos.y, testnode.pos.x - lane.nodes[i-1].pos.x) :
-									 atan2(lane.nodes[i+1].pos.y - testnode.pos.y, lane.nodes[i+1].pos.x - testnode.pos.x)
-						vT = [cos(θ2), sin(θ2)]
-						T = [testnode.pos.x, testnode.pos.y]
+						testnode = sn.nodes[testnode_index]
+
+						θ₂ = i > 1 ? atan2(testnode.pos.y - sn.nodes[lane.node_indeces[i-1]].pos.y, 
+							               testnode.pos.x - sn.nodes[lane.node_indeces[i-1]].pos.x) :
+									 atan2(sn.nodes[lane.node_indeces[i+1]].pos.y - testnode.pos.y,
+									 	   sn.nodes[lane.node_indeces[i+1]].pos.x - testnode.pos.x)
+
+						vT = Vec.polar(1.0, θ₂)
+						T = VecE2(testnode.pos.x, testnode.pos.y)
 						A = T - E
 
 						c_p = dot(A,vE)
 						if c_p > 0.0
-							proj = copy(vE).*c_p
-							perp_dist = norm(A - proj,2)
-							line_dist = norm(proj)
+							proj = vE * c_p
+							perp_dist = hypot(A - proj)
+							line_dist = hypot(proj)
+
 							# NOTE(tim): angle between start and end orientation							
-							Δθ = abs(_signed_dist_btw_angles(θ,θ2))
+							Δθ = abs(_signed_dist_btw_angles(θ, θ₂))
 
 							# NOTE(tim): angle between dangling edge and projection
-							θ3 = atan2(testnode.pos.y - node.pos.y, testnode.pos.x - node.pos.x)
-							Δ3 = abs(_signed_dist_btw_angles(θ,θ3))
+							θ₃ = atan2(testnode.pos.y - node.pos.y, testnode.pos.x - node.pos.x)
+							Δ₃ = abs(_signed_dist_btw_angles(θ,θ₃))
 
-							score = Δθ + 10.0*Δ3
+							score = Δθ + 10.0*Δ₃
 							
 							if line_dist < THRESHOLD_HANGING_EDGE_LINE_DIST_TO_CONNECT &&
 								Δθ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE && 
-								Δ3 < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 &&
+								Δ₃ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 &&
 								score < best_score
 
 								best_score = score
-								best_node = testnode
+								best_node_index = testnode_index
 							end
 						end
 					end
 				end
 			end
 
-			if !(node === best_node)
+			if node_index != best_node_index
 				verbosity > 1 || println("ADDED END NODE HANGING EDGE ", node.pos.x, "  ", node.pos.y)
-				add_edge!(G, node, best_node)
+				add_edge!(G, node_index, best_node_index)
 			end
 		end
-		if in_degree(node, sn.graph) == 0 && out_degree(node, sn.graph) > 0
+		if indegree(G, node_index) == 0 && outdegree(G, node_index) > 0
 			# NOTE(tim): this is a starting node
-			nextnode = _next_node(sn.graph, node)
+			nextnode = sn.nodes[next_node_index(sn, node_index)]
 			θ = atan2(nextnode.pos.y - node.pos.y, nextnode.pos.x - node.pos.x)
-			E = [node.pos.x, node.pos.y]
-			vE = -[cos(θ), sin(θ)]
+			E = VecE2(node.pos.x, node.pos.y)
+			vE = Vec.polar(-1.0, θ)
 
-			best_node = node
+			best_node_index = node_index
 			best_perp_dist = Inf
 
 			tile = get_tile(sn, node)
 			for seg in values(tile.segments)
 				for lane in values(seg.lanes)
-					if (seg.id == node.id.segment && lane.id == node.id.lane) || length(lane.nodes) < 2
+					if (seg.id == node.id.segment && lane.id == node.id.lane) || length(lane.node_indeces) < 2
 						continue
 					end
 
-					for (i,testnode) in enumerate(lane.nodes)
+					for (i,testnode_index) in enumerate(lane.node_indeces)
 
-						θ2 = i > 1 ? atan2(testnode.pos.y - lane.nodes[i-1].pos.y, testnode.pos.x - lane.nodes[i-1].pos.x) :
-									 atan2(lane.nodes[i+1].pos.y - testnode.pos.y, lane.nodes[i+1].pos.x - testnode.pos.x)
-						vT = [cos(θ2), sin(θ2)]
-						T = [testnode.pos.x, testnode.pos.y]
+						testnode = sn.nodes[testnode_index]
+
+						θ₂ = i > 1 ? atan2(testnode.pos.y - sn.nodes[lane.node_indeces[i-1]].pos.y,
+										   testnode.pos.x - sn.nodes[lane.node_indeces[i-1]].pos.x) :
+									 atan2(sn.nodes[lane.node_indeces[i+1]].pos.y - testnode.pos.y,
+									 	   sn.nodes[lane.node_indeces[i+1]].pos.x - testnode.pos.x)
+
+
+
+						vT = Vec.polar(1.0, θ₂)
+						T = VecE2(testnode.pos.x, testnode.pos.y)
 						A = T - E
 
 						c_p = dot(A,vE)
 						if c_p > 0.0
-							proj = copy(vE).*c_p
-							perp_dist = norm(A - proj,2)
-							line_dist = norm(proj)
-							Δθ = abs(_signed_dist_btw_angles(θ,θ2))
+							proj = vE * c_p
+							perp_dist = hypot(A - proj)
+							line_dist = hypot(proj)
+							Δθ = abs(_signed_dist_btw_angles(θ,θ₂))
 
-							θ3 = atan2(node.pos.y - testnode.pos.y, node.pos.x - testnode.pos.x)
-							Δ3 = abs(_signed_dist_btw_angles(θ,θ3))
+							θ₃ = atan2(node.pos.y - testnode.pos.y, node.pos.x - testnode.pos.x)
+							Δ₃ = abs(_signed_dist_btw_angles(θ,θ₃))
 
-							score = Δθ + 10.0*Δ3
+							score = Δθ + 10.0*Δ₃
 							
 							if line_dist < THRESHOLD_HANGING_EDGE_LINE_DIST_TO_CONNECT &&
 								Δθ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE && 
-								Δ3 < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 &&
+								Δ₃ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 &&
 								score < best_score
 
 								best_score = score
-								best_node = testnode
+								best_node_index = testnode_index
 							end
 						end
 					end
 				end
 			end
 
-			if !(node === best_node)
+			if node_index != best_node_index
 				verbosity > 1 || println("ADDED START NODE HANGING EDGE ", node.pos.x, "  ", node.pos.y)
-				add_edge!(G, best_node, node)
+				add_edge!(G, best_node_index, node_index)
 			end
 		end
 	end
 
 	# check that each node from the graph is in a matching lane in its tile
-	for node in vertices(sn.graph)
+	for node_index in vertices(G)
+		node = sn.nodes[node_index]
 		tile = get_tile(sn, node)
-		# @assert(has_lane(tile, node.id))
 		if !has_lane(tile, node.id)
 			println("MISSING ", node.id)
 		end
@@ -1547,7 +1592,7 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 	for tile in values(sn.tile_dict)
 		for seg in values(tile.segments)
 			for lane in values(seg.lanes)
-				@assert(!isempty(lane.nodes))
+				@assert(!isempty(lane.node_indeces))
 			end
 		end
 	end
@@ -1558,13 +1603,13 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 	for tile in values(sn.tile_dict)
 		for seg in values(tile.segments)
 			for lane in values(seg.lanes)
-				nodes = lane.nodes
-				node_prev = prev_node(sn, nodes[1])
-				node_next = next_node(sn, nodes[end])
-				has_prev = node_prev != nodes[1]
-				has_next = node_next != nodes[end]
+				node_indeces = lane.node_indeces
+				node_index_prev = prev_node_index(sn, node_indeces[1])
+				node_index_next = next_node_index(sn, node_indeces[end])
+				has_prev = node_index_prev != node_indeces[1]
+				has_next = node_index_next != node_indeces[end]
 
-				n_nodes =  length(nodes) + has_prev + has_next
+				n_nodes = length(node_indeces) + has_prev + has_next
 				if n_nodes < 2
 					continue
 				end
@@ -1573,16 +1618,19 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 				total = 0
 				if has_prev
 					total += 1
+					node_prev = sn.nodes[node_index_prev]
 					pts[1,total] = node_prev.pos.x
 					pts[2,total] = node_prev.pos.y
 				end
-				for node in nodes
+				for node_index in node_indeces
 					total += 1
+					node = sn.nodes[node_index]
 					pts[1,total] = node.pos.x
 					pts[2,total] = node.pos.y
 				end
 				if has_next
 					total += 1
+					node_next = sn.nodes[node_index_next]
 					pts[1,total] = node_next.pos.x
 					pts[2,total] = node_next.pos.y
 				end
@@ -1612,11 +1660,25 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 			for lane in values(seg.lanes)
 
 				guess = 1.0
-				for node in lane.nodes
+				for node_index in lane.node_indeces
+					node = sn.nodes[node_index]
 					extind = closest_point_extind_to_curve_guess(lane.curve, node.pos.x, node.pos.y, guess)
-					node.extind = extind
-					node.d_along = curve_at(lane.curve, extind).s
-					@assert(!isnan(node.d_along))
+					d_along = curve_at(lane.curve, extind).s
+
+					@assert(!isnan(d_along))
+
+					sn.nodes[node_index] = StreetNode(node.id,
+					                                  node.pos,
+					                                  extind,
+					                                  d_along,
+					                                  node.d_merge,
+					                                  node.d_split,
+					                                  node.d_end,
+					                                  node.n_lanes_left,
+					                                  node.n_lanes_right,
+					                                  node.marker_dist_left,
+					                                  node.marker_dist_right
+					                                  )
 				end
 			end
 		end
@@ -1627,16 +1689,32 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 	for tile in values(sn.tile_dict)
 		for seg in values(tile.segments)
 			for lane in values(seg.lanes)
-				for node in lane.nodes
-					node.d_end   = _distance_to_lane_end(sn, seg, lane.id, node.extind)
-					node.d_split = _distance_to_lane_split(sn, seg, lane.id, node.extind)
-					node.d_merge = _distance_to_lane_merge(sn, seg, lane.id, node.extind)
-					_calc_num_lanes_on_side!(sn, tile, node)
+				for node_index in lane.node_indeces
 
-					@assert(node.n_lanes_left ≥ 0)
-					@assert(node.n_lanes_left ≥ 0)
-					@assert(node.marker_dist_left > 0.0)
-					@assert(node.marker_dist_right > 0.0)
+					node = sn.nodes[node_index]
+
+					d_end   = _distance_to_lane_end(sn, seg, lane.id, node.extind)
+					d_split = _distance_to_lane_split(sn, seg, lane.id, node.extind)
+					d_merge = _distance_to_lane_merge(sn, seg, lane.id, node.extind)
+					n_lanes_left, marker_dist_left, n_lanes_right, marker_dist_right = _calc_num_lanes_on_side(sn, tile, node_index)
+
+					@assert(n_lanes_left ≥ 0)
+					@assert(n_lanes_left ≥ 0)
+					@assert(marker_dist_left > 0.0)
+					@assert(marker_dist_right > 0.0)
+
+					sn.nodes[node_index] = StreetNode(node.id,
+					                                  node.pos,
+					                                  node.extind,
+					                                  node.d_along,
+					                                  d_merge,
+					                                  d_split,
+					                                  d_end,
+					                                  n_lanes_left,
+					                                  n_lanes_right,
+					                                  marker_dist_left,
+					                                  marker_dist_right
+					                                  )
 				end
 			end
 		end
@@ -1646,7 +1724,9 @@ function rndf2streetnetwork(rndf::RNDF; verbosity::Int=0, convert_ll2utm::Bool=t
 	sn
 end
 
-function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, node::StreetNode)
+
+
+function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, node_index::Int)
 
 	const THRESHOLD_PROJECTION_DELTA_ALONG_LANE = 0.5 # [m]
 	const THRESHOLD_PROJECTION_DELTA_PERP_LANE = 20.0 # [m]
@@ -1656,27 +1736,28 @@ function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, n
 	const LANE_SEP_MAX = 5.0 # max distance lanes should be apart [m]
 	const N_DIST_DISCRETIZATIONS = 6
 
-	const DIST_DISCRETIZATION = linspace(LANE_SEP_MIN/2,LANE_SEP_MAX/2,N_DIST_DISCRETIZATIONS)
+	const DIST_DISCRETIZATION = linspace(LANE_SEP_MIN/2, LANE_SEP_MAX/2, N_DIST_DISCRETIZATIONS)
 
+	node = sn.nodes[node_index]
 	seg_id = int(node.id.segment)
 	lane_id = int(node.id.lane)
 	current_lanetag = LaneTag(center_tile, seg_id, lane_id)
 
 	x, y = node.pos.x, node.pos.y
-	θ   = curve_at(get_lane(center_tile, node.id).curve, node.extind).θ
-	# unit_v = [cos(θ), sin(θ)]
-	p_orig = [x,y]
+	θ    = curve_at(get_lane(center_tile, node.id).curve, node.extind).θ
+	p_orig = VecE2(x,y)
 
 	# project out left a series of discretizations
 	# project out right a series of discretizations
 
 	# LEFT
-	unit_left = [cos(θ+π/2), sin(θ+π/2)]
+	unit_left = Vec.polar(1.0, θ+π/2)
 	dist_add = 0.0
 	finished = false
 	active_lanetag = current_lanetag
-	node.n_lanes_left = 0
-	node.marker_dist_left = DEFAULT_LANE_WIDTH/2
+	
+	n_lanes_left = 0
+	marker_dist_left = DEFAULT_LANE_WIDTH/2
 
 	lanes_seen = Set{LaneTag}()
 	push!(lanes_seen, active_lanetag)
@@ -1687,15 +1768,15 @@ function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, n
 		finished = true
 		for dist in DIST_DISCRETIZATION
 			pt = p_orig + (dist+dist_add)*unit_left
-			proj = project_point_to_streetmap(pt[1], pt[2], sn)
+			proj = project_point_to_streetmap(pt.x, pt.y, sn)
 			if proj.successful
 				lanetag = LaneTag(proj.tile, proj.laneid)
 				if !in(lanetag, lanes_seen) # found a new one!
 					perp_dist = hypot(x - proj.curvept.x, y - proj.curvept.y)
 					if LANE_SEP_MIN < perp_dist-dist_add < LANE_SEP_MAX
-						node.n_lanes_left += 1
-						if node.n_lanes_left == 1
-							node.marker_dist_left = perp_dist/2
+						n_lanes_left += 1
+						if n_lanes_left == 1
+							marker_dist_left = perp_dist/2
 						end
 						finished = false
 
@@ -1713,12 +1794,13 @@ function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, n
 	end
 
 	# RIGHT
-	unit_right = [cos(θ-π/2), sin(θ-π/2)]
+	unit_right = Vec.polar(1.0, θ-π/2)
 	dist_add = 0.0
 	finished = false
 	active_lanetag = current_lanetag
-	node.n_lanes_right = 0
-	node.marker_dist_right = DEFAULT_LANE_WIDTH/2
+
+	n_lanes_right = 0
+	marker_dist_right = DEFAULT_LANE_WIDTH/2
 
 	lanes_seen = Set{LaneTag}()
 	push!(lanes_seen, active_lanetag)
@@ -1729,15 +1811,16 @@ function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, n
 		finished = true
 		for dist in DIST_DISCRETIZATION
 			pt = p_orig + (dist+dist_add)*unit_right
-			proj = project_point_to_streetmap(pt[1], pt[2], sn)
+			proj = project_point_to_streetmap(pt.x, pt.y, sn)
 			if proj.successful
 				lanetag = LaneTag(proj.tile, proj.laneid)
 				if !in(lanetag, lanes_seen) # found a new one!
 					perp_dist = hypot(x-proj.curvept.x, y-proj.curvept.y)
 					if LANE_SEP_MIN < perp_dist-dist_add < LANE_SEP_MAX
-						node.n_lanes_right += 1
-						if node.n_lanes_right == 1
-							node.marker_dist_right = perp_dist/2
+
+						n_lanes_right += 1
+						if n_lanes_right == 1
+							marker_dist_right = perp_dist/2
 						end
 						finished = false
 
@@ -1754,20 +1837,7 @@ function _calc_num_lanes_on_side!(sn::StreetNetwork, center_tile::NetworkTile, n
 		end
 	end
 
-	node
-end
-function _calc_num_lanes_on_side!(sn::StreetNetwork)
-	for tile in values(sn.tile_dict)
-		for seg in values(tile.segments)
-			for lane in values(seg.lanes)
-				for node in lane.nodes
-					_calc_num_lanes_on_side!(sn, tile, node)
-				end
-			end
-		end
-	end
-
-	sn
+	(n_lanes_left, marker_dist_left, n_lanes_right, marker_dist_right)
 end
 
 function curves2streetnetwork(curves::CurveSet; verbosity::Int=0)
@@ -1805,61 +1875,60 @@ end
 
 dist(A::StreetNode, B::StreetNode) = hypot(A.pos.x - B.pos.x, A.pos.y - B.pos.y)
 
+function create_straight_nlane_curves(
+	n::Int;
+    lane_spacing::Real=3.0, # distance between lanes [m]
+    section_length::Real=3000.0, # [m]
+    origin::(Real,Real,Real)=(0.0,-lane_spacing*(n-0.5),0.0), # (x,y,θ) origin of lane 1
+    point_spacing::Real=2.0 # distance between points [m]
+    )
+
+    x,y,θ = origin
+
+    npts = int(section_length / point_spacing) + 1
+    point_spacing = section_length / (npts-1)
+
+    cθ = cos(θ)
+    sθ = sin(θ)
+    cϕ = cos(θ+π/2)
+    sϕ = sin(θ+π/2)
+
+    curves = Array(Curve, n)
+    for i = 1 : n
+        
+        w = (i-1)*lane_spacing
+        x₀ = x + w*cϕ
+        y₀ = y + w*sϕ
+
+        s_arr = Array(Float64, npts)
+        x_arr = Array(Float64, npts)
+        y_arr = Array(Float64, npts)
+        t_arr = fill(θ, npts)
+        k_arr = zeros(Float64, npts)
+        kd_arr = zeros(Float64, npts)
+
+        s_arr[1] = 0.0
+        x_arr[1] = x₀
+        y_arr[1] = y₀
+
+        for j = 2 : npts
+            l = section_length * (j-1)/(npts-1)
+            s_arr[j] = l
+            x_arr[j] = x₀ + l*cθ
+            y_arr[j] = y₀ + l*sθ
+        end
+
+        curves[i] = Curve(i, s_arr, x_arr, y_arr, t_arr, k_arr, kd_arr)
+    end
+    curves
+end
 function generate_straight_nlane_streetmap(
 	nlanes::Integer;
 	lane_spacing::Real=3.0, # distance between lanes [m]
-    section_length::Real=3000.0, # [m]
+    section_length::Real=5000.0, # [m]
     origin::(Real,Real,Real)=(0.0,-lane_spacing*(nlanes-0.5),0.0), # (x,y,θ) origin of lane 1
     point_spacing::Real=2.0 # distance between points [m]
 	)
-
-	# TODO(tim): make pretty
-	function create_straight_nlane_curves(n::Int;
-	    lane_spacing::Real=3.0, # distance between lanes [m]
-	    section_length::Real=3000.0, # [m]
-	    origin::(Real,Real,Real)=(0.0,-lane_spacing*(n-0.5),0.0), # (x,y,θ) origin of lane 1
-	    point_spacing::Real=2.0 # distance between points [m]
-	    )
-
-	    x,y,θ = origin
-
-	    npts = int(section_length / point_spacing) + 1
-	    point_spacing = section_length / (npts-1)
-
-	    cθ = cos(θ)
-	    sθ = sin(θ)
-	    cϕ = cos(θ+π/2)
-	    sϕ = sin(θ+π/2)
-
-	    curves = Array(Curve, n)
-	    for i = 1 : n
-	        
-	        w = (i-1)*lane_spacing
-	        x₀ = x + w*cϕ
-	        y₀ = y + w*sϕ
-
-	        s_arr = Array(Float64, npts)
-	        x_arr = Array(Float64, npts)
-	        y_arr = Array(Float64, npts)
-	        t_arr = fill(θ, npts)
-	        k_arr = zeros(Float64, npts)
-	        kd_arr = zeros(Float64, npts)
-
-	        s_arr[1] = 0.0
-	        x_arr[1] = x₀
-	        y_arr[1] = y₀
-
-	        for j = 2 : npts
-	            l = section_length * (j-1)/(npts-1)
-	            s_arr[j] = l
-	            x_arr[j] = x₀ + l*cθ
-	            y_arr[j] = y₀ + l*sθ
-	        end
-
-	        curves[i] = Curve(i, s_arr, x_arr, y_arr, t_arr, k_arr, kd_arr)
-	    end
-	    curves
-	end
 
 	curves = create_straight_nlane_curves(nlanes, lane_spacing=lane_spacing,
 										  section_length=section_length, origin=origin,
