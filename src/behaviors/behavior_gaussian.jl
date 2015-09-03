@@ -14,10 +14,10 @@ type VehicleBehaviorGaussian <: AbstractVehicleBehavior
 end
 
 function select_action(
-    ::FeatureExtractBasicsPdSet,
+    basics::FeatureExtractBasicsPdSet,
     behavior::VehicleBehaviorGaussian,
-    ::Int,
-    ::Int
+    carind::Int,
+    validfind::Int
     )
 
     action = rand(behavior.Σ)

@@ -356,9 +356,6 @@ function render_dashed_arc(
     dash_offset_in  :: Real = 0.0
     )
 
-    rgb2rgba!(color_fill)
-    rgb2rgba!(color_stroke)
-
     line_width   = user_to_device_distance!(ctx, [line_width_in,  0])[1]
     dash_length  = user_to_device_distance!(ctx, [dash_length_in, 0])[1]
     dash_spacing = user_to_device_distance!(ctx, [dash_spacing_in,0])[1]
@@ -485,9 +482,6 @@ function render_colormesh{T<:Real, S<:Real, U<:Real}(
     n,m = size(C)
     @assert(length(X) == n+1)
     @assert(length(Y) == m+1)
-
-    rgb2rgba!(color₀)
-    rgb2rgba!(color₁)
 
     save(ctx)
 
@@ -749,10 +743,10 @@ function set_source_rgba(ctx::CairoContext, color₀::Colorant, color₁::Colora
     b₁ = convert(Float64, blue(color₁))
     a₁ = convert(Float64, alpha(color₁))
 
-    r = r₀ + (r₀ - r₁)*t
-    g = g₀ + (g₀ - g₁)*t
-    b = b₀ + (b₀ - b₁)*t
-    a = a₀ + (a₀ - a₁)*t
+    r = r₀ + (r₁ - r₀)*t
+    g = g₀ + (g₁ - g₀)*t
+    b = b₀ + (b₁ - b₀)*t
+    a = a₀ + (a₁ - a₀)*t
     set_source_rgba(ctx, r, g, b, a)
 end
 

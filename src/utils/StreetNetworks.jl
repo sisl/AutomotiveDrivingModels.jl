@@ -32,8 +32,8 @@ export project_point_to_tile, project_point_to_streetmap
 export distance_to_lane_split, distance_to_lane_merge, distance_to_lane_end, distance_to_node
 export frenet_distance_between_points
 export num_lanes_on_sides, marker_distances, get_neighbor_lanetag_left, get_neighbor_lanetag_right
-export rndf2streetnetwork, curves2streetnetwork
-export curves2rndf
+export rndf2streetnetwork, curves2streetnetwork, curves2rndf
+export generate_straight_nlane_streetmap
 
 export LaneID, WaypointID, LaneTag
 
@@ -1218,10 +1218,10 @@ function get_neighbor_lanetag_left(sn::StreetNetwork, lane::StreetLane, closest_
     LaneTag(proj.tile, proj.laneid)
 end
 function get_neighbor_lanetag_right(sn::StreetNetwork, lane::StreetLane, closest_node::StreetNode)
-    @assert(closest_node.n_lanes_left > 0)
-    @assert(!isnan(closest_node.marker_dist_left))
+    @assert(closest_node.n_lanes_right > 0)
+    @assert(!isnan(closest_node.marker_dist_right))
     
-    dcl = closest_node.marker_dist_left + 0.1
+    dcl = closest_node.marker_dist_right + 0.1
     footpoint = curve_at(lane.curve, closest_node.extind)
     footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
     inertial = footvec + Vec.polar(dcl, -π/2 + footvec.θ, footvec.θ)
@@ -1804,5 +1804,69 @@ function curves2rndf(curves::CurveSet; node_separation::Real=5.0)
 end
 
 dist(A::StreetNode, B::StreetNode) = hypot(A.pos.x - B.pos.x, A.pos.y - B.pos.y)
+
+function generate_straight_nlane_streetmap(
+	nlanes::Integer;
+	lane_spacing::Real=3.0, # distance between lanes [m]
+    section_length::Real=3000.0, # [m]
+    origin::(Real,Real,Real)=(0.0,-lane_spacing*(nlanes-0.5),0.0), # (x,y,θ) origin of lane 1
+    point_spacing::Real=2.0 # distance between points [m]
+	)
+
+	# TODO(tim): make pretty
+	function create_straight_nlane_curves(n::Int;
+	    lane_spacing::Real=3.0, # distance between lanes [m]
+	    section_length::Real=3000.0, # [m]
+	    origin::(Real,Real,Real)=(0.0,-lane_spacing*(n-0.5),0.0), # (x,y,θ) origin of lane 1
+	    point_spacing::Real=2.0 # distance between points [m]
+	    )
+
+	    x,y,θ = origin
+
+	    npts = int(section_length / point_spacing) + 1
+	    point_spacing = section_length / (npts-1)
+
+	    cθ = cos(θ)
+	    sθ = sin(θ)
+	    cϕ = cos(θ+π/2)
+	    sϕ = sin(θ+π/2)
+
+	    curves = Array(Curve, n)
+	    for i = 1 : n
+	        
+	        w = (i-1)*lane_spacing
+	        x₀ = x + w*cϕ
+	        y₀ = y + w*sϕ
+
+	        s_arr = Array(Float64, npts)
+	        x_arr = Array(Float64, npts)
+	        y_arr = Array(Float64, npts)
+	        t_arr = fill(θ, npts)
+	        k_arr = zeros(Float64, npts)
+	        kd_arr = zeros(Float64, npts)
+
+	        s_arr[1] = 0.0
+	        x_arr[1] = x₀
+	        y_arr[1] = y₀
+
+	        for j = 2 : npts
+	            l = section_length * (j-1)/(npts-1)
+	            s_arr[j] = l
+	            x_arr[j] = x₀ + l*cθ
+	            y_arr[j] = y₀ + l*sθ
+	        end
+
+	        curves[i] = Curve(i, s_arr, x_arr, y_arr, t_arr, k_arr, kd_arr)
+	    end
+	    curves
+	end
+
+	curves = create_straight_nlane_curves(nlanes, lane_spacing=lane_spacing,
+										  section_length=section_length, origin=origin,
+										  point_spacing=point_spacing)
+	rndf = curves2rndf(curves)
+	rndf2streetnetwork(rndf, convert_ll2utm=false)
+end
+
 
 end # end module

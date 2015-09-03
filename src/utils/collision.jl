@@ -1,11 +1,14 @@
 export
-    Box,
-    AABB,
-    OBB,
+    # Box,
+    # AABB,
+    # OBB,
 
+    FourCorners,
+
+    has_intersection,
     intersects
 
-
+#=
 abstract Box
 immutable AABB <: Box
     # axis-aligned bounding box
@@ -49,46 +52,202 @@ function intersects(
         true
     end
 end
+=#
 
 const HALF_PI = 0.5π
-const τ = 2π
 
-type Point
-    x::Float64
-    y::Float64
+type FourCorners
+    front_left  :: VecE2
+    front_right :: VecE2
+    back_left   :: VecE2
+    back_right  :: VecE2
+
+    FourCorners() = new()
+    FourCorners(front_left::VecE2, front_right::VecE2, back_left::VecE2, back_right::VecE2) = 
+        new(front_left, front_right, back_left, back_right)
 end
-type Projection
-    min::Float64 # minimum coordinate along axis
-    max::Float64 # maximum coordinate along axis
+
+function get_corners!(corners::FourCorners, car::Vehicle)
+
+    #=
+    Corners in order: front left, front right, back left, back right
+    car.pos.θ is in radians from x axis (direction of road)
+    =#
+
+    half_s = sin(car.pos.θ)/2
+    half_c = cos(car.pos.θ)/2
+
+    L_half_s = car.length*half_s
+    L_half_c = car.length*half_c
+    W_half_s = car.width*half_s
+    W_half_c = car.width*half_c
+
+    corners.front_left  = VecE2(car.pos.x + L_half_c - W_half_s,
+                                car.pos.y + L_half_s + W_half_c)
+    corners.front_right = VecE2(car.pos.x + L_half_c + W_half_s,
+                                car.pos.y + L_half_s - W_half_c)
+    corners.back_left   = VecE2(car.pos.x - L_half_c - W_half_s,
+                                car.pos.y - L_half_s + W_half_c)
+    corners.back_right  = VecE2(car.pos.x - L_half_c + W_half_s,
+                                car.pos.y - L_half_s - W_half_c)
+
+    corners
+end
+get_corners(car::Vehicle) = get_corners!(FourCorners(), car)
+
+function get_projection( corners::FourCorners, axis::Real )
+
+    #=
+    Calculate projection in direction of axis, the dot product of
+        v₁ = (corner.x)i + (corner.y)j and
+        v₂ =   cos(axis)i + sin(axis)j
+    =#
+
+    s = sin(axis)
+    c = cos(axis)
+
+    p = corners.front_left.x*c + corners.front_left.y*s
+    project_min = p
+    project_max = p
+    
+    p = corners.front_right.x*c + corners.front_right.y*s
+    if p < project_min
+        project_min = p
+    elseif p > project_max
+        project_max = p
+    end
+
+    p = corners.back_left.x*c + corners.back_left.y*s
+    if p < project_min
+        project_min = p
+    elseif p > project_max
+        project_max = p
+    end
+
+    p = corners.back_right.x*c + corners.back_right.y*s
+    if p < project_min
+        project_min = p
+    elseif p > project_max
+        project_max = p
+    end
+    
+    return VecE2(project_min, project_max)
+end
+function overlap(p1::VecE2, p2::VecE2)
+    # OUTPUT: <::Bool> true if the two projections overlap
+    #  p.x -> min
+    #  p.y -> max
+
+    (p1.x <= p2.x && p2.x <= p1.y) || (p1.x <= p2.y && p2.y <= p1.y) || (p2.x <= p1.x && p1.x <= p2.y)
 end
 
-# function intersects(simlog::Matrix{Float64};
-#     startframe::Int=1,
-#     endframe::Int=get_nframes(simlog)
-#     )
+function intersects(ϕA::Real, cornersCarA::FourCorners, ϕB::Real, cornersCarB::FourCorners)
+    #=
+    INTERSECTS: Given two car configurations, uses the separating axis theorem to determine
+                whether their rectangular body-aligned bounding boxes intersect
 
-#     # check whether any vehicles intersect anywhere along the trajectory
+    OUTPUT: 
+        <Bool> true if there is a collision
+    
+    Used approach outlined at http://www.codezealot.org/archives/55
+    Originally written by Julien Kawawa-Beaudan, Summer 2014
+    =#
 
-#     carA = Vehicle()
-#     carB = Vehicle()
+    # retval = intersects(AABB(carA.pos.x, carA.pos.y, carA.length/2, carA.width/2),
+    #            AABB(carB.pos.x, carB.pos.y, carB.length/2, carB.width/2))
 
-#     ncars = get_ncars(simlog)
+    # if retval == true
+    #     println("A: ", carA.pos)
+    #     println("B: ", carB.pos)
+    # end
 
-#     for frameind in startframe : endframe
-#         for carindA = 1 : ncars-1
-#             pull_vehicle!(carA, simlog, calc_logindexbase(carindA), frameind)
-#             for carindB = carindA + 1 : ncars
-#                 # println(carA, "  ", carB)
-#                 pull_vehicle!(carB, simlog, calc_logindexbase(carindB), frameind)
-#                 if intersects(carA, carB)
-#                     return true
-#                 end
-#             end
-#         end
-#     end
+    # retval
 
-#     false
-# end
+    if !overlap(get_projection(cornersCarA, ϕA), get_projection(cornersCarB, ϕA))
+        return false
+    end
+
+    ϕA += HALF_PI
+    if !overlap(get_projection(cornersCarA, ϕA), get_projection(cornersCarB, ϕA))
+        return false
+    end
+
+    if !overlap(get_projection(cornersCarA, ϕB), get_projection(cornersCarB, ϕB))
+        return false
+    end
+
+    if !overlap(get_projection(cornersCarA, ϕB), get_projection(cornersCarB, ϕB))
+        return false
+    end
+
+    true
+end
+function intersects(carA::Vehicle, carB::Vehicle, cornersCarA::FourCorners=FourCorners(), cornersCarB::FourCorners=FourCorners())
+    
+    get_corners!(cornersCarA, carA)
+    get_corners!(cornersCarB, carB)
+
+    intersects(carA.pos.θ, cornersCarA, carB.pos.θ, cornersCarB)
+end
+
+function has_intersection(
+    pdset::PrimaryDataset,
+    validfind::Integer,
+    carA::Vehicle = Vehicle(),
+    carB::Vehicle = Vehicle(),
+    cornersCarA::FourCorners=FourCorners(),
+    cornersCarB::FourCorners=FourCorners(),
+    )
+
+    carind_max = get_maxcarind(pdset, validfind)
+    for carindA in CARIND_EGO : carind_max-1
+        get_vehicle!(carA, pdset, carindA, validfind)
+        get_corners!(cornersCarA, carA)
+
+        for carindB in carindA+1 : carind_max
+            get_vehicle!(carB, pdset, carindB, validfind)
+            get_corners!(cornersCarB, carB)
+
+            if intersects(carA.pos.θ, cornersCarA, carB.pos.θ, cornersCarB)
+                return true
+            end
+        end
+    end
+
+    false
+end
+function has_intersection(
+    pdset::PrimaryDataset,
+    validfind_start::Integer,
+    validfind_end::Integer,
+    carA::Vehicle = Vehicle(),
+    carB::Vehicle = Vehicle(),
+    cornersCarA::FourCorners=FourCorners(),
+    cornersCarB::FourCorners=FourCorners(),
+    )
+
+    # check whether any vehicles intersect anywhere along the trajectory
+
+    for validfind in validfind_start : validfind_end
+        if has_intersection(pdset, validfind,
+                            carA, carB, cornersCarA, cornersCarB)
+            return true
+        end
+    end
+
+    false
+end
+function has_intersection(
+    pdset::PrimaryDataset,
+    carA::Vehicle = Vehicle(),
+    carB::Vehicle = Vehicle(),
+    cornersCarA::FourCorners=FourCorners(),
+    cornersCarB::FourCorners=FourCorners(),
+    )
+
+    has_intersection(pdset, 1, nvalidfinds(pdset), carA, carB, cornersCarA, cornersCarB)
+end
+
 # function intersects(carind::Int, simlog::Matrix{Float64};
 #     startframe::Int=1,
 #     endframe::Int=get_nframes(simlog)
@@ -139,92 +298,3 @@ end
 
 #     false
 # end
-function intersects(carA::Vehicle, carB::Vehicle)
-    # INTERSECTS: Given two car configurations, uses the separating axis theorem to determine
-    #             whether their rectangular body-aligned bounding boxes intersect
-    # OUTPUTS: <Bool> true if there is a collision
-    #
-    # Used approach outlined at http://www.codezealot.org/archives/55
-    # Originally written by Julien Kawawa-Beaudan, Summer 2014
-
-    # retval = intersects(AABB(carA.pos.x, carA.pos.y, carA.length/2, carA.width/2),
-    #            AABB(carB.pos.x, carB.pos.y, carB.length/2, carB.width/2))
-
-    # if retval == true
-    #     println("A: ", carA.pos)
-    #     println("B: ", carB.pos)
-    # end
-
-    # retval
-
-    ϕA = carA.pos.ϕ
-    ϕB = carB.pos.ϕ
-
-    axes = [ϕA, ϕB, ϕA + HALF_PI, ϕA + HALF_PI]
-
-    cornersCarA = get_corners(carA)
-    cornersCarB = get_corners(carB)
-
-    for axis in axes
-        p1 = get_projection(cornersCarA, axis)
-        p2 = get_projection(cornersCarB, axis)
-          if !overlap(p1, p2)
-            return false
-        end
-    end
-
-    true
-end
-
-function get_corners( car::Vehicle )
-
-    # s = sin(car.pos.ϕ)
-    # c = cos(car.pos.ϕ)
-
-    # sa = boxA.length*s/2
-    # sb = boxA.width*s/2
-    # ca = boxA.length*c/2
-    # cb = boxA.width*c/2
-
-    # # Corners in order: front left, front right, back left, back right
-    # corners = [Point(boxA.x + ca - sb, boxA.y + sa + cb),
-    #            Point(boxA.x + ca - sb, boxA.y + sa + cb),
-    #            Point(boxA.x + ca - sb, boxA.y + sa + cb),
-    #            Point(boxA.x + ca - sb, boxA.y + sa + cb)]
-    # return corners
-
-    # Corners in order: front left, front right, back left, back right
-    # car.pos.ϕ is in radians from x axis (direction of road)
-    corners = Array(Point, 4);
-    corners[1] = Point(car.pos.x + car.length*cos(car.pos.ϕ)/2 - car.width*sin(car.pos.ϕ)/2,
-        car.pos.y + car.length*sin(car.pos.ϕ)/2 + car.width*cos(car.pos.ϕ)/2)
-    corners[2] = Point(car.pos.x + car.length*cos(car.pos.ϕ)/2 + car.width*sin(car.pos.ϕ)/2,
-        car.pos.y + car.length*sin(car.pos.ϕ)/2 - car.width*cos(car.pos.ϕ)/2)
-    corners[3] = Point(car.pos.x - car.length*cos(car.pos.ϕ)/2 - car.width*sin(car.pos.ϕ)/2,
-        car.pos.y - car.length*sin(car.pos.ϕ)/2 + car.width*cos(car.pos.ϕ)/2)
-    corners[4] = Point(car.pos.x - car.length*cos(car.pos.ϕ)/2 + car.width*sin(car.pos.ϕ)/2,
-        car.pos.y - car.length*sin(car.pos.ϕ)/2 - car.width*cos(car.pos.ϕ)/2)
-    return corners
-end
-function get_projection( corners::Vector{Point}, axis::Real )
-    # Calculate projection in direction of axis, the dot product of
-    # v1 = (corner.x)i + (corner.y)j and
-    # v2 = cos(axis)i + sin(axis)j
-
-    p = corners[1].x * cos(axis) + corners[1].y *sin(axis)
-    projection = Projection(p, p)
-
-    for i = 2:4
-        p = corners[i].x * cos(axis) + corners[i].y * sin(axis)
-        if p < projection.min
-            projection.min = p
-        elseif p > projection.max
-            projection.max = p
-        end
-    end
-    return projection
-end
-function overlap(p1::Projection, p2::Projection)
-    #OUTPUT: <bool> true if the two projections overlap
-    (p1.min <= p2.min && p2.min <= p1.max) || (p1.min <= p2.max && p2.max <= p1.max) || (p2.min <= p1.min && p1.min <= p2.max)
-end

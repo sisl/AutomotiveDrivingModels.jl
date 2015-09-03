@@ -1,8 +1,9 @@
 using AutomotiveDrivingModels
 
 using Cairo
-using Reel
 using Interact
+using Reel
+Reel.set_output_type("gif")
 
 # include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
 # include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
@@ -228,7 +229,7 @@ function render_car!(
     pdset::PrimaryDataset,
     carind::Int,
     frameind::Int;
-    color :: Colorant = RGB(rand(), rand(), rand())
+    color::Colorant = RGB(rand(), rand(), rand())
     )
 
     posGx = posGy = posGθ = 0.0
@@ -244,9 +245,37 @@ function render_car!(
         posGθ = getc(pdset, :posGyaw, carind, validfind)
     end
 
-    add_instruction!(rm, render_car, (posGx, posGy, posGθ, color))
+    add_instruction!(rm, render_circle, (posGx, posGy, 0.25, color))
+    # add_instruction!(rm, render_car, (posGx, posGy, posGθ, color))
     rm
 end
+function render_car!(
+    rm::RenderModel,
+    pdset::PrimaryDataset,
+    carind::Int,
+    frameind::Int,
+    color_fill::Colorant,
+    color_stroke::Colorant = color_fill
+    )
+
+    posGx = posGy = posGθ = 0.0
+
+    if carind == CARIND_EGO
+        posGx = gete(pdset, :posGx, frameind)
+        posGy = gete(pdset, :posGy, frameind)
+        posGθ = gete(pdset, :posGyaw, frameind)
+    else
+        validfind = frameind2validfind(pdset, frameind)
+        posGx = getc(pdset, :posGx, carind, validfind)
+        posGy = getc(pdset, :posGy, carind, validfind)
+        posGθ = getc(pdset, :posGyaw, carind, validfind)
+    end
+
+    add_instruction!(rm, render_circle, (posGx, posGy, 0.25, color_fill, color_stroke))
+    # add_instruction!(rm, render_car, (posGx, posGy, posGθ, color_fill, color_stroke))
+    rm
+end
+
 function render_car!(
     rm::RenderModel,
     trajdata::DataFrame,
@@ -456,26 +485,112 @@ function plot_extracted_trajdefs(
     camerazoom::Real=6.5,
     camerax::Real=get(pdset, :posGx, active_carid, validfind),
     cameray::Real=get(pdset, :posGy, active_carid, validfind),
-    color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
+    color_trace::Colorant=RGBA(0.7,0.0,0.3,0.8),
     )
 
 
     s = CairoRGBSurface(canvas_width, canvas_height)
     ctx = creategc(s)
-    clear_setup!(rm)
+    clear_setup!(rendermodel)
 
-    render_streetnet_roads!(rm, sn)
+    render_streetnet_roads!(rendermodel, sn)
 
     for extracted in extracted_trajdefs
-        render_extracted_trajdef!(rm, extracted, color=color_trace)
+        render_extracted_trajdef!(rendermodel, extracted, color=color_trace)
     end
 
-    render_scene!(rm, pdset, validfind, active_carid=active_carid)
+    render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
 
-    camera_setzoom!(rm, camerazoom)
-    camera_set_pos!(rm, camerax, cameray)
-    render(rm, ctx, canvas_width, canvas_height)
+    camera_setzoom!(rendermodel, camerazoom)
+    camera_set_pos!(rendermodel, camerax, cameray)
+    render(rendermodel, ctx, canvas_width, canvas_height)
     s
+end
+function plot_extracted_trajdefs(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    extracted_trajdefs::Vector{ExtractedTrajdef},
+    trajdef_color_scalars::Vector{Float64},
+    validfind::Integer,
+    active_carid::Integer=CARID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=500, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camerax::Real=get(pdset, :posGx, active_carid, validfind),
+    cameray::Real=get(pdset, :posGy, active_carid, validfind),
+    trajdef_color_lo::Colorant=RGB(0.0,0.0,1.0),
+    trajdef_color_hi::Colorant=RGB(1.0,0.0,0.0),
+    )
+
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+
+    for (extracted, color_scalar) in zip(extracted_trajdefs, trajdef_color_scalars)
+        color = lerp_color_rgb(trajdef_color_lo, trajdef_color_hi, color_scalar, 1.0)
+        render_extracted_trajdef!(rendermodel, extracted, color=color)
+    end
+
+    render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
+
+    camera_setzoom!(rendermodel, camerazoom)
+    camera_set_pos!(rendermodel, camerax, cameray)
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
+
+function lerp_color(a::Colorant, b::Colorant, t::Real)
+
+    ra = red(a)
+    rb = red(b)
+    ga = green(a)
+    gb = green(b)
+    ba = blue(a)
+    bb = blue(b)
+    aa = alpha(a)
+    ab = alpha(b)
+
+    r = ra + (rb - ra)*t
+    g = ga + (gb - ga)*t
+    b = ba + (bb - ba)*t
+    a = aa + (ab - aa)*t
+
+    RGBA(r,g,b,a)
+end
+function lerp_color_rgb(a::Colorant, b::Colorant, t::Real)
+
+    ra = red(a)
+    rb = red(b)
+    ga = green(a)
+    gb = green(b)
+    ba = blue(a)
+    bb = blue(b)
+
+    r = ra + (rb - ra)*t
+    g = ga + (gb - ga)*t
+    b = ba + (bb - ba)*t
+
+    RGB(r,g,b)
+end
+function lerp_color_rgb(a::Colorant, b::Colorant, t::Real, alpha::Real)
+
+    ra = red(a)
+    rb = red(b)
+    ga = green(a)
+    gb = green(b)
+    ba = blue(a)
+    bb = blue(b)
+
+    r = ra + (rb - ra)*t
+    g = ga + (gb - ga)*t
+    b = ba + (bb - ba)*t
+
+    RGBA(r,g,b, alpha)
 end
 
 function plot_manipulable_generated_future_traces(
@@ -540,7 +655,6 @@ function plot_manipulable_generated_future_traces(
                 add_instruction!(rendermodel, render_circle, (x,y,dot_radius,color_dot,color_stroke))
             end
         end
-
 
         camera_setzoom!(rendermodel, camerazoom)
         camera_set_pos!(rendermodel, camerax, cameray)
@@ -621,7 +735,11 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
     camerazoom::Real=6.5,
     active_carid::Integer=CARID_EGO,
     color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
+    color_extracted::Colorant=RGB(0.7,0.3,0.0),
+    color_extracted_fill::Colorant=RGBA(0,0,0,0)
     )
+
+    
 
     nvalidfinds_total = nvalidfinds(pdset)
     validfind = 1
@@ -637,38 +755,46 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
         for extracted in extracted_trajdefs
             render_extracted_trajdef!(rendermodel, extracted, color=color_trace)
         end
+        for extracted in extracted_trajdefs
+            df_frame = validfind - extracted.df[1,:frame] + 1
+            if 1 ≤ df_frame ≤ nrow(extracted.df)
+                posGx = extracted.df[df_frame, :posGx]
+                posGy = extracted.df[df_frame, :posGy]
+                posGθ = extracted.df[df_frame, :posGyaw]
+                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
+            end
+        end
+        for carind in CARIND_EGO : get_maxcarind(pdset, validfind) 
+            carid = carind2id(pdset, carind, validfind)
+            if carid != active_carid
+                color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
+                render_car!(rendermodel, pdset, carind, frameind, color=color)
+            end
+        end
 
-        render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
         
         render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
 end
-
-function reel_pdset(
+function plot_manipulable_pdset_with_extracted_trajdefs(
     pdset::PrimaryDataset,
-    sn::StreetNetwork;
+    sn::StreetNetwork,
+    extracted_trajdefs::Vector{ExtractedTrajdef},
+    collision_risk::Vector{Float64};
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=500, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
-    active_carid::Integer=CARID_EGO
+    active_carid::Integer=CARID_EGO,
+    color_risk_lo::Colorant=RGB(0.0,0.0,1.0),
+    color_risk_hi::Colorant=RGB(1.0,0.0,0.0),
     )
 
-    function reel_render(
-        t::Float64, # the time into the sequence
-        dt::Float64, # dt is the time to advance for the next frame
-        pdset::PrimaryDataset,
-        sn::StreetNetwork,
-        rm::RenderModel,
-        canvas_width::Int,
-        canvas_height::Int,
-        camerazoom::Real,
-        active_carid::Integer
-        )
-
-        validfind = clamp(int(20*t)+1, 1, nvalidfinds(pdset))
+    nvalidfinds_total = nvalidfinds(pdset)
+    validfind = 1
+    @manipulate for validfind = 1 : nvalidfinds_total
 
         s = CairoRGBSurface(canvas_width, canvas_height)
         ctx = creategc(s)
@@ -676,60 +802,165 @@ function reel_pdset(
 
         frameind = validfind2frameind(pdset, validfind)
         render_streetnet_roads!(rendermodel, sn)
-        render_scene!(rendermodel, pdset, frameind)
+
+        for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+            color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
+            render_extracted_trajdef!(rendermodel, extracted, color=color)
+        end
+        for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+            df_frame = validfind - extracted.df[1,:frame] + 1
+            if 1 ≤ df_frame ≤ nrow(extracted.df)
+                posGx = extracted.df[df_frame, :posGx]
+                posGy = extracted.df[df_frame, :posGy]
+                posGθ = extracted.df[df_frame, :posGyaw]
+                color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
+                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color))
+            end
+        end
+        for carind in CARIND_EGO : get_maxcarind(pdset, validfind) 
+            active_carind = carid2ind(pdset, active_carid, validfind)
+            if carind != active_carind
+                color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
+                render_car!(rendermodel, pdset, carind, frameind, color=color)
+            end
+        end
+
         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
         
         render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
-
-    f = (t,dt) -> reel_render(t, dt, pdset, sn, rendermodel, canvas_width, canvas_height,
-                              camerazoom, active_carid)
-    film = roll(f, fps=20, duration=(nvalidfinds(pdset)/20-1))
-    # write("output.gif", film)
-    return film
 end
-
-function generate_and_plot_manipulable_gridcount_set(
-    behavior::AbstractVehicleBehavior,
+function plot_manipulable_pdset_with_extracted_trajdefs(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
     active_carid::Integer,
     validfind_start::Integer,
     history::Integer,
-    horizon::Integer;
-    disc_bounds_s::(Float64, Float64)=(0.0,150.0),
-    disc_bounds_t::(Float64, Float64)=(-10.0, 10.0),
-    nbinsx::Integer=101,
-    nbinsy::Integer=51,
-    nsimulations::Integer=1000,
+    horizon::Integer,
+    extracted_trajdefs::Vector{ExtractedTrajdef},
+    collision_risk::Vector{Float64},
+    gridcounts::Vector{Vector{Matrix{Float64}}},
+    start_points::Vector{VecE2},
+    histobin_params::ParamsHistobin;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=150, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    color_risk_lo::Colorant=RGB(0.0,0.0,1.0),
+    color_risk_hi::Colorant=RGB(1.0,0.0,0.0),
+    color_gridcount_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+    color_gridcount_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
+    )
+
+    @assert(length(start_points) == length(gridcounts))
+
+    # -----------
+    
+    gridcounts_copy = deepcopy(gridcounts)
+    for i in 1 : length(gridcounts_copy)
+        for gridcount in gridcounts_copy[i]
+            maxcount = maximum(gridcount)
+            for i = 1 : length(gridcount)
+                gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
+            end
+        end
+    end
+
+    # -----------
+
+    car_color_fill = RGBA(0,0,0,0)
+
+    validfind = validfind_start
+    validfind_end = validfind_start+horizon
+    @manipulate for validfind = validfind_start-history : validfind_end
+
+        s = CairoRGBSurface(canvas_width, canvas_height)
+        ctx = creategc(s)
+        clear_setup!(rendermodel)
+
+        render_streetnet_roads!(rendermodel, sn)
+
+        # for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+        #     color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
+        #     render_extracted_trajdef!(rendermodel, extracted, color=color)
+        # end
+        for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+            df_frame = validfind - extracted.df[1,:frame] + 1
+            if 1 ≤ df_frame ≤ nrow(extracted.df)
+                posGx = extracted.df[df_frame, :posGx]
+                posGy = extracted.df[df_frame, :posGy]
+                posGθ = extracted.df[df_frame, :posGyaw]
+                color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 1.0)
+                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, car_color_fill, color))
+            end
+        end
+
+        if validfind > validfind_start
+            for i in 1 : length(gridcounts)
+
+                gridcount = gridcounts_copy[i][validfind - validfind_start]
+
+                posGx_start = start_points[i].x
+                posGy_start = start_points[i].y
+
+                # TODO(tim): change this to transform relative to frenet frame
+                #            (maybe make it relative to original heading?)
+                add_instruction!(rendermodel, render_colormesh, (gridcount, 
+                                  histobin_params.discx.binedges .+ posGx_start,
+                                  histobin_params.discy.binedges .+ posGy_start,
+                                  color_gridcount_lo, color_gridcount_hi))
+            end
+        end
+        
+        if validfind ≤ validfind_start
+            for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
+                carid = carind2id(pdset, carind, validfind)
+                frameind = validfind2frameind(pdset, validfind)
+                color_stroke = (carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER)
+                render_car!(rendermodel, pdset, carind, frameind, color=color_stroke)
+            end
+        end
+
+        active_carind = carid2ind(pdset, active_carid, validfind)
+        camerax = get(pdset, :posGx, active_carind, validfind)
+        cameray = get(pdset, :posGy, active_carind, validfind)
+
+        camera_setzoom!(rendermodel, camerazoom)
+        camera_set_pos!(rendermodel, camerax, cameray)
+        render(rendermodel, ctx, canvas_width, canvas_height)
+        s
+    end
+end
+
+function plot_manipulable_gridcount_set(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    active_carid::Integer,
+    validfind_start::Integer,
+    history::Integer,
+    horizon::Integer,
+    gridcounts::Vector{Matrix{Float64}},
+    histobin_params::ParamsHistobin;
+    
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=150, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
     color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
     color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
-    color_history::Colorant=RGBA(0.7,0.3,0.0,0.8),
-    color_horizon::Colorant=RGBA(0.3,0.3,0.7,0.8),
-    count_adjust_exponent::Float64=0.25,
+    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
     )
 
-    histobin_params = ParamsHistobin(LinearDiscretizer(linspace(disc_bounds_s..., nbinsx+1)),
-                                     LinearDiscretizer(linspace(disc_bounds_t..., nbinsy+1)))
-
-    # ncars = get_num_cars_in_frame(pdset, validfind_start)
-
-    pdset_sim = deepcopy(pdset)
-
-    gridcounts = allocate_gridcounts!(horizon, histobin_params)
-
-    calc_future_grid_counts!(gridcounts, histobin_params, pdset_sim, sn, behavior,
-                             active_carid, validfind_start, validfind_start + horizon, nsimulations)
-
-    for gridcount in gridcounts
+    # -----------
+    
+    gridcounts_copy = deepcopy(gridcounts)
+    for gridcount in gridcounts_copy
         maxcount = maximum(gridcount)
         for i = 1 : length(gridcount)
-            gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent  #NOTE(tim): to make low probs stand out more
+            gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
         end
     end
 
@@ -751,13 +982,11 @@ function generate_and_plot_manipulable_gridcount_set(
 
         for carind in -1 : get_maxcarind(pdset, validfind)
             carid = carind2id(pdset, carind, validfind)
-            # render_trace!(rendermodel, pdset, carid, validfind_start - history, validfind_start, color=color_history)
-            if carid != active_carid
-                # render_trace!(rendermodel, pdset, carid, validfind_start, validfind_end, color=color_horizon)
-            else
+            if carid == active_carid
                 if validfind > validfind_start
                     gridcount = gridcounts[validfind - validfind_start]
 
+                    # TODO(tim): change this to transform relative to frenet frame
                     add_instruction!(rendermodel, render_colormesh, (gridcount, 
                                       histobin_params.discx.binedges .+ posGx_start,
                                       histobin_params.discy.binedges .+ posGy_start,
@@ -783,4 +1012,167 @@ function generate_and_plot_manipulable_gridcount_set(
         render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
+end
+function plot_manipulable_gridcount_sets(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    active_carid::Integer,
+    validfind_start::Integer,
+    history::Integer,
+    horizon::Integer,
+    gridcounts::Vector{Vector{Matrix{Float64}}},
+    start_points::Vector{VecE2},
+    histobin_params::ParamsHistobin;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=150, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+    color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
+    )
+
+    @assert(length(start_points) == length(gridcounts))
+
+    # -----------
+    
+    gridcounts_copy = deepcopy(gridcounts)
+    for i in 1 : length(gridcounts_copy)
+        for gridcount in gridcounts_copy[i]
+            maxcount = maximum(gridcount)
+            for i = 1 : length(gridcount)
+                gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
+            end
+        end
+    end
+
+    # -----------
+
+    validfind = validfind_start
+    validfind_end = validfind_start+horizon
+    @manipulate for validfind = validfind_start-history : validfind_end
+
+        s = CairoRGBSurface(canvas_width, canvas_height)
+        ctx = creategc(s)
+        clear_setup!(rendermodel)
+
+        render_streetnet_roads!(rendermodel, sn)
+
+        if validfind > validfind_start
+            for i in 1 : length(gridcounts)
+
+                gridcount = gridcounts_copy[i][validfind - validfind_start]
+
+                posGx_start = start_points[i].x
+                posGy_start = start_points[i].y
+
+                # TODO(tim): change this to transform relative to frenet frame
+                #            (maybe make it relative to original heading?)
+                add_instruction!(rendermodel, render_colormesh, (gridcount, 
+                                  histobin_params.discx.binedges .+ posGx_start,
+                                  histobin_params.discy.binedges .+ posGy_start,
+                                  color_prob_lo, color_prob_hi))
+            end
+        end
+        
+        for carind in -1 : get_maxcarind(pdset, validfind)
+            carid = carind2id(pdset, carind, validfind)
+            if carid == active_carid || validfind ≤ validfind_start
+                frameind = validfind2frameind(pdset, validfind)
+                render_car!(rendermodel, pdset, carind, frameind, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
+            end
+        end
+
+        active_carind = carid2ind(pdset, active_carid, validfind)
+        camerax = get(pdset, :posGx, active_carind, validfind)
+        cameray = get(pdset, :posGy, active_carind, validfind)
+
+        camera_setzoom!(rendermodel, camerazoom)
+        camera_set_pos!(rendermodel, camerax, cameray)
+        render(rendermodel, ctx, canvas_width, canvas_height)
+        s
+    end
+end
+
+function reel_pdset(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork;
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    active_carid::Integer=CARID_EGO,
+    fps::Integer=40,
+    )
+
+    frames = Array(CairoSurface, nvalidfinds(pdset))
+    for (roll_index, validfind) = enumerate(1 : nvalidfinds(pdset))
+            
+        s = CairoRGBSurface(canvas_width, canvas_height)
+        ctx = creategc(s)
+        clear_setup!(rendermodel)
+
+        frameind = validfind2frameind(pdset, validfind)
+        render_streetnet_roads!(rendermodel, sn)
+        render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
+        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
+
+        render(rendermodel, ctx, canvas_width, canvas_height)
+        
+        frames[roll_index] = s
+    end
+
+    film = roll(frames, fps=fps) # write("output.gif", film)
+end
+
+
+
+
+function generate_and_plot_manipulable_gridcount_set(
+    behavior::AbstractVehicleBehavior,
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    active_carid::Integer,
+    validfind_start::Integer,
+    history::Integer,
+    horizon::Integer;
+    disc_bounds_s::(Float64, Float64)=(0.0,150.0),
+    disc_bounds_t::(Float64, Float64)=(-10.0, 10.0),
+    nbinsx::Integer=101,
+    nbinsy::Integer=51,
+    nsimulations::Integer=1000,
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=150, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+    color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+    count_adjust_exponent::Float64=0.25,
+    )
+
+    histobin_params = ParamsHistobin(LinearDiscretizer(linspace(disc_bounds_s..., nbinsx+1)),
+                                     LinearDiscretizer(linspace(disc_bounds_t..., nbinsy+1)))
+
+    # ncars = get_num_cars_in_frame(pdset, validfind_start)
+
+    pdset_sim = deepcopy(pdset)
+
+    gridcounts = allocate_gridcounts!(horizon, histobin_params)
+
+    calc_future_grid_counts!(gridcounts, histobin_params, pdset_sim, sn, behavior,
+                             active_carid, validfind_start, validfind_start + horizon, nsimulations)
+
+    # -----------
+
+    plot_manipulable_gridcount_set(pdset, sn, active_carid,
+                                   validfind_start, history, horizon, 
+                                   gridcounts, histobin_params,
+                                   canvas_width=canvas_width,
+                                   canvas_height=canvas_height,
+                                   rendermodel=rendermodel,
+                                   camerazoom=camerazoom,
+                                   color_prob_lo=color_prob_lo,
+                                   color_prob_hi=color_prob_hi,
+                                   count_adjust_exponent=count_adjust_exponent)
 end

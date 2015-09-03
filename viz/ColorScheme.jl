@@ -10,7 +10,8 @@ export
 	COLOR_CAR_OTHER,
 
 	getcolorscheme,
-	hexcolor
+	hexcolor,
+	lerp_color
 
 hexcolor(r::Uint8, g::Uint8, b::Uint8) = RGB(r/255.0, g/255.0, b/255.0)
 hexcolor(r::Uint8, g::Uint8, b::Uint8, a::Uint8) = RGBA(r/255.0, g/255.0, b/255.0, a/255.0)
@@ -68,6 +69,24 @@ function getcolorscheme(name::String)
 		name = "plain"
 	end
 	return COLOR_SCHEMES[name]
+end
+function lerp_color(a::Colorant, b::Colorant, t::Real)
+
+	ra = red(a)
+	rb = red(b)
+	ga = green(a)
+	gb = green(b)
+	ba = blue(a)
+	bb = blue(b)
+	aa = alpha(a)
+	ab = alpha(b)
+
+	r = ra + (rb - ra)*t
+	g = ga + (gb - ga)*t
+	b = ba + (bb - ba)*t
+	a = aa + (ab - aa)*t
+
+	RGBA(r,g,b,a)
 end
 
 # --------------------------------

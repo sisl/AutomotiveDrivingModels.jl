@@ -25,7 +25,7 @@ const DEFAULT_SEC_PER_FRAME = 1.0 / DEFAULT_FRAME_PER_SEC # [s]
 const N_FRAMES_PER_SIM_FRAME = 5
 
 type Vehicle
-    pos    :: VecSE2 # [m,m,rad]
+    pos    :: VecSE2 # [m,m,rad] (center of the vehicle)
     speed  :: Float64  # [m/s]
     length :: Float64  # [m]
     width  :: Float64  # [m]

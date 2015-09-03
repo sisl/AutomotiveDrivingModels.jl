@@ -11,6 +11,7 @@ export
     create_scenario_pdset,
 
     extract_trajdef,
+    extract_trajdefs,
     copy_trajdef_start
 
 immutable PolynomialFactoredTrajectory
@@ -70,7 +71,7 @@ function _get_M1_and_M2_quintic(t::Float64)
     (M₁, M₂)
 end
 
-function get_quartic_coefficients(
+function get_quintic_coefficients(
     x1::Float64, # starting state
     v1::Float64, # starting 1st derivative
     a1::Float64, # starting 2nd derivative
@@ -91,9 +92,9 @@ function get_quartic_coefficients(
     c₀₁₂ = M₁₀ \ ξ₀
     c₃₄₅ = M₂₂ \ (ξ₂ - M₁₂*c₀₁₂)
 
-    Quartic(c₀₁₂[1], c₀₁₂[2], c₀₁₂[3], c₃₄₅[1], c₃₄₅[2], c₃₄₅[3])
+    Quintic(c₀₁₂[1], c₀₁₂[2], c₀₁₂[3], c₃₄₅[1], c₃₄₅[2], c₃₄₅[3])
 end
-function get_quintic_coefficients(
+function get_quartic_coefficients(
     x1::Float64, # starting state
     v1::Float64, # starting 1st derivative
     a1::Float64, # starting 2nd derivative
@@ -113,12 +114,40 @@ function get_quintic_coefficients(
     c₀₁₂ = M₁₀ \ ξ₀
     retval = M₂₂ \ (ξ₂ - M₁₂*c₀₁₂) # returns vector [ξ₁, c₃, c₄]
 
-    Quintic(c₀₁₂[1], c₀₁₂[2], c₀₁₂[3], retval[2], retval[3])
+    Quartic(c₀₁₂[1], c₀₁₂[2], c₀₁₂[3], retval[2], retval[3])
 end
 
 ####################################################
 
-immutable TrajDefLink
+# abstract TradDefLink
+# immutable TrajDefLinkTargetPosition <: TradDefLink
+
+#     n_pdset_frames::Int # duration of the link [pdset frames]
+#     lanetag::LaneTag # the lane that this is relative to at the start of the segment
+
+#     d::Float64
+#     ddot::Float64 # should be always 0.0
+#     dddot::Float64 # should be always 0.0
+
+#     s::Float64
+#     sdot::Float64
+#     sddot::Float64
+
+#     function TrajDefLinkTargetPosition(
+#         n_pdset_frames::Int,
+#         lanetag::LaneTag,
+#         d::Float64,
+#         ddot::Float64,
+#         dddot::Float64,
+#         s::Float64,
+#         sdot::Float64,
+#         sddot::Float64,
+#         )
+
+#         new(n_pdset_frames, lanetag, d, ddot, dddot, s, sdot, sddot)
+#     end
+# end
+immutable TrajDefLink #TargetSpeed  <: TradDefLink
 
     n_pdset_frames::Int # duration of link [pdset frames]
     lanetag::LaneTag # the lane that this is relative to
@@ -203,28 +232,29 @@ type TrajDef
         links::Vector{TrajDefLink} = TrajDefLink[]
         )
 
-        inertial = get_inertial(pdset, carid, validfind)
+        start_carind = carid2ind(pdset, carid, validfind)
+        start_velFx = get(pdset, :velFx, start_carind, validfind)
+        start_velFy = get(pdset, :velFy, start_carind, validfind)
+        start_speed = sqrt(start_velFx*start_velFx + start_velFy*start_velFy)
+
+        inertial = get_inertial(pdset, start_carind, validfind)
         proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
         @assert(proj.successful)
 
         extind = proj.extind
         lanetag = LaneTag(proj.tile, proj.laneid)
-        s, dcl, ϕ = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, 0.0)
-
-        start_carind = carid2ind(pdset, carid, validfind)
-        start_velFx = get(pdset, :velFx, start_carind, validfind)
-        start_velFy = get(pdset, :velFy, start_carind, validfind)
-        start_speed = hypot(start_velFx, start_velFy)
+        s, dcl, ϕ = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, inertial.θ)
 
         if validfind > 1
-            past = validfind-1
-            past_carind = carid2ind(pdset, carid, past)
-            past_velFx = get(pdset, :velFx, carid, past)
-            past_velFy = get(pdset, :velFy, carid, past)
-            past_speed = hypot(past_velFx, past_velFy)
+            past_validfind = validfind-1
+            past_carind = carid2ind(pdset, carid, past_validfind)
+
+            past_velFx = get(pdset, :velFx, past_carind, past_validfind)
+            past_velFy = get(pdset, :velFy, past_carind, past_validfind)
+            past_speed = sqrt(past_velFx*past_velFx + past_velFy*past_velFy)
 
             start_time = gete(pdset, :time, validfind)
-            past_time = gete(pdset, :time, past)
+            past_time = gete(pdset, :time, past_validfind)
 
             ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - ϕ
             start_accel = (start_speed - past_speed) / (start_time - past_time)
@@ -232,6 +262,14 @@ type TrajDef
             ψ = 0.0
             start_accel = 0.0
         end
+
+        # lane = get_lane(sn, lanetag)
+        # footpoint = curve_at(lane.curve, extind)
+        # footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
+        # inertial2 = footvec + polar(dcl, π/2 + footvec.θ, footvec.θ + ϕ)
+        # println(inertial.x, "  ", inertial2.x)
+        # println(inertial.y, "  ", inertial2.y)
+        # println(inertial.θ, "  ", inertial2.θ)
 
         new(lanetag, extind, dcl, start_speed, start_accel, ϕ, ψ, links)
     end
@@ -300,7 +338,6 @@ function _set_vehicle_other_nocheck!(
     setc!(pdset, :d_ml,      carind, validfind, (dcl > -lane_width_right) ?  dcl - lane_width_right : Inf)
 
     setc!(pdset, :id,        carind, validfind, uint32(carid))
-    setc!(pdset, :t_inview,  carind, validfind, NA)
     setc!(pdset, :t_inview,  carind, validfind, NA)
 
     pdset
@@ -509,8 +546,8 @@ function _add_trajlink_to_pdset!(
 
     # Compute a trajectory in which the lateral start and end states are given
     # and where the longitudinal trajectory has unspecified end position
-    poly_s = get_quintic_coefficients(0.0, sdot₁, sddot₁, sdot₂, sddot₂, τ)
-    poly_d = get_quartic_coefficients(d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
+    poly_s = get_quartic_coefficients(0.0, sdot₁, sddot₁, sdot₂, sddot₂, τ)
+    poly_d = get_quintic_coefficients(d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
 
     t = 0.0
     prev_extind = extind_start
@@ -571,6 +608,10 @@ function Base.insert!(
     frameind = frameind_start
     _set_vehicle!(pdset, sn, carid, frameind, inertial, trajdef.v, 
                   footpoint, trajdef.extind, trajdef.lanetag, trajdef.d, trajdef.ϕ)
+
+    #######################################
+    # check to ensire that inertial is the same as where we are calling set_vehicle
+
 
     #######################################
     # Now we select the next link, project our current location to the new lane tag
@@ -686,8 +727,9 @@ end
 type ExtractedTrajdef
     df::DataFrame # same format as df_ego_primary
     carid::Integer
-    frameind_start::Integer
 end
+
+get_num_pdset_frames(extracted::ExtractedTrajdef) = nrow(extracted.df)
 
 function _set_vehicle_nocheck!(
     extracted::ExtractedTrajdef,
@@ -793,8 +835,8 @@ function _add_trajlink_to_extracted!(
 
     # Compute a trajectory in which the lateral start and end states are given
     # and where the longitudinal trajectory has unspecified end position
-    poly_s = get_quintic_coefficients(0.0, sdot₁, sddot₁, sdot₂, sddot₂, τ)
-    poly_d = get_quartic_coefficients(d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
+    poly_s = get_quartic_coefficients(0.0, sdot₁, sddot₁, sdot₂, sddot₂, τ)
+    poly_d = get_quintic_coefficients(d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
 
     t = 0.0
     prev_extind = extind_start
@@ -854,7 +896,7 @@ function extract_trajdef(
 
     nframes = get_num_pdset_frames(trajdef)
     df = Trajdata._create_df_ego_primary(nframes)
-    extracted = ExtractedTrajdef(df, carid, frameind_start)
+    extracted = ExtractedTrajdef(df, carid)
     for i = 1 : nrow(df)
         df[i,:frame] = frameind_start + i - 1
         df[i,:time] = sec_per_frame*i
@@ -885,8 +927,18 @@ function extract_trajdef(
     curve = lane.curve
 
     # NOTE: using the same inertial VecSE2
+    n_lane_jumps = 0
     extind = closest_point_extind_to_curve(curve, inertial.x, inertial.y)
-    @assert(!is_extind_at_curve_end(curve, extind))
+    while is_extind_at_curve_end(curve, extind) && n_lane_jumps < 5
+        n_lane_jumps += 1
+        if extind > 1.0
+            @assert(has_next_lane(sn, lane))
+            lane = next_lane(sn, lane)
+            curve = lane.curve
+            extind = closest_point_extind_to_curve(curve, inertial.x, inertial.y)
+        end
+    end
+
     footpoint = curve_at(curve, extind)
 
     s, d₁, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -953,6 +1005,24 @@ function extract_trajdef(
 
     extracted
 end
+function extract_trajdefs(
+    basics::FeatureExtractBasicsPdSet,
+    trajectories::Vector{Vector{TrajDefLink}},
+    active_carid::Integer,
+    validfind::Integer,
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME
+    )
+
+    extracted_trajdefs = Array(ExtractedTrajdef, length(trajectories))
+    trajdef = TrajDef(basics.pdset, basics.sn, active_carid, validfind)
+    for (i,links) in enumerate(trajectories)
+        new_trajdef = copy_trajdef_start(trajdef)
+        append!(new_trajdef.links, links)
+        frameind_start = validfind2frameind(basics.pdset, valifind)
+        extracted_trajdefs[i] = extract_trajdef(basics.sn, new_trajdef, active_carid, frameind_start, sec_per_frame)
+    end
+    extracted_trajdefs
+end
 
 function copy_trajdef_start(trajdef::TrajDef)
     TrajDef(trajdef.lanetag,
@@ -964,4 +1034,102 @@ function copy_trajdef_start(trajdef::TrajDef)
             trajdef.ψ,
             TrajDefLink[]
             )
+end
+
+function Base.insert!(
+    pdset::PrimaryDataset,
+    extracted::ExtractedTrajdef
+    )
+    
+    # NOTE(tim): this assumes pdset already contains the appropriate frameinds
+    #            and validfinds
+
+    source = extracted.df
+
+    if extracted.carid == CARID_EGO
+        for sym in (:posGx, :posGy, :posGyaw, :posFyaw, :velFx, :velFy, :lanetag,
+                    :curvature, :d_cl, :d_merge, :d_split, :nll, :nlr, :d_mr, :d_ml)
+            for (i,frameind) in enumerate(source[:frame])
+                pdset.df_ego_primary[frameind,sym] = source[i,sym]
+            end
+        end
+    else
+        for (i,frameind) in enumerate(source[:frame])
+
+            validfind = frameind2validfind(pdset, frameind)
+            
+            carind = carid2ind_or_negative_two_otherwise(pdset, extracted.carid, validfind)
+            if carind == -2
+                add_car_to_validfind!(pdset, carid, validfind)
+                carind = carid2ind(pdset, extracted.carid, validfind)
+            end
+            
+            baseindex = pdset.df_other_ncol_per_entry * carind   
+
+            for sym in (:posGx, :posGy, :posGyaw, :posFyaw, :velFx, :velFy, :lanetag,
+                        :curvature, :d_cl, :d_merge, :d_split, :nll, :nlr, :d_mr, :d_ml,
+                        :id, :t_inview)
+
+                col = pdset.df_other_column_map[sym] + baseindex
+                pdset.df_other_primary[frameind,col] = source[i,sym]
+            end
+        end
+    end 
+
+    pdset   
+end
+function Base.insert!(
+    pdset::PrimaryDataset,
+    extracted::ExtractedTrajdef,
+    frameind_start::Integer,
+    frameind_end::Integer
+    )
+    
+    # NOTE(tim): this assumes pdset already contains the appropriate frameinds
+    #            and validfinds
+
+    source = extracted.df
+
+    frameind_max = nframeinds(pdset)
+    if frameind_max < frameind_start
+        warn("Base.insert! - no frames copied")
+        return pdset
+    end
+    frameind_end = min(frameind_max, frameind_end)
+
+    extracted_row_start = frameind_start - source[1,:frame]::Int + 1
+    extracted_row_end   = frameind_end + extracted_row_start - frameind_start
+
+    if extracted.carid == CARID_EGO
+        for sym in (:posGx, :posGy, :posGyaw, :posFyaw, :velFx, :velFy, :lanetag,
+                    :curvature, :d_cl, :d_merge, :d_split, :nll, :nlr, :d_mr, :d_ml)
+            for (extracted_row, frameind) in zip(extracted_row_start:extracted_row_end, frameind_start:frameind_end)
+                pdset.df_ego_primary[frameind,sym] = source[extracted_row,sym]
+            end
+        end
+    else
+        # NOTE(tim): this assumes that validfinds are continuous in this sequence
+        validfind_start = frameind2validfind(pdset, frameind_start)
+        validfind_end = validfind_start + extracted_row_start - frameind_start
+        for (extracted_row, validfind) in zip(extracted_row_start:extracted_row_end, validfind_start:validfind_end)
+            
+            carind = carid2ind_or_negative_two_otherwise(pdset, extracted.carid, validfind)
+            if carind == -2
+                add_car_to_validfind!(pdset, carid, validfind)
+                carind = carid2ind(pdset, extracted.carid, validfind)
+            end
+            
+            baseindex = pdset.df_other_ncol_per_entry * carind   
+
+            for sym in (:posGx, :posGy, :posGyaw, :posFyaw, :velFx, :velFy, :lanetag,
+                        :curvature, :d_cl, :d_merge, :d_split, :nll, :nlr, :d_mr, :d_ml,
+                        :id, :t_inview)
+
+                col = pdset.df_other_column_map[sym] + baseindex
+                pdset.df_other_primary[frameind,col] = source[i,sym]
+            end
+        end
+    end 
+
+    pdset   
 end
