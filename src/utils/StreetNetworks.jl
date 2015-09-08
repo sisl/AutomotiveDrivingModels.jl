@@ -29,7 +29,7 @@ export closest_node_to_extind, closest_node_above_extind
 export neighbor_north, neighbor_east, neighbor_south, neighbor_west
 export has_neighbor_east, has_neighbor_south, has_neighbor_west, extisting_neighbor_tiles, extisting_neighbor_tiles_inclusive
 export TilePoint2DProjectionResult
-export project_point_to_tile, project_point_to_streetmap
+export project_point_to_tile, project_point_to_streetmap, project_point_to_lanetag
 export distance_to_lane_split, distance_to_lane_merge, distance_to_lane_end, distance_to_node
 export frenet_distance_between_points
 export num_lanes_on_sides, marker_distances, get_neighbor_lanetag_left, get_neighbor_lanetag_right
@@ -862,6 +862,42 @@ function project_point_to_streetmap(easting::Float64, northing::Float64, sn::Str
 	end
 
 	return proj
+end
+function project_point_to_lanetag(
+	sn::StreetNetwork,
+	posGx::Float64,
+	posGy::Float64,
+	lanetag::LaneTag;
+	max_n_jumps::Integer = 5 # maximum number of lane segments to go forward or back
+	)
+
+	lane = get_lane(sn, lanetag)
+    curve = lane.curve
+
+	n_lane_jumps = 0
+    extind = closest_point_extind_to_curve(curve, posGx, posGy)
+
+    if extind == 1.0
+	    while extind == 1.0 && n_lane_jumps < 5
+	        n_lane_jumps += 1
+	        @assert(has_prev_lane(sn, lane))
+	        lane = prev_lane(sn, lane)
+	        curve = lane.curve
+	        extind = closest_point_extind_to_curve(curve, posGx, posGy)
+	    end
+	else
+	    while is_extind_at_curve_end(curve, extind) && n_lane_jumps < 5
+	        n_lane_jumps += 1
+	        if extind > 1.0
+	            @assert(has_next_lane(sn, lane))
+	            lane = next_lane(sn, lane)
+	            curve = lane.curve
+	            extind = closest_point_extind_to_curve(curve, posGx, posGy)
+	        end
+	    end
+	end
+
+	(extind, lane)
 end
 
 function _distance_to_lane_merge(
@@ -1723,8 +1759,6 @@ function rndf2streetnetwork(
 	verbosity < 1 || @printf("DONE [%.2f]\n", time()-starttime)
 	sn
 end
-
-
 
 function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, node_index::Int)
 

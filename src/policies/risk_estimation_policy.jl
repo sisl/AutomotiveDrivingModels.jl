@@ -65,13 +65,13 @@ function calc_integrated_squared_jerk(p::Quartic, τ::Float64)
 end
 
 function calc_cost(
-    trajdef::Vector{TrajDefLink},
+    extracted_polynomial_factored_trajectories::ExtractedPolynomialFactoredTrajectories,
     collision_prob::Real,
     desired_speed::Real;  # m/s
 
-    k_c::Float64=1.0, # weight assigned to collision probability
-    k_s::Float64=1.0, # weight assigned to relate lateral and longitudinal squared jerk
-    k_v::Float64=0.01, # weight assigned to the squared terminal desired speed deviation
+    k_c::Float64 = 100.0, # weight assigned to collision probability
+    k_s::Float64 =   1.0, # weight assigned to relate lateral and longitudinal squared jerk
+    k_v::Float64 =   0.01, # weight assigned to the squared terminal desired speed deviation
     #k_τ::Float64=0.0, # weight assinged to terminal time?
     #k_ξ₁::Float64=0.0, # weight assigned to terminal reference difference
 
@@ -82,34 +82,18 @@ function calc_cost(
     Assign a scalar cost to a given trajectory
     =#
 
-    # todo: compute this
     J_s = 0.0
     J_d = 0.0
-    # for link in trajdef
+    for i in 1:length(extracted_polynomial_factored_trajectories)
+        poly = extracted_polynomial_factored_trajectories.trajs[i]
+        τ = extracted_polynomial_factored_trajectories.durations[i]
 
-    #     τ = link.n_pdset_frames * sec_per_frame
+        J_s += calc_integrated_squared_jerk(poly.s, τ)
+        J_d += calc_integrated_squared_jerk(poly.d, τ)
+    end 
 
-    #     sdot₁::Float64,
-    #     sddot₁::Float64,
-    #     d₁::Float64,
-    #     ddot₁::Float64,
-    #     dddot₁::Float64,
-
-    #     d₂ = link.d # final lateral offset
-    #     ddot₂ = link.v * sin(link.ϕ) # final lateral velocity
-    #     dddot₂ = link.a * sin(link.ψ) # final lateral accel
-
-    #     sdot₂ = link.v * cos(link.ϕ) # final longitudinal velocity
-    #     sddot₂ = link.a * cos(link.ψ) # final longitudinal accel
-
-    #     poly_s = get_quartic_coefficients(0.0, sdot₁, sddot₁, sdot₂, sddot₂, τ)
-    #     poly_d = get_quintic_coefficients(d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
-    #     J_s += calc_integrated_squared_jerk(poly_s)
-    #     J_d += calc_integrated_squared_jerk(poly_d)
-    # end 
-
-    sdot_f = trajdef[end].sdot
-    ddot_f = trajdef[end].ddot
+    sdot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].s, extracted_polynomial_factored_trajectories.durations[end])
+    ddot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].d, extracted_polynomial_factored_trajectories.durations[end])
     v_f = sqrt(sdot_f*sdot_f + ddot_f*ddot_f)
 
     Δv = v_f - desired_speed
@@ -141,7 +125,7 @@ function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink},
     append!(trajdef.links, links)
 
     frameind_start = validfind2frameind(pdset_for_sim, validfind)
-    extracted = extract_trajdef(pdset_for_sim, sn, trajdef, active_carid, frameind_start, sec_per_frame)
+    extracted, extracted_polynomial_factored_trajectories = extract_trajdef(pdset_for_sim, sn, trajdef, active_carid, frameind_start, sec_per_frame)
 
     insert!(pdset_for_sim, extracted)
     horizon = get_num_pdset_frames(extracted)-1
@@ -187,12 +171,11 @@ function generate_candidate_trajectories(
     for lanetag in lanetags
         for speed_delta in policy.speed_deltas
             push!(candidate_trajectories, [TrajDefLinkTargetSpeed(horizon, lanetag, 0.0, start_speed+speed_delta)])
-            if lanetag != cur_lanetag
-                half_horizon1 = ifloor(horizon/2)
-                half_horizon2 = iceil(horizon/2)
-                push!(candidate_trajectories, [TrajDefLinkTargetSpeed(half_horizon1, lanetag, 0.0, start_speed+speed_delta/2),
-                                               TrajDefLinkTargetSpeed(half_horizon2, lanetag, 0.0, start_speed+speed_delta)])
-            end
+            
+            # half_horizon1 = ifloor(horizon/2)
+            # half_horizon2 = iceil(horizon/2)
+            # push!(candidate_trajectories, [TrajDefLinkTargetSpeed(half_horizon1, lanetag, 0.0, start_speed+speed_delta/2),
+            #                                TrajDefLinkTargetSpeed(half_horizon2, lanetag, 0.0, start_speed+speed_delta)])
         end
     end
     if policy.generate_follow_trajectory
@@ -254,13 +237,13 @@ function calc_collision_risk_monte_carlo!(
 end
 function calc_costs(
     policy::RiskEstimationPolicy,
-    trajectories::Vector{Vector{TrajDefLink}},
+    extracted_trajs::Vector{ExtractedPolynomialFactoredTrajectories},
     collision_risks::Vector{Float64},
     )
     
-    costs = Array(Float64, length(trajectories))
-    for (i,trajdef) in enumerate(trajectories)
-        costs[i] = calc_cost(trajdef, collision_risks[i], policy.desired_speed)
+    costs = Array(Float64, length(extracted_trajs))
+    for (i,extracted_polynomial_factored_trajectories) in enumerate(extracted_trajs)
+        costs[i] = calc_cost(extracted_polynomial_factored_trajectories, collision_risks[i], policy.desired_speed)
     end
     costs
 end
@@ -285,7 +268,7 @@ function propagate!(
     # 1 - generate candidate trajectories
     
     candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
-    extracted_trajdefs = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
+    extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
     ###########################################################
     # 2 - simulate candidate trajectories to estimate risk
@@ -299,8 +282,8 @@ function propagate!(
 
     best_trajectory_index = 1
     best_cost = Inf
-    for (i,trajdef) in enumerate(candidate_trajectories)
-        cost = calc_cost(trajdef, collision_risk[i], policy.desired_speed)
+    for (i,extracted_polynomial_factored_trajectories) in enumerate(extracted_polies)
+        cost = calc_cost(extracted_polynomial_factored_trajectories, collision_risk[i], policy.desired_speed)
         if cost < best_cost
             best_trajectory_index = i
             best_cost = cost

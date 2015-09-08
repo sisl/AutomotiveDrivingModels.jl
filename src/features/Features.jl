@@ -992,7 +992,7 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 			search_dist += active_lane.curve.s[end]
 			active_lane = next_lane(sn, active_lane)
 			active_lanetag = LaneTag(sn, active_lane)
-			finished = search_dist > best_dist
+			finished = search_dist-posFx > best_dist
 		else
 			finished = true
 		end

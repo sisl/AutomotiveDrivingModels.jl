@@ -1499,7 +1499,8 @@ function reel_pdset(
                                         camerazoom=camerazoom)
     end
 
-    roll(frames, fps=fps) # write("output.gif", film)
+    frames
+    # roll(frames, fps=fps) # write("output.gif", film)
 end
 function reel_scenario_playthrough(
     scenario::Scenario,
@@ -1513,9 +1514,10 @@ function reel_scenario_playthrough(
     canvas_height::Integer=300, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=8.0,
-    camera_forward_offset::Real=0.0,
+    camera_forward_offset::Real=60.0,
 
     fps::Integer=3,
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME,
     )
 
     frames = CairoSurface[]
@@ -1531,21 +1533,21 @@ function reel_scenario_playthrough(
     while validfind < validfind_end
             
         candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
-        extracted_trajdefs = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
+        extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extract_trajdefs, validfind, active_carid,
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, validfind, active_carid,
+                                              canvas_width=canvas_width, canvas_height=canvas_height,
+                                              rendermodel=rendermodel, camerazoom=camerazoom,
+                                              camera_forward_offset=camera_forward_offset))
+
+        collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories, active_carid, validfind, sec_per_frame)
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, collision_risk, validfind, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
         
-        collision_risk = calc_collision_risk_monte_carlo!(basics, policy, extracted_trajdefs, active_carid, validfind)
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extract_trajdefs, collision_risk, validfind, active_carid,
-                                              canvas_width=canvas_width, canvas_height=canvas_height,
-                                              rendermodel=rendermodel, camerazoom=camerazoom,
-                                              camera_forward_offset=camera_forward_offset))
-        
-        costs = calc_costs(policy, candidate_trajectories, collision_risk)
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extract_trajdefs, costs, validfind, active_carid,
+        costs = calc_costs(policy, extracted_polies, collision_risk)
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, costs, validfind, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
@@ -1558,8 +1560,8 @@ function reel_scenario_playthrough(
                                               camera_forward_offset=camera_forward_offset))
         
         insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
-        for validfind_vis in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
-            camerax = get(pdset, :posGx, active_carid, validfind_vis) + 60.0
+        for validfind_viz in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
+            camerax = get(pdset, :posGx, active_carid, validfind_viz) + 60.0
             push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], [costs[best]], validfind_viz, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
@@ -1569,7 +1571,8 @@ function reel_scenario_playthrough(
         validfind += N_FRAMES_PER_SIM_FRAME
     end
 
-    roll(frames, fps=fps)
+    # roll(frames, fps=fps)
+    frames
 end
 
 function generate_and_plot_manipulable_gridcount_set(
