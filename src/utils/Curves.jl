@@ -271,11 +271,11 @@ function closest_point_extind_to_curve( curve::Curve, x::Real, y::Real )
 
 	# interpolate farther
 	if ind > 1 && ind < length(curve)
-		t_lo = proj_rel( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), pt )
-		t_hi = proj_rel( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), pt )
+		t_lo = proj_rel( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind],   curve.y[ind]),   pt )
+		t_hi = proj_rel( VecE2(curve.x[ind],   curve.y[ind]),   VecE2(curve.x[ind+1], curve.y[ind+1]), pt )
 
-		p_lo = lerp( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind], curve.y[ind]), t_lo )
-		p_hi = lerp( VecE2(curve.x[ind], curve.y[ind]), VecE2(curve.x[ind+1], curve.y[ind+1]), t_hi )
+		p_lo = lerp( VecE2(curve.x[ind-1], curve.y[ind-1]), VecE2(curve.x[ind],   curve.y[ind]),   t_lo )
+		p_hi = lerp( VecE2(curve.x[ind],   curve.y[ind]),   VecE2(curve.x[ind+1], curve.y[ind+1]), t_hi )
 
 		d_lo = dist( p_lo, pt )
 		d_hi = dist( p_hi, pt )
@@ -972,10 +972,14 @@ function _binary_search(
 			return right
 		elseif sqdist_l < sqdist_r
 			b = c
-			c = left
+            sqdist_b = sqdist_c
+            c = left
+            sqdist_c = sqdist_l
 		else
 			a = c
-			c = right
+            sqdist_a = sqdist_c
+            c = right
+            sqdist_c = sqdist_r
 		end
 	end
 end
