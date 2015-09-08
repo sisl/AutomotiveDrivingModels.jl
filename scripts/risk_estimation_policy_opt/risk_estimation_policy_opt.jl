@@ -104,6 +104,7 @@ for i in 1 : ncandidate_policies
     df_results[i, :e_performance] = evaluations[i].performance
     df_results[i, :total_eval_time] = total_eval_time
 
+    println("total eval time: ", total_eval_time, " [s]")
     writetable("risk_estimation_results.csv", df_results)
 end
 toc()
