@@ -2,6 +2,8 @@ export
     PolynomialFactoredTrajectory,
     ExtractedTrajdef,
     TrajDefLink,
+    TrajDefLinkTargetPosition,
+    TrajDefLinkTargetSpeed,
     TrajDef,
 
     get_quartic_coefficients,
@@ -14,7 +16,7 @@ export
     extract_trajdefs,
     copy_trajdef_start
 
-immutable PolynomialFactoredTrajectory
+type PolynomialFactoredTrajectory
     # NOTE(tim): t=0 is the start of the trajectory in the polynomials
     #            t=τ is the end of the trajectory
 
@@ -119,62 +121,106 @@ end
 
 ####################################################
 
-# abstract TradDefLink
-# immutable TrajDefLinkTargetPosition <: TradDefLink
+# TODO(tim): generate stopping trajectory
 
-#     n_pdset_frames::Int # duration of the link [pdset frames]
-#     lanetag::LaneTag # the lane that this is relative to at the start of the segment
+abstract TrajDefLink
+immutable TrajDefLinkTargetPosition  <: TrajDefLink
 
-#     d::Float64
-#     ddot::Float64 # should be always 0.0
-#     dddot::Float64 # should be always 0.0
+    # "Optimal Trajectories for Time-Critical street scenarios
+    #  using discretized terminal manifolds"
 
-#     s::Float64
-#     sdot::Float64
-#     sddot::Float64
+    # assume lead vehicle travels with constant acceleration
+    # future position s_f(t) is obtained by integration
+    # constant time gap velocity is:
+    #   s_ref(t) = s_f(t) - [trailing_distance + k_relative_speed⋅dot{s_f(t)}]
 
-#     function TrajDefLinkTargetPosition(
-#         n_pdset_frames::Int,
-#         lanetag::LaneTag,
-#         d::Float64,
-#         ddot::Float64,
-#         dddot::Float64,
-#         s::Float64,
-#         sdot::Float64,
-#         sddot::Float64,
-#         )
+    n_pdset_frames::Int # duration of link [pdset frames]
+    carid_target::Int   # carid of the target vehicle, the relevant lane is their relevant lane
+    lanetag::LaneTag    # the lane that this is relative to
+                        # at the start of the segment
+                        # NOTE(tim): this is set based on carid_target
 
-#         new(n_pdset_frames, lanetag, d, ddot, dddot, s, sdot, sddot)
-#     end
-# end
+    Δs::Float64         # longitudinal distance
+    sdot::Float64       # longitudinal speed
+    sddot::Float64      # longitudinal accel
 
-immutable TrajDefLink #TargetSpeed  <: TradDefLink
+    d::Float64          # lane offset
+    ddot::Float64       # lateral speed
+    dddot::Float64      # lateral accel
+
+    function TrajDefLinkTargetPosition(
+        pdset::PrimaryDataset,
+        frameind::Integer,
+
+        n_pdset_frames::Integer,
+        sec_per_frame::Float64,
+        carid_target::Integer,
+        lanetag::LaneTag, # this should be the lanetag that the target car is currently in
+
+        d::Float64,
+        trailing_distance::Float64, # (> 0) longitudinal trailing distance [m] when at equal speed
+        k_relative_speed::Float64,  # (> 0) longitudinal relative speed difference constant
+
+
+        ddot::Float64=0.0,
+        dddot::Float64=0.0,      
+        )
+
+        # predict future motion of other vehicle
+        validfind = frameind2validfind(pdset, frameind)
+        carind_target = carid2ind(pdset, carid_target, validfind)
+        sdot_other = get(pdset, :velFx, carind_target, validfind)
+
+        # NOTE(tim): sensitive to jumps in speed!
+        sddot_other = validfind > 1 ? (get(pdset, :velFx, carind_target, validfind-1) - sdot_other) / sec_per_frame : 0.0
+        
+        # integrate under constant accel to get speed delta
+        τ = n_pdset_frames*sec_per_frame
+        s_f = sdot_other*τ + 0.5*sddot_other*τ*τ # final predicted Δs of lead vehicle
+        sdot_f = sdot_other + sddot_other*τ # final predicted sdot of lead vehicle
+
+        Δs = s_f - (trailing_distance + k_relative_speed*sdot_f)
+        sdot = sdot_f # target the same speed
+        sddot = sddot_other # target the same accel
+
+        new(n_pdset_frames, carid_target, lanetag, Δs, sdot, sddot, d, ddot, dddot)
+    end
+end
+immutable TrajDefLinkTargetSpeed <: TrajDefLink
 
     n_pdset_frames::Int # duration of link [pdset frames]
     lanetag::LaneTag # the lane that this is relative to
                      # at the start of the segment
                      # NOTE(tim): we may cross tile boundaries
 
-    d::Float64 # lane offset
-    v::Float64 # speed
-    a::Float64 # accel
-    ϕ::Float64 # speed heading, relative to lane
-    ψ::Float64 # accel heading, relative to lane   
+    sdot::Float64    # longitudinal speed
+    sddot::Float64   # longitudinal accel
 
-    function TrajDefLink(
+    d::Float64       # lateral offset
+    ddot::Float64    # lateral speed
+    dddot::Float64   # lateral accel
+
+    function TrajDefLinkTargetSpeed(
         n_pdset_frames::Integer,
         lanetag::LaneTag,
 
-        d::Float64,
-        v::Float64,
-        a::Float64 = 0.0,
-        ϕ::Float64 = 0.0,
-        ψ::Float64 = 0.0
+        d::Float64,       # lane offset
+        v::Float64,       # speed
+        a::Float64 = 0.0, # accel
+        ϕ::Float64 = 0.0, # speed heading, relative to lane
+        ψ::Float64 = 0.0  # accel heading, relative to lane   
         )
 
-        new(n_pdset_frames, lanetag, d, v, a, ϕ, ψ)
+        sdot = v*cos(ϕ) # final longitudinal velocity
+        sddot = a*cos(ψ) # final longitudinal accel
+
+        ddot = v*sin(ϕ) # final lateral velocity
+        dddot = a*sin(ψ) # final lateral accel
+
+        new(n_pdset_frames, lanetag, sdot, sddot, d, ddot, dddot)
     end
 end
+
 type TrajDef
     lanetag::LaneTag # initial lanetag
     extind::Float64 # initial state along lanetag
@@ -299,7 +345,7 @@ function _set_vehicle_other_nocheck!(
     validfind::Integer,
     inertial::VecSE2,
     speed::Float64, # [m/s]
-    footpoint::CurvePt, # NOTE(tim): only need this for curvature
+    footpoint::CurvePt,
     extind::Float64,
     lanetag::LaneTag,
     dcl::Float64,
@@ -317,6 +363,7 @@ function _set_vehicle_other_nocheck!(
     setc!(pdset, :posGy,     carind, validfind, inertial.y)
     setc!(pdset, :posGyaw,   carind, validfind, inertial.θ)
 
+    setc!(pdset, :posFx,     carind, validfind, footpoint.s)
     setc!(pdset, :posFyaw,   carind, validfind, ϕ)
 
     setc!(pdset, :velFx,     carind, validfind, speed*cos(ϕ))
@@ -353,7 +400,7 @@ function _set_vehicle_ego_nocheck!(
     frameind::Integer,
     inertial::VecSE2,
     speed::Float64, # [m/s]
-    footpoint::CurvePt, # NOTE(tim): only need this for curvature
+    footpoint::CurvePt,
     extind::Float64,
     lanetag::LaneTag,
     dcl::Float64,
@@ -366,6 +413,7 @@ function _set_vehicle_ego_nocheck!(
     sete!(pdset, :posGy,     frameind, inertial.y)
     sete!(pdset, :posGyaw,   frameind, inertial.θ)
 
+    sete!(pdset, :posFx,     frameind, footpoint.s)
     sete!(pdset, :posFyaw,   frameind, ϕ)
 
     sete!(pdset, :velFx,     frameind, speed*cos(ϕ))
@@ -531,7 +579,7 @@ function _add_trajlink_to_pdset!(
     d₁::Float64,
     ddot₁::Float64,
     dddot₁::Float64,
-    link::TrajDefLink,
+    link::TrajDefLinkTargetSpeed,
     lane::StreetLane,
     extind_start::Float64, # extind we were previously at, for guessing
     sec_per_frame::Float64,
@@ -543,11 +591,11 @@ function _add_trajlink_to_pdset!(
     τ = link.n_pdset_frames * sec_per_frame
 
     d₂ = link.d # final lateral offset
-    ddot₂ = link.v * sin(link.ϕ) # final lateral velocity
-    dddot₂ = link.a * sin(link.ψ) # final lateral accel
+    ddot₂ = link.ddot # final lateral velocity
+    dddot₂ = link.dddot # final lateral accel
 
-    sdot₂ = link.v * cos(link.ϕ) # final longitudinal velocity
-    sddot₂ = link.a * cos(link.ψ) # final longitudinal accel
+    sdot₂ = link.sdot # final longitudinal velocity
+    sddot₂ = link.sddot # final longitudinal accel
 
     # Compute a trajectory in which the lateral start and end states are given
     # and where the longitudinal trajectory has unspecified end position
@@ -596,6 +644,82 @@ function _add_trajlink_to_pdset!(
 
     (inertial, new_footpoint, prev_extind, d₂, ddot₂, dddot₂, sdot₂, sddot₂, frameind, lanetag)
 end
+function _add_trajlink_to_pdset!(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    carid::Integer,
+    sdot₁::Float64,
+    sddot₁::Float64,
+    d₁::Float64,
+    ddot₁::Float64,
+    dddot₁::Float64,
+    link::TrajDefLinkTargetPosition,
+    lane::StreetLane,
+    extind_start::Float64, # extind we were previously at, for guessing
+    sec_per_frame::Float64,
+    inertial::VecSE2,
+    footpoint::CurvePt,
+    frameind::Int,
+    )
+
+    τ = link.n_pdset_frames * sec_per_frame
+
+    d₂ = link.d
+    ddot₂ = link.ddot
+    dddot₂ = link.dddot
+
+    Δs = link.Δs
+    sdot₂ = link.sdot
+    sddot₂ = link.sddot
+
+    # Compute a trajectory in which the lateral start and end states are given
+    # and where the longitudinal trajectory has unspecified end position
+    poly_s = get_quintic_coefficients(0.0, sdot₁, sddot₁, Δs, sdot₂, sddot₂, τ)
+    poly_d = get_quintic_coefficients( d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
+
+    t = 0.0
+    prev_extind = extind_start
+    lanetag = LaneTag(sn, lane)
+    new_footpoint = footpoint
+    footpoint_s_ajdust = 0.0
+    for _ in 1 : link.n_pdset_frames
+        t += sec_per_frame
+
+        Δs, sdot = p₁₂(poly_s, float(t))
+        new_d, ddot = p₁₂(poly_d, float(t))
+
+        new_s = footpoint.s + footpoint_s_ajdust + Δs
+        new_ϕ = atan2(ddot, sdot)
+        new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, prev_extind)
+        while is_extind_at_curve_end(lane.curve, new_extind)
+
+            new_s -= sn.nodes[lane.node_indeces[end]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[end]].d_along
+
+            lane = next_lane(sn, lane)
+            lanetag = LaneTag(sn, lane)
+
+            new_s -= sn.nodes[lane.node_indeces[2]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
+            
+            new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, 1.5)
+        end
+
+        new_footpoint = curve_at(lane.curve, new_extind) 
+        new_footvec = VecSE2(new_footpoint.x, new_footpoint.y, new_footpoint.θ)       
+        inertial = new_footvec + polar(new_d, π/2 + new_footvec.θ, new_footvec.θ + new_ϕ)
+
+        frameind += 1
+        speed = hypot(sdot, ddot)
+        _set_vehicle!(pdset, sn, carid, frameind, inertial, speed,
+                      new_footpoint, new_extind, lanetag, new_d, new_ϕ)
+
+        prev_extind = new_extind
+    end
+
+    (inertial, new_footpoint, prev_extind, d₂, ddot₂, dddot₂, sdot₂, sddot₂, frameind, lanetag)
+end
+
 function Base.insert!(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -662,9 +786,7 @@ function Base.insert!(
         else
             v = hypot(ddot₂, sdot₂)
             a = hypot(dddot₂, sddot₂)
-
-            ϕ = trajdef.links[1].ϕ
-            ψ = trajdef.links[1].ψ
+            ψ = atan2(dddot₂, sddot₂)
 
             link = trajdef.links[link_index]
             lanetag = link.lanetag
@@ -742,7 +864,7 @@ function _set_vehicle_nocheck!(
     frameind::Integer,
     inertial::VecSE2,
     speed::Float64, # [m/s]
-    footpoint::CurvePt, # NOTE(tim): only need this for curvature
+    footpoint::CurvePt,
     extind::Float64,
     lanetag::LaneTag,
     dcl::Float64,
@@ -756,6 +878,7 @@ function _set_vehicle_nocheck!(
     df[frameind,:posGy] = inertial.y
     df[frameind,:posGyaw] = inertial.θ
 
+    df[frameind,:posFx] = footpoint.s
     df[frameind,:posFyaw] = ϕ
 
     df[frameind,:velFx] = speed*cos(ϕ)
@@ -813,6 +936,7 @@ function _set_vehicle!(
     end
 end
 function _add_trajlink_to_extracted!(
+    pdset::PrimaryDataset,
     extracted::ExtractedTrajdef,
     sn::StreetNetwork,
     sdot₁::Float64,
@@ -820,7 +944,7 @@ function _add_trajlink_to_extracted!(
     d₁::Float64,
     ddot₁::Float64,
     dddot₁::Float64,
-    link::TrajDefLink,
+    link::TrajDefLinkTargetSpeed,
     lane::StreetLane,
     extind_start::Float64, # extind we were previously at, for guessing
     sec_per_frame::Float64,
@@ -832,11 +956,11 @@ function _add_trajlink_to_extracted!(
     τ = link.n_pdset_frames * sec_per_frame
 
     d₂ = link.d # final lateral offset
-    ddot₂ = link.v * sin(link.ϕ) # final lateral velocity
-    dddot₂ = link.a * sin(link.ψ) # final lateral accel
+    ddot₂ = link.ddot # final lateral velocity
+    dddot₂ = link.dddot # final lateral accel
 
-    sdot₂ = link.v * cos(link.ϕ) # final longitudinal velocity
-    sddot₂ = link.a * cos(link.ψ) # final longitudinal accel
+    sdot₂ = link.sdot # final longitudinal velocity
+    sddot₂ = link.sddot # final longitudinal accel
 
     # Compute a trajectory in which the lateral start and end states are given
     # and where the longitudinal trajectory has unspecified end position
@@ -885,8 +1009,84 @@ function _add_trajlink_to_extracted!(
 
     (inertial, new_footpoint, prev_extind, d₂, ddot₂, dddot₂, sdot₂, sddot₂, frameind, lanetag)
 end
+function _add_trajlink_to_extracted!(
+    pdset::PrimaryDataset,
+    extracted::ExtractedTrajdef,
+    sn::StreetNetwork,
+    sdot₁::Float64,
+    sddot₁::Float64,
+    d₁::Float64,
+    ddot₁::Float64,
+    dddot₁::Float64,
+    link::TrajDefLinkTargetPosition,
+    lane::StreetLane,
+    extind_start::Float64, # extind we were previously at, for guessing
+    sec_per_frame::Float64,
+    inertial::VecSE2,
+    footpoint::CurvePt,
+    frameind::Int,
+    )
+
+    τ = link.n_pdset_frames * sec_per_frame
+
+    d₂ = link.d # final lateral offset
+    ddot₂ = link.ddot # final lateral velocity
+    dddot₂ = link.dddot # final lateral accel
+
+    Δs = link.Δs
+    sdot₂ = link.sdot
+    sddot₂ = link.sddot
+
+    # Compute a trajectory in which the lateral start and end states are given
+    # and where the longitudinal trajectory has unspecified end position
+    poly_s = get_quintic_coefficients(0.0, sdot₁, sddot₁, Δs, sdot₂, sddot₂, τ)
+    poly_d = get_quintic_coefficients( d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
+
+    t = 0.0
+    prev_extind = extind_start
+    lanetag = LaneTag(sn, lane)
+    new_footpoint = footpoint
+    footpoint_s_ajdust = 0.0
+    for _ in 1 : link.n_pdset_frames
+        t += sec_per_frame
+
+        Δs, sdot = p₁₂(poly_s, float(t))
+        new_d, ddot = p₁₂(poly_d, float(t))
+
+        new_s = footpoint.s + footpoint_s_ajdust + Δs
+        new_ϕ = atan2(ddot, sdot)
+        new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, prev_extind)
+        while is_extind_at_curve_end(lane.curve, new_extind)
+
+            new_s -= sn.nodes[lane.node_indeces[end]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[end]].d_along
+
+            lane = next_lane(sn, lane)
+            lanetag = LaneTag(sn, lane)
+
+            new_s -= sn.nodes[lane.node_indeces[2]].d_along
+            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
+            
+            new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, 1.5)
+        end
+
+        new_footpoint = curve_at(lane.curve, new_extind) 
+        new_footvec = VecSE2(new_footpoint.x, new_footpoint.y, new_footpoint.θ)       
+        inertial = new_footvec + Vec.polar(new_d, π/2 + new_footvec.θ, new_footvec.θ + new_ϕ)
+
+        frameind += 1
+        speed = hypot(sdot, ddot)
+        _set_vehicle!(extracted, sn, frameind, inertial, speed,
+                      new_footpoint, new_extind, lanetag, new_d, new_ϕ)
+
+        prev_extind = new_extind
+    end
+
+    (inertial, new_footpoint, prev_extind, d₂, ddot₂, dddot₂, sdot₂, sddot₂, frameind, lanetag)
+end
 
 function extract_trajdef(
+    pdset::PrimaryDataset,
     sn::StreetNetwork,
     trajdef::TrajDef,
     carid::Integer,
@@ -954,7 +1154,7 @@ function extract_trajdef(
     sddot₁ = a * cos(ψ - footpoint.θ) # initial longitudinal accel
 
     (inertial, footpoint, extind, d₂, ddot₂, dddot₂, sdot₂, sddot₂, frameind, lanetag) = _add_trajlink_to_extracted!(
-                                                                                            extracted, sn, sdot₁, sddot₁, d₁, ddot₁, dddot₁, link,
+                                                                                            pdset, extracted, sn, sdot₁, sddot₁, d₁, ddot₁, dddot₁, link,
                                                                                             lane, extind, sec_per_frame, inertial, footpoint, frameind)
 
     while link_index < length(trajdef.links)
@@ -970,9 +1170,7 @@ function extract_trajdef(
         else
             v = hypot(ddot₂, sdot₂)
             a = hypot(dddot₂, sddot₂)
-
-            ϕ = trajdef.links[1].ϕ
-            ψ = trajdef.links[1].ψ
+            ψ = atan2(dddot₂, sddot₂)
 
             link = trajdef.links[link_index]
             lanetag = link.lanetag
@@ -1004,7 +1202,7 @@ function extract_trajdef(
         end
 
         (inertial, footpoint, extind, d₂, ddot₂, dddot₂, sdot₂, sddot₂, frameind) = _add_trajlink_to_extracted!(
-                                                                                        extracted, sn, sdot₁, sddot₁, d₁, ddot₁, dddot₁, link,
+                                                                                        pdset, extracted, sn, sdot₁, sddot₁, d₁, ddot₁, dddot₁, link,
                                                                                         lane, extind, sec_per_frame, inertial, footpoint, frameind)
     end
 
@@ -1024,7 +1222,7 @@ function extract_trajdefs(
         new_trajdef = copy_trajdef_start(trajdef)
         append!(new_trajdef.links, links)
         frameind_start = validfind2frameind(basics.pdset, validfind)
-        extracted_trajdefs[i] = extract_trajdef(basics.sn, new_trajdef, active_carid, frameind_start, sec_per_frame)
+        extracted_trajdefs[i] = extract_trajdef(basics.pdset, basics.sn, new_trajdef, active_carid, frameind_start, sec_per_frame)
     end
     extracted_trajdefs
 end

@@ -945,7 +945,7 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 	end
 
 	posFx = get(pdset, :posFx,  carind, frameind, validfind)::Float64
-	posFy = get(pdset, :posFy,  carind, frameind, validfind)::Float64
+	posFy = get(pdset, :d_cl,  carind, frameind, validfind)::Float64
 	active_lanetag = lanetags[carind+2]
 	active_lane = get_lane(sn, active_lanetag)
 	search_dist = 0.0
@@ -965,7 +965,7 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 				target_dist = target_posFx - posFx + search_dist
 				if 0.0 < target_dist < best_dist
 
-					target_posFy = get(pdset, :posFy, target_carind, frameind, validfind)
+					target_posFy = get(pdset, :d_cl, target_carind, frameind, validfind)
 					ΔpFy = target_posFy - posFy
 					if abs(ΔpFy) < THRESHOLD_DY_CONSIDERED_IN_FRONT
 						best_carind, best_dist = target_carind, target_dist

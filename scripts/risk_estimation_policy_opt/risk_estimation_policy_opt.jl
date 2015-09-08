@@ -21,16 +21,16 @@ scenario = let
 
     trajs = Array(TrajDef, 3)
     trajs[1] = TrajDef(sn, VecE2(x₀,-4.5), speed_65mph)
-    push!(trajs[1], TrajDefLink(history, lanetagR, 0.0, speed_65mph))
-    push!(trajs[1], TrajDefLink(horizon*4, lanetagR, 0.0, speed_65mph))
+    push!(trajs[1], TrajDefLinkTargetSpeed(history, lanetagR, 0.0, speed_65mph))
+    push!(trajs[1], TrajDefLinkTargetSpeed(horizon*4, lanetagR, 0.0, speed_65mph))
 
     trajs[2] = TrajDef(sn, VecE2(x₀+delta_x,-4.5), delta_speed*speed_65mph)
-    push!(trajs[2], TrajDefLink(history, lanetagR, 0.0, delta_speed*speed_65mph))
-    push!(trajs[2], TrajDefLink(horizon*4, lanetagR, 0.0, delta_speed*speed_65mph))
+    push!(trajs[2], TrajDefLinkTargetSpeed(history, lanetagR, 0.0, delta_speed*speed_65mph))
+    push!(trajs[2], TrajDefLinkTargetSpeed(horizon*4, lanetagR, 0.0, delta_speed*speed_65mph))
 
     trajs[3] = TrajDef(sn, VecE2(x₀-10,-1.5), speed_65mph)
-    push!(trajs[3], TrajDefLink(history, lanetagL, 0.0, speed_65mph))
-    push!(trajs[3], TrajDefLink(horizon*4, lanetagL, 0.0, speed_65mph))
+    push!(trajs[3], TrajDefLinkTargetSpeed(history, lanetagL, 0.0, speed_65mph))
+    push!(trajs[3], TrajDefLinkTargetSpeed(horizon*4, lanetagL, 0.0, speed_65mph))
 
     Scenario("three_car", sn, history, DEFAULT_SEC_PER_FRAME, trajs)
 end
@@ -68,9 +68,10 @@ df_results = DataFrame(p_nsimulations      = Int[],     # number of simulations 
 MPH_5 = 2.235
 
 nsimulations = 1
-speed_deltas = [0.0]
-for nsimulations in (1,10) #,100,1000)
-    for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5)]#, (2,MPH_5)]
+speed_delta_count = 0
+speed_delta_jump = 0.0
+# for nsimulations in (1,10) #,100,1000)
+#     for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5)]#, (2,MPH_5)]
 
         if speed_delta_count == 0
             speed_deltas = [0.0]
@@ -81,11 +82,13 @@ for nsimulations in (1,10) #,100,1000)
         push!(candidate_policies, RiskEstimationPolicy(human_behavior, 
                                      nsimulations=nsimulations, speed_deltas=speed_deltas))
         push!(df_results, (nsimulations, speed_delta_count, speed_delta_jump, NaN, -999, NaN, NaN))
-    end
-end
+#     end
+# end
 
 ncandidate_policies = length(candidate_policies)
 evaluations = Array(PolicyEvaluationResults, ncandidate_policies)
+
+nruns = 10
 
 tic()
 for i in 1 : ncandidate_policies
@@ -94,7 +97,7 @@ for i in 1 : ncandidate_policies
     policy = candidate_policies[i]
 
     starttime = time()
-    evaluations[i] = evaluate_policy(scenario, active_carid, policy, 100)
+    evaluations[i] = evaluate_policy(scenario, active_carid, policy, nruns)
     total_eval_time = time() - starttime
     
     println("eval: ", evaluations[i])
@@ -111,4 +114,4 @@ toc()
 
 writetable("risk_estimation_results.csv", df_results)
 
-
+println("DONE")

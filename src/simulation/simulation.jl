@@ -176,7 +176,7 @@ function _propagate_one_pdset_frame!(
         sete!(pdset, :posGy, frameind_fut, y)
         sete!(pdset, :posGyaw, frameind_fut, θ)
 
-        sete!(pdset, :posFx, frameind_fut, NaN) # this should basically never be used
+        sete!(pdset, :posFx, frameind_fut, ptG.s) # this should basically never be used
         sete!(pdset, :posFy, frameind_fut, NaN) # this should also basically never be used
         sete!(pdset, :posFyaw, frameind_fut, ϕ)
 
@@ -207,7 +207,7 @@ function _propagate_one_pdset_frame!(
         setc!(pdset, :posGy, carind_fut, validfind_fut, y)
         setc!(pdset, :posGyaw, carind_fut, validfind_fut, θ)
 
-        setc!(pdset, :posFx, carind_fut, validfind_fut, NaN) # this should basically never be used
+        setc!(pdset, :posFx, carind_fut, validfind_fut, ptG.s) # this should basically never be used
         setc!(pdset, :posFy, carind_fut, validfind_fut, NaN) # this should also basically never be used
         setc!(pdset, :posFyaw, carind_fut, validfind_fut, ϕ)
 

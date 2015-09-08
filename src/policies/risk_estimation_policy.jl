@@ -15,6 +15,9 @@ export
 
 type RiskEstimationPolicy <: AbstractVehicleBehavior
     speed_deltas   :: Vector{Float64} # various speed delta that we will check
+    generate_follow_trajectory::Bool  # wether to generate a policy to follow lead vehicle
+                                      # if there is one
+
     nsimulations   :: Uint            # number of simulations per risk estimation
     history        :: Uint            # number of pdset frames in the past to record
     horizon        :: Uint            # number of pdset frames to predict forward
@@ -26,11 +29,13 @@ type RiskEstimationPolicy <: AbstractVehicleBehavior
 
         speed_deltas::Vector{Float64}=[-2.235*2, 0.0, 2.235*2],
         nsimulations::Integer=100,
-        desired_speed::Float64=29.06
+        desired_speed::Float64=29.06,
+        generate_follow_trajectory::Bool=true
         )
 
         retval = new()
         retval.speed_deltas   = speed_deltas
+        retval.generate_follow_trajectory = generate_follow_trajectory
         retval.nsimulations   = nsimulations
         retval.horizon        = 2*DEFAULT_FRAME_PER_SEC
         retval.horizon        = 4*DEFAULT_FRAME_PER_SEC
@@ -103,7 +108,11 @@ function calc_cost(
     #     J_d += calc_integrated_squared_jerk(poly_d)
     # end 
 
-    Δv = trajdef[end].v - desired_speed
+    sdot_f = trajdef[end].sdot
+    ddot_f = trajdef[end].ddot
+    v_f = sqrt(sdot_f*sdot_f + ddot_f*ddot_f)
+
+    Δv = v_f - desired_speed
     Δv = Δv*Δv
 
     k_c*collision_prob + (J_d + k_s*J_s) + k_v*Δv
@@ -132,7 +141,7 @@ function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink},
     append!(trajdef.links, links)
 
     frameind_start = validfind2frameind(pdset_for_sim, validfind)
-    extracted = extract_trajdef(sn, trajdef, active_carid, frameind_start, sec_per_frame)
+    extracted = extract_trajdef(pdset_for_sim, sn, trajdef, active_carid, frameind_start, sec_per_frame)
 
     insert!(pdset_for_sim, extracted)
     horizon = get_num_pdset_frames(extracted)-1
@@ -146,7 +155,9 @@ function generate_candidate_trajectories(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
     active_carid::Integer,
-    validfind::Integer,
+    validfind::Integer;
+
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME,
     )
 
     candidate_trajectories = Vector{TrajDefLink}[]
@@ -175,19 +186,37 @@ function generate_candidate_trajectories(
 
     for lanetag in lanetags
         for speed_delta in policy.speed_deltas
-            push!(candidate_trajectories, [TrajDefLink(horizon, lanetag, 0.0, start_speed+speed_delta)])
+            push!(candidate_trajectories, [TrajDefLinkTargetSpeed(horizon, lanetag, 0.0, start_speed+speed_delta)])
             if lanetag != cur_lanetag
                 half_horizon1 = ifloor(horizon/2)
                 half_horizon2 = iceil(horizon/2)
-                push!(candidate_trajectories, [TrajDefLink(half_horizon1, lanetag, 0.0, start_speed+speed_delta/2),
-                                               TrajDefLink(half_horizon2, lanetag, 0.0, start_speed+speed_delta)])
+                push!(candidate_trajectories, [TrajDefLinkTargetSpeed(half_horizon1, lanetag, 0.0, start_speed+speed_delta/2),
+                                               TrajDefLinkTargetSpeed(half_horizon2, lanetag, 0.0, start_speed+speed_delta)])
             end
         end
-        
+    end
+    if policy.generate_follow_trajectory
+        # check whether there is a lead vehicle
+        carind = carid2ind(pdset, active_carid, validfind)
+        f_ind_front = get(INDFRONT, basics, carind, validfind)
+        if f_ind_front != NA_ALIAS
+            ind_front = int(f_ind_front)
+
+            lanetag = get(pdset, :lanetag, ind_front, validfind)::LaneTag
+            trailing_distance = 10.0 # [m]
+            k_relative_speed = 0.0
+
+            frameind = validfind2frameind(pdset, validfind)
+
+            push!(candidate_trajectories, [TrajDefLinkTargetPosition(pdset, frameind,
+                                                                     horizon, sec_per_frame, ind_front, lanetag, 
+                                                                     0.0, trailing_distance, k_relative_speed)])
+        end
     end
 
     candidate_trajectories
 end
+
 function calc_collision_risk_monte_carlo!(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
