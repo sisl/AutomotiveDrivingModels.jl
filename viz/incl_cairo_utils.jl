@@ -10,15 +10,7 @@ Reel.set_output_type("gif")
 
 colorscheme = getcolorscheme("monokai")
 
-function render_car!(
-    rm::RenderModel,
-    car::Vehicle,
-    color :: Colorant = RGB(rand(), rand(), rand())
-    )
-
-    add_instruction!(rm, render_car, (car.pos.x, car.pos.y, car.pos.ϕ, color))
-    rm
-end
+Renderer.camera_set_pos!(rm::RenderModel, car::Vehicle) = camera_set_pos!(rm, convert(VecE2, car.pos))
 
 function render_trace!(
     rm::RenderModel,
@@ -70,8 +62,6 @@ function render_extracted_trajdef!(
 
     add_instruction!(rendermodel, render_arrow, (pts, color, linewidth, arrowhead_len))
 end
-
-Renderer.camera_set_pos!(rm::RenderModel, car::Vehicle) = camera_set_pos!(rm, convert(VecE2, car.pos))
 
 function calc_subframe_interpolation_bounds(subframeind::Int, subframes_per_frame::Int)
     frameind_lo = int((subframeind-1 - mod(subframeind-1, subframes_per_frame))/subframes_per_frame)+1
@@ -556,6 +546,15 @@ end
 
 function render_car!(
     rm::RenderModel,
+    car::Vehicle,
+    color :: Colorant = RGB(rand(), rand(), rand())
+    )
+
+    add_instruction!(rm, render_car, (car.pos.x, car.pos.y, car.pos.ϕ, color))
+    rm
+end
+function render_car!(
+    rm::RenderModel,
     pdset::PrimaryDataset,
     carind::Int,
     frameind::Int;
@@ -575,8 +574,8 @@ function render_car!(
         posGθ = getc(pdset, :posGyaw, carind, validfind)
     end
 
-    add_instruction!(rm, render_circle, (posGx, posGy, 0.25, color))
-    # add_instruction!(rm, render_car, (posGx, posGy, posGθ, color))
+    # add_instruction!(rm, render_circle, (posGx, posGy, 0.25, color))
+    add_instruction!(rm, render_car, (posGx, posGy, posGθ, color))
     rm
 end
 function render_car!(
@@ -601,8 +600,8 @@ function render_car!(
         posGθ = getc(pdset, :posGyaw, carind, validfind)
     end
 
-    add_instruction!(rm, render_circle, (posGx, posGy, 0.25, color_fill, color_stroke))
-    # add_instruction!(rm, render_car, (posGx, posGy, posGθ, color_fill, color_stroke))
+    # add_instruction!(rm, render_circle, (posGx, posGy, 0.25, color_fill, color_stroke))
+    add_instruction!(rm, render_car, (posGx, posGy, posGθ, color_fill, color_stroke))
     rm
 end
 
@@ -738,7 +737,6 @@ function set_camera_in_front_of_carid!(
     camera_forward_offset::Real,
     )
 
-    
     if carid == CARID_EGO
         inertial = get_inertial_ego(pdset, frameind)
     else
@@ -748,7 +746,7 @@ function set_camera_in_front_of_carid!(
     end
 
     posG = convert(VecE2, inertial) + Vec.polar(camera_forward_offset, inertial.θ)
-    camera_set_pos!(rendermodel, posG)
+    camera_set_pos!(rendermodel, posG.x, posG.y)
 end
 
 # function reel_it(
@@ -813,6 +811,7 @@ function plot_scene(
     set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
 
     render(rendermodel, ctx, canvas_width, canvas_height)
+    s
 end
 function plot_traces(
     pdset::PrimaryDataset,

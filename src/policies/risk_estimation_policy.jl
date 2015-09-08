@@ -66,7 +66,7 @@ function calc_cost(
 
     k_c::Float64=1.0, # weight assigned to collision probability
     k_s::Float64=1.0, # weight assigned to relate lateral and longitudinal squared jerk
-    k_v::Float64=0.0, # weight assigned to the squared terminal desired speed deviation
+    k_v::Float64=0.01, # weight assigned to the squared terminal desired speed deviation
     #k_τ::Float64=0.0, # weight assinged to terminal time?
     #k_ξ₁::Float64=0.0, # weight assigned to terminal reference difference
 
@@ -219,7 +219,7 @@ function calc_collision_risk_monte_carlo!(
         tups[i] = (pdset_for_sim, sn, links, active_carid, validfind, nsimulations, human_behavior, sec_per_frame)
     end
 
-    collision_risks = pmap(parallel_eval, tups)
+    collision_risks = convert(Vector{Float64}, pmap(parallel_eval, tups))
 
     collision_risks
 end
