@@ -1,12 +1,12 @@
 using AutomotiveDrivingModels
 
-include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
-include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
-reload(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
+require(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
+require(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
+require(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
 
-reload("scenario_follow_equal.jl")
+# reload("scenario_follow_equal.jl")
 # reload("scenario_follow_faster.jl")
-# reload("scenario_follow_equal_with_other.jl")
+reload("scenario_follow_equal_with_other.jl")
 
 println("Loaded scenario: ", scenario.name)
 
@@ -18,14 +18,14 @@ basics = FeatureExtractBasicsPdSet(scenario_pdset, sn)
 
 active_carid = CARID_EGO
 
-write("scenario_" * scenario.name * ".gif", reel_pdset(scenario_pdset, sn, active_carid))
+write("scenario_" * scenario.name * ".gif", roll(reel_pdset(scenario_pdset, sn, active_carid), fps=40))
 
 human_behavior = VehicleBehaviorGaussian(0.01, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
 
 #################
 
-write("scenario_" * scenario.name * "_default_policy.gif", reel_scenario_playthrough(scenario, policy, pdset=scenario_pdset))
+write("scenario_" * scenario.name * "_default_policy.gif", roll(reel_scenario_playthrough(scenario, policy, pdset=scenario_pdset), fps=3))
 
 #################
 
