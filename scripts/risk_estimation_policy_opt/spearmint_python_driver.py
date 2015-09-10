@@ -4,7 +4,7 @@ import numpy as np
 
 def spearmint_python_driver(nsimulations, speed_delta_count, speed_delta_jump, k_c, k_s, k_v):
 
-  directory = os.path.realpath(__file__)
+  directory = os.path.dirname(os.path.abspath(__file__))
 
   bashCommand = 'julia ' + directory + '/run_risk_estimation_policy.jl' \
                 ' nsimulations ' + str(nsimulations) + ' speed_delta_count ' + str(speed_delta_count) + ' speed_delta_jump ' + str(speed_delta_jump) + ' k_c ' + str(k_c) + ' k_s ' + str(k_s) + ' k_v ' + str(k_v)
