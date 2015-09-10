@@ -138,7 +138,7 @@ function calc_tracemetrics(
                     lane_change_occurred = true
                 else
                     cur_lane = next_lane(sn, cur_lane)
-                    cur_lanetag = LaneTag(sn, cur_lane)
+                    cur_lanetag = cur_lane.id
                     lane_change_occurred = fut_lanetag != cur_lanetag
                 end
 
@@ -274,7 +274,7 @@ function calc_tracemetrics(
                     lane_change_occurred = true
                 else
                     cur_lane = next_lane(sn, cur_lane)
-                    cur_lanetag = LaneTag(sn, cur_lane)
+                    cur_lanetag = cur_lane.id
                     lane_change_occurred = fut_lanetag != cur_lanetag
                 end
 

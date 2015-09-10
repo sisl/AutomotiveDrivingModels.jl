@@ -1,12 +1,12 @@
 using AutomotiveDrivingModels
 
-require(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
-require(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
+require(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); @everywhere using .Renderer
+require(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); @everywhere using .ColorScheme
 require(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
 
 # reload("scenario_follow_equal.jl")
-# reload("scenario_follow_faster.jl")
-reload("scenario_follow_equal_with_other.jl")
+reload("scenario_follow_faster.jl")
+# reload("scenario_follow_faster_with_other.jl")
 
 println("Loaded scenario: ", scenario.name)
 
@@ -18,14 +18,22 @@ basics = FeatureExtractBasicsPdSet(scenario_pdset, sn)
 
 active_carid = CARID_EGO
 
-write("scenario_" * scenario.name * ".gif", roll(reel_pdset(scenario_pdset, sn, active_carid), fps=40))
+# write("scenario_" * scenario.name * ".gif", roll(reel_pdset(scenario_pdset, sn, active_carid), fps=40))
 
-human_behavior = VehicleBehaviorGaussian(0.01, 0.1)
+human_behavior = VehicleBehaviorGaussian(0.005, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
+policy.speed_deltas = get_speed_deltas(2, 5.0)
+policy.k_c = 100000.0
+policy.k_v = 10.0
+policy.trailing_distance = 40.0
+policy.k_relative_speed = 0.0
+policy.horizon = 8*DEFAULT_FRAME_PER_SEC
 
 #################
 
-write("scenario_" * scenario.name * "_default_policy.gif", roll(reel_scenario_playthrough(scenario, policy, pdset=scenario_pdset), fps=3))
+write("scenario_" * scenario.name * "_default_policy.gif", roll(reel_scenario_playthrough(scenario, policy, pdset=scenario_pdset), fps=2))
+
+exit()
 
 #################
 
@@ -48,11 +56,7 @@ speed_delta_jump = 0.0
 for nsimulations in (1,10,100) #,1000)
     for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5)]#, (2,MPH_5)]
 
-        if speed_delta_count == 0
-            speed_deltas = [0.0]
-        else
-            speed_deltas = [-speed_delta_count : speed_delta_count].*speed_delta_jump
-        end
+        speed_deltas = get_speed_deltas(speed_delta_count, speed_delta_jump)
 
         push!(candidate_policies, RiskEstimationPolicy(human_behavior, 
                                      nsimulations=nsimulations, speed_deltas=speed_deltas))

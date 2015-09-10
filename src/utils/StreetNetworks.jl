@@ -22,7 +22,7 @@ export tile_upperbound_north, tile_upperbound_east, tile_bounds, tile_center
 export get_tile, get_tile!, add_tile!, has_tile, same_tile
 export has_segment, get_segment, get_segment!
 export get_lane, has_lane, add_lane!, has_next_lane, next_lane, has_prev_lane, prev_lane
-export get_lanetag, next_lanetag, prev_lanetag
+export next_lanetag, prev_lanetag
 export next_node_index, prev_node_index
 export same_lane, same_lane_and_tile
 export closest_node_to_extind, closest_node_above_extind
@@ -59,6 +59,12 @@ const THRESHOLD_DISTANCE_TO_NODE        = 500.0 # [m]
 
 # ===============================================================================
 
+immutable LaneTag
+	index_e :: Int
+	index_n :: Int
+	segment :: Int
+	lane    :: Int
+end
 immutable StreetNode
 	id :: WaypointID
 	pos :: VecE3 # (UTM-e, UTM-n, alt [m])
@@ -79,7 +85,7 @@ end
 type StreetLane
 	# an ordered list of centerline nodes comprising a lane
 
-	id             :: Int
+	id             :: LaneTag
 	width          :: Float64 # [m]
 	boundary_left  :: Symbol  # TODO(tim): make this a LaneBoundary type?
 	boundary_right :: Symbol  # ∈ {:double_yellow, :solid_yellow, :solid_white, :broken_white, :unknown}
@@ -151,48 +157,24 @@ Base.deepcopy(seg::StreetSegment) = StreetSegment(seg.id, deepcopy(seg.lanes))
 Base.deepcopy(tile::NetworkTile) = NetworkTile(tile.index_e, tile.index_n, deepcopy(tile.segments))
 Base.deepcopy(sn::StreetNetwork) = StreetNetwork(deepcopy(sn.nodes, sn.tile_dict, sn.graph))
 
-immutable LaneTag
-	index_e :: Int
-	index_n :: Int
-	segment :: Int
-	lane    :: Int
-
-	LaneTag(index_e::Int, index_n::Int, segment::Int, lane::Int) = new(index_e, index_n, segment, lane)
-	LaneTag(tile::NetworkTile, laneid::LaneID) = new(tile.index_e, tile.index_n, int(laneid.segment), int(laneid.lane))
-	LaneTag(tile::NetworkTile, segid::Int, laneid::Int) = new(tile.index_e, tile.index_n, segid, laneid)
-	function LaneTag(sn::StreetNetwork, lane::StreetLane)
-		tile = get_tile(sn, sn.nodes[lane.node_indeces[1]].pos.x, sn.nodes[lane.node_indeces[1]].pos.y)
-		tile_segments = collect(values(tile.segments))
-		seg_ind = findfirst(s->in(lane, values(s.lanes)), tile_segments)
-		seg = tile_segments[seg_ind]
-		new(tile.index_e, tile.index_n, seg.id, lane.id)
-	end
-end
 Base.convert(::Type{LaneID}, tag::LaneTag) = LaneID(tag.segment, tag.lane)
 
-type TilePoint2DProjectionResult
-	curvept    :: CurvePt
-	extind     :: Float64
-	tile       :: NetworkTile
-	laneid     :: LaneID
-	sqdist     :: Float64
-	successful :: Bool
+immutable TilePoint2DProjectionResult
+	successful :: Bool       # whether the projection was successful
+	curvept    :: CurvePt    # the closest point on the curve
+	extind     :: Float64    # the extind on the curve
+	lane       :: StreetLane # the corresponding lane
+	sqdist     :: Float64    # square distance to the curve
 
-	function TilePoint2DProjectionResult()
-		self = new()
-		self.successful = false
-		self
-	end
-	function TilePoint2DProjectionResult(
-		curvept::CurvePt,
-		extind::Float64,
-		tile :: NetworkTile,
-		laneid::LaneID,
-		sqdist :: Float64,
-		successful :: Bool
+	TilePoint2DProjectionResult() = new(false)
+	function TilePoint2DProjectionResult(    
+		curvept    :: CurvePt,   
+		extind     :: Float64,   
+		lane       :: StreetLane,
+		sqdist     :: Float64,   
 		)
 
-		new(curvept, extind, tile, laneid, sqdist, successful)
+		new(true, curvept, extind, lane, sqdist)
 	end
 end
 
@@ -200,8 +182,7 @@ function Base.show(io::IO, proj::TilePoint2DProjectionResult)
 	println(io, "TilePoint2DProjectionResult:")
 	println(io, "\tcurvept:    ", proj.curvept)
 	println(io, "\textind:     ", proj.extind)
-	# println(io, "\ttile:       ", proj.tile)
-	println(io, "\tlaneid:     ", proj.laneid)
+	println(io, "\tlanetag:    ", proj.lane.id)
 	println(io, "\tsqdist:     ", proj.sqdist)
 	println(io, "\tsuccessful: ", proj.successful)
 end
@@ -400,7 +381,7 @@ function get_segment!(tile::NetworkTile, segment_id::Int)
 end
 
 has_lane(segment::StreetSegment, id::Integer) = haskey(segment.lanes, id)
-has_lane(segment::StreetSegment, lane::StreetLane) = haskey(segment.lanes, lane.id)
+has_lane(segment::StreetSegment, lane::StreetLane) = haskey(segment.lanes, lane.id.lane)
 has_lane(tile::NetworkTile, id::LaneID) = haskey(tile.segments, id.segment) && has_lane(tile.segments[id.segment], id.lane)
 has_lane(tile::NetworkTile, id::WaypointID) = haskey(tile.segments, id.segment) && has_lane(tile.segments[id.segment], id.lane)
 function has_lane(sn::StreetNetwork, tag::LaneTag)
@@ -414,19 +395,13 @@ get_lane(tile::NetworkTile, id::LaneID) = tile.segments[id.segment].lanes[id.lan
 get_lane(tile::NetworkTile, id::WaypointID) = tile.segments[id.segment].lanes[id.lane]
 get_lane(sn::StreetNetwork, tag::LaneTag) = sn.tile_dict[(tag.index_e, tag.index_n)].segments[tag.segment].lanes[tag.lane]
 get_lane(sn::StreetNetwork, node::StreetNode) = get_lane(get_tile(sn, node.pos.x, node.pos.y), node.id)
-get_lane(proj::TilePoint2DProjectionResult) = get_lane(proj.tile, proj.laneid)
-
-function get_lanetag(easting::Float64, northing::Float64, sn::StreetNetwork)
-    proj = project_point_to_streetmap(easting, northing, sn)
-    @assert(proj.successful)
-    LaneTag(proj.tile, proj.laneid)
-end
+get_lane(proj::TilePoint2DProjectionResult) = proj.lane
 
 function add_lane!(segment::StreetSegment, lane::StreetLane; override=false)
-	if !override && haskey(segment.lanes, lane.id)
+	if !override && haskey(segment.lanes, lane.id.lane)
 		error("segment already has lane: ", lane)
 	end
-	segment.lanes[lane.id] = lane
+	segment.lanes[lane.id.lane] = lane
 	nothing
 end
 function has_next_lane(sn::StreetNetwork, lane::StreetLane)
@@ -447,10 +422,11 @@ function next_lanetag(sn::StreetNetwork, lanetag::LaneTag)
 	# retuns the current one if the next does not exist
 	lane = get_lane(sn, lanetag)
 	if has_next_lane(sn, lane)
-		return LaneTag(sn, next_lane(sn, lane))
+		return next_lane(sn, lane).id
 	end
 	return lanetag
 end
+
 has_prev_lane(sn::StreetNetwork, lane::StreetLane) = !isempty(lane.node_indeces) && indegree(sn.graph, lane.node_indeces[1]) > 0
 function prev_lane(sn::StreetNetwork, lane::StreetLane)
 	firstnode_index = lane.node_indeces[1]
@@ -464,7 +440,7 @@ function prev_lanetag(sn::StreetNetwork, lanetag::LaneTag)
 	# retuns the current one if the prev does not exist
 	lane = get_lane(sn, lanetag)
 	if has_prev_lane(sn, lane)
-		return LaneTag(sn, prev_lane(sn, lane))
+		return prev_lane(sn, lane).id
 	end
 	return lanetag
 end
@@ -688,72 +664,43 @@ end
 
 function project_point_to_tile(easting::Float64, northing::Float64, tile::NetworkTile )
 
-	min_square_dist = Inf
-	best_segment_id = -1
-	best_lane_id = -1
-	res_point = CurvePt(NaN,NaN,NaN,NaN,NaN,NaN)
-	successful = false
-	best_extind = -2
+	retval = TilePoint2DProjectionResult()
 
 	for (segment_id, segment) in tile.segments
 		for (lane_id, lane) in segment.lanes
-			extind = Curves.closest_point_extind_to_curve(lane.curve, easting, northing)
-			pt = Curves.curve_at(lane.curve, extind)
+			extind = closest_point_extind_to_curve(lane.curve, easting, northing)
+			pt = curve_at(lane.curve, extind)
 			de = pt.x - easting
 			dn = pt.y - northing
 			square_dist = de*de + dn*dn
-			if square_dist < min_square_dist
-				min_square_dist = square_dist
-				best_segment_id = segment_id
-				best_lane_id = lane_id
-				res_point = pt
-				successful = true
-				best_extind = extind
+			if !retval.successful || square_dist < retval.sqdist
+				retval = TilePoint2DProjectionResult(pt, extind, lane, square_dist)
 			end
 		end
 	end
 
-	if successful 
-		return TilePoint2DProjectionResult(res_point, best_extind, tile, LaneID(best_segment_id, best_lane_id), 
-											min_square_dist, successful)
-	end
-	TilePoint2DProjectionResult()
+	retval
 end
 function project_point_to_tile(easting::Float64, northing::Float64, tile::NetworkTile, f_filter::Function)
 
-	min_square_dist = Inf
-	best_segment_id = -1
-	best_lane_id = -1
-	res_point = Float64[]
-	successful = false
-	best_extind = -2
+	retval = TilePoint2DProjectionResult()
 
 	for (segment_id, segment) in tile.segments
 		for (lane_id, lane) in segment.lanes
-			extind = Curves.closest_point_extind_to_curve(lane.curve, easting, northing)
-			pt = Curves.curve_at(lane.curve, extind)
-
+			extind = closest_point_extind_to_curve(lane.curve, easting, northing)
+			pt = curve_at(lane.curve, extind)
 			if f_filter(pt, lane)
 				de = pt.x - easting
 				dn = pt.y - northing
 				square_dist = de*de + dn*dn
-				if square_dist < min_square_dist
-					min_square_dist = square_dist
-					best_segment_id = segment_id
-					best_lane_id = lane_id
-					res_point = pt
-					successful = true
-					best_extind = extind
+				if !retval.successful || square_dist < retval.sqdist
+					retval = TilePoint2DProjectionResult(pt, extind, lane, square_dist)
 				end
 			end
 		end
 	end
 
-	if successful 
-		return TilePoint2DProjectionResult(res_point, best_extind, tile, LaneID(best_segment_id, best_lane_id), 
-											min_square_dist, successful)
-	end
-	TilePoint2DProjectionResult()
+	retval
 end
 function project_point_to_streetmap(easting::Float64, northing::Float64, sn::StreetNetwork)
 
@@ -1256,7 +1203,7 @@ function get_neighbor_lanetag_left(sn::StreetNetwork, lane::StreetLane, closest_
     
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
-    LaneTag(proj.tile, proj.laneid)
+    proj.lane.id
 end
 function get_neighbor_lanetag_right(sn::StreetNetwork, lane::StreetLane, closest_node::StreetNode)
     @assert(closest_node.n_lanes_right > 0)
@@ -1269,7 +1216,7 @@ function get_neighbor_lanetag_right(sn::StreetNetwork, lane::StreetLane, closest
     
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
-    LaneTag(proj.tile, proj.laneid)
+    proj.lane.id
 end
 
 function rndf2streetnetwork(
@@ -1460,7 +1407,9 @@ function rndf2streetnetwork(
 					end
 				else
 					width = isnan(lane.width) ? DEFAULT_LANE_WIDTH : lane.width*METERS_PER_FOOT
-					streetlane = StreetLane(lane.id.lane, width, lane.boundary_left, lane.boundary_right, node_indeces, Curve(), false, false)
+
+					lanetag = LaneTag(tile.index_e, tile.index_n, lane.id.segment, lane.id.lane)
+					streetlane = StreetLane(lanetag, width, lane.boundary_left, lane.boundary_right, node_indeces, Curve(), false, false)
 					add_lane!(streetsegment, streetlane)
 				end
 
@@ -1501,7 +1450,7 @@ function rndf2streetnetwork(
 			tile = get_tile(sn, node)
 			for seg in values(tile.segments)
 				for lane in values(seg.lanes)
-					if (seg.id == node.id.segment && lane.id == node.id.lane) || length(lane.node_indeces) < 2
+					if (seg.id == node.id.segment && lane.id.lane == node.id.lane) || length(lane.node_indeces) < 2
 						continue
 					end
 
@@ -1564,7 +1513,7 @@ function rndf2streetnetwork(
 			tile = get_tile(sn, node)
 			for seg in values(tile.segments)
 				for lane in values(seg.lanes)
-					if (seg.id == node.id.segment && lane.id == node.id.lane) || length(lane.node_indeces) < 2
+					if (seg.id == node.id.segment && lane.id.lane == node.id.lane) || length(lane.node_indeces) < 2
 						continue
 					end
 
@@ -1672,13 +1621,13 @@ function rndf2streetnetwork(
 				end
 
 				if total > 1
-					lane.curve = fit_curve(pts, lane.id, DESIRED_DISTANCE_BETWEEN_CURVE_SAMPLES)
+					lane.curve = fit_curve(pts, lane.id.lane, DESIRED_DISTANCE_BETWEEN_CURVE_SAMPLES)
 					if has_prev
 						# adjust s so dist to first node is 0.0
 						c = lane.curve
 						extind = Curves.closest_point_extind_to_curve(c, pts[1,2], pts[2,2])
 						pt = Curves.curve_at(c, extind)
-						lane.curve = Curve(lane.id, c.s - pt.s, c.x, c.y, c.t, c.k, c.k_d)
+						lane.curve = Curve(lane.id.lane, c.s - pt.s, c.x, c.y, c.t, c.k, c.k_d)
 					end
 					lane.has_leading_node = has_prev
 					lane.has_trailing_node = has_next
@@ -1729,9 +1678,9 @@ function rndf2streetnetwork(
 
 					node = sn.nodes[node_index]
 
-					d_end   = _distance_to_lane_end(sn, seg, lane.id, node.extind)
-					d_split = _distance_to_lane_split(sn, seg, lane.id, node.extind)
-					d_merge = _distance_to_lane_merge(sn, seg, lane.id, node.extind)
+					d_end   = _distance_to_lane_end(sn, seg, lane.id.lane, node.extind)
+					d_split = _distance_to_lane_split(sn, seg, lane.id.lane, node.extind)
+					d_merge = _distance_to_lane_merge(sn, seg, lane.id.lane, node.extind)
 					n_lanes_left, marker_dist_left, n_lanes_right, marker_dist_right = _calc_num_lanes_on_side(sn, tile, node_index)
 
 					@assert(n_lanes_left ≥ 0)
@@ -1775,7 +1724,7 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 	node = sn.nodes[node_index]
 	seg_id = int(node.id.segment)
 	lane_id = int(node.id.lane)
-	current_lanetag = LaneTag(center_tile, seg_id, lane_id)
+	current_lanetag = LaneTag(center_tile.index_e, center_tile.index_n, seg_id, lane_id)
 
 	x, y = node.pos.x, node.pos.y
 	θ    = curve_at(get_lane(center_tile, node.id).curve, node.extind).θ
@@ -1804,7 +1753,7 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 			pt = p_orig + (dist+dist_add)*unit_left
 			proj = project_point_to_streetmap(pt.x, pt.y, sn)
 			if proj.successful
-				lanetag = LaneTag(proj.tile, proj.laneid)
+				lanetag = proj.lane.id
 				if !in(lanetag, lanes_seen) # found a new one!
 					perp_dist = hypot(x - proj.curvept.x, y - proj.curvept.y)
 					if LANE_SEP_MIN < perp_dist-dist_add < LANE_SEP_MAX
@@ -1847,7 +1796,7 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 			pt = p_orig + (dist+dist_add)*unit_right
 			proj = project_point_to_streetmap(pt.x, pt.y, sn)
 			if proj.successful
-				lanetag = LaneTag(proj.tile, proj.laneid)
+				lanetag = proj.lane.id
 				if !in(lanetag, lanes_seen) # found a new one!
 					perp_dist = hypot(x-proj.curvept.x, y-proj.curvept.y)
 					if LANE_SEP_MIN < perp_dist-dist_add < LANE_SEP_MAX

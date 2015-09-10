@@ -749,42 +749,6 @@ function set_camera_in_front_of_carid!(
     camera_set_pos!(rendermodel, posG.x, posG.y)
 end
 
-# function reel_it(
-#     runlog :: Matrix{Float64},
-#     canvas_width :: Int,
-#     canvas_height :: Int,
-#     rm::RenderModel = RenderModel();
-#     timescale::Int = 4
-#     )
-
-#     frameind = 1
-
-#     function reel_render(t, dt, runlog::Matrix{Float64}, rm::RenderModel, canvas_width::Int, canvas_height::Int)
-#         # t is the time into the sequence
-#         # dt is the time to advance for the next frame
-        
-#         subframeind = int(t*10)+1
-
-#         s = CairoRGBSurface(canvas_width, canvas_height)
-#         ctx = creategc(s)
-
-#         clear_setup!(rm)
-#         set_background_color!(rm, colorscheme["background"])
-#         render_road!(rm, road, -50.0, 5000.0)
-#         render_scene_subframe!(rm, runlog, subframeind, 4)
-
-#         # camera_set!(rn, runlog[frameind, LOG_COL_X], runlog[frameind, LOG_COL_Y], 12.0)
-#         render(rm, ctx, canvas_width, canvas_height)
-
-#         s
-#     end
-
-#     f = (t,dt) -> reel_render(t, dt, runlog, rm, canvas_width, canvas_height)
-#     film = roll(f, fps=10, duration=(timescale*calc_nframes(runlog)/10)-1.0)
-#     # write("output.gif", film)
-#     return film
-# end
-
 function plot_scene(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -1547,14 +1511,17 @@ function reel_scenario_playthrough(
                                               camera_forward_offset=camera_forward_offset))
         
         costs = calc_costs(policy, extracted_polies, collision_risk)
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, costs, validfind, active_carid,
+        max_cost = maximum(costs)
+        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, costs./max_cost, validfind, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
         
         best = indmin(costs)
         extracted_best = extracted_trajdefs[best]
-        push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], [costs[best]], validfind, active_carid,
+        extracted_best_color_factor_arr = [costs[best]/max_cost]
+
+        push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
@@ -1562,7 +1529,7 @@ function reel_scenario_playthrough(
         insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
         for validfind_viz in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
             camerax = get(pdset, :posGx, active_carid, validfind_viz) + 60.0
-            push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], [costs[best]], validfind_viz, active_carid,
+            push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind_viz, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))

@@ -4,8 +4,8 @@ scenario = let
 
     speed_65mph = 29.06
 
-    lanetagL = get_lanetag(0.0,0.0,sn)
-    lanetagR = get_lanetag(0.0,-5.0,sn)
+    lanetagL = project_point_to_streetmap(0.0,0.0,sn).lane.id
+    lanetagR = project_point_to_streetmap(0.0,-5.0,sn).lane.id
 
     history     = 4*DEFAULT_FRAME_PER_SEC # [pdset frames]
     horizon     = 4*DEFAULT_FRAME_PER_SEC # [pdset frames]
@@ -26,5 +26,5 @@ scenario = let
     push!(trajs[3], TrajDefLinkTargetSpeed(history, lanetagL, 0.0, speed_65mph))
     push!(trajs[3], TrajDefLinkTargetSpeed(horizon*4, lanetagL, 0.0, speed_65mph))
 
-    Scenario("three_car", sn, history, DEFAULT_SEC_PER_FRAME, trajs)
+    Scenario("follow_faster_with_other", sn, history, DEFAULT_SEC_PER_FRAME, trajs)
 end

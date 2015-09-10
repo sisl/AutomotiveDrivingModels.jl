@@ -4,8 +4,8 @@ scenario = let
 
     speed_65mph = 29.06
 
-    lanetagL = get_lanetag(0.0,0.0,sn)
-    lanetagR = get_lanetag(0.0,-5.0,sn)
+    lanetagL = project_point_to_streetmap(0.0,0.0,sn).lane.id
+    lanetagR = project_point_to_streetmap(0.0,-5.0,sn).lane.id
 
     history     = 4*DEFAULT_FRAME_PER_SEC # [pdset frames]
     horizon     = 4*DEFAULT_FRAME_PER_SEC # [pdset frames]

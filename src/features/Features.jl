@@ -991,7 +991,7 @@ function _get_carind_front_and_dist(basics::FeatureExtractBasicsPdSet, carind::I
 		if has_next_lane(sn, active_lane)
 			search_dist += active_lane.curve.s[end]
 			active_lane = next_lane(sn, active_lane)
-			active_lanetag = LaneTag(sn, active_lane)
+			active_lanetag = active_lane.id
 			finished = search_dist-posFx > best_dist
 		else
 			finished = true
@@ -1198,7 +1198,7 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 		if has_prev_lane(sn, active_lane)
 			active_lane = prev_lane(sn, active_lane)
-			active_lanetag = LaneTag(sn, active_lane)
+			active_lanetag = active_lane.id
 			search_dist += active_lane.curve.s[end]
 		else
 			finished = true
@@ -1371,8 +1371,8 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
 
-			left_lanetag = LaneTag(proj.tile, proj.laneid)
-			left_lane = get_lane(sn, left_lanetag)
+			left_lane = proj.lane
+			left_lanetag = left_lane.id
 			
 			delete!(cars_to_check, carind)
 
@@ -1417,12 +1417,12 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 				if is_forward && has_next_lane(sn, active_lane)
 					next_search_dist = search_dist + active_lane.curve.s[end]
 					next_active_lane = next_lane(sn, active_lane)
-					Collections.enqueue!(pq, (next_active_lane, LaneTag(sn, next_active_lane), true, next_search_dist), next_search_dist)
+					Collections.enqueue!(pq, (next_active_lane, next_active_lane.id, true, next_search_dist), next_search_dist)
 				end
 				if (!is_forward || isapprox(search_dist, 0.0)) && has_prev_lane(sn, active_lane)
 					prev_active_lane = prev_lane(sn, active_lane)
 					prev_search_dist = search_dist + prev_active_lane.curve.s[end]
-					Collections.enqueue!(pq, (prev_active_lane, LaneTag(sn, prev_active_lane), false, prev_search_dist), prev_search_dist)
+					Collections.enqueue!(pq, (prev_active_lane, prev_active_lane.id, false, prev_search_dist), prev_search_dist)
 				end
 			end
 		end
@@ -1592,8 +1592,9 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 
 			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
 
-			right_lanetag = LaneTag(proj.tile, proj.laneid)
-			right_lane = get_lane(sn, right_lanetag)
+			
+			right_lane = proj.lane
+			right_lanetag = right_lane.id
 			
 			delete!(cars_to_check, carind)
 
@@ -1633,12 +1634,12 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 				if is_forward && has_next_lane(sn, active_lane)
 					next_search_dist = search_dist + active_lane.curve.s[end]
 					next_active_lane = next_lane(sn, active_lane)
-					Collections.enqueue!(pq, (next_active_lane, LaneTag(sn, next_active_lane), true, next_search_dist), next_search_dist)
+					Collections.enqueue!(pq, (next_active_lane, next_active_lane.id, true, next_search_dist), next_search_dist)
 				end
 				if (!is_forward || isapprox(search_dist, 0.0)) && has_prev_lane(sn, active_lane)
 					prev_active_lane = prev_lane(sn, active_lane)
 					prev_search_dist = search_dist + prev_active_lane.curve.s[end]
-					Collections.enqueue!(pq, (prev_active_lane, LaneTag(sn, prev_active_lane), false, prev_search_dist), prev_search_dist)
+					Collections.enqueue!(pq, (prev_active_lane, prev_active_lane.id, false, prev_search_dist), prev_search_dist)
 				end
 			end
 		end
@@ -2269,7 +2270,7 @@ function _get(::Feature_TimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, c
 					return Δt
 				else
 					cur_lane = next_lane(sn, cur_lane)
-					cur_lanetag = LaneTag(sn, cur_lane)
+					cur_lanetag = cur_lane.id
 					if fut_lanetag != cur_lanetag
 						return Δt
 					end
@@ -2314,7 +2315,7 @@ function _get(::Feature_TimeSinceLaneCrossing, basics::FeatureExtractBasicsPdSet
 					return Δt
 				else
 					cur_lane = prev_lane(sn, cur_lane)
-					cur_lanetag = LaneTag(sn, cur_lane)
+					cur_lanetag = cur_lane.id
 					if past_lanetag != cur_lanetag
 						return Δt
 					end

@@ -821,15 +821,13 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                 df_ego_primary[frameind, :velFx] = speed * cos(θ) # vel along the lane
                 df_ego_primary[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
 
-                tile = proj.tile
-                df_ego_primary[frameind,:lanetag] = LaneTag(tile, proj.laneid)
+                df_ego_primary[frameind,:lanetag] = proj.lane.id
                 df_ego_primary[frameind,:curvature] = ptG[KIND]
                 
                 df_ego_primary[frameind,:d_cl   ] = d::Float64
                 
-                laneid = int(proj.laneid.lane)
-
-                seg = get_segment(tile, int(proj.laneid.segment))
+                laneid = proj.lane.id.lane
+                seg = get_segment(sn, proj.lane.id)
                 d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
                 d_split = distance_to_lane_split(seg, laneid, proj.extind)
                 df_ego_primary[frameind, :d_merge]  =isinf(d_merge)  ? NA : d_merge
@@ -1183,9 +1181,8 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                     ptG = proj.curvept
                     s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
                     
-                    laneid = int(proj.laneid.lane)
-                    tile = proj.tile
-                    seg = get_segment(tile, int(proj.laneid.segment))
+                    laneid = int(proj.lane.id.lane)
+                    seg = get_segment(sn, proj.lane.id)
                     d_end = distance_to_lane_end(seg, laneid, proj.extind)
 
                     meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_other
@@ -1218,7 +1215,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                         speed = data_smoothed[i, :velBx]
                         local_setc!("velFx",     carind, validfind, speed * cos(θ)) # vel along the lane
                         local_setc!("velFy",     carind, validfind, speed * sin(θ)) # vel perpendicular to lane
-                        local_setc!("lanetag",   carind, validfind, LaneTag(tile, proj.laneid))
+                        local_setc!("lanetag",   carind, validfind, proj.lane.id)
                         local_setc!("curvature", carind, validfind, ptG[KIND])
                         local_setc!("d_cl",      carind, validfind, d::Float64)
                        
@@ -1326,13 +1323,12 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
         df_ego_primary[frameind, :velFx] = speed * cos(θ) # vel along the lane
         df_ego_primary[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
 
-        tile = proj.tile
-        df_ego_primary[frameind, :lanetag] = LaneTag(tile, proj.laneid)
+        df_ego_primary[frameind, :lanetag] = proj.lane.id
         df_ego_primary[frameind, :curvature] = ptG.k
         df_ego_primary[frameind, :d_cl] = d::Float64
         
-        laneid = int(proj.laneid.lane)
-        seg = get_segment(tile, int(proj.laneid.segment))
+        seg = get_segment(sn, proj.lane.id)
+        laneid = proj.lane.id.lane
         d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
         d_split = distance_to_lane_split(seg, laneid, proj.extind)
         df_ego_primary[frameind, :d_merge] = isinf(d_merge)  ? NA : d_merge
@@ -1507,9 +1503,8 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                 ptG = proj.curvept
                 s, d, θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
                 
-                laneid = int(proj.laneid.lane)
-                tile = proj.tile
-                seg = get_segment(tile, int(proj.laneid.segment))
+                laneid = proj.lane.id.lane
+                seg = get_segment(sn, proj.lane.id)
                 d_end = distance_to_lane_end(seg, laneid, proj.extind)
 
                 validfind = frameind
@@ -1536,7 +1531,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                 speed = data_obs[frameind, :velBx]
                 local_setc!("velFx",     carind, validfind, speed * cos(θ)) # vel along the lane
                 local_setc!("velFy",     carind, validfind, speed * sin(θ)) # vel perpendicular to lane
-                local_setc!("lanetag",   carind, validfind, LaneTag(tile, proj.laneid))
+                local_setc!("lanetag",   carind, validfind, proj.lane.id)
                 local_setc!("curvature", carind, validfind, ptG.k)
                 local_setc!("d_cl",      carind, validfind, d::Float64)
                

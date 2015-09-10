@@ -255,7 +255,7 @@ function extract_all_lanechanges(
                 lanechange = same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
                 if !lanechange
                     cur_lane = next_lane(sn, cur_lane)
-                    cur_lanetag = LaneTag(sn, cur_lane)
+                    cur_lanetag = cur_lane.id
                     lanechange = fut_lanetag != cur_lanetag
                 end
 

@@ -133,16 +133,14 @@ function _propagate_one_pdset_frame!(
     end
     carind_fut = carid2ind(pdset, carid, validfind_fut)
 
-    x = get(pdset, :posGx, carind, validfind)
-    y = get(pdset, :posGy, carind, validfind)
-    θ = get(pdset, :posGyaw, carind, validfind)
+    inertial = get_inertial(pdset, carind, validfind)
+    x = inertial.x
+    y = inertial.y
+    θ = inertial.θ
     
     s = d = 0.0
     ϕ = get(pdset, :posFyaw, carind, validfind)
-
-    velFx = get(pdset, :velFx, carind, validfind)
-    velFy = get(pdset, :velFy, carind, validfind)
-    v = hypot(velFx, velFy)
+    v = get_speed(pdset, carind, validfind)
 
     for j = 1 : n_euler_steps
 
@@ -165,10 +163,9 @@ function _propagate_one_pdset_frame!(
     @assert(proj.successful)
 
     ptG = proj.curvept
-    laneid = int(proj.laneid.lane)
-    tile = proj.tile
-    seg = get_segment(tile, int(proj.laneid.segment))
-    d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
+    lane = proj.lane
+    seg = get_segment(sn, lane.id)
+    d_end = distance_to_lane_end(sn, seg, lane.id.lane, proj.extind)
 
     if carind == CARIND_EGO
         frameind_fut = validfind2frameind(pdset, validfind_fut)
@@ -183,10 +180,11 @@ function _propagate_one_pdset_frame!(
         sete!(pdset, :velFx, frameind_fut, v*cos(ϕ)) # vel along the lane
         sete!(pdset, :velFy, frameind_fut, v*sin(ϕ)) # vel perpendicular to lane
 
-        sete!(pdset, :lanetag, frameind_fut, LaneTag(tile, proj.laneid))
+        sete!(pdset, :lanetag, frameind_fut, proj.lane.id)
         sete!(pdset, :curvature, frameind_fut, ptG.k)
         sete!(pdset, :d_cl, frameind_fut, d)
 
+        laneid = proj.lane.id.lane
         d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
         d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
         sete!(pdset, :d_merge, frameind_fut, isinf(d_merge) ? NA : d_merge)
@@ -214,10 +212,11 @@ function _propagate_one_pdset_frame!(
         setc!(pdset, :velFx, carind_fut, validfind_fut, v*cos(ϕ)) # vel along the lane
         setc!(pdset, :velFy, carind_fut, validfind_fut, v*sin(ϕ)) # vel perpendicular to lane
 
-        setc!(pdset, :lanetag,   carind_fut, validfind_fut, LaneTag(tile, proj.laneid))
+        setc!(pdset, :lanetag,   carind_fut, validfind_fut, proj.lane.id)
         setc!(pdset, :curvature, carind_fut, validfind_fut, ptG.k)
         setc!(pdset, :d_cl,      carind_fut, validfind_fut, d)
 
+        laneid = proj.lane.id.lane
         d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
         d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
         setc!(pdset, :d_merge, carind_fut, validfind_fut, isinf(d_merge) ? NA : d_merge)

@@ -266,7 +266,7 @@ type TrajDef
         @assert(proj.successful)
 
         extind = proj.extind
-        lanetag = LaneTag(proj.tile, proj.laneid)
+        lanetag = proj.lane.id
         dcl = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, 0.0)[2]
 
         new(lanetag, extind, dcl, v, a, ϕ, ψ, links)
@@ -289,7 +289,7 @@ type TrajDef
         @assert(proj.successful)
 
         extind = proj.extind
-        lanetag = LaneTag(proj.tile, proj.laneid)
+        lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, inertial.θ)
 
         if validfind > 1
@@ -309,14 +309,6 @@ type TrajDef
             ψ = 0.0
             start_accel = 0.0
         end
-
-        # lane = get_lane(sn, lanetag)
-        # footpoint = curve_at(lane.curve, extind)
-        # footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
-        # inertial2 = footvec + polar(dcl, π/2 + footvec.θ, footvec.θ + ϕ)
-        # println(inertial.x, "  ", inertial2.x)
-        # println(inertial.y, "  ", inertial2.y)
-        # println(inertial.θ, "  ", inertial2.θ)
 
         new(lanetag, extind, dcl, start_speed, start_accel, ϕ, ψ, links)
     end
@@ -457,7 +449,7 @@ function _set_vehicle_other!(
 
     footpoint = proj.curvept
     extind = proj.extind
-    lanetag = LaneTag(proj.tile, proj.laneid)
+    lanetag = proj.lane.id
     s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
 
     _set_vehicle_other_nocheck!(pdset, sn, carid, validfind, inertial, speed,
@@ -480,13 +472,13 @@ function _set_vehicle_other!(
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
 
-    if proj.laneid == convert(LaneID, lanetag)
+    if proj.lane.id == lanetag
         _set_vehicle_other_nocheck!(pdset, sn, carid, validfind, inertial, speed,
                                     footpoint, extind, lanetag, dcl, ϕ)
     else
         footpoint = proj.curvept
         extind = proj.extind
-        lanetag = LaneTag(proj.tile, proj.laneid)
+        lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)    
 
         _set_vehicle_other_nocheck!(pdset, sn, carid, validfind, inertial, speed,
@@ -508,7 +500,7 @@ function _set_vehicle_ego!(
 
     footpoint = proj.curvept
     extind = proj.extind
-    lanetag = LaneTag(proj.tile, proj.laneid)
+    lanetag = proj.lane.id
     s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
 
     _set_vehicle_ego_nocheck!(pdset, sn, frameind, inertial, speed,
@@ -530,13 +522,13 @@ function _set_vehicle_ego!(
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
 
-    if proj.laneid == convert(LaneID, lanetag)
+    if proj.lane.id == lanetag
         _set_vehicle_ego_nocheck!(pdset, sn, frameind, inertial, speed,
                                   footpoint, extind, lanetag, dcl, ϕ)
     else
         footpoint = proj.curvept
         extind = proj.extind
-        lanetag = LaneTag(proj.tile, proj.laneid)
+        lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)    
 
         _set_vehicle_ego_nocheck!(pdset, sn, frameind, inertial, speed,
@@ -645,7 +637,7 @@ function _add_trajlink_to_pdset!(
     τ = n_pdset_frames * sec_per_frame
 
     prev_extind = extind_start
-    lanetag = LaneTag(sn, lane)
+    lanetag = lane.id
     new_footpoint = footpoint
     footpoint_s_ajdust = 0.0
     for _ in 1 : n_pdset_frames
@@ -663,7 +655,7 @@ function _add_trajlink_to_pdset!(
             footpoint_s_ajdust -= sn.nodes[lane.node_indeces[end]].d_along
 
             lane = next_lane(sn, lane)
-            lanetag = LaneTag(sn, lane)
+            lanetag = lane.id
 
             new_s -= sn.nodes[lane.node_indeces[2]].d_along
             footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
@@ -896,13 +888,13 @@ function _set_vehicle!(
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
 
-    if proj.laneid == convert(LaneID, lanetag)
+    if proj.lane.id == lanetag
         _set_vehicle_nocheck!(extracted, sn, frameind, inertial, speed,
                               footpoint, extind, lanetag, dcl, ϕ)
     else
         footpoint = proj.curvept
         extind = proj.extind
-        lanetag = LaneTag(proj.tile, proj.laneid)
+        lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)    
 
         _set_vehicle_nocheck!(extracted, sn, frameind, inertial, speed,
@@ -928,7 +920,7 @@ function _add_trajlink_to_extracted!(
     τ = n_pdset_frames * sec_per_frame
 
     prev_extind = extind_start
-    lanetag = LaneTag(sn, lane)
+    lanetag = lane.id
     new_footpoint = footpoint
     footpoint_s_ajdust = 0.0
     for _ in 1 : n_pdset_frames
@@ -945,13 +937,17 @@ function _add_trajlink_to_extracted!(
             new_s -= sn.nodes[lane.node_indeces[end]].d_along
             footpoint_s_ajdust -= sn.nodes[lane.node_indeces[end]].d_along
 
-            lane = next_lane(sn, lane)
-            lanetag = LaneTag(sn, lane)
+            if has_next_lane(sn, lane)
+                lane = next_lane(sn, lane)
+                lanetag = lane.id
 
-            new_s -= sn.nodes[lane.node_indeces[2]].d_along
-            footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
-            
-            new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, 1.5)
+                new_s -= sn.nodes[lane.node_indeces[2]].d_along
+                footpoint_s_ajdust -= sn.nodes[lane.node_indeces[2]].d_along
+                
+                new_extind = closest_point_extind_to_curve_guess(lane.curve, new_s, 1.5)
+            else
+                break
+            end
         end
 
         new_footpoint = curve_at(lane.curve, new_extind) 
@@ -1013,6 +1009,7 @@ function extract_trajdef(
     lanetag = link.lanetag    
 
     # NOTE: using the same inertial VecSE2
+
     extind, lane = project_point_to_lanetag(sn, inertial.x, inertial.y, lanetag)
     curve = lane.curve
 

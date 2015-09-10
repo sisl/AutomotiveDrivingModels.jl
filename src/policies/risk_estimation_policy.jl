@@ -11,37 +11,80 @@ export
     generate_candidate_trajectories,
     calc_collision_risk_monte_carlo!,
     calc_costs,
-    evaluate_policy
+    evaluate_policy,
+
+    get_speed_deltas
 
 type RiskEstimationPolicy <: AbstractVehicleBehavior
-    speed_deltas   :: Vector{Float64} # various speed delta that we will check
-    generate_follow_trajectory::Bool  # wether to generate a policy to follow lead vehicle
-                                      # if there is one
+
+    trajectory_durations       :: Vector{Uint}    # various trajectory framecounts
+    speed_deltas               :: Vector{Float64} # various speed deltas that we will check
+    generate_follow_trajectory :: Bool            # wether to generate a policy to follow lead vehicle
+                                                  # if there is one
+    trailing_distance :: Float64      # distance behind lead car to follow at [m]
+    k_relative_speed  :: Float64      # scalar affecting trailing distance [-], > 0
+
 
     nsimulations   :: Uint            # number of simulations per risk estimation
     history        :: Uint            # number of pdset frames in the past to record
     horizon        :: Uint            # number of pdset frames to predict forward
     desired_speed  :: Float64         # desired speed [m/s]
+    col_method     :: Symbol          # collision check method ∈ [:OBB, :AABB, :Circle]
+    sec_per_frame  :: Float64         # number of seconds per frame to use in prediction simulation
     human_behavior :: AbstractVehicleBehavior # behavior to assign to humans in sim
 
-    function RiskEstimationPolicy(
+    k_c            :: Float64         # weight assigned to collision probability
+    k_s            :: Float64         # weight assigned to relate lateral and longitudinal squared jerk
+    k_v            :: Float64         # weight assigned to the squared terminal desired speed deviation
+
+    function RiskEstimationPolicy{F<:Real, I<:Integer}(
         human_behavior::AbstractVehicleBehavior = VehicleBehaviorGaussian(0.001,0.1);
 
-        speed_deltas::Vector{Float64}=[-2.235*2, 0.0, 2.235*2],
-        nsimulations::Integer=100,
-        desired_speed::Float64=29.06,
-        generate_follow_trajectory::Bool=true
+        speed_deltas::Vector{F} = [-2.235*2, 0.0, 2.235*2],
+        generate_follow_trajectory::Bool = true,
+        trailing_distance::Real = 40.0,
+        k_relative_speed::Real = 0.0,
+
+        nsimulations::Integer = 100,
+        history::Integer = 2*DEFAULT_FRAME_PER_SEC,
+        horizon::Integer = 4*DEFAULT_FRAME_PER_SEC,
+        desired_speed::Real = 29.06,
+        sec_per_frame::Real = DEFAULT_SEC_PER_FRAME,
+        col_method::Symbol = :OBB,
+
+        trajectory_durations::Vector{I} = [2*DEFAULT_FRAME_PER_SEC, horizon],
+
+        k_c::Real = 100.0,
+        k_s::Real =   0.5,
+        k_v::Real =   0.01,
         )
 
         retval = new()
-        retval.speed_deltas   = speed_deltas
+        retval.trajectory_durations = convert(Vector{Uint}, trajectory_durations)
+        retval.speed_deltas   = convert(Vector{Float64}, speed_deltas)
         retval.generate_follow_trajectory = generate_follow_trajectory
+
         retval.nsimulations   = nsimulations
-        retval.horizon        = 2*DEFAULT_FRAME_PER_SEC
-        retval.horizon        = 4*DEFAULT_FRAME_PER_SEC
+        retval.horizon        = history
+        retval.horizon        = horizon
         retval.desired_speed  = desired_speed
+        retval.col_method     = col_method
+        retval.sec_per_frame  = sec_per_frame
         retval.human_behavior = human_behavior
+
+        retval.k_c            = k_c
+        retval.k_s            = k_s
+        retval.k_v            = k_v
+
         retval
+    end
+end
+
+function get_speed_deltas(delta_count::Int, delta_jump::Float64)
+    if delta_count == 0
+        [0.0]
+    else
+        [-delta_count : delta_count].*delta_jump
     end
 end
 
@@ -67,20 +110,17 @@ end
 function calc_cost(
     extracted_polynomial_factored_trajectories::ExtractedPolynomialFactoredTrajectories,
     collision_prob::Real,
-    desired_speed::Real;  # m/s
-
-    k_c::Float64 = 100.0, # weight assigned to collision probability
-    k_s::Float64 =   1.0, # weight assigned to relate lateral and longitudinal squared jerk
-    k_v::Float64 =   0.01, # weight assigned to the squared terminal desired speed deviation
-    #k_τ::Float64=0.0, # weight assinged to terminal time?
-    #k_ξ₁::Float64=0.0, # weight assigned to terminal reference difference
-
-    # TODO(tim): include other factors?
+    policy::RiskEstimationPolicy;
     )
 
     #=
     Assign a scalar cost to a given trajectory
+        A lower cost is better
     =#
+
+    k_c = policy.k_c
+    k_s = policy.k_s
+    k_v = policy.k_v
 
     J_s = 0.0
     J_d = 0.0
@@ -96,10 +136,10 @@ function calc_cost(
     ddot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].d, extracted_polynomial_factored_trajectories.durations[end])
     v_f = sqrt(sdot_f*sdot_f + ddot_f*ddot_f)
 
-    Δv = v_f - desired_speed
+    Δv = v_f - policy.desired_speed
     Δv = Δv*Δv
 
-    k_c*collision_prob + (J_d + k_s*J_s) + k_v*Δv
+    k_c*collision_prob + ((1.0-k_s)*J_d + k_s*J_s) + k_v*Δv
 end
 
 function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64))
@@ -139,10 +179,20 @@ function generate_candidate_trajectories(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
     active_carid::Integer,
-    validfind::Integer;
-
-    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME,
+    validfind::Integer,
     )
+
+    #=
+    Generate a set of candidate trajectories as a list of TrajDefLink lists
+    All trajectories are assumed to begin at the current position of active_carid
+    
+    Returns a Vector{Vector{TrajDefLink}}
+
+    Trajectories of duration policy.horizon will be generated
+    Sequence length is dictated by policy.trajectory_durations
+    Any sequences longer than that will be truncated to policy.horizon
+    Any sequences shorter than that will be extended to policy.horizon assuming constant speed
+    =#
 
     candidate_trajectories = Vector{TrajDefLink}[]
 
@@ -170,14 +220,17 @@ function generate_candidate_trajectories(
 
     for lanetag in lanetags
         for speed_delta in policy.speed_deltas
-            push!(candidate_trajectories, [TrajDefLinkTargetSpeed(horizon, lanetag, 0.0, start_speed+speed_delta)])
-            
-            # half_horizon1 = ifloor(horizon/2)
-            # half_horizon2 = iceil(horizon/2)
-            # push!(candidate_trajectories, [TrajDefLinkTargetSpeed(half_horizon1, lanetag, 0.0, start_speed+speed_delta/2),
-            #                                TrajDefLinkTargetSpeed(half_horizon2, lanetag, 0.0, start_speed+speed_delta)])
+            for duration in policy.trajectory_durations
+                push!(candidate_trajectories, [TrajDefLinkTargetSpeed(duration, lanetag, 0.0, start_speed+speed_delta)])
+                if duration > horizon
+                    remaining_frames = horizon - duration
+                    push!(candidate_trajectories[end], TrajDefLinkTargetSpeed(remaining_frames, lanetag, 0.0, start_speed+speed_delta))
+                end
+            end
         end
     end
+
+    # TODO(tim): genearte follow trajectories for left and right lanes?
     if policy.generate_follow_trajectory
         # check whether there is a lead vehicle
         carind = carid2ind(pdset, active_carid, validfind)
@@ -186,14 +239,12 @@ function generate_candidate_trajectories(
             ind_front = int(f_ind_front)
 
             lanetag = get(pdset, :lanetag, ind_front, validfind)::LaneTag
-            trailing_distance = 10.0 # [m]
-            k_relative_speed = 0.0
 
             frameind = validfind2frameind(pdset, validfind)
 
             push!(candidate_trajectories, [TrajDefLinkTargetPosition(pdset, frameind,
-                                                                     horizon, sec_per_frame, ind_front, lanetag, 
-                                                                     0.0, trailing_distance, k_relative_speed)])
+                                                                     horizon, policy.sec_per_frame, ind_front, lanetag, 
+                                                                     0.0, policy.trailing_distance, policy.k_relative_speed)])
         end
     end
 
@@ -243,7 +294,7 @@ function calc_costs(
     
     costs = Array(Float64, length(extracted_trajs))
     for (i,extracted_polynomial_factored_trajectories) in enumerate(extracted_trajs)
-        costs[i] = calc_cost(extracted_polynomial_factored_trajectories, collision_risks[i], policy.desired_speed)
+        costs[i] = calc_cost(extracted_polynomial_factored_trajectories, collision_risks[i], policy)
     end
     costs
 end
@@ -283,7 +334,7 @@ function propagate!(
     best_trajectory_index = 1
     best_cost = Inf
     for (i,extracted_polynomial_factored_trajectories) in enumerate(extracted_polies)
-        cost = calc_cost(extracted_polynomial_factored_trajectories, collision_risk[i], policy.desired_speed)
+        cost = calc_cost(extracted_polynomial_factored_trajectories, collision_risk[i], policy)
         if cost < best_cost
             best_trajectory_index = i
             best_cost = cost
@@ -343,6 +394,8 @@ function evaluate_policy(
 
     r_collision_frequency::Float64 = -100.0, # weighting for collision frequency
     r_time_per_tick::Float64       =   -1.0, # weighting for time per tick
+
+    verbosity::Int = 0
     )
     
     pdset = create_scenario_pdset(scenario)
@@ -354,7 +407,7 @@ function evaluate_policy(
     total_tick_time = 0.0
 
     for simulation in 1 : nruns
-        println("policy evaluation run ", simulation, " / ", nruns)
+        verbosity ≤ 0 || println("policy evaluation run ", simulation, " / ", nruns)
         eval_results = _evaluate_policy(basics, policy, active_carid, scenario.history, nframeinds(basics.pdset))
         ncollisions += eval_results.had_collision
         total_tick_time += eval_results.total_tick_time
