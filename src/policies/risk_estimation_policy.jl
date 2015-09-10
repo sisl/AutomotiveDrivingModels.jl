@@ -47,7 +47,7 @@ type RiskEstimationPolicy <: AbstractVehicleBehavior
 
         nsimulations::Integer = 100,
         history::Integer = 2*DEFAULT_FRAME_PER_SEC,
-        horizon::Integer = 4*DEFAULT_FRAME_PER_SEC,
+        horizon::Integer = 8*DEFAULT_FRAME_PER_SEC,
         desired_speed::Real = 29.06,
         sec_per_frame::Real = DEFAULT_SEC_PER_FRAME,
         col_method::Symbol = :OBB,
@@ -124,13 +124,13 @@ function calc_cost(
 
     J_s = 0.0
     J_d = 0.0
-    for i in 1:length(extracted_polynomial_factored_trajectories)
-        poly = extracted_polynomial_factored_trajectories.trajs[i]
-        τ = extracted_polynomial_factored_trajectories.durations[i]
+    # for i in 1:length(extracted_polynomial_factored_trajectories)
+    #     poly = extracted_polynomial_factored_trajectories.trajs[i]
+    #     τ = extracted_polynomial_factored_trajectories.durations[i]
 
-        J_s += calc_integrated_squared_jerk(poly.s, τ)
-        J_d += calc_integrated_squared_jerk(poly.d, τ)
-    end 
+    #     J_s += calc_integrated_squared_jerk(poly.s, τ)
+    #     J_d += calc_integrated_squared_jerk(poly.d, τ)
+    # end 
 
     sdot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].s, extracted_polynomial_factored_trajectories.durations[end])
     ddot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].d, extracted_polynomial_factored_trajectories.durations[end])
@@ -168,7 +168,7 @@ function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink},
     extracted, extracted_polynomial_factored_trajectories = extract_trajdef(pdset_for_sim, sn, trajdef, active_carid, frameind_start, sec_per_frame)
 
     insert!(pdset_for_sim, extracted)
-    horizon = get_num_pdset_frames(extracted)-1
+    horizon = get_num_pdset_frames(links)-1
     calc_collision_risk_monte_carlo!(
         basics_for_sim, behavior_pairs, 
         validfind, validfind+horizon-1,
@@ -269,7 +269,7 @@ function calc_collision_risk_monte_carlo!(
     # TODO(tim): allocate one for *horizon*, but copy the past
     pdset_for_sim = deepcopy(pdset)
 
-    max_validfind = maximum([validfind + get_num_pdset_frames(links) for links in candidate_trajectories])::Integer
+    max_validfind = maximum([validfind + get_num_pdset_frames(links) for links in candidate_trajectories])::Int
     if max_validfind > nvalidfinds(pdset_for_sim)
         expand!(pdset_for_sim, max_validfind - nvalidfinds(pdset_for_sim))
     end
