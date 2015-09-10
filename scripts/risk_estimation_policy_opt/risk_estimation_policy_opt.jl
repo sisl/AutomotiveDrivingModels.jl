@@ -4,9 +4,9 @@ require(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); @everywhere u
 require(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); @everywhere using .ColorScheme
 require(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
 
-# reload("scenario_follow_equal.jl")
-reload("scenario_follow_faster.jl")
-# reload("scenario_follow_faster_with_other.jl")
+# reload(Pkg.dir("AutomotiveDrivingModels", "scripts", "risk_estimation_policy_opt", "scenario_follow_equal.jl"))
+# reload(Pkg.dir("AutomotiveDrivingModels", "scripts", "risk_estimation_policy_opt", "scenario_follow_faster.jl"))
+reload(Pkg.dir("AutomotiveDrivingModels", "scripts", "risk_estimation_policy_opt", "scenario_follow_faster_with_other.jl"))
 
 println("Loaded scenario: ", scenario.name)
 
@@ -20,14 +20,11 @@ active_carid = CARID_EGO
 
 # write("scenario_" * scenario.name * ".gif", roll(reel_pdset(scenario_pdset, sn, active_carid), fps=40))
 
-human_behavior = VehicleBehaviorGaussian(0.005, 0.1)
+human_behavior = VehicleBehaviorGaussian(0.00001, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
 policy.speed_deltas = get_speed_deltas(2, 5.0)
 policy.k_c = 100000.0
-policy.k_v = 10.0
-policy.trailing_distance = 40.0
-policy.k_relative_speed = 0.0
-policy.horizon = 8*DEFAULT_FRAME_PER_SEC
+policy.k_v = 100.0
 
 #################
 

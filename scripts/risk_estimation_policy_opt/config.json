@@ -1,7 +1,7 @@
 {
     "language"        : "PYTHON",
     "main-file"       : "spearmint_python_driver.py",
-    "experiment-name" : "scenario_follow_faster_with_other3",
+    "experiment-name" : "scenario_follow_faster_with_other5",
     "likelihood"      : "GAUSSIAN",
     "variables" : {
         "nsimulations" : {
@@ -26,7 +26,7 @@
             "type" : "FLOAT",
             "size" : 1,
             "min"  : -1.0,
-            "max"  : 5.0
+            "max"  : 6.0
         },
         "k_s" : {
             "type" : "FLOAT",
@@ -37,8 +37,8 @@
         "k_v" : {
             "type" : "FLOAT",
             "size" : 1,
-            "min"  : 5.0,
-            "max"  : 10.0
+            "min"  : 0.0,
+            "max"  : 100.0
         }
     }
 }

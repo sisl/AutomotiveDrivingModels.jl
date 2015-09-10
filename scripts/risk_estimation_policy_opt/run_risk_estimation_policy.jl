@@ -22,8 +22,9 @@ RETURNS:
 
 using AutomotiveDrivingModels
 
-# reload("/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/risk_estimation_policy_opt/scenario_follow_equal.jl")
-reload("/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/risk_estimation_policy_opt/scenario_follow_faster_with_other.jl")
+# reload(Pkg.dir("AutomotiveDrivingModels", "scripts", "risk_estimation_policy_opt", "scenario_follow_equal.jl"))
+# reload(Pkg.dir("AutomotiveDrivingModels", "scripts", "risk_estimation_policy_opt", "scenario_follow_faster.jl"))
+reload(Pkg.dir("AutomotiveDrivingModels", "scripts", "risk_estimation_policy_opt", "scenario_follow_faster_with_other.jl"))
 
 sn = scenario.sn
 scenario_pdset = create_scenario_pdset(scenario)
@@ -33,11 +34,11 @@ basics = FeatureExtractBasicsPdSet(scenario_pdset, sn)
 
 active_carid = CARID_EGO
 
-human_behavior = VehicleBehaviorGaussian(0.01, 0.1)
+human_behavior = VehicleBehaviorGaussian(0.00001, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
 
-nruns = 10
-speed_delta_count = 1 
+nruns = 50
+speed_delta_count = 1
 speed_delta_jump  = 2.2352 # 5 MPH
 
 ARGS = ["nsimulations", "1", "speed_delta_jump", "1.000000", "k_s",          "0.000000", "k_v",          "0.000000", "speed_delta_count", "0", "k_c",          "0.000000", "nruns",        "1",]

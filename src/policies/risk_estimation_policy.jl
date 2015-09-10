@@ -46,13 +46,14 @@ type RiskEstimationPolicy <: AbstractVehicleBehavior
         k_relative_speed::Real = 0.0,
 
         nsimulations::Integer = 100,
+
         history::Integer = 2*DEFAULT_FRAME_PER_SEC,
         horizon::Integer = 8*DEFAULT_FRAME_PER_SEC,
+        trajectory_durations::Vector{I} = [2*DEFAULT_FRAME_PER_SEC, 4*DEFAULT_FRAME_PER_SEC],
+
         desired_speed::Real = 29.06,
         sec_per_frame::Real = DEFAULT_SEC_PER_FRAME,
         col_method::Symbol = :OBB,
-
-        trajectory_durations::Vector{I} = [div(horizon,2), horizon],
 
         k_c::Real = 100.0,
         k_s::Real =   0.5,
@@ -124,13 +125,15 @@ function calc_cost(
 
     J_s = 0.0
     J_d = 0.0
-    # for i in 1:length(extracted_polynomial_factored_trajectories)
-    #     poly = extracted_polynomial_factored_trajectories.trajs[i]
-    #     τ = extracted_polynomial_factored_trajectories.durations[i]
+    for i in 1:length(extracted_polynomial_factored_trajectories)
+        poly = extracted_polynomial_factored_trajectories.trajs[i]
+        τ = extracted_polynomial_factored_trajectories.durations[i]
 
-    #     J_s += calc_integrated_squared_jerk(poly.s, τ)
-    #     J_d += calc_integrated_squared_jerk(poly.d, τ)
-    # end 
+        J_s += calc_integrated_squared_jerk(poly.s, τ)
+        J_d += calc_integrated_squared_jerk(poly.d, τ)
+    end
+    J_s *= 0.01
+    J_d *= 0.01
 
     sdot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].s, extracted_polynomial_factored_trajectories.durations[end])
     ddot_f = p₂(extracted_polynomial_factored_trajectories.trajs[end].d, extracted_polynomial_factored_trajectories.durations[end])

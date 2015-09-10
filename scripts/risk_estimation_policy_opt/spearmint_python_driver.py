@@ -1,9 +1,12 @@
+import os
 import subprocess
 import numpy as np
 
 def spearmint_python_driver(nsimulations, speed_delta_count, speed_delta_jump, k_c, k_s, k_v):
 
-  bashCommand = 'julia /home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/risk_estimation_policy_opt/run_risk_estimation_policy.jl' \
+  directory = os.path.realpath(__file__)
+
+  bashCommand = 'julia ' + directory + '/run_risk_estimation_policy.jl' \
                 ' nsimulations ' + str(nsimulations) + ' speed_delta_count ' + str(speed_delta_count) + ' speed_delta_jump ' + str(speed_delta_jump) + ' k_c ' + str(k_c) + ' k_s ' + str(k_s) + ' k_v ' + str(k_v)
 
   print bashCommand
