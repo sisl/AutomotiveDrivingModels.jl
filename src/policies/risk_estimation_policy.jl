@@ -52,7 +52,7 @@ type RiskEstimationPolicy <: AbstractVehicleBehavior
         sec_per_frame::Real = DEFAULT_SEC_PER_FRAME,
         col_method::Symbol = :OBB,
 
-        trajectory_durations::Vector{I} = [2*DEFAULT_FRAME_PER_SEC, horizon],
+        trajectory_durations::Vector{I} = [div(horizon,2), horizon],
 
         k_c::Real = 100.0,
         k_s::Real =   0.5,
@@ -222,7 +222,7 @@ function generate_candidate_trajectories(
         for speed_delta in policy.speed_deltas
             for duration in policy.trajectory_durations
                 push!(candidate_trajectories, [TrajDefLinkTargetSpeed(duration, lanetag, 0.0, start_speed+speed_delta)])
-                if duration > horizon
+                if duration < horizon
                     remaining_frames = horizon - duration
                     push!(candidate_trajectories[end], TrajDefLinkTargetSpeed(remaining_frames, lanetag, 0.0, start_speed+speed_delta))
                 end
