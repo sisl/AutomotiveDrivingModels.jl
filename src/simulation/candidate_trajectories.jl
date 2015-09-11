@@ -311,6 +311,8 @@ type TrajDef
             start_accel = 0.0
         end
 
+        println("start_accel: ", start_accel, "   start_accel_angle: ", ψ)
+
         new(lanetag, extind, dcl, start_speed, start_accel, ϕ, ψ, links)
     end
 end
@@ -720,13 +722,16 @@ function Base.insert!(
     extind = closest_point_extind_to_curve(curve, inertial.x, inertial.y)
     @assert(!is_extind_at_curve_end(curve, extind))
     footpoint = curve_at(curve, extind)
+    ψ -= footpoint.θ
 
     s, d₁, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
     ddot₁ = v * sin(ϕ) # initial lateral velocity
-    dddot₁ = a * sin(ψ - footpoint.θ) # initial lateral accel
+    dddot₁ = a * sin(ψ) # initial lateral accel
 
     sdot₁ = v * cos(ϕ) # initial longitudinal velocity
-    sddot₁ = a * cos(ψ - footpoint.θ) # initial longitudinal accel
+    sddot₁ = a * cos(ψ) # initial longitudinal accel
+
+    println("accel_x: ", sddot₁, "  accel_y: ", dddot₁, "  vel_x: ", sdot₁, "  vel_y: ", ddot₁)
 
     (poly, d₂, ddot₂, dddot₂, sdot₂, sddot₂) = get_polynomial_factored_trajectory(link, sdot₁, sddot₁, d₁, ddot₁, dddot₁, sec_per_frame)
     (inertial, footpoint, extind, frameind, lanetag) = _add_trajlink_to_pdset!(

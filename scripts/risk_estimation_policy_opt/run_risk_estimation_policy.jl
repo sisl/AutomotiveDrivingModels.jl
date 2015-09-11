@@ -37,7 +37,7 @@ active_carid = CARID_EGO
 human_behavior = VehicleBehaviorGaussian(0.00001, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
 
-nruns = 10
+nruns = 1
 speed_delta_count = 2
 speed_delta_jump  = 5.0 # 5 MPH
 
