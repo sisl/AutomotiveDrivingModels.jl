@@ -173,7 +173,8 @@ immutable TrajDefLinkTargetPosition  <: TrajDefLink
         sdot_other = get(pdset, :velFx, carind_target, validfind)
 
         # NOTE(tim): sensitive to jumps in speed!
-        sddot_other = validfind > 1 ? (get(pdset, :velFx, carind_target, validfind-1) - sdot_other) / sec_per_frame : 0.0
+        carind_target_past = carid2ind(pdset, carid_target, validfind-1)
+        sddot_other = validfind > 1 ? (get(pdset, :velFx, carind_target_past, validfind-1) - sdot_other) / sec_per_frame : 0.0
         
         # integrate under constant accel to get speed delta
         τ = n_pdset_frames*sec_per_frame
@@ -303,8 +304,8 @@ type TrajDef
             start_time = gete(pdset, :time, validfind)
             past_time = gete(pdset, :time, past_validfind)
 
-            ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - ϕ
-            start_accel = (start_speed - past_speed) / (start_time - past_time)
+            ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.curvept.θ
+            start_accel = abs((start_speed - past_speed) / (start_time - past_time))
         else
             ψ = 0.0
             start_accel = 0.0
@@ -1207,5 +1208,5 @@ function Base.insert!(
         end
     end 
 
-    pdset   
+    pdset
 end

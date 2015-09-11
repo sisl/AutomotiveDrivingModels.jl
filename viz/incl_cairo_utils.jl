@@ -950,11 +950,12 @@ function plot_manipulable_pdset(
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
     camera_forward_offset::Real=0.0,
+
+    validfind_start = 1,
+    validfind_end = nvalidfinds(pdset)
     )
 
-    nvalidfinds_total = nvalidfinds(pdset)
-    validfind = 1
-    @manipulate for validfind = 1 : nvalidfinds_total
+    @manipulate for validfind in validfind_start : validfind_end
 
         plot_scene(pdset, sn, validfind, active_carid, 
                    canvas_width=canvas_width,
@@ -1528,7 +1529,6 @@ function reel_scenario_playthrough(
         
         insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
         for validfind_viz in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
-            camerax = get(pdset, :posGx, active_carid, validfind_viz) + 60.0
             push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind_viz, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,

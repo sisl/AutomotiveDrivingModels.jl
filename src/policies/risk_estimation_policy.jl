@@ -145,39 +145,6 @@ function calc_cost(
     k_c*collision_prob + ((1.0-k_s)*J_d + k_s*J_s) + k_v*Δv
 end
 
-function parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64))
-
-    pdset_for_sim  = tup[1]
-    sn             = tup[2]
-    links          = tup[3]
-    active_carid   = tup[4]
-    validfind      = tup[5]
-    nsimulations   = tup[6]
-    human_behavior = tup[7]
-    sec_per_frame  = tup[8]
-
-    behavior_pairs = (AbstractVehicleBehavior, Int)[]
-    for carid in get_carids(pdset_for_sim)
-        if carid != active_carid
-            push!(behavior_pairs, (human_behavior,carid))
-        end
-    end
-
-    basics_for_sim = FeatureExtractBasicsPdSet(pdset_for_sim, sn)
-    trajdef = TrajDef(pdset_for_sim, sn, active_carid, validfind)
-    append!(trajdef.links, links)
-
-    frameind_start = validfind2frameind(pdset_for_sim, validfind)
-    extracted, extracted_polynomial_factored_trajectories = extract_trajdef(pdset_for_sim, sn, trajdef, active_carid, frameind_start, sec_per_frame)
-
-    insert!(pdset_for_sim, extracted)
-    horizon = get_num_pdset_frames(links)-1
-    calc_collision_risk_monte_carlo!(
-        basics_for_sim, behavior_pairs, 
-        validfind, validfind+horizon-1,
-        nsimulations=nsimulations)
-end
-
 function generate_candidate_trajectories(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
@@ -254,6 +221,36 @@ function generate_candidate_trajectories(
     candidate_trajectories
 end
 
+function calc_collision_risk_monte_carlo_parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64))
+
+    pdset_for_sim  = tup[1]
+    sn             = tup[2]
+    links          = tup[3]
+    active_carid   = tup[4]
+    validfind      = tup[5]
+    nsimulations   = tup[6]
+    human_behavior = tup[7]
+    sec_per_frame  = tup[8]
+
+    behavior_pairs = (AbstractVehicleBehavior, Int)[]
+    for carid in get_carids(pdset_for_sim)
+        if carid != active_carid
+            push!(behavior_pairs, (human_behavior,carid))
+        end
+    end
+
+    basics_for_sim = FeatureExtractBasicsPdSet(pdset_for_sim, sn)
+    trajdef = TrajDef(pdset_for_sim, sn, active_carid, validfind)
+    append!(trajdef.links, links)
+
+    frameind_start = validfind2frameind(pdset_for_sim, validfind)
+    extracted, extracted_polynomial_factored_trajectories = extract_trajdef(pdset_for_sim, sn, trajdef, active_carid, frameind_start, sec_per_frame)
+
+    insert!(pdset_for_sim, extracted)
+    horizon = get_num_pdset_frames(links)-1
+    calc_collision_risk_monte_carlo!( basics_for_sim, behavior_pairs, validfind,
+                                      validfind+horizon-1, nsimulations=nsimulations)
+end
 function calc_collision_risk_monte_carlo!(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
@@ -285,7 +282,7 @@ function calc_collision_risk_monte_carlo!(
         tups[i] = (pdset_for_sim, sn, links, active_carid, validfind, nsimulations, human_behavior, sec_per_frame)
     end
 
-    collision_risks = convert(Vector{Float64}, pmap(parallel_eval, tups))
+    collision_risks = convert(Vector{Float64}, pmap(calc_collision_risk_monte_carlo_parallel_eval, tups))
 
     collision_risks
 end

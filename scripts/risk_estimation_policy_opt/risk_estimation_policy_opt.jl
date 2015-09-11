@@ -18,7 +18,7 @@ basics = FeatureExtractBasicsPdSet(scenario_pdset, sn)
 
 active_carid = CARID_EGO
 
-# write("scenario_" * scenario.name * ".gif", roll(reel_pdset(scenario_pdset, sn, active_carid), fps=40))
+write("scenario_" * scenario.name * ".gif", roll(reel_pdset(scenario_pdset, sn, active_carid), fps=40))
 
 human_behavior = VehicleBehaviorGaussian(0.00001, 0.1)
 policy = RiskEstimationPolicy(human_behavior)
