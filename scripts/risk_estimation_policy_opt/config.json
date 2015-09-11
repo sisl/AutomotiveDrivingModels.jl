@@ -1,7 +1,7 @@
 {
     "language"        : "PYTHON",
     "main-file"       : "spearmint_python_driver.py",
-    "experiment-name" : "scenario_follow_faster_with_other5",
+    "experiment-name" : "scenario_follow_faster_with_other6",
     "likelihood"      : "GAUSSIAN",
     "variables" : {
         "nsimulations" : {
