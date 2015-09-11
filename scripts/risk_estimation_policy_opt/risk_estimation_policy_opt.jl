@@ -47,9 +47,9 @@ df_results = DataFrame(p_nsimulations      = Int[],     # number of simulations 
 
 MPH_5 = 2.235
 
-nsimulations = 1
-speed_delta_count = 0
-speed_delta_jump = 0.0
+nsimulations = 2
+speed_delta_count = 2
+speed_delta_jump = 5.0
 for nsimulations in (1,10,100) #,1000)
     for (speed_delta_count, speed_delta_jump) in [(0,0.0), (1,MPH_5), (1,2MPH_5)]#, (2,MPH_5)]
 
