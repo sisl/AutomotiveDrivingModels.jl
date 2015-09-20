@@ -1,5 +1,5 @@
-# export  fit_cubic_spline, 
-# 		sample_spline, 
+# export  fit_cubic_spline,
+# 		sample_spline,
 # 		sample_spline_derivative,
 # 		sample_spline_derivative2,
 # 		sample_spline_speed,
@@ -499,7 +499,7 @@ function sample_spline_derivative_of_curvature(spline_coeffs_x::AbstractMatrix{F
 	retval
 end
 
-function calc_curve_length(spline_coeffs_x::AbstractVector{Float64}, spline_coeffs_y::AbstractVector{Float64}; 
+function calc_curve_length(spline_coeffs_x::AbstractVector{Float64}, spline_coeffs_y::AbstractVector{Float64};
 	n_intervals::Int = 100
 	)
 
@@ -519,7 +519,9 @@ function calc_curve_length(spline_coeffs_x::AbstractVector{Float64}, spline_coef
 	end
 	return h/3*retval
 end
-function calc_curve_length(spline_coeffs_x::AbstractMatrix{Float64}, spline_coeffs_y::AbstractMatrix{Float64}; 
+function calc_curve_length(
+	spline_coeffs_x::AbstractMatrix{Float64},
+	spline_coeffs_y::AbstractMatrix{Float64};
 	n_intervals_per_segment::Int = 100
 	)
 
@@ -615,7 +617,7 @@ function calc_curve_param_given_arclen(
 
 	# @printf("%10s %10s %10s %10s %10s %10s\n", "iter", "lo", "hi", "t", "s", "F")
 	# println("-"^65)
-	
+
 	for iter = 1 : max_iterations
 		F = arclength(spline_coeffs_x, spline_coeffs_y, 0.0, t) - s
 
@@ -669,7 +671,7 @@ function calc_curve_param_given_arclen(
 
 	# @printf("%10s %10s %10s %10s %10s %10s\n", "iter", "lo", "hi", "t", "s", "F")
 	# println("-"^65)
-	
+
 	for iter = 1 : max_iterations
 		F = arclength(spline_coeffs_x, spline_coeffs_y, 0.0, t, n_integration_intervals) - s
 
@@ -747,7 +749,7 @@ function calc_curve_param_given_arclen(
 				t = tCandidate ≥ hi ? 0.5*(lo+hi) : tCandidate
 			end
 		end
-		
+
 		t_arr[i], lo = t, t
 	end
 
@@ -813,7 +815,7 @@ function calc_curve_param_given_arclen(
 				t = tCandidate ≥ hi ? 0.5*(lo+hi) : tCandidate
 			end
 		end
-		
+
 		t_arr[i] = lo = t
 	end
 

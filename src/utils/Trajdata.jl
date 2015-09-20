@@ -15,7 +15,7 @@ using AutomotiveDrivingModels.CommonTypes
 import Base: get
 import AutomotiveDrivingModels: LaneTag, Vehicle
 
-export 
+export
 	PrimaryDataset,                     # type containing precomputed road network data
 
 	LaneTag,                            # reexport
@@ -25,12 +25,12 @@ export
 
 	CONTROL_STATUS_START,               # vehicle is in start mode
 	CONTROL_STATUS_ACTIVE,	            # vehicle is in active mode
-	CONTROL_STATUS_ACTIVE_REINT,        # 
-	CONTROL_STATUS_CONTROL_ACTIVE,      # 
+	CONTROL_STATUS_ACTIVE_REINT,        #
+	CONTROL_STATUS_CONTROL_ACTIVE,      #
 	CONTROL_STATUS_AUTO,                # autonomous driving mode
 	CONTROL_STATUS_HANDOVER_TO_DRIVER,  # system -> driver handover
 	CONTROL_STATUS_HANDOVER_TO_SYSTEM,  # driver -> system handover
-	CONTROL_STATUS_PREPARE_ACTUATORS,   # 
+	CONTROL_STATUS_PREPARE_ACTUATORS,   #
 	CONTROL_STATUS_READY,               #
 	CONTROL_STATUS_WAITING,             #
 	CONTROL_STATUS_FAILURE,             #
@@ -47,7 +47,7 @@ export
 	nvalidfinds,                        # number of valid frame indeces
 	calc_sec_per_frame,                 # compute seconds elapsed between frame samples
 	get_elapsed_time,                   # elapsed time between validfinds
-	closest_frameind,                   # 
+	closest_frameind,                   #
 	closest_validfind,
 	carid2ind,
 	carind2id,
@@ -175,7 +175,7 @@ type PrimaryDataset
 	df_other_column_map :: Dict{Symbol, Int}     # maps symbol to column index
 
 	function PrimaryDataset(
-		df_ego_primary     :: DataFrame, 
+		df_ego_primary     :: DataFrame,
 		df_other_primary   :: DataFrame,
 		dict_trajmat       :: Dict{Uint32,DataFrame},
 		dict_other_idmap   :: Dict{Uint32,Uint16},
@@ -218,12 +218,12 @@ type PrimaryDataset
 		end
 		df_other_ncol_per_entry = length(df_other_column_map)
 
-		new(df_ego_primary, 
+		new(df_ego_primary,
 			df_other_primary,
 			dict_trajmat,
 			dict_other_idmap,
-			mat_other_indmap, 
-			ego_car_on_freeway, 
+			mat_other_indmap,
+			ego_car_on_freeway,
 			validfind2frameind,
 			frameind2validfind,
 			maxcarind,
@@ -236,8 +236,8 @@ end
 function _create_df_ego_primary(nframes::Integer)
 	DataFrame(
 	        time           = DataArray(Float64, nframes),
-	        frame          = DataArray(Int,     nframes),     
-	        control_status = DataArray(Int,     nframes),    
+	        frame          = DataArray(Int,     nframes),
+	        control_status = DataArray(Int,     nframes),
 	        posGx          = DataArray(Float64, nframes),
 	        posGy          = DataArray(Float64, nframes),
 	        posGyaw        = DataArray(Float64, nframes),
@@ -254,7 +254,7 @@ function _create_df_ego_primary(nframes::Integer)
 	        d_ml           = DataArray(Float64, nframes),
 	        d_mr           = DataArray(Float64, nframes),
 	        d_merge        = DataArray(Float64, nframes),
-	        d_split        = DataArray(Float64, nframes) 
+	        d_split        = DataArray(Float64, nframes)
 	    )
 end
 function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
@@ -338,7 +338,7 @@ function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float
     	else
     		pdset.df_ego_primary[frameind, :frame] = 1
     		pdset.df_ego_primary[frameind, :time] = 0.0
-    	end    	
+    	end
     end
 
     pdset
@@ -390,7 +390,7 @@ Base.next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
 
 	# id::Integer         # car identification number
 	# posEx::Real         # position in the ego frame relative to the ego car
-	# posEy::Real     
+	# posEy::Real
 	# velEx::Real         # velocity in the ego frame relative to the ego car
 	# velEy::Real
 	# posGx::Real         # global position of the car in UTM
@@ -428,7 +428,7 @@ Base.next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
 
 	# # lane, 0=our lane, -1 = left, 1 = right, etc.
 	# lane::Integer
-	
+
 	# # offset with resect to center line [m]
 	# lane_offset::Real
 
@@ -463,7 +463,7 @@ function idinframe( pdset::PrimaryDataset, carid::Integer, validfind::Integer )
 	if !haskey(pdset.dict_other_idmap, carid)
 		return false
 	end
-	
+
 	matind = pdset.dict_other_idmap[carid]
 	pdset.mat_other_indmap[validfind, matind] != -1
 end
@@ -503,7 +503,7 @@ function carid2ind( pdset::PrimaryDataset, carid::Integer, validfind::Integer )
 	int(carind)
 end
 function carid2ind_or_negative_one_otherwise(trajdata::DataFrame, carid::Integer, frameind::Integer)
-	
+
 	if carid == CARID_EGO
 		return CARIND_EGO
 	end
@@ -659,7 +659,7 @@ function closest_validfind( pdset::PrimaryDataset, time::Float64 )
 		fn = 0
 	end
 
-	
+
 	@assert(fn != fp)
 
 	if fn == 0
@@ -710,7 +710,7 @@ function sete!( pdset::PrimaryDataset, sym::Symbol, frameind::Integer, val::Any 
 	pdset.df_ego_primary[frameind, sym] = val
 end
 function setc!( pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer, val::Any )
-	col = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind	
+	col = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind
 	pdset.df_other_primary[validfind, col] = val
 end
 function set!(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer, val::Any)
@@ -837,11 +837,11 @@ end
 function get_carids( pdset::PrimaryDataset )
 	carids = Set{Int}()
 
-	push!(carids, CARID_EGO)	
+	push!(carids, CARID_EGO)
 	for carid in keys(pdset.dict_other_idmap)
 		push!(carids, carid)
 	end
-	
+
 	carids
 end
 function carind_exists( trajdata::DataFrame, carind::Integer, frameind::Integer )
@@ -880,7 +880,7 @@ function get_num_other_cars_in_frame( pdset::PrimaryDataset, validfind::Integer 
 end
 get_num_cars_in_frame( pdset::PrimaryDataset, validfind::Integer ) = get_num_other_cars_in_frame(pdset, validfind) + 1
 
-function get_valid_frameinds( pdset::PrimaryDataset ) 
+function get_valid_frameinds( pdset::PrimaryDataset )
 
 	all_inds = [1:size(pdset.df_ego_primary,1)]
 	all_inds[pdset.ego_car_on_freeway]
@@ -908,7 +908,7 @@ function load_trajdata( input_path::String )
 		cols = length(matchall(r",", lines[i]))+1
 		if n_cols - cols < 0
 			println(i, ": ", cols, " -> ", n_cols)
-		end 
+		end
 		@printf(file, "%s", lines[i][1:end-1]*(","^(n_cols-cols))*"\n" )
 	end
 	close(file)
@@ -1052,7 +1052,7 @@ function export_trajdata( filename::String, trajdata::DataFrame )
 
 		# global position
 		@printf(fout, "%.10f,%.10f,%.10f,", trajdata[:posGx][i], trajdata[:posGy][i], trajdata[:posGz][i])
-			
+
 		# global rotation
 		quat = euler2quat( trajdata[:rollG][i], trajdata[:pitchG][i], trajdata[:yawG][i] )
 		@printf(fout, "%.16f,%.16f,%.16f,%.16f,", quat[1], quat[2], quat[3], quat[4])
@@ -1096,7 +1096,7 @@ function export_trajdata( filename::String, trajdata::DataFrame )
 			val = trajdata[symbol(@sprintf("velLd_%d",         j))][i]; @printf(fout, "%s,", isa(val, NAtype) ? "" : @sprintf("%.15f", val))
 			val = trajdata[symbol(@sprintf("posRLs_%d",        j))][i]; @printf(fout, "%s,", isa(val, NAtype) ? "" : @sprintf("%.15f", val))
 
-			val = trajdata[symbol(@sprintf("posRLd_%d", j))][i]; 
+			val = trajdata[symbol(@sprintf("posRLd_%d", j))][i];
 			if isa(val, NAtype)
 				@printf(fout, "")
 			elseif val == -999
@@ -1104,13 +1104,13 @@ function export_trajdata( filename::String, trajdata::DataFrame )
 			else
 				@printf(fout, "%.15f", val)
 			end
-			
+
 			if j < maxncars
 				@printf(fout, ",")
 			end
-		end   
+		end
 
-		@printf(fout, "\n")    
+		@printf(fout, "\n")
 	end
 
 	close(fout)
@@ -1172,7 +1172,7 @@ function add_car_to_validfind!(pdset::PrimaryDataset, carid::Integer, validfind:
 	add_carid!(pdset, carid_32)
 	carind = find_slot_for_car!(pdset, validfind)
 	matind = pdset.dict_other_idmap[uint32(carid_32)]
-	
+
 	pdset.mat_other_indmap[validfind, matind] = carind
 
     setc!(pdset, :id, carind, validfind, carid_32)
@@ -1209,7 +1209,7 @@ function copy_trace!(
             copy_vehicle!(dest, source, carind, validfind, validfind_dest)
         end
     end
-    
+
     dest
 end
 function copy_vehicle!(
@@ -1237,7 +1237,7 @@ function copy_vehicle!(
         add_car_to_validfind!(dest, carid, validfind_dest)
     end
     carind_dest = carid2ind(dest, carid, validfind_dest)
-    
+
     # ---------------------------
     # set values
 
@@ -1257,6 +1257,27 @@ function copy_vehicle!(
             dest.df_other_primary[validfind_dest, col_dest] = source.df_other_primary[validfind_source, col_source]
         end
     end
+
+    dest
+end
+function Base.copy!(
+    dest::PrimaryDataset,
+    source::PrimaryDataset,
+    validfind::Integer,
+    history::Integer, # number of frames before and including validfind
+    horizon::Integer, # number of frames past validfind
+    )
+
+    frameind_start = validfind2frameind(source, validfind)
+
+    error("not yet implemented")
+
+    #=
+    for frameind in frameind_start-history+1 : frameind_start+horizon
+        # copy over the stuff and make sure to clear out anything that was already there
+        # THIS FUNCTION DOES NOT TOUCH OTHER FRAMEINDS (older or later) for efficiency reasons
+    end
+    =#
 
     dest
 end
@@ -1516,7 +1537,7 @@ function remove_car!( pdset::PrimaryDataset, carid::Integer )
 		end
 	end
 
-	# remove id from mat_other_indmap 
+	# remove id from mat_other_indmap
 	pdset.mat_other_indmap = pdset.mat_other_indmap[:,[1:matind-1,matind+1:end]]
 
 	# shift everyone else down
@@ -1535,7 +1556,7 @@ function remove_car!( pdset::PrimaryDataset, carid::Integer )
 end
 
 function frames_contain_carid( trajdata::DataFrame, carid::Integer, startframeind::Int, horizon::Int; frameskip::Int=1 )
-		
+
 	if startframeind+horizon > size(trajdata,1)
 		return false
 	end
@@ -1554,7 +1575,7 @@ function frames_contain_carid( trajdata::DataFrame, carid::Integer, startframein
 	return false
 end
 function frames_contain_carid( pdset::PrimaryDataset, carid::Integer, startvalidfind::Int, endvalidfind::Int; frameskip::Int=1 )
-		
+
 	if !validfind_inbounds(pdset, startvalidfind) || !validfind_inbounds(pdset, endvalidfind)
 		return false
 	end
@@ -1644,7 +1665,7 @@ end
 # -------------------------
 function quat2euler{T <: Real}( quat::Vector{T} )
 	# convert a quaternion to roll-pitch-yaw
-	
+
 	d = norm(quat)
 	w = quat[1]/d
 	x = quat[2]/d

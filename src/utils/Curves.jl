@@ -48,7 +48,7 @@ immutable CurvePt
 	kd::Float64
 end
 
-immutable Curve	
+immutable Curve
 	lane :: Int             # id of the lane, starts at 0. Not necessarily ordered left-to-right
 	s    :: Vector{Float64} # distance along curve [m]
 	x    :: Vector{Float64} # x-pos in UTM [m]
@@ -56,7 +56,7 @@ immutable Curve
 	t    :: Vector{Float64} # heading [rad] [0-2pi]
 	k    :: Vector{Float64} # curvature [1/m]
 	k_d  :: Vector{Float64} # derivative of curvature [1/(m^2)]
-	
+
 	function Curve()
 		new(-1,Float64[],Float64[],Float64[],Float64[],Float64[],Float64[])
 	end
@@ -110,7 +110,7 @@ function load(filename::String)
 				              t_arr[lane_inds], k_arr[lane_inds], kd_arr[lane_inds])
 		retval[laneid+1] = curve
 	end
-	
+
 	return retval
 end
 
@@ -122,7 +122,7 @@ function fit_curve(
 	epsilon        :: Float64 = 1e-4,
 	n_intervals_in_arclen :: Int = 100
 	)
-	
+
 	@assert(size(pts, 1) == 2)
 
 	# println("pts: ", pts)
@@ -135,9 +135,9 @@ function fit_curve(
 	# println(spline_coeffs)
 
 	s_arr = linspace(0.0,L,n)
-	t_arr = calc_curve_param_given_arclen(spline_coeffs[1], spline_coeffs[2], s_arr, 
+	t_arr = calc_curve_param_given_arclen(spline_coeffs[1], spline_coeffs[2], s_arr,
 		curve_length=L, max_iterations=max_iterations, epsilon=epsilon, n_intervals_in_arclen=n_intervals_in_arclen)
-	
+
 	# println("s_arr: ", s_arr)
 	# println("t_arr: ", t_arr)
 
@@ -151,7 +151,7 @@ function fit_curve(
 
 	κ_arr = sample_spline_curvature(spline_coeffs[1], spline_coeffs[2], t_arr)
 	κd_arr = sample_spline_derivative_of_curvature(spline_coeffs[1], spline_coeffs[2], t_arr)
-	
+
 	@assert(!any(s->isnan(s), s_arr))
 	@assert(!any(s->isnan(s), x_arr))
 	@assert(!any(s->isnan(s), y_arr))
@@ -221,7 +221,7 @@ function closest_point_ind_to_curve_guess( curve::Curve, x::Real, y::Real, ind_g
 	return [lo_ind_prev, ind_guess, up_ind_prev][i]
 end
 function closest_point_ind_to_curve( curve::Curve, s::Float64 )
-	# find the index of the s-value closest to the curve. 
+	# find the index of the s-value closest to the curve.
 	# picks the lower one in a tie
 
 	# pt, dist = nearest_neighbor_search(curve.tree1d, s)
@@ -364,11 +364,11 @@ function pt_to_frenet_xy( curvept::Vector{Float64}, x::Real, y::Real)
 
 	@assert(length(curvept) == CURVE_PT_VEC_LEN)
 
-	s = curvept[SIND]
-	d = norm(curvept[[XIND,YIND]] - [x, y])
-	t = curvept[TIND]
+	s = curvept[1]
+	d = norm(curvept[[2,3]] - [x, y])
+	t = curvept[4]
 
-	dyaw = mod2pi( atan2( y-curvept[YIND], x-curvept[XIND] ) - t )
+	dyaw = mod2pi( atan2( y-curvept[3], x-curvept[2] ) - t )
 
 	on_left_side = abs(mod2pi2(dyaw - pi/2)) < abs(mod2pi2(dyaw - 3pi/2))
 	d *= on_left_side ? 1.0 : -1.0 # left side is positive, right side is negative
@@ -416,11 +416,11 @@ function pt_to_frenet_xyy( curvept::Vector{Float64}, x::Real, y::Real, yaw::Real
 
 	@assert(length(curvept) == CURVE_PT_VEC_LEN)
 
-	s = curvept[SIND]
-	d = norm(curvept[[XIND,YIND]] - [x, y])
-	t = curvept[TIND]
+	s = curvept[1]
+	d = norm(curvept[[2,3]] - [x, y])
+	t = curvept[4]
 
-	dyaw = mod2pi( atan2( y-curvept[YIND], x-curvept[XIND] ) - t )
+	dyaw = mod2pi( atan2( y-curvept[3], x-curvept[2] ) - t )
 
 	on_left_side = abs(mod2pi2(dyaw - pi/2)) < abs(mod2pi2(dyaw - 3pi/2))
 	d *= on_left_side ? 1.0 : -1.0 # left side is positive, right side is negative
@@ -513,7 +513,7 @@ function project_to_curves(
 	y        :: Real,
 	yaw      :: Real
 	)
-	
+
 	# project the point to each curve, returning a list of projections
 
 	pts = Array(Tuple, length(curveset)) # (x,y,yaw,extind)
@@ -532,7 +532,7 @@ function project_to_curves(
 	yaw      :: Real,
 	guesses  :: Vector
 	)
-	
+
 	# project the point to each curve, returning a list of projections
 
 	pts = Array(Tuple, length(curveset)) # (x,y,yaw,extind)
@@ -548,7 +548,7 @@ function nonexistant_curves(
 	pts :: Vector; # (x,y,yaw,extind)
 	isapprox_threshold::Float64=0.001
 	)
-	
+
 	# scan left to right to ensure all curves exist at this location
 	# this is done by ensuring that y sorts correctly left to right
 	# Identifies curves not in the correct order
@@ -560,8 +560,8 @@ function nonexistant_curves(
 		extind = pts[i][4]
 
 		if abs(extind) < isapprox_threshold ||
-			( 
-				abs(round(pts[i][4]) - pts[i][4]) < isapprox_threshold && 
+			(
+				abs(round(pts[i][4]) - pts[i][4]) < isapprox_threshold &&
 				( i <  length(pts) && pts[i][2] < pts[i+1][2] ) ||
 				( i == length(pts) && pts[i-1][2] < pts[i][2] )
 			)
@@ -574,7 +574,7 @@ function lane_rhs_distances(
 	curveset :: CurveSet,
 	projections :: Vector # (x,y,yaw,extind)
 	)
-	
+
 	# compute a list of distances from the curves to the RHS lane
 	# there are |curveset| such distances, with the first being 0.0
 
@@ -583,11 +583,11 @@ function lane_rhs_distances(
 
 	for i = 2 : length(curveset)
 		# project lane to RHcurve
-		
+
 		pt_lane = curve_at( curveset[i], projections[i][end] ) # pt on this lane
-		
-		dx = pt_lane[XIND] - ptoncurve[XIND]
-		dy = pt_lane[YIND] - ptoncurve[YIND]
+
+		dx = pt_lane[2] - ptoncurve[2]
+		dy = pt_lane[3] - ptoncurve[3]
 		d_lane[i] = hypot(dx, dy)
 	end
 
@@ -666,8 +666,8 @@ end
 
 function pt_to_roadway_xyy(
 	curveset :: CurveSet, # assumes it is ordered
-	x        :: Real, 
-	y        :: Real, 
+	x        :: Real,
+	y        :: Real,
 	θ        :: Real
 	)
 
@@ -682,8 +682,8 @@ function pt_to_roadway_xyy(
 end
 function pt_to_roadway_xyy(
 	curveset :: CurveSet, # assumes it is ordered
-	x        :: Real, 
-	y        :: Real, 
+	x        :: Real,
+	y        :: Real,
 	θ        :: Real,
 	guesses  :: Vector{Float64}
 	)
@@ -740,7 +740,7 @@ function closest_point_to_curveset( curveset::CurveSet, x::Real, y::Real )
 	for i = 1 : length(curveset)
 
 		extind = closest_point_extind_to_curve( curveset[i], x, y )
-		pt = curve_at(curveset[i], extind)[[XIND,YIND]]
+		pt = curve_at(curveset[i], extind)[[2,3]]
 		dist = norm([x,y]-pt)
 		if dist < best_dist
 			best_dist, best_curveind, best_pt, best_extind = (dist, i, pt, extind)
@@ -759,14 +759,14 @@ function curveset_ordering( curveset::CurveSet )
 	mid_ind = int(length(curveset[1])/2) # pick the middle of the first curve
 
 	pts = Array(Vector,ncurves)
-	pts[1] = curve_at(curveset[1], mid_ind)[[XIND,YIND]]
+	pts[1] = curve_at(curveset[1], mid_ind)[[2,3]]
 	for i = 2 : ncurves
 		extind = closest_point_extind_to_curve(curveset[i], pts[1][1], pts[1][2])
-		pts[i] = curve_at(curveset[i], extind)[[XIND,YIND]] - pts[1]
+		pts[i] = curve_at(curveset[i], extind)[[2,3]] - pts[1]
 	end
 
 	# we now have a set of points, project them onto their cross-section axis
-	along = curve_at(curveset[1], mid_ind + 1.0)[[XIND,YIND]] - pts[1] # point one tick along the curve
+	along = curve_at(curveset[1], mid_ind + 1.0)[[2,3]] - pts[1] # point one tick along the curve
 	pts[1] = [0.0,0.0]
 	along = along ./ norm(along) # unit vector
 	R = [ 0.0 -1.0;

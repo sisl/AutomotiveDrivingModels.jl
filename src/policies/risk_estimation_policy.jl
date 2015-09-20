@@ -1,4 +1,4 @@
-export 
+export
     RiskEstimationPolicy,
     PolicyEvaluationResults,
 
@@ -10,8 +10,11 @@ export
 
     generate_candidate_trajectories,
     calc_collision_risk_monte_carlo!,
-    calc_costs,
     evaluate_policy,
+
+    generate_candidate_trajectories!,
+    run_monte_carlo_collision_risk_est,
+    calc_collision_risk!,
 
     get_speed_deltas
 
@@ -145,6 +148,111 @@ function calc_cost(
     k_c*collision_prob + ((1.0-k_s)*J_d + k_s*J_s) + k_v*Δv
 end
 
+function _generate_target_speed_cand_trajs_for_lanetag!(
+    candtrajs::Vector{CandidateTrajectory},
+    index_of_first_free_slot::Int,
+    lanetag::LaneTag,
+    policy::RiskEstimationPolicy,
+    start_speed::Float64,
+    )
+
+    #=
+    modifies candidate trajectories list and returns the incremented free slot index
+    =#
+
+    i = index_of_first_free_slot
+    for speed_delta in policy.speed_deltas
+        for duration in policy.trajectory_durations
+            candtraj = candtrajs[i]
+            candtraj.links[1] = create_trajdef_link_target_speed(duration, lanetag, 0.0, start_speed+speed_delta)
+            candtraj.nlinks = 1
+
+            if duration < policy.horizon
+                remaining_frames = policy.horizon - duration
+                candtraj.links[2] = create_trajdef_link_target_speed(remaining_frames, lanetag, 0.0, start_speed+speed_delta)
+                candtraj.nlinks += 1
+            end
+
+            i+=1
+        end
+    end
+
+    i
+end
+function generate_candidate_trajectories!(
+    candtrajs::Vector{CandidateTrajectory},
+    basics::FeatureExtractBasicsPdSet,
+    policy::RiskEstimationPolicy,
+    start_state::DynamicsState,
+    active_carid::Integer,
+    validfind::Integer,
+    )
+
+    #=
+    Generate a set of candidate trajectories as a list of TrajDefLink lists
+    All trajectories are assumed to begin at the current position of active_carid
+
+    Directly modifies cantrajs::Vector{CandidateTrajectory}
+
+    candtrajs will have to have been pre-allocated with sufficient links
+
+    Trajectories of duration policy.horizon will be generated
+    Sequence length is dictated by policy.trajectory_durations
+    Any sequences longer than that will be truncated to policy.horizon
+    Any sequences shorter than that will be extended to policy.horizon assuming constant speed
+    =#
+
+    pdset, sn = basics.pdset, basics.sn
+    horizon = policy.horizon
+
+    carind = carid2ind(pdset, active_carid, validfind)
+    start_speed = start_state.v
+    start_inertial = start_state.inertial
+
+    cur_lanetag = start_state.lane.id
+    lane = start_state.lane
+    extind = start_state.extind
+    closest_node_index = closest_node_to_extind(sn, lane, extind)
+    closest_node = sn.nodes[closest_node_index]
+
+    index_of_first_free_slot = _generate_target_speed_cand_trajs_for_lanetag!(
+                                  candtrajs, 1, cur_lanetag, policy, start_speed)
+    if closest_node.n_lanes_left > 0
+      lanetag_left = get_neighbor_lanetag_left(sn, lane, closest_node)
+      index_of_first_free_slot = _generate_target_speed_cand_trajs_for_lanetag!(
+                                  candtrajs, index_of_first_free_slot,
+                                  lanetag_left, policy, start_speed)
+    end
+    if closest_node.n_lanes_right > 0
+      lanetag_right = get_neighbor_lanetag_right(sn, lane, closest_node)
+      index_of_first_free_slot = _generate_target_speed_cand_trajs_for_lanetag!(
+                                  candtrajs, index_of_first_free_slot,
+                                  lanetag_right, policy, start_speed)
+    end
+
+    # TODO(tim): genearte follow trajectories for left and right lanes?
+    if policy.generate_follow_trajectory
+        # check whether there is a lead vehicle
+        carind = carid2ind(pdset, active_carid, validfind)
+        f_ind_front = get(INDFRONT, basics, carind, validfind)
+        if f_ind_front != NA_ALIAS
+            ind_front = int(f_ind_front)
+
+            lanetag = get(pdset, :lanetag, ind_front, validfind)::LaneTag
+            frameind = validfind2frameind(pdset, validfind)
+
+            candtraj = candtrajs[index_of_first_free_slot]
+            candtraj.nlinks = 1
+            candtraj.links[1] = create_trajdef_link_target_position(pdset, frameind,
+                                             horizon, policy.sec_per_frame, ind_front, lanetag,
+                                             0.0, policy.trailing_distance, policy.k_relative_speed)
+            index_of_first_free_slot += 1
+        end
+    end
+
+    ntrajs_generated = index_of_first_free_slot - 1
+end
+
 function generate_candidate_trajectories(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
@@ -155,7 +263,7 @@ function generate_candidate_trajectories(
     #=
     Generate a set of candidate trajectories as a list of TrajDefLink lists
     All trajectories are assumed to begin at the current position of active_carid
-    
+
     Returns a Vector{Vector{TrajDefLink}}
 
     Trajectories of duration policy.horizon will be generated
@@ -213,12 +321,83 @@ function generate_candidate_trajectories(
             frameind = validfind2frameind(pdset, validfind)
 
             push!(candidate_trajectories, [TrajDefLinkTargetPosition(pdset, frameind,
-                                                                     horizon, policy.sec_per_frame, ind_front, lanetag, 
+                                                                     horizon, policy.sec_per_frame, ind_front, lanetag,
                                                                      0.0, policy.trailing_distance, policy.k_relative_speed)])
         end
     end
 
     candidate_trajectories
+end
+
+function run_monte_carlo_collision_risk_est(
+    pdset_for_sim  :: PrimaryDataset,
+    sn             :: StreetNetwork,
+    extracted      :: ExtractedTrajdef,
+    active_carid   :: Integer,
+    validfind      :: Integer,
+    horizon        :: Integer,
+    nsimulations   :: Integer,
+    human_behavior :: AbstractVehicleBehavior,
+    sec_per_frame  :: Float64,
+
+    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
+    n_euler_steps   :: Int = 2,
+    carA            :: Vehicle = Vehicle(),
+    carB            :: Vehicle = Vehicle(),
+    cornersCarA     :: FourCorners=FourCorners(),
+    cornersCarB     :: FourCorners=FourCorners(),
+    )
+
+    insert!(pdset_for_sim, extracted)
+
+    basics_for_sim = FeatureExtractBasicsPdSet(pdset_for_sim, sn)
+
+    ncollisions = 0
+    for i = 1 : nsimulations
+        basics.runid += 1
+
+        # Returns whether or not a collison occurred
+        # NOTE(tim): assumes no collision in current frame
+
+        for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
+            for (behavior,carid) in behavior_pairs
+                if !isa(behavior, VehicleBehaviorNone)
+                    action_lat, action_lon = select_action(basics, behavior, carid, validfind)
+                    propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
+                              pdset_frames_per_sim_frame, n_euler_steps)
+                end
+            end
+
+            # TODO(tim): set collision check method in policy
+            if has_intersection(basics.pdset, validfind+1, validfind+pdset_frames_per_sim_frame,
+                                carA, carB, cornersCarA, cornersCarB)
+                ncollisions += 1
+            end
+        end
+    end
+    ncollisions / nsimulations
+end
+function calc_collision_risk!(
+    collision_risk::Vector{Float64},
+    basics::FeatureExtractBasicsPdSet,
+    pdset_for_sim::PrimaryDataset, # TODO(tim): make this a local variable in module?
+    policy::RiskEstimationPolicy,
+    extracted_trajdefs::Vector{ExtractedTrajdef},
+    ntrajs::Integer,
+    active_carid::Integer,
+    validfind::Integer,
+    sec_per_frame::Float64,
+    )
+
+    pdset, sn = basics.pdset, basics.sn
+
+    copy!(pdset_for_sim, pdset, validfind, history, horizon)
+
+    for i in 1 : ntrajs
+        collision_risk[i] = calc_collision_risk_monte_carlo_parallel_eval()
+    end
+
+    collision_risks
 end
 
 function calc_collision_risk_monte_carlo_parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64))
@@ -265,7 +444,7 @@ function calc_collision_risk_monte_carlo!(
     n_othercars = get_num_cars_in_frame(pdset, validfind)-1
     n_candidatetrajs = length(candidate_trajectories)
 
-    # allocate pdset for sim 
+    # allocate pdset for sim
     # TODO(tim): allocate one for *horizon*, but copy the past
     pdset_for_sim = deepcopy(pdset)
 
@@ -291,7 +470,7 @@ function calc_costs(
     extracted_trajs::Vector{ExtractedPolynomialFactoredTrajectories},
     collision_risks::Vector{Float64},
     )
-    
+
     costs = Array(Float64, length(extracted_trajs))
     for (i,extracted_polynomial_factored_trajectories) in enumerate(extracted_trajs)
         costs[i] = calc_cost(extracted_polynomial_factored_trajectories, collision_risks[i], policy)
@@ -299,6 +478,60 @@ function calc_costs(
     costs
 end
 
+function propagate!(
+    basics::FeatureExtractBasicsPdSet,
+    policy::RiskEstimationPolicy,
+
+    start_state::DynamicsState,
+    candtrajs::Vector{CandidateTrajectory},
+    extracted_trajdefs::Vector{ExtractedTrajdef},
+    extracted_polies::Vector{ExtractedPolynomialFactoredTrajectories},
+    collision_risk::Vector{Float64},
+    pdset_for_sim::PrimaryDataset,
+
+    active_carid::Int,
+    validfind::Int,
+    pdset_frames_per_sim_frame::Int,
+    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME
+    )
+
+    ###########################################################
+    # 1 - generate candidate trajectories
+
+    get!(start_state, basics.pdset, basics.sn, active_carid, validfind)
+    ntrajs = generate_candidate_trajectories!(candtrajs, basics, policy, active_carid, validfind)
+    extract_trajdefs!(extracted_trajdefs, extracted_polies, start_state, basics,
+                      candtrajs, ntrajs, active_carid, validfind, sec_per_frame)
+
+    ###########################################################
+    # 2 - simulate candidate trajectories to estimate risk
+
+    calc_collision_risk!(collision_risk, basics,
+                         pdset_for_sim, policy,
+                         extracted_trajdefs, ntrajs,
+                         active_carid, validfind, sec_per_frame)
+
+    ###########################################################
+    # 3 - select the highest-scoring trajectory
+
+    best_trajectory_index = 1
+    best_cost = Inf
+    for (i,extracted_polynomial_factored_trajectory) in enumerate(extracted_polies)
+        cost = calc_cost(extracted_polynomial_factored_trajectory, collision_risk[i], policy)
+        if cost < best_cost
+            best_trajectory_index = i
+            best_cost = cost
+        end
+    end
+
+    ###########################################################
+    # 4 - execute the highest-scoring trajectory by writing directly into basics.pdset
+    #    TODO(tim): maybe have
+    #         ActionProbabilityModel <: AbstractVehicleBehavior - is sampled for propagation
+    #                  DrivingPolicy <: AbstractVehicleBehavior - directly overwrites pdset
+
+    insert!(basics.pdset, extracted_trajdefs[best_trajectory_index], validfind+1, validfind+pdset_frames_per_sim_frame)
+end
 function propagate!(
     basics::FeatureExtractBasicsPdSet,
     policy::RiskEstimationPolicy,
@@ -317,7 +550,7 @@ function propagate!(
 
     ###########################################################
     # 1 - generate candidate trajectories
-    
+
     candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
     extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
@@ -325,7 +558,7 @@ function propagate!(
     # 2 - simulate candidate trajectories to estimate risk
 
     sec_per_frame = calc_sec_per_frame(basics.pdset)
-    collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories, 
+    collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories,
                                                       active_carid, validfind, sec_per_frame)
 
     ###########################################################
@@ -343,7 +576,7 @@ function propagate!(
 
     ###########################################################
     # 4 - execute the highest-scoring trajectory by writing directly into basics.pdset
-    #    TODO(tim): maybe have 
+    #    TODO(tim): maybe have
     #         ActionProbabilityModel <: AbstractVehicleBehavior - is sampled for propagation
     #                  DrivingPolicy <: AbstractVehicleBehavior - directly overwrites pdset
 
@@ -369,12 +602,12 @@ function _evaluate_policy(
     validfind_start::Integer,
     validfind_end::Integer,
     )
-    
+
     nticks = 0
     total_tick_time = 0.0
     for validfind in validfind_start : N_FRAMES_PER_SIM_FRAME : validfind_end-1
 
-        starttime = time()    
+        starttime = time()
         propagate!(basics, policy, active_carid, validfind, N_FRAMES_PER_SIM_FRAME)
         total_tick_time += time() - starttime
         nticks += 1
@@ -383,7 +616,7 @@ function _evaluate_policy(
             return SinglePolicyRunEvalResults(true, total_tick_time, nticks)
         end
     end
-    
+
     SinglePolicyRunEvalResults(false, total_tick_time, nticks)
 end
 function evaluate_policy(
@@ -397,7 +630,7 @@ function evaluate_policy(
 
     verbosity::Int = 0
     )
-    
+
     pdset = create_scenario_pdset(scenario)
     sn = scenario.sn
     basics = FeatureExtractBasicsPdSet(pdset, sn)

@@ -110,8 +110,8 @@ type NetworkTile
 	segments :: Dict{Int, StreetSegment} # maps segment id to segment
 
 	function NetworkTile(
-		index_e::Int, 
-		index_n::Int, 
+		index_e::Int,
+		index_n::Int,
 		segments::Dict{Int,StreetSegment} = Dict{Int, StreetSegment}()
 		)
 
@@ -128,7 +128,7 @@ type StreetNetwork
 		nodes = StreetNode[]
 		tile_dict = Dict{(Int,Int),NetworkTile}()
 		graph = DiGraph()
-		
+
 		new(nodes, tile_dict, graph)
 	end
 	function StreetNetwork(
@@ -161,17 +161,17 @@ Base.convert(::Type{LaneID}, tag::LaneTag) = LaneID(tag.segment, tag.lane)
 
 immutable TilePoint2DProjectionResult
 	successful :: Bool       # whether the projection was successful
-	curvept    :: CurvePt    # the closest point on the curve
+	curvept    :: CurvePt    # the closest point on the curve (footpoint)
 	extind     :: Float64    # the extind on the curve
 	lane       :: StreetLane # the corresponding lane
 	sqdist     :: Float64    # square distance to the curve
 
 	TilePoint2DProjectionResult() = new(false)
-	function TilePoint2DProjectionResult(    
-		curvept    :: CurvePt,   
-		extind     :: Float64,   
+	function TilePoint2DProjectionResult(
+		curvept    :: CurvePt,
+		extind     :: Float64,
 		lane       :: StreetLane,
-		sqdist     :: Float64,   
+		sqdist     :: Float64,
 		)
 
 		new(true, curvept, extind, lane, sqdist)
@@ -187,11 +187,11 @@ function Base.show(io::IO, proj::TilePoint2DProjectionResult)
 	println(io, "\tsuccessful: ", proj.successful)
 end
 
-Base.(:(==))(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && 
+Base.(:(==))(A::LaneTag, B::LaneTag) = A.index_e == B.index_e &&
 							 A.index_n == B.index_n &&
 							 A.segment == B.segment &&
 							 A.lane    == B.lane
-Base.isequal(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && 
+Base.isequal(A::LaneTag, B::LaneTag) = A.index_e == B.index_e &&
 							      A.index_n == B.index_n &&
 							      A.segment == B.segment &&
 							      A.lane    == B.lane
@@ -330,7 +330,7 @@ function get_tile(sn::StreetNetwork, index_e::Int, index_n::Int)
 end
 function get_tile(sn::StreetNetwork, easting::Float64, northing::Float64)
 	index_e, index_n = utm2tileindex(easting, northing)
-	get_tile(sn, index_e, index_n)	
+	get_tile(sn, index_e, index_n)
 end
 get_tile(sn::StreetNetwork, node::StreetNode) = get_tile(sn, node.pos.x, node.pos.y)
 get_tile(sn::StreetNetwork, tag::LaneTag) = get_tile(sn, tag.index_e, tag.index_n)
@@ -346,7 +346,7 @@ function get_tile!(sn::StreetNetwork, index_e::Int, index_n::Int)
 end
 function get_tile!(sn::StreetNetwork, easting::Float64, northing::Float64)
 	index_e, index_n = utm2tile(easting, northing)
-	get_tile!(sn, index_e, index_n)	
+	get_tile!(sn, index_e, index_n)
 end
 function add_tile!(sn::StreetNetwork, tile::NetworkTile; override=false)
 	key = (tile.index_e, tile.index_n)
@@ -517,7 +517,7 @@ same_lane_and_tile(a::StreetNode, b::StreetNode) = same_lane(a,b) && same_tile(a
 same_lane_and_tile(sn::StreetNetwork, a::Integer, b::Integer) = same_lane_and_tile(sn.nodes[a], sn.nodes[b])
 
 function closest_node_to_extind(sn::StreetNetwork, lane::StreetLane, extind::Float64; sq_dist_threshold = 0.1)
-	
+
 	#=
 	Do a bisection search to get the closest node to the given extind
 	returns a node index
@@ -639,7 +639,7 @@ function extisting_neighbor_tiles(sn::StreetNetwork, tile::NetworkTile)
 		dx, dy = del_x[i], del_y[i]
 		if has_tile(sn, tile.index_e + dx, tile.index_n + dy)
 			retval[total+=1] = get_tile(sn, tile.index_e + dx, tile.index_n + dy)
-		end	
+		end
 	end
 
 	return retval[1:total]
@@ -656,7 +656,7 @@ function extisting_neighbor_tiles_inclusive(sn::StreetNetwork, tile::NetworkTile
 		dx, dy = del_x[i], del_y[i]
 		if has_tile(sn, tile.index_e + dx, tile.index_n + dy)
 			retval[total+=1] = get_tile(sn, tile.index_e + dx, tile.index_n + dy)
-		end	
+		end
 	end
 
 	return retval[1:total]
@@ -713,7 +713,7 @@ function project_point_to_streetmap(easting::Float64, northing::Float64, sn::Str
 		tile = get_tile(sn, index_e, index_n)
 		proj = project_point_to_tile(easting, northing, tile)
 	end
-		
+
 	if !proj.successful || proj.sqdist > 1.5
 		# NOTE(tim): if were are already close to a centerline on this tile then
 		# no need to do extra work to check neighboring tiles
@@ -767,7 +767,7 @@ function project_point_to_streetmap(easting::Float64, northing::Float64, sn::Str
 		tile = get_tile(sn, index_e, index_n)
 		proj = project_point_to_tile(easting, northing, tile, f_filter)
 	end
-		
+
 	if !proj.successful || proj.sqdist > 1.5
 		# NOTE(tim): if were are already close to a centerline on this tile then
 		# no need to do extra work to check neighboring tiles
@@ -869,7 +869,7 @@ function _distance_to_lane_merge(
 	    if outdegree(sn.graph, node_index) == 0
 	        return max_dist # no merge
 	    end
-	    
+
 	    nextnode_index = next_node_index(sn, node_index)
 	    nextnode = sn.nodes[nextnode_index]
 
@@ -892,7 +892,7 @@ function _distance_to_lane_merge(
 	    	return max_dist
 	    end
 	end
-	
+
 	return min(dist, max_dist)
 end
 function _distance_to_lane_split(
@@ -917,7 +917,7 @@ function _distance_to_lane_split(
 	    if outdegree(sn.graph, node_index) == 0
 	        return max_dist
 	    end
-	    
+
 	    nextnode_index = next_node_index(sn, node_index)
 	    nextnode = sn.nodes[nextnode_index]
 
@@ -940,7 +940,7 @@ function _distance_to_lane_split(
 	    	return max_dist
 	    end
 	end
-	
+
 	return min(dist, max_dist)
 end
 function _distance_to_lane_end(
@@ -961,7 +961,7 @@ function _distance_to_lane_end(
 	dist = node.d_along - curve_at(lane.curve, extind).s
 
 	while outdegree(sn.graph, node_index) != 0
-	    
+
 	    nextnode_index = next_node_index(sn, node_index)
 	    if nextnode_index === firstnode_index
 	    	return max_dist
@@ -989,7 +989,7 @@ function _distance_to_lane_end(
 	    	return max_dist
 	    end
 	end
-	
+
 	min(dist, max_dist)
 end
 
@@ -1075,7 +1075,7 @@ function distance_to_node(
 	end
 
 	while outdegree(sn.graph, node_index) > 0
-	    
+
 	    nextnode_index = next_node_index(sn, node_index)
 	    nextnode = sn.nodes[nextnode_index]
 
@@ -1097,9 +1097,9 @@ function distance_to_node(
 	    	return max_dist
 	    end
 
-		node, node_index = nextnode, nextnode_index	    
+		node, node_index = nextnode, nextnode_index
 	end
-	
+
 	max_dist
 end
 function frenet_distance_between_points(
@@ -1195,12 +1195,12 @@ end
 function get_neighbor_lanetag_left(sn::StreetNetwork, lane::StreetLane, closest_node::StreetNode)
     @assert(closest_node.n_lanes_left > 0)
     @assert(!isnan(closest_node.marker_dist_left))
-    
+
     dcl = closest_node.marker_dist_left + 0.1
     footpoint = curve_at(lane.curve, closest_node.extind)
     footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
     inertial = footvec + Vec.polar(dcl, π/2 + footvec.θ, footvec.θ)
-    
+
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
     proj.lane.id
@@ -1208,19 +1208,19 @@ end
 function get_neighbor_lanetag_right(sn::StreetNetwork, lane::StreetLane, closest_node::StreetNode)
     @assert(closest_node.n_lanes_right > 0)
     @assert(!isnan(closest_node.marker_dist_right))
-    
+
     dcl = closest_node.marker_dist_right + 0.1
     footpoint = curve_at(lane.curve, closest_node.extind)
     footvec = VecSE2(footpoint.x, footpoint.y, footpoint.θ)
     inertial = footvec + Vec.polar(dcl, -π/2 + footvec.θ, footvec.θ)
-    
+
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
     proj.lane.id
 end
 
 function rndf2streetnetwork(
-	rndf::RNDF; 
+	rndf::RNDF;
 	verbosity::Int=0,
 	convert_ll2utm::Bool=true,
 	CYCLE_CONNECTION_THRESHOLD::Float64=6.25 # [m]
@@ -1253,7 +1253,7 @@ function rndf2streetnetwork(
 				end
 				pos = VecE3(eas,nor,0.0)
 
-				node = StreetNode(WaypointID(segment.id, lane.id.lane, waypoint_index), pos, 
+				node = StreetNode(WaypointID(segment.id, lane.id.lane, waypoint_index), pos,
 					              NaN, NaN, NaN, NaN, NaN, -999, -999, NaN, NaN)
 
 				push!(sn.nodes, node)
@@ -1369,7 +1369,7 @@ function rndf2streetnetwork(
 			tile = get_tile!(sn, index_e, index_n)
 			n_pts_in_lane = length(lane.waypoints)
 			@assert(n_pts_in_lane == length(ids))
-			
+
 			while first_node_laneindex ≤ n_pts_in_lane
 				# find the last node in this lane that is still in the tile
 				final_node_laneindex = findfirst(index->begin
@@ -1377,7 +1377,7 @@ function rndf2streetnetwork(
 													node = sn.nodes[node_index]
 													node_e, node_n = utm2tileindex(node.pos.x, node.pos.y)
 													return (index_e != node_e) || (index_n != node_n)
-												end, 
+												end,
 											[(first_node_laneindex+1) : n_pts_in_lane])
 
 				if final_node_laneindex == 0
@@ -1431,12 +1431,12 @@ function rndf2streetnetwork(
 	const THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 = deg2rad(5) # [rad]
 
 	for node_index in vertices(G)
-		
+
 		node = sn.nodes[node_index]
 
 		if outdegree(G, node_index) == 0 && indegree(G, node_index) > 0
 			# NOTE(tim): this is an ending node
-			
+
 			prevnode_index = prev_node_index(sn, node_index)
 			prevnode = sn.nodes[prevnode_index]
 
@@ -1458,7 +1458,7 @@ function rndf2streetnetwork(
 
 						testnode = sn.nodes[testnode_index]
 
-						θ₂ = i > 1 ? atan2(testnode.pos.y - sn.nodes[lane.node_indeces[i-1]].pos.y, 
+						θ₂ = i > 1 ? atan2(testnode.pos.y - sn.nodes[lane.node_indeces[i-1]].pos.y,
 							               testnode.pos.x - sn.nodes[lane.node_indeces[i-1]].pos.x) :
 									 atan2(sn.nodes[lane.node_indeces[i+1]].pos.y - testnode.pos.y,
 									 	   sn.nodes[lane.node_indeces[i+1]].pos.x - testnode.pos.x)
@@ -1473,7 +1473,7 @@ function rndf2streetnetwork(
 							perp_dist = hypot(A - proj)
 							line_dist = hypot(proj)
 
-							# NOTE(tim): angle between start and end orientation							
+							# NOTE(tim): angle between start and end orientation
 							Δθ = abs(_signed_dist_btw_angles(θ, θ₂))
 
 							# NOTE(tim): angle between dangling edge and projection
@@ -1481,9 +1481,9 @@ function rndf2streetnetwork(
 							Δ₃ = abs(_signed_dist_btw_angles(θ,θ₃))
 
 							score = Δθ + 10.0*Δ₃
-							
+
 							if line_dist < THRESHOLD_HANGING_EDGE_LINE_DIST_TO_CONNECT &&
-								Δθ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE && 
+								Δθ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE &&
 								Δ₃ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 &&
 								score < best_score
 
@@ -1543,9 +1543,9 @@ function rndf2streetnetwork(
 							Δ₃ = abs(_signed_dist_btw_angles(θ,θ₃))
 
 							score = Δθ + 10.0*Δ₃
-							
+
 							if line_dist < THRESHOLD_HANGING_EDGE_LINE_DIST_TO_CONNECT &&
-								Δθ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE && 
+								Δθ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE &&
 								Δ₃ < THRESHOLD_HANGING_EDGE_ANGLE_DIFFERENCE2 &&
 								score < best_score
 
@@ -1738,7 +1738,7 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 	dist_add = 0.0
 	finished = false
 	active_lanetag = current_lanetag
-	
+
 	n_lanes_left = 0
 	marker_dist_left = DEFAULT_LANE_WIDTH/2
 
@@ -1878,7 +1878,7 @@ function create_straight_nlane_curves(
 
     curves = Array(Curve, n)
     for i = 1 : n
-        
+
         w = (i-1)*lane_spacing
         x₀ = x + w*cϕ
         y₀ = y + w*sϕ

@@ -48,10 +48,10 @@ function render_extracted_trajdef!(
     extracted::ExtractedTrajdef;
     color::Colorant=hexcolor(0xBB,0xBB,0xFF),
     linewidth::Float64=0.25, # [m]
-    arrowhead_len::Float64=1.0 # [m]
+    arrowhead_len::Float64=1.0, # [m]
     )
 
-    npts = nrow(extracted.df)
+    npts = get_num_pdset_frames(extracted)
     pts = Array(Float64, 2, npts)
     pt_index = 0
 
@@ -127,7 +127,7 @@ function render_streetnet_edges!(
     )
 
     for e in edges(sn.graph)
-    
+
         a = sn.nodes[e.first]
         b = sn.nodes[e.second]
 
@@ -136,7 +136,7 @@ function render_streetnet_edges!(
 
         Renderer.add_instruction!(rm, render_line, (pts, color, line_width))
     end
-    
+
     rm
 end
 function render_streetnet_curves!(
@@ -153,13 +153,13 @@ function render_streetnet_curves!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_roads!(
     rm::RenderModel,
     sn::StreetNetwork;
-    color_asphalt       :: Colorant=COLOR_ASPHALT, 
+    color_asphalt       :: Colorant=COLOR_ASPHALT,
     color_lane_markings :: Colorant=COLOR_LANE_MARKINGS,
     lane_marking_width  :: Real=0.15, # [m]
     lane_dash_len       :: Real=0.91, # [m]
@@ -229,7 +229,7 @@ function render_streetnet_roads!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_segments!(
@@ -249,7 +249,7 @@ function render_streetnet_segments!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_lanes!(
@@ -269,18 +269,18 @@ function render_streetnet_lanes!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_marker_dist_left!(
     rm::RenderModel,
     sn::StreetNetwork;
-    color       :: Colorant=RGB(1.0,0.0,0.0), 
+    color       :: Colorant=RGB(1.0,0.0,0.0),
     )
 
     for node in sn.nodes
-    
-        lane = get_lane(sn, node) 
+
+        lane = get_lane(sn, node)
         center = VecE2(node.pos.x, node.pos.y)
         θ = curve_at(lane.curve, node.extind).θ
         left = center + Vec.polar(1.0, θ + π/2)*node.marker_dist_left
@@ -290,7 +290,7 @@ function render_streetnet_marker_dist_left!(
 
         add_instruction!(rm, render_line, (pts, color, 0.1))
     end
-    
+
     rm
 end
 function render_streetnet_marker_dist_right!(
@@ -300,8 +300,8 @@ function render_streetnet_marker_dist_right!(
     )
 
     for node in sn.nodes
-    
-        lane = get_lane(sn, node) 
+
+        lane = get_lane(sn, node)
         center = VecE2(node.pos.x, node.pos.y)
         θ = curve_at(lane.curve, node.extind).θ
         left = center + Vec.polar(1.0, θ - π/2)*node.marker_dist_right
@@ -311,7 +311,7 @@ function render_streetnet_marker_dist_right!(
 
         add_instruction!(rm, render_line, (pts, color, 0.1))
     end
-    
+
     rm
 end
 function render_streetnet_n_lanes_left!(
@@ -322,8 +322,8 @@ function render_streetnet_n_lanes_left!(
     )
 
     for node in sn.nodes
-    
-        lane = get_lane(sn, node) 
+
+        lane = get_lane(sn, node)
         center = VecE2(node.pos.x, node.pos.y)
         θ = curve_at(lane.curve, node.extind).θ
         left = center + Vec.polar(1.0, θ + π/2)*node.n_lanes_left*lanewidth
@@ -333,7 +333,7 @@ function render_streetnet_n_lanes_left!(
 
         add_instruction!(rm, render_line, (pts, color, 0.1))
     end
-    
+
     rm
 end
 function render_streetnet_n_lanes_right!(
@@ -344,8 +344,8 @@ function render_streetnet_n_lanes_right!(
     )
 
     for node in sn.nodes
-    
-        lane = get_lane(sn, node) 
+
+        lane = get_lane(sn, node)
         center = VecE2(node.pos.x, node.pos.y)
         θ = curve_at(lane.curve, node.extind).θ
         left = center + Vec.polar(1.0, θ - π/2)*node.n_lanes_right*lanewidth
@@ -355,7 +355,7 @@ function render_streetnet_n_lanes_right!(
 
         add_instruction!(rm, render_line, (pts, color, 0.1))
     end
-    
+
     rm
 end
 function render_streetnet_d_end!(
@@ -366,7 +366,7 @@ function render_streetnet_d_end!(
     )
 
     for node in sn.nodes
-    
+
         center = VecE2(node.pos.x, node.pos.y)
 
         @assert(node.d_end ≥ 0.0)
@@ -375,7 +375,7 @@ function render_streetnet_d_end!(
 
         add_instruction!(rm, render_circle, (center.x, center.y, 1.0, color))
     end
-    
+
     rm
 end
 function render_streetnet_next_nodes!(
@@ -392,7 +392,7 @@ function render_streetnet_next_nodes!(
             add_instruction!(rm, render_circle, (center.x, center.y, 1.0, color))
         end
     end
-    
+
     rm
 end
 function render_streetnet_lane_nodes!(
@@ -412,7 +412,7 @@ function render_streetnet_lane_nodes!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_lane_first_nodes!(
@@ -421,7 +421,7 @@ function render_streetnet_lane_first_nodes!(
     color::Colorant=colorant"blue",
     )
 
-    
+
     for tile in values(sn.tile_dict)
         for seg in values(tile.segments)
             for lane in values(seg.lanes)
@@ -432,7 +432,7 @@ function render_streetnet_lane_first_nodes!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_lane_last_nodes!(
@@ -451,7 +451,7 @@ function render_streetnet_lane_last_nodes!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_lane_connections!(
@@ -463,7 +463,7 @@ function render_streetnet_lane_connections!(
     for tile in values(sn.tile_dict)
         for seg in values(tile.segments)
             for lane in values(seg.lanes)
-                
+
                 if has_next_lane(sn, lane)
 
                     nextlane = next_lane(sn, lane)
@@ -482,7 +482,7 @@ function render_streetnet_lane_connections!(
             end
         end
     end
-    
+
     rm
 end
 function render_streetnet_headings!(
@@ -493,8 +493,8 @@ function render_streetnet_headings!(
     )
 
     for node in sn.nodes
-    
-        lane = get_lane(sn, node) 
+
+        lane = get_lane(sn, node)
         center = VecE2(node.pos.x, node.pos.y)
         θ = curve_at(lane.curve, node.extind).θ
         left = center + Vec.polar(1.0, θ)*radius
@@ -504,7 +504,7 @@ function render_streetnet_headings!(
 
         add_instruction!(rm, render_line, (pts, color, 0.1))
     end
-    
+
     rm
 end
 function render_streetnet_curve_headings!(
@@ -524,7 +524,7 @@ function render_streetnet_curve_headings!(
             for lane in values(seg.lanes)
 
                 n = length(lane.curve.x)
-                
+
                 for (x,y,θ) in zip(lane.curve.x, lane.curve.y, lane.curve.t)
 
                     center = VecE2(x, y) # + VecE2(0.0, rand())
@@ -536,11 +536,11 @@ function render_streetnet_curve_headings!(
                     add_instruction!(rm, render_circle, (center.x, center.y, 0.1, color2))
                     add_instruction!(rm, render_line, (pts, color, 0.05))
                 end
-                
+
             end
         end
     end
-    
+
     rm
 end
 
@@ -687,7 +687,7 @@ function camera_center_on_ego!(
     frameind::Int,
     zoom::Real = rendermodel.camera_zoom # [pix/m]
     )
-    
+
     posGx = gete(pdset, :posGx, frameind)
     posGy = gete(pdset, :posGy, frameind)
 
@@ -714,7 +714,7 @@ function camera_center_on_carid!(
     frameind::Integer,
     zoom::Real = rendermodel.camera_zoom # [pix/m]
     )
-        
+
     if carid == CARID_EGO
         camera_center_on_ego!(rendermodel, pdset, frameind, zoom)
     else
@@ -821,7 +821,7 @@ function plot_extracted_trajdefs(
     extracted_trajdefs::Vector{ExtractedTrajdef},
     validfind::Integer,
     active_carid::Integer=CARID_EGO;
-    
+
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=500, # [pix]
     rendermodel::RenderModel=RenderModel(),
@@ -957,7 +957,7 @@ function plot_manipulable_pdset(
 
     @manipulate for validfind in validfind_start : validfind_end
 
-        plot_scene(pdset, sn, validfind, active_carid, 
+        plot_scene(pdset, sn, validfind, active_carid,
                    canvas_width=canvas_width,
                    canvas_height=canvas_height,
                    rendermodel=rendermodel,
@@ -994,7 +994,7 @@ function plot_manipulable_generated_future_traces(
     positions = Array(Float64, nsimulations, horizon, 2) # {posGx, posGy}
     for i = 1 : nsimulations
         simulate!(basics, behavior, active_carid, validfind_start, validfind_end)
-        
+
         for (j,validfind_final) in enumerate(validfind_start+1 : validfind_start+horizon)
 
             carind = carid2ind(pdset_sim, active_carid, validfind_final)
@@ -1011,7 +1011,7 @@ function plot_manipulable_generated_future_traces(
         clear_setup!(rendermodel)
 
         render_streetnet_roads!(rendermodel, sn)
-        
+
         for carind in -1 : get_maxcarind(pdset, validfind)
             carid = carind2id(pdset, carind, validfind)
             if carid != active_carid || validfind ≤ validfind_start
@@ -1065,7 +1065,7 @@ function plot_manipulable_pdset_with_traces(
 
         render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
-        
+
         render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
@@ -1084,7 +1084,7 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
     color_extracted_fill::Colorant=RGBA(0,0,0,0)
     )
 
-    
+
 
     nvalidfinds_total = nvalidfinds(pdset)
     validfind = 1
@@ -1109,7 +1109,7 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
                 add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
             end
         end
-        for carind in CARIND_EGO : get_maxcarind(pdset, validfind) 
+        for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
             carid = carind2id(pdset, carind, validfind)
             if carid != active_carid
                 color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
@@ -1118,11 +1118,65 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
         end
 
         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
-        
+
         render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
 end
+function plot_manipulable_pdset_with_extracted_trajdefs(
+    pdset::PrimaryDataset,
+    sn::StreetNetwork,
+    candtrajs::Vector{CandidateTrajectory},
+    ntrajs::Int;
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=500, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    active_carid::Integer=CARID_EGO,
+    color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
+    color_extracted::Colorant=RGB(0.7,0.3,0.0),
+    color_extracted_fill::Colorant=RGBA(0,0,0,0)
+    )
+
+
+    nvalidfinds_total = nvalidfinds(pdset)
+    validfind = 1
+    @manipulate for validfind = 1 : nvalidfinds_total
+
+        s = CairoRGBSurface(canvas_width, canvas_height)
+        ctx = creategc(s)
+        clear_setup!(rendermodel)
+
+        frameind = validfind2frameind(pdset, validfind)
+        render_streetnet_roads!(rendermodel, sn)
+
+        for candtraj in candtrajs
+            render_extracted_trajdef!(rendermodel, cantraj, color=color_trace)
+        end
+        for candtraj in candtrajs
+            df_frame = validfind - extracted.df[1,:frame] + 1
+            if 1 ≤ df_frame ≤ nrow(extracted.df)
+                posGx = extracted.df[df_frame, :posGx]
+                posGy = extracted.df[df_frame, :posGy]
+                posGθ = extracted.df[df_frame, :posGyaw]
+                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
+            end
+        end
+        for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
+            carid = carind2id(pdset, carind, validfind)
+            if carid != active_carid
+                color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
+                render_car!(rendermodel, pdset, carind, frameind, color=color)
+            end
+        end
+
+        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
+
+        render(rendermodel, ctx, canvas_width, canvas_height)
+        s
+    end
+end
+
 function plot_manipulable_pdset_with_extracted_trajdefs(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -1162,7 +1216,7 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
                 add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color))
             end
         end
-        for carind in CARIND_EGO : get_maxcarind(pdset, validfind) 
+        for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
             active_carind = carid2ind(pdset, active_carid, validfind)
             if carind != active_carind
                 color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
@@ -1171,7 +1225,7 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
         end
 
         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
-        
+
         render(rendermodel, ctx, canvas_width, canvas_height)
         s
     end
@@ -1203,7 +1257,7 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
     @assert(length(start_points) == length(gridcounts))
 
     # -----------
-    
+
     gridcounts_copy = deepcopy(gridcounts)
     for i in 1 : length(gridcounts_copy)
         for gridcount in gridcounts_copy[i]
@@ -1253,13 +1307,13 @@ function plot_manipulable_pdset_with_extracted_trajdefs(
 
                 # TODO(tim): change this to transform relative to frenet frame
                 #            (maybe make it relative to original heading?)
-                add_instruction!(rendermodel, render_colormesh, (gridcount, 
+                add_instruction!(rendermodel, render_colormesh, (gridcount,
                                   histobin_params.discx.binedges .+ posGx_start,
                                   histobin_params.discy.binedges .+ posGy_start,
                                   color_gridcount_lo, color_gridcount_hi))
             end
         end
-        
+
         if validfind ≤ validfind_start
             for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
                 carid = carind2id(pdset, carind, validfind)
@@ -1289,7 +1343,7 @@ function plot_manipulable_gridcount_set(
     horizon::Integer,
     gridcounts::Vector{Matrix{Float64}},
     histobin_params::ParamsHistobin;
-    
+
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=150, # [pix]
     rendermodel::RenderModel=RenderModel(),
@@ -1300,7 +1354,7 @@ function plot_manipulable_gridcount_set(
     )
 
     # -----------
-    
+
     gridcounts_copy = deepcopy(gridcounts)
     for gridcount in gridcounts_copy
         maxcount = maximum(gridcount)
@@ -1332,14 +1386,14 @@ function plot_manipulable_gridcount_set(
                     gridcount = gridcounts[validfind - validfind_start]
 
                     # TODO(tim): change this to transform relative to frenet frame
-                    add_instruction!(rendermodel, render_colormesh, (gridcount, 
+                    add_instruction!(rendermodel, render_colormesh, (gridcount,
                                       histobin_params.discx.binedges .+ posGx_start,
                                       histobin_params.discy.binedges .+ posGy_start,
                                       color_prob_lo, color_prob_hi))
                 end
             end
         end
-        
+
         for carind in -1 : get_maxcarind(pdset, validfind)
             carid = carind2id(pdset, carind, validfind)
             if carid != active_carid || validfind ≤ validfind_start
@@ -1381,7 +1435,7 @@ function plot_manipulable_gridcount_sets(
     @assert(length(start_points) == length(gridcounts))
 
     # -----------
-    
+
     gridcounts_copy = deepcopy(gridcounts)
     for i in 1 : length(gridcounts_copy)
         for gridcount in gridcounts_copy[i]
@@ -1414,13 +1468,13 @@ function plot_manipulable_gridcount_sets(
 
                 # TODO(tim): change this to transform relative to frenet frame
                 #            (maybe make it relative to original heading?)
-                add_instruction!(rendermodel, render_colormesh, (gridcount, 
+                add_instruction!(rendermodel, render_colormesh, (gridcount,
                                   histobin_params.discx.binedges .+ posGx_start,
                                   histobin_params.discy.binedges .+ posGy_start,
                                   color_prob_lo, color_prob_hi))
             end
         end
-        
+
         for carind in -1 : get_maxcarind(pdset, validfind)
             carid = carind2id(pdset, carind, validfind)
             if carid == active_carid || validfind ≤ validfind_start
@@ -1456,7 +1510,7 @@ function reel_pdset(
     frames = Array(CairoSurface, nvalidfinds(pdset))
     for (roll_index, validfind) in enumerate(1 : nvalidfinds(pdset))
 
-        frames[roll_index] = plot_scene(pdset, sn, validfind, active_carid, 
+        frames[roll_index] = plot_scene(pdset, sn, validfind, active_carid,
                                         canvas_width=canvas_width,
                                         canvas_height=canvas_height,
                                         rendermodel=rendermodel,
@@ -1487,7 +1541,7 @@ function reel_scenario_playthrough(
 
     frames = CairoSurface[]
 
-    push!(frames, plot_scene(pdset, sn, validfind_start, active_carid, 
+    push!(frames, plot_scene(pdset, sn, validfind_start, active_carid,
                                         canvas_width=canvas_width,
                                         canvas_height=canvas_height,
                                         rendermodel=rendermodel,
@@ -1496,7 +1550,7 @@ function reel_scenario_playthrough(
 
     validfind = validfind_start
     while validfind < validfind_end
-            
+
         candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
         extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
@@ -1510,14 +1564,14 @@ function reel_scenario_playthrough(
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
-        
+
         costs = calc_costs(policy, extracted_polies, collision_risk)
         max_cost = maximum(costs)
         push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, costs./max_cost, validfind, active_carid,
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
-        
+
         best = indmin(costs)
         extracted_best = extracted_trajdefs[best]
         extracted_best_color_factor_arr = [costs[best]/max_cost]
@@ -1526,7 +1580,7 @@ function reel_scenario_playthrough(
                                               canvas_width=canvas_width, canvas_height=canvas_height,
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
-        
+
         insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
         for validfind_viz in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
             push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind_viz, active_carid,
@@ -1534,7 +1588,7 @@ function reel_scenario_playthrough(
                                               rendermodel=rendermodel, camerazoom=camerazoom,
                                               camera_forward_offset=camera_forward_offset))
         end
-        
+
         validfind += N_FRAMES_PER_SIM_FRAME
     end
 
@@ -1579,7 +1633,7 @@ function generate_and_plot_manipulable_gridcount_set(
     # -----------
 
     plot_manipulable_gridcount_set(pdset, sn, active_carid,
-                                   validfind_start, history, horizon, 
+                                   validfind_start, history, horizon,
                                    gridcounts, histobin_params,
                                    canvas_width=canvas_width,
                                    canvas_height=canvas_height,
