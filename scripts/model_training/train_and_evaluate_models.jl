@@ -45,6 +45,9 @@ pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loade
 for (i,str) in enumerate(pdsets)
   pdsets[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
 end
+for (i,str) in enumerate(streetnets)
+  streetnets[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
+end
 
 frame_assignment, pdsetseg_fold_assignment = cross_validation_sets(NFOLDS, pdset_segments, dataframe, startframes)
 
