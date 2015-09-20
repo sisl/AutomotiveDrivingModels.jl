@@ -41,6 +41,11 @@ dataset_filepath = joinpath(EVALUATION_DIR, "dataset.jld")
 pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loaded =
             load_pdsets_streetnets_segements_and_dataframe(dataset_filepath)
 
+# replace foldername
+for (i,str) in enumerate(pdsets)
+  pdsets[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
+end
+
 frame_assignment, pdsetseg_fold_assignment = cross_validation_sets(NFOLDS, pdset_segments, dataframe, startframes)
 
 ##############################
