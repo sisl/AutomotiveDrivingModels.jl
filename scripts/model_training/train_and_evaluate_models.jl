@@ -11,7 +11,7 @@ const INCLUDE_FILE = let
     hostname = gethostname()
     if hostname == "Cupertino"
         "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
-    elseif hostname == "Tula"
+    elseif hostname == "tula"
         "/home/wheelert/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
     else
         "unknown"
