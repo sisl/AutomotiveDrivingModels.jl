@@ -9,7 +9,7 @@ def spearmint_RF(params):
   ntrees = params['ntrees'][0]
   max_depth = params['max_depth'][0]
 
-  bashCommand = 'julia ' + directory + '/spearmint_RF.jl' \
+  bashCommand = 'julia ' + directory + '/train_RF.jl' \
                 ' ntrees ' + str(ntrees) + ' max_depth ' + str(max_depth)
 
   print bashCommand
