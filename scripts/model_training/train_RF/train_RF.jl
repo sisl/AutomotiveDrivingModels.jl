@@ -82,9 +82,6 @@ end
 logl_mean, logl_stdev = cross_validate_logl(behavior_type, behavior_train_params,
                              dataframe, frame_cv_assignment)
 
-@printf("%.6f +-  %.6f\n", logl_mean, logl_stdev)
-quit()
-
 ##############################
 # LOAD PREVIOUSLY BEST MODEL
 ##############################
