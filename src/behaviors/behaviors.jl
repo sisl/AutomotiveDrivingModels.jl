@@ -13,7 +13,7 @@ export  AbstractVehicleBehavior,
 
         VehicleBehaviorNone,
         VEHICLE_BEHAVIOR_NONE
-        
+
 
 abstract AbstractVehicleBehavior
 

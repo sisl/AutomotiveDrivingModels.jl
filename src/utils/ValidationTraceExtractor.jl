@@ -1016,6 +1016,144 @@ function cross_validation_sets(
 
     (frame_fold_assignment, pdsetsegment_fold_assignment)
 end
+
+function cross_validation_sets(
+    nfolds::Int,
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    seg_to_framestart::Vector{Int},# seg_to_framestart[i] -> j
+                                   # where i is the pdsetsegment index
+                                   # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
+    frame_tv_assignment::Vector{Int},  # training and validation assignment for frames
+    pdsetseg_tv_assignment::Vector{Int}, # training and validation assignment for pdsetsegs
+    )
+
+    #=
+    Want: to split the dataframe into k disjoint training sets of nearly the same size
+          and simultaneously split the pdset_segments into k disjoint sets of nearly the same size
+
+    Assumptions
+    - pdset_segments are all of the same history and horizon
+    - pdset_segments do not overlap
+
+    1) randomly divide pdset_segments into k roughly equally-sized groups
+    2) for each group, identify the corresponding frames
+    3) assign those frames to each training set
+    4) divide the remaining training frames among the training sets
+    =#
+
+    TRAIN = 1
+
+    nframes = nrow(dataframe)
+    npdsetsegments = length(pdset_segments)
+
+    nframes_assigned_to_training = 0
+    for v in frame_tv_assignment
+        if v == TRAIN
+            nframes_assigned_to_training += 1
+        end
+    end
+
+    npdsetsegments_assigned_to_training = 0
+    for v in pdsetseg_tv_assignment
+        if v == TRAIN
+            npdsetsegments_assigned_to_training += 1
+        end
+    end
+
+    indeces_of_train_frames = Array(Int, nframes_assigned_to_training)
+    ind = 1
+    for (i,v) in enumerate(frame_tv_assignment)
+        if v == TRAIN
+            indeces_of_train_frames[ind] = i
+            ind += 1
+        end
+    end
+
+    indeces_of_train_pdsetsegs = Array(Int, npdsetsegments_assigned_to_training)
+    ind = 1
+    for (i,v) in enumerate(pdsetseg_tv_assignment)
+        if v == TRAIN
+            indeces_of_train_pdsetsegs[ind] = i
+            ind += 1
+        end
+    end
+
+    @assert(length(seg_to_framestart) ≥ npdsetsegments)
+
+    npdsetsegments_per_fold = div(npdsetsegments_assigned_to_training, nfolds)
+    nfolds_with_extra_pdsetsegment = mod(npdsetsegments_assigned_to_training, nfolds)
+
+    # println("nframes: ", nframes)
+    # println("npdsetsegments: ", npdsetsegments)
+    # println("npdsetsegments_per_fold: ", npdsetsegments_per_fold)
+    # println("nfolds_with_extra_pdsetsegment: ", nfolds_with_extra_pdsetsegment)
+
+    # NOTE(tim): will only set frames and segs that are marked TRAIN
+    frame_fold_assignment = zeros(Int, nframes)
+    pdsetsegment_fold_assignment = zeros(Int, npdsetsegments)
+
+    p = randperm(npdsetsegments_assigned_to_training)
+    permind = 0
+    for f = 1 : nfolds
+        # println(pdsetsegment_fold_assignment)
+        npdsetsegments_in_fold = npdsetsegments_per_fold + (f ≤ nfolds_with_extra_pdsetsegment ? 1 : 0)
+        for i = 1 : npdsetsegments_in_fold
+            permind += 1
+
+            pdsetsegmentind = indeces_of_train_pdsetsegs[p[permind]]
+            pdsetsegment_fold_assignment[pdsetsegmentind] = f
+
+            framestart = seg_to_framestart[pdsetsegmentind]
+            frameend = framestart + get_horizon(pdset_segments[pdsetsegmentind])
+            frameind = framestart
+
+            for _ in framestart : 5 : frameend
+                @assert(frame_fold_assignment[frameind] == 0)
+                frame_fold_assignment[frameind] = f
+                frameind += 1
+            end
+        end
+    end
+
+    frame_fold_sizes = zeros(Int, nfolds)
+    nremaining_frames = 0
+    for frameind in 1 : nframes_assigned_to_training
+        if frame_fold_assignment[indeces_of_train_frames[frameind]] == 0
+            nremaining_frames += 1
+        else
+            frame_fold_sizes[frame_fold_assignment[indeces_of_train_frames[frameind]]] += 1
+        end
+    end
+
+    # println("nremaining_frames: ", nremaining_frames)
+    # println("frame_fold_sizes (before): ", frame_fold_sizes)
+
+    fold_priority = PriorityQueue{Int, Int}() # (fold, foldsize), min-ordered
+    for (fold,foldsize) in enumerate(frame_fold_sizes)
+        fold_priority[fold] = foldsize
+    end
+
+    remaining_frames = Array(Int, nremaining_frames)
+    rem_frame_count = 0
+    for frameind in 1 : nframes_assigned_to_training
+        if frame_fold_assignment[indeces_of_train_frames[frameind]] == 0
+            remaining_frames[rem_frame_count+=1] = indeces_of_train_frames[frameind]
+        end
+    end
+
+    p = randperm(nremaining_frames)
+    for rem_frame_ind in 1 : nremaining_frames
+        fold = dequeue!(fold_priority)
+        frame_fold_assignment[remaining_frames[p[rem_frame_ind]]] = fold
+        frame_fold_sizes[fold] += 1
+        fold_priority[fold] = frame_fold_sizes[fold]
+    end
+
+    # println("frame_fold_sizes (after): ", frame_fold_sizes)
+
+    (frame_fold_assignment, pdsetsegment_fold_assignment)
+end
 function split_into_train_and_validation(
     fraction_validation::Float64,
     pdset_segments::Vector{PdsetSegment},

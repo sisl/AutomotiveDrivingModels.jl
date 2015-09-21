@@ -3,7 +3,8 @@ export
     EvaluationParams,
 
     add_behavior!,
-    cross_validate
+    cross_validate,
+    cross_validate_logl
 
 type BehaviorSet
     behaviors::Vector{Type}
@@ -323,6 +324,73 @@ function _cross_validate(
     _cross_validate(behaviorset, pdsets, streetnets, pdset_segments, dataframe, frame_assignment, pdsetseg_fold_assignment,
                     evalparams, verbosity=verbosity, incremental_model_save_file=incremental_model_save_file)
 end
+function _cross_validate_logl{B<:AbstractVehicleBehavior, A<:Any}(
+    behavior_type::Type{B},
+    behavior_train_params::Dict{Symbol,A},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    )
+
+    nfolds = maximum(frame_assignment)
+    logls = zeros(Float64, nfolds)
+
+    max_dataframe_training_frames = length(frame_assignment) - _min_count_of_unique_value(frame_assignment)
+    dataframe_for_training = similar(dataframe, max_dataframe_training_frames)
+
+    # ------------------
+
+    for fold = 1 : nfolds
+
+        # copy the training frames into dataframe_for_training
+        framecount = 0
+        for (i,assignment) in enumerate(frame_assignment)
+            if is_in_fold(fold, assignment, false)
+                framecount += 1
+                for j = 1 : size(dataframe, 2)
+                    dataframe_for_training[framecount, j] = dataframe[i, j]
+                end
+            end
+        end
+        while framecount < max_dataframe_training_frames
+
+            # now we need to fill in any extra training frames so that the entire thing is populated
+            # If properly used this will only be one extra row so the overall effect will be negligible
+
+            row = rand(1:framecount)
+            framecount += 1
+            for j = 1 : size(dataframe, 2)
+                dataframe_for_training[framecount, j] = dataframe_for_training[row, j]
+            end
+        end
+
+        model = train(behavior_type, dataframe_for_training, args=behavior_train_params)
+
+        for (frameind,assignment) in enumerate(frame_assignment)
+            if is_in_fold(fold, assignment, true)
+
+                action_lat = dataframe[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
+                action_lon = dataframe[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
+
+                if !isinf(action_lat) && !isinf(action_lon)
+                    logls[fold] += calc_action_loglikelihood(model, dataframe, frameind)
+                end
+
+                if isinf(logls[fold])
+                    n = names(dataframe)
+                    for f in 1 : ncol(dataframe)
+                        println(n[f], ":  ", dataframe[frameind, f])
+                    end
+                    exit()
+                end
+            end
+        end
+    end
+
+    μ = mean(logls)
+    σ = stdm(logls, μ)
+
+    (μ,σ)
+end
 
 function _cross_validate_fold(
     fold::Integer,
@@ -411,6 +479,43 @@ function _cross_validate_parallel(
     end
     cross_validation_metrics
 end
+function _cross_validate_fold_logl{B<:AbstractVehicleBehavior, A<:Any}(
+    fold::Integer,
+    behavior_type::Type{B},
+    behavior_train_params::Dict{Symbol,A},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    )
+
+
+    model = train(behavior_type, dataframe_for_training, args=behavior_train_params)
+
+    logl = 0.0
+    for (frameind,assignment) in enumerate(frame_assignment)
+        if is_in_fold(fold, assignment, true)
+            logl += calc_action_loglikelihood(model, dataframe, frameind)
+        end
+    end
+    logl
+end
+function _cross_validate_parallel_logl{A<:Any}(
+    behavior_type::Type{AbstractVehicleBehavior},
+    behavior_train_params::Dict{Symbol,A},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    )
+
+
+    nfolds = maximum(frame_assignment)
+
+    logls = pmap(1:nfolds) do fold
+        _cross_validate_fold_logl(fold, behavior_type, behavior_train_params, dataframe, frame_assignment)
+    end
+
+    μ = mean(logls)
+    σ = stdm(logls, μ)
+    (μ, σ)
+end
 
 function cross_validate(
     behaviorset::BehaviorSet,
@@ -434,6 +539,25 @@ function cross_validate(
                         dataframe, frame_assignment, pdsetseg_fold_assignment,
                         evalparams, verbosity=verbosity,
                         incremental_model_save_file=incremental_model_save_file)
+    end
+end
+function cross_validate_logl{B<:AbstractVehicleBehavior, A<:Any}(
+    behavior_type::Type{B},
+    behavior_train_params::Dict{Symbol,A},
+    dataframe::DataFrame,
+    frame_assignment::Vector{Int},
+    )
+
+    #=
+    Returns the mean and stdev of the cross validation scores
+    =#
+
+    if nworkers() > 1
+        _cross_validate_parallel_logl(behavior_type, behavior_train_params,
+                                 dataframe, frame_assignment)
+    else
+        _cross_validate_logl(behavior_type, behavior_train_params,
+                                 dataframe, frame_assignment)
     end
 end
 

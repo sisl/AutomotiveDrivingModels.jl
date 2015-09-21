@@ -1,0 +1,15 @@
+{
+    "language"        : "PYTHON",
+    "main-file"       : "spearmint_RF.py",
+    "experiment-name" : "experiment001",
+    "likelihood"      : "GAUSSIAN",
+    "variables" : {
+        "ntrees" : {
+            "type" : "INT",
+            "size" : 1,
+            "min"  : 1,
+            "max"  : 10
+        }
+    }
+}
+

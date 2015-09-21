@@ -37,9 +37,9 @@ println("\t", TRAIN_VALIDATION_JLD_FILE)
 # DATA
 ##############################
 
-# dataset_filepath = joinpath(EVALUATION_DIR, "dataset_small.jld")
+dataset_filepath = joinpath(EVALUATION_DIR, "dataset_small.jld")
 # dataset_filepath = joinpath(EVALUATION_DIR, "dataset_medium.jld")
-dataset_filepath = joinpath(EVALUATION_DIR, "dataset.jld")
+# dataset_filepath = joinpath(EVALUATION_DIR, "dataset.jld")
 pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loaded =
             load_pdsets_streetnets_segements_and_dataframe(dataset_filepath)
 
@@ -48,6 +48,8 @@ pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loade
 #################################
 
 const FRACTION_VALIDATION = 0.10
+
+srand(1)
 
 (frame_tv_assignment, pdsetseg_tv_assignment) = split_into_train_and_validation(FRACTION_VALIDATION, pdset_segments, dataframe, startframes)
 
@@ -58,8 +60,29 @@ println("n_other_pdset: ", sum(v->v!=1 && v!=2, pdsetseg_tv_assignment))
 println("n_train_pdset: ", sum(v->v==1, pdsetseg_tv_assignment))
 println("n_valid_pdset: ", sum(v->v==2, pdsetseg_tv_assignment))
 
+frame_cv_assignment, pdsetseg_cv_assignment = cross_validation_sets(NFOLDS, pdset_segments, dataframe, startframes,
+                                                                    frame_tv_assignment, pdsetseg_tv_assignment)
+
+counts = zeros(Int, 10)
+counts2 = zeros(Int, 10)
+for v in frame_cv_assignment
+    if v != 0
+        counts[v] += 1
+    end
+end
+for v in pdsetseg_cv_assignment
+    if v != 0
+        counts2[v] += 1
+    end
+end
+
+println("counts frame_cv_assignment: ", counts)
+println("counts pdsetseg_cv_assignment: ", counts2)
+
 JLD.save(TRAIN_VALIDATION_JLD_FILE, "frame_tv_assignment", frame_tv_assignment,
-                                    "pdsetseg_tv_assignment", pdsetseg_tv_assignment)
+                                    "pdsetseg_tv_assignment", pdsetseg_tv_assignment,
+                                    "frame_cv_assignment", frame_cv_assignment,
+                                    "pdsetseg_cv_assignment", pdsetseg_cv_assignment)
 
 println("DONE")
 
