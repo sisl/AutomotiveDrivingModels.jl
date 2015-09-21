@@ -14,7 +14,7 @@ def spearmint_RF(params):
   partial_sampling = params['partial_sampling'][0]
 
   bashCommand = 'julia ' + directory + '/train_RF.jl' \
-                ' ntrees ' + str(ntrees) + ' max_depth ' + str(max_depth) + ' min_samples_split ' + str(min_samples_split) + ' min_samples_leaves ' + str(min_samples_leaves) + ' min_split_improvement ' + str(min_split_improvement) + ' partial_sampling ' + str(partial_sampling) +
+                ' ntrees ' + str(ntrees) + ' max_depth ' + str(max_depth) + ' min_samples_split ' + str(min_samples_split) + ' min_samples_leaves ' + str(min_samples_leaves) + ' min_split_improvement ' + str(min_split_improvement) + ' partial_sampling ' + str(partial_sampling)
   print bashCommand
 
   process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
