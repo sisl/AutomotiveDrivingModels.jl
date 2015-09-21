@@ -72,6 +72,14 @@ while arg_index < length(ARGS)
         behavior_train_params[:ntrees] = int(ARGS[arg_index+=1])
     elseif ARGS[arg_index] == "max_depth"
         behavior_train_params[:max_depth] = int(ARGS[arg_index+=1])
+    elseif ARGS[arg_index] == "min_samples_split"
+        behavior_train_params[:min_samples_split] = int(ARGS[arg_index+=1])
+    elseif ARGS[arg_index] == "min_samples_leaves"
+        behavior_train_params[:min_samples_leaves] = int(ARGS[arg_index+=1])
+    elseif ARGS[arg_index] == "min_split_improvement"
+        behavior_train_params[:min_split_improvement] = float(ARGS[arg_index+=1])
+    elseif ARGS[arg_index] == "partial_sampling"
+        behavior_train_params[:partial_sampling] = float(ARGS[arg_index+=1])
     else
         error("UNRECOGNIZED PARAMETER $(ARGS[arg_index])")
     end
