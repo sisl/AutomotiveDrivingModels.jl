@@ -9,6 +9,12 @@
             "size" : 1,
             "min"  : 1,
             "max"  : 10
+        },
+        "max_depth" : {
+            "type" : "INT",
+            "size" : 1,
+            "min"  : 1,
+            "max"  : 10
         }
     }
 }

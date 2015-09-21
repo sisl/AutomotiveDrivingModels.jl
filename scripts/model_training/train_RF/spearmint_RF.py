@@ -7,9 +7,10 @@ def spearmint_RF(params):
   directory = os.path.dirname(os.path.abspath(__file__))
 
   ntrees = params['ntrees'][0]
+  max_depth = params['max_depth'][0]
 
   bashCommand = 'julia ' + directory + '/spearmint_RF.jl' \
-                ' ntrees ' + str(ntrees)
+                ' ntrees ' + str(ntrees) + ' max_depth ' + str(max_depth)
 
   print bashCommand
 

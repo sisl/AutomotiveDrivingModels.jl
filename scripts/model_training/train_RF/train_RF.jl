@@ -11,22 +11,6 @@ using RandomForestBehaviors
 7 - return our logl metric score
 =#
 
-##############################
-# PULL INPUT PARAMS FROM ARGS
-##############################
-
-ntrees = 10
-
-arg_index = 1
-while arg_index < length(ARGS)
-    if ARGS[arg_index] == "ntrees"
-        ntrees = int(ARGS[arg_index+=1])
-    else
-        error("UNRECOGNIZED PARAMETER $(ARGS[arg_index])")
-    end
-    arg_index += 1
-end
-
 ################################
 # LOAD PARAMETERS
 ################################
@@ -79,7 +63,20 @@ end
 ##############################
 
 behavior_type = GindeleRandomForestBehavior
-behavior_train_params = [:indicators=>INDICATOR_SET, :ntrees=>ntrees]
+behavior_train_params = Dict{Symbol,Any}()
+behavior_train_params[:indicators] = INDICATOR_SET
+
+arg_index = 1
+while arg_index < length(ARGS)
+    if ARGS[arg_index] == "ntrees"
+        behavior_train_params[:ntrees] = int(ARGS[arg_index+=1])
+    elseif ARGS[arg_index] == "max_depth"
+        behavior_train_params[:max_depth] = int(ARGS[arg_index+=1])
+    else
+        error("UNRECOGNIZED PARAMETER $(ARGS[arg_index])")
+    end
+    arg_index += 1
+end
 
 # obtain mean and stdev of logl over the folds
 logl_mean, logl_stdev = cross_validate_logl(behavior_type, behavior_train_params,
