@@ -14,7 +14,7 @@ import Base: ==, isequal
 import Base.Collections: PriorityQueue, dequeue!
 import AutomotiveDrivingModels.FeaturesetExtractor: create_dataframe_with_feature_columns
 
-export 
+export
         OrigHistobinExtractParameters,
         StartCondition,
 
@@ -30,8 +30,8 @@ export
         merge_region_segments,
         calc_row_count_from_region_segments,
 
-        cross_validation_sets
-        # get_training_and_validation
+        cross_validation_sets,
+        split_into_train_and_validation
 
 
 ########################################
@@ -95,7 +95,7 @@ type OrigHistobinExtractParameters
     end
 end
 total_framecount(stats::OrigHistobinExtractParameters) = stats.sim_history + stats.sim_horizon
-function ==(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters) 
+function ==(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters)
     a.behavior == b.behavior &&
     length(a.subsets) == length(b.subsets) &&
     all([findfirst(item->isa(item, typeof(feature_a)), b.subsets)!=0 for feature_a in a.subsets]) &&
@@ -168,7 +168,7 @@ function pull_pdset_segments_and_dataframe(
     # println("pdset_segments: ", pdset_segments)
     # println("startframes: ", startframes)
     # println("dataframe:", dataframe)
-    
+
     (pdset_segments, dataframe, startframes)
 end
 function _pull_pdsets_streetnets_segments_and_dataframe(
@@ -243,7 +243,7 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
     filters::Vector{AbstractFeature},
     pdset_dir::String
     )
-    
+
     num_csvfilesets = length(csvfilesets)
     num_workers = nworkers()
     csvfileset_assignment = Array(Vector{CSVFileSet}, num_workers)
@@ -275,7 +275,7 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
 
     pdset_index = 0
     for (more_pdsets, more_streetnets, more_pdset_segments, more_dataframe, more_startframes) in more_stuff
-    
+
         more_startframes .+= nrow(dataframe)
 
         for (i,seg) in enumerate(more_pdset_segments)
@@ -286,8 +286,8 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
                 push!(streetnets, target_streetnet)
                 streetnet_id = length(streetnets)
             end
-            
-            push!(pdset_segments, PdsetSegment(seg.pdset_id, streetnet_id, seg.carid, 
+
+            push!(pdset_segments, PdsetSegment(seg.pdset_id, streetnet_id, seg.carid,
                                   seg.validfind_start, seg.validfind_end))
         end
 
@@ -311,17 +311,17 @@ function pull_pdsets_streetnets_segments_and_dataframe(
     )
 
     if nworkers() > 1
-        _pull_pdsets_streetnets_segments_and_dataframe_parallel(extract_params, csvfilesets, 
+        _pull_pdsets_streetnets_segments_and_dataframe_parallel(extract_params, csvfilesets,
                                                                 features, filters, pdset_dir)
     else
-        _pull_pdsets_streetnets_segments_and_dataframe(extract_params, csvfilesets, 
+        _pull_pdsets_streetnets_segments_and_dataframe(extract_params, csvfilesets,
                                                        features, filters, pdset_dir)
     end
 end
 
 function calc_traces_to_keep_with_frameskip(
-    start_conditions :: Vector{StartCondition}, 
-    pdset :: PrimaryDataset, 
+    start_conditions :: Vector{StartCondition},
+    pdset :: PrimaryDataset,
     frameskip :: Int
     )
 
@@ -429,7 +429,7 @@ function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::In
     for i = 1 : 2 : n
         validfind_lo = validfind_regions[i]
         validfind_hi = validfind_regions[i+1]
-        
+
         @assert(validfind_lo ≤ validfind_hi)
         @assert(validfind_lo ≥ 1)
         @assert(validfind_hi ≤ nframes)
@@ -438,7 +438,7 @@ function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::In
             retval[j] = true
         end
     end
-    
+
     retval
 end
 function _calc_subsets_based_on_csvfileset(csvfileset::CSVFileSet, nframes::Int)
@@ -446,8 +446,8 @@ function _calc_subsets_based_on_csvfileset(csvfileset::CSVFileSet, nframes::Int)
     df = DataFrame()
     df[symbol(SUBSET_FREE_FLOW)]     = _calc_subset_vector(csvfileset.freeflow, nframes)
     df[symbol(SUBSET_CAR_FOLLOWING)] = _calc_subset_vector(csvfileset.carfollow, nframes)
-    df[symbol(SUBSET_LANE_CROSSING)] = _calc_subset_vector([csvfileset.lanechanges_normal, 
-                                                        csvfileset.lanechanges_postpass, 
+    df[symbol(SUBSET_LANE_CROSSING)] = _calc_subset_vector([csvfileset.lanechanges_normal,
+                                                        csvfileset.lanechanges_postpass,
                                                         csvfileset.lanechanges_arbitrary], nframes)
 
     df
@@ -490,7 +490,7 @@ function pull_start_conditions(
         validfind_start = int(jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
         validfind_end   = int(jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
 
-        if are_validfinds_continuous(pdset, validfind_start, validfind_end) && 
+        if are_validfinds_continuous(pdset, validfind_start, validfind_end) &&
             _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets)
 
             frameind = validfind2frameind(pdset, validfind)
@@ -507,12 +507,12 @@ function pull_start_conditions(
             v_x_front = get(V_X_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
             nll    = int(get(N_LANE_L, pdset, sn, CARIND_EGO, validfind)::Float64)
             nlr    = int(get(N_LANE_R, pdset, sn, CARIND_EGO, validfind)::Float64)
-            
-            if  abs(d_cl) ≤ TOLERANCE_D_CL      && 
+
+            if  abs(d_cl) ≤ TOLERANCE_D_CL      &&
                 abs(ϕ)    ≤ TOLERANCE_YAW       &&
                 abs(ω)    ≤ TOLERANCE_TURNRATE  &&
                 abs(a)    ≤ TOLERANCE_ACCEL     &&
-                abs(v_orig-TARGET_SPEED) ≤ TOLERANCE_SPEED && 
+                abs(v_orig-TARGET_SPEED) ≤ TOLERANCE_SPEED &&
                 d_x_front ≤ TOLERANCE_D_X_FRONT &&
                 abs(d_y_front) ≤ TOLERANCE_D_Y_FRONT &&
                 v_x_front ≤ TOLERANCE_D_V_FRONT #&&
@@ -601,7 +601,7 @@ function pull_start_conditions(
     const N_SIM_FRAMES = total_framecount(extract_params)
 
     num_validfinds = nvalidfinds(pdset)
-    
+
     df_subsets = _calc_subsets_based_on_csvfileset(csvfileset, num_validfinds)
 
     for validfind = SIM_HISTORY : num_validfinds
@@ -613,7 +613,7 @@ function pull_start_conditions(
         #        int(are_validfinds_continuous(pdset, validfind_start, validfind_end)), "  ",
         #         int(_calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)))
 
-        if are_validfinds_continuous(pdset, validfind_start, validfind_end) && 
+        if are_validfinds_continuous(pdset, validfind_start, validfind_end) &&
             _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)
 
             frameind = validfind2frameind(pdset, validfind)
@@ -632,12 +632,12 @@ function pull_start_conditions(
             nlr    = int(get(N_LANE_R, pdset, sn, CARIND_EGO, validfind)::Float64)
 
             # println(frameind)
-            
-            if  abs(d_cl) ≤ TOLERANCE_D_CL      && 
+
+            if  abs(d_cl) ≤ TOLERANCE_D_CL      &&
                 abs(ϕ)    ≤ TOLERANCE_YAW       &&
                 abs(ω)    ≤ TOLERANCE_TURNRATE  &&
                 abs(a)    ≤ TOLERANCE_ACCEL     &&
-                abs(v_orig-TARGET_SPEED) ≤ TOLERANCE_SPEED && 
+                abs(v_orig-TARGET_SPEED) ≤ TOLERANCE_SPEED &&
                 d_x_front ≤ TOLERANCE_D_X_FRONT &&
                 abs(d_y_front) ≤ TOLERANCE_D_Y_FRONT &&
                 v_x_front ≤ TOLERANCE_D_V_FRONT #&&
@@ -748,7 +748,7 @@ function pull_pdset_segments(
         # println(_calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets))
 
         if validfind_start != 0 && validfind_end != 0 &&
-           are_validfinds_continuous(pdset, validfind_start, validfind_end) && 
+           are_validfinds_continuous(pdset, validfind_start, validfind_end) &&
            _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)
 
             carind = carid2ind(pdset, carid, validfind)
@@ -764,12 +764,12 @@ function pull_pdset_segments(
             v_x_front =      get(V_X_FRONT, basics, carind, validfind)::Float64
             nll       =  int(get(N_LANE_L,  basics, carind, validfind)::Float64)
             nlr       =  int(get(N_LANE_R,  basics, carind, validfind)::Float64)
-            
-            if  abs(d_cl)                ≤ extract_params.tol_d_cl && 
+
+            if  abs(d_cl)                ≤ extract_params.tol_d_cl &&
                 abs(ϕ)                   ≤ extract_params.tol_yaw &&
                 abs(ω)                   ≤ extract_params.tol_turnrate &&
                 abs(a)                   ≤ extract_params.tol_accel &&
-                abs(v_orig-TARGET_SPEED) ≤ extract_params.tol_speed && 
+                abs(v_orig-TARGET_SPEED) ≤ extract_params.tol_speed &&
                 d_x_front                ≤ extract_params.tol_d_x_front &&
                 abs(d_y_front)           ≤ extract_params.tol_d_y_front &&
                 v_x_front                ≤ extract_params.tol_d_v_front #&&
@@ -1015,6 +1015,92 @@ function cross_validation_sets(
     # println("frame_fold_sizes (after): ", frame_fold_sizes)
 
     (frame_fold_assignment, pdsetsegment_fold_assignment)
+end
+function split_into_train_and_validation(
+    fraction_validation::Float64,
+    pdset_segments::Vector{PdsetSegment},
+    dataframe::DataFrame,
+    seg_to_framestart::Vector{Int} # seg_to_framestart[i] -> j
+                                   # where i is the pdsetsegment index
+                                   # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
+    )
+
+    @assert(fraction_validation ≥ 0.0)
+    frac_train = 1.0 - fraction_validation
+
+    nframes = nrow(dataframe)
+    npdsetsegments = length(pdset_segments)
+    @assert(length(seg_to_framestart) ≥ npdsetsegments)
+
+    const TRAIN = 1
+    const VALIDATION = 2
+
+    frame_tv_assignment = zeros(Int, nframes) # train = 1, validation = 2
+    pdsetseg_tv_assignment = zeros(Int, npdsetsegments) # train = 1, validation = 2
+
+    nframes_to_assign_to_training = ifloor(nframes * frac_train)
+    npdsetsegments_to_assign_to_training = ifloor(npdsetsegments * frac_train)
+
+    p = randperm(npdsetsegments)
+    for i = 1 : npdsetsegments_to_assign_to_training
+        pdsetsegmentind = p[i]
+        pdsetseg_tv_assignment[pdsetsegmentind] = TRAIN
+
+        framestart = seg_to_framestart[pdsetsegmentind]
+        frameend = framestart + get_horizon(pdset_segments[pdsetsegmentind])
+        frameind = framestart
+        for _ in framestart : 5 : frameend
+            @assert(frame_tv_assignment[frameind] == 0)
+            frame_tv_assignment[frameind] = TRAIN
+            frameind += 1
+        end
+    end
+
+     # = sum(frame_tv_assignment)
+    nremaining_frames_unassigned = 0
+    for frameind in 1 : nframes
+        if frame_tv_assignment[frameind] == 0
+            nremaining_frames_unassigned += 1
+        end
+    end
+
+    nframes_assigned_to_training = nframes - nremaining_frames_unassigned
+    nremaining_frames_to_assign = nframes_to_assign_to_training - nframes_assigned_to_training
+
+    println("nframes:                      ", nframes)
+    println("nframes_assigned_to_training: ", nframes_assigned_to_training)
+    println("nremaining_frames_to_assign:  ", nremaining_frames_to_assign)
+    println("nremaining_frames_unassigned: ", nremaining_frames_unassigned)
+
+    remaining_frames = Array(Int, nremaining_frames_unassigned)
+    rem_frame_count = 0
+    for frameind in 1 : nframes
+        if frame_tv_assignment[frameind] == 0
+            remaining_frames[rem_frame_count+=1] = frameind
+        end
+    end
+    @assert(rem_frame_count == nremaining_frames_unassigned)
+
+    p = randperm(nremaining_frames_unassigned)
+    for rem_frame_ind in 1 : nremaining_frames_to_assign
+        i = p[rem_frame_ind]
+        j = remaining_frames[i]
+        k = frame_tv_assignment[remaining_frames[p[rem_frame_ind]]]
+        frame_tv_assignment[remaining_frames[p[rem_frame_ind]]] = TRAIN
+    end
+
+    for (i,v) in enumerate(frame_tv_assignment)
+        if v != TRAIN
+          frame_tv_assignment[i] = VALIDATION
+        end
+    end
+    for (i,v) in enumerate(pdsetseg_tv_assignment)
+        if v != TRAIN
+          pdsetseg_tv_assignment[i] = VALIDATION
+        end
+    end
+
+    (frame_tv_assignment, pdsetseg_tv_assignment)
 end
 
 end # end module

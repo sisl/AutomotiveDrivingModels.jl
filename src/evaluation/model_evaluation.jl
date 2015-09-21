@@ -19,7 +19,7 @@ function add_behavior!{B<:AbstractVehicleBehavior}(
     name::String,
     additional_params::Dict = Dict{Symbol,Any}()
     )
-    
+
     @assert(!in(name, behaviorset.names))
 
     push!(behaviorset.behaviors, behavior)
@@ -200,7 +200,7 @@ function _cross_validate(
 
     nfolds = maximum(frame_assignment)
     nbehaviors = length(behaviorset.behaviors)
-    
+
     aggregate_metric_sets_training = Array(Vector{Dict{Symbol,Any}}, nbehaviors+1)
     for i = 1:length(aggregate_metric_sets_training)
         aggregate_metric_sets_training[i] = Array(Dict{Symbol,Any}, nfolds)
@@ -224,7 +224,7 @@ function _cross_validate(
             println("FOLD ", fold, " / ", nfolds)
             tic()
         end
-    
+
         # copy the training frames into dataframe_for_training
         framecount = 0
         for (i,assignment) in enumerate(frame_assignment)
@@ -261,7 +261,7 @@ function _cross_validate(
         end
         print(" [DONE] "); toc()
 
-        
+
         if isa(incremental_model_save_file, String)
 
             print("computing training metrics sets"); tic()
@@ -273,7 +273,7 @@ function _cross_validate(
                 metrics_set.tracemetrics = Dict{Symbol, Any}[] # delete it so we don't save it later
             end
             print(" [DONE] "); toc()
-            
+
             println("saving incremental file"); tic()
             # NOTE: "dir/file.jld" → "dir/file_<fold>.jld"
             filename = splitext(incremental_model_save_file)[1] * @sprintf("_%02d.jld", fold)
@@ -346,7 +346,7 @@ function _cross_validate_fold(
 
     nbehaviors = length(behaviorset.behaviors)
     model_behaviors = train(behaviorset, dataframe[frame_assignment .!= fold,:])
-    
+
     metrics_sets_validation = create_metrics_sets_no_tracemetrics(model_behaviors, pdsets, pdsets_for_simulation,
                                                                   streetnets, pdset_segments, evalparams,
                                                                   fold, pdsetseg_fold_assignment, true)
@@ -397,7 +397,7 @@ function _cross_validate_parallel(
     all_the_aggmetric_sets_validation = pmap(1:nfolds) do fold
         _cross_validate_fold(fold, behaviorset, pdsets, streetnet_filepaths, pdset_segments,
                              dataframe, frame_assignment, pdsetseg_fold_assignment, evalparams,
-                             incremental_model_save_file=incremental_model_save_file) 
+                             incremental_model_save_file=incremental_model_save_file)
     end
 
     n_cv_metrics = length(all_the_aggmetric_sets_validation[1])
@@ -434,7 +434,7 @@ function cross_validate(
                         dataframe, frame_assignment, pdsetseg_fold_assignment,
                         evalparams, verbosity=verbosity,
                         incremental_model_save_file=incremental_model_save_file)
-    end    
+    end
 end
 
 function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
