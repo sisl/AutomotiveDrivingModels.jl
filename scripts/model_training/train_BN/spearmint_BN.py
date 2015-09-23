@@ -7,6 +7,7 @@ def spearmint_BN(params):
   directory = os.path.dirname(os.path.abspath(__file__))
 
   ncandidate_bins = params['ncandidate_bins'][0]
+  preoptimize_indicator_bins = params['preoptimize_indicator_bins'][0]
 
   bashCommand = 'julia ' + directory + '/train_BN.jl' \
                 ' ncandidate_bins ' + str(ncandidate_bins) + ' preoptimize_indicator_bins ' + str(preoptimize_indicator_bins)
