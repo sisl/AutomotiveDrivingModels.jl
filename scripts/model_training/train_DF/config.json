@@ -1,7 +1,7 @@
 {
     "language"        : "PYTHON",
     "main-file"       : "spearmint_DF.py",
-    "experiment-name" : "experiment001",
+    "experiment-name" : "experimentDF001",
     "likelihood"      : "GAUSSIAN",
     "variables" : {
         "ntrees" : {
