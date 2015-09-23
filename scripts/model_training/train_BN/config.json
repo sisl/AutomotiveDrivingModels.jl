@@ -1,0 +1,15 @@
+{
+    "language"        : "PYTHON",
+    "main-file"       : "spearmint_BN.py",
+    "experiment-name" : "experimentBN001",
+    "likelihood"      : "GAUSSIAN",
+    "variables" : {
+        "ncandidate_bins" : {
+            "type" : "INT",
+            "size" : 1,
+            "min"  : 5,
+            "max"  : 40
+        },
+    }
+}
+
