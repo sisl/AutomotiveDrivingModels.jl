@@ -75,7 +75,7 @@ while arg_index < length(ARGS)
     if ARGS[arg_index] == "ncandidate_bins"
         behavior_train_params[:ncandidate_bins] = int(ARGS[arg_index+=1])
     elseif ARGS[arg_index] == "preoptimize_indicator_bins"
-        behavior_train_params[:preoptimize_indicator_bins] = convert(Bool, ARGS[arg_index+=1])
+        behavior_train_params[:preoptimize_indicator_bins] = convert(Bool, int(ARGS[arg_index+=1]))
     else
         error("UNRECOGNIZED PARAMETER $(ARGS[arg_index])")
     end
