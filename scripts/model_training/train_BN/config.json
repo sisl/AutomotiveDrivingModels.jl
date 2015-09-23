@@ -7,8 +7,8 @@
         "ncandidate_bins" : {
             "type" : "INT",
             "size" : 1,
-            "min"  : 5,
-            "max"  : 40
+            "min"  : 10,
+            "max"  : 50
         },
         "preoptimize_indicator_bins" : {
             "type" : "INT",
