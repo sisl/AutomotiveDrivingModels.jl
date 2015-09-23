@@ -23,7 +23,7 @@ using AutomotiveDrivingModels.StreetNetworks
 # ----------------------------------
 # exports
 
-export 
+export
 	AbstractFeature,
 	ExtractedFeatureCache,
 	FeatureExtractBasicsPdSet
@@ -72,7 +72,7 @@ export  STDTURNRATE250MS,  STDTURNRATE500MS,  STDTURNRATE750MS,  STDTURNRATE1S, 
 export SUBSET_EMERGENCY, SUBSET_FREE_FLOW, SUBSET_CAR_FOLLOWING, SUBSET_LANE_CROSSING, SUBSET_SUSTAINED_CROSSING
 export SUBSET_AT_SIXTYFIVE, SUBSET_AUTO
 
-export observe
+export observe, observe!
 export description, units, isint, isbool, lowerbound, upperbound, symbol, lsymbol, couldna, get, symbol2feature
 export calc_occupancy_schedule_grid, put_occupancy_schedule_grid_in_meta!
 export allfeatures
@@ -128,7 +128,7 @@ type FeatureExtractBasicsPdSet
 
 		new(pdset, sn, cache, runid)
 	end
-end 
+end
 
 function Base.deepcopy(basics::FeatureExtractBasicsPdSet)
 	FeatureExtractBasicsPdSet(
@@ -179,7 +179,7 @@ end
 
 # ----------------------------------
 
-function create_feature_basics( 
+function create_feature_basics(
 	name         :: String,
 	unit         :: String,
 	isint        :: Bool,
@@ -234,6 +234,19 @@ function observe{F<:AbstractFeature}(
     for f in features
         val = get(f, basics, carind, validfind)::Float64
         observations[symbol(f)] = val
+    end
+    observations
+end
+function observe!{F<:AbstractFeature}(
+	observations::Vector{Float64},
+    basics::FeatureExtractBasicsPdSet,
+    carind::Int,
+    validfind::Int,
+    features::Vector{F}
+    )
+
+    for (i,f) in enumerate(features)
+        observations[i] = get(f, basics, carind, validfind)::Float64
     end
     observations
 end
@@ -436,7 +449,7 @@ function _calc_jumps_required_to_reach_projectable_lane_segment(
 	#=
 	RETURNS (njumps, success)
 		njumps :: Int = the number of times prev_lane() or next_lane() must be called to reach the given lane
-		                if 0 it means the original lane is it, positive corresponds to next_lane(), 
+		                if 0 it means the original lane is it, positive corresponds to next_lane(),
 		                negative to prev_lane()
 		success :: Bool = true if a lane was found
 	=#
@@ -460,14 +473,14 @@ function _jump_downstream_lane(sn::StreetNetwork, lane::StreetLane, njumps::Int)
 	retval = lane
 	for i = 1 : njumps
 		retval = next_lane(sn, retval)
-	end	
+	end
 	retval
 end
 function _jump_upstream_lane(sn::StreetNetwork, lane::StreetLane, njumps::Int)
 	retval = lane
 	for i = 1 : njumps
 		retval = prev_lane(sn, retval)
-	end	
+	end
 	retval
 end
 function _jump_along_lane(sn::StreetNetwork, lane::StreetLane, njumps::Int)
@@ -492,13 +505,13 @@ function _calc_num_real_roots_of_quadratic(val::Float64; absolute_tolerance_sing
 		1
 	elseif val > 0.0
 		2
-	else 
+	else
 		0
 	end
 end
-function _calc_num_real_roots_of_quadratic(a::Float64, b::Float64, c::Float64; 
+function _calc_num_real_roots_of_quadratic(a::Float64, b::Float64, c::Float64;
 	absolute_tolerance_single_root::Float64 = eps(Float64))
-	_calc_num_real_roots_of_quadratic(b*b - 4*a*c, 
+	_calc_num_real_roots_of_quadratic(b*b - 4*a*c,
 		absolute_tolerance_single_root=absolute_tolerance_single_root)
 end
 
@@ -573,7 +586,7 @@ function _project_pt_to_lane_frenet(
 	if successful
 
 		origin_s = origin.curvept[SIND]
-		
+
 		if njumps == 0
 
 			extind = Curves.closest_point_extind_to_curve(lane.curve, posGx, posGy)
@@ -690,7 +703,7 @@ function calc_occupancy_schedule_grid(basics::FeatureExtractBasicsPdSet, carind:
 
 		nothercarsinframe = get_num_other_cars_in_frame(pdset, validfind)
 		for loop_carind = -1 : nothercarsinframe-1 # this includes the ego vehicle
-				
+
 			if loop_carind == carind
 				continue
 			end
@@ -1360,9 +1373,9 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 		# project the current location to the tilemap, but accept only lanes to the left of current location & not the current lane
 		function f_filter(curve_pt::CurvePt, lane::StreetLane)
-			is_pt_left_of_ray(curve_pt.x, curve_pt.y, posGx, posGy, rayEx, rayEy) && 
+			is_pt_left_of_ray(curve_pt.x, curve_pt.y, posGx, posGy, rayEx, rayEy) &&
 				!(current_lane      === lane) &&
-				!(current_lane_next === lane) && 
+				!(current_lane_next === lane) &&
 				!(current_lane_prev === lane)
 		end
 		proj = project_point_to_streetmap(posGx, posGy, sn, f_filter)
@@ -1373,7 +1386,7 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 			left_lane = proj.lane
 			left_lanetag = left_lane.id
-			
+
 			delete!(cars_to_check, carind)
 
 			pq = Collections.PriorityQueue()
@@ -1405,7 +1418,7 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 						push!(to_remove, target_carind)
 					end
-				end	
+				end
 
 				for target_carind in to_remove
 					delete!(cars_to_check, target_carind)
@@ -1581,9 +1594,9 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 		rayEy = posGy + sin(posGθ)
 
 		function f_filter(curve_pt::CurvePt, lane::StreetLane)
-			!is_pt_left_of_ray(curve_pt.x, curve_pt.y, posGx, posGy, rayEx, rayEy) && 
+			!is_pt_left_of_ray(curve_pt.x, curve_pt.y, posGx, posGy, rayEx, rayEy) &&
 				!(current_lane      === lane) &&
-				!(current_lane_next === lane) && 
+				!(current_lane_next === lane) &&
 				!(current_lane_prev === lane)
 		end
 		proj = project_point_to_streetmap(posGx, posGy, sn, f_filter)
@@ -1592,10 +1605,10 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 
 			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
 
-			
+
 			right_lane = proj.lane
 			right_lanetag = right_lane.id
-			
+
 			delete!(cars_to_check, carind)
 
 			pq = Collections.PriorityQueue()
@@ -1622,7 +1635,7 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 
 						push!(to_remove, target_carind)
 					end
-				end	
+				end
 
 				for target_carind in to_remove
 					delete!(cars_to_check, target_carind)
@@ -1702,7 +1715,7 @@ end
 
 create_feature_basics( "A_REQ_RIGHT", "m/s2", false, false, Inf, 0.0, true, :a_req_right, L"a^{req}_{x,ri}", "const acceleration (+ to left) required to prevent collision with car to right assuming constant velocity")
 function get( ::Feature_A_REQ_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	
+
 	ind_right = get(INDRIGHT, basics, carind, validfind)
 	if ind_right == NA_ALIAS
 		return NA_ALIAS
@@ -1724,7 +1737,7 @@ end
 
 create_feature_basics( "TTC_X_RIGHT", "s", false, false, Inf, 0.0, true, :ttc_x_right, L"ttc_{x,ri}", "time to collision with right car assuming constant velocities")
 function get( ::Feature_TTC_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	
+
 	ind_right = get(INDRIGHT, basics, carind, validfind)
 	if ind_right == NA_ALIAS
 		return NA_ALIAS
@@ -1852,7 +1865,7 @@ function _get(::Feature_AccFx, basics::FeatureExtractBasicsPdSet, carind::Int, v
 
 	carid = carind2id(pdset, carind, validfind)
 	if idinframe(pdset, carid, validfind_past)
-		
+
 		carind_past = carid2ind(pdset, carid, validfind_past)
 
 		curr = getc(pdset, :velFx, carind,      validfind)
@@ -1940,7 +1953,7 @@ end
 
 create_feature_basics( "FutureTurnRate_250ms", "rad/s", false, false, Inf, -Inf, true, :f_turnrate_250ms, L"\dot{\psi}^{\text{fut}}_{250ms}", "the average rate of heading change over the next quarter second")
 function _get(::Feature_FutureTurnRate_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	
+
 	const lookahead = 5
 	timestep = lookahead * DEFAULT_SEC_PER_FRAME
 
@@ -1970,7 +1983,7 @@ end
 
 create_feature_basics( "FutureTurnRate_500ms", "rad/s", false, false, Inf, -Inf, true, :f_turnrate_500ms, L"\dot{\psi}^{\text{fut}}_{500ms}", "the average rate of heading change over the next half second")
 function _get(::Feature_FutureTurnRate_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	
+
 	const lookahead = 10
 	timestep = lookahead * DEFAULT_SEC_PER_FRAME
 
@@ -2265,7 +2278,7 @@ function _get(::Feature_TimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, c
 			end
 
 			fut_lanetag = get(pdset, :lanetag, carind, cur_frameind, cur_validfind)::LaneTag
-			if fut_lanetag != cur_lanetag				
+			if fut_lanetag != cur_lanetag
 				if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
 					return Δt
 				else
@@ -2310,7 +2323,7 @@ function _get(::Feature_TimeSinceLaneCrossing, basics::FeatureExtractBasicsPdSet
 				return THRESHOLD_TIMESINCELANECROSSING
 			end
 			past_lanetag = get(pdset, :lanetag, carind, cur_frameind, cur_validfind)::LaneTag
-			if past_lanetag != cur_lanetag					
+			if past_lanetag != cur_lanetag
 				if same_tile(cur_lanetag, past_lanetag) || !has_prev_lane(sn, cur_lane)
 					return Δt
 				else
@@ -2366,7 +2379,7 @@ function _get(::Feature_Time_Consecutive_Brake, basics::FeatureExtractBasicsPdSe
 				return t_orig - gete(pdset, :time, past_frameind+1)
 			end
 
-			Δt = t_orig - gete(pdset, :time, past_frameind)	
+			Δt = t_orig - gete(pdset, :time, past_frameind)
 			if Δt > THRESHOLD_TIMECONSECUTIVEACCEL
 				return THRESHOLD_TIMECONSECUTIVEACCEL
 			end
@@ -2416,7 +2429,7 @@ function _get(::Feature_Time_Consecutive_Accel, basics::FeatureExtractBasicsPdSe
 				return t_orig - gete(pdset, :time, past_frameind+1)
 			end
 
-			Δt = t_orig - gete(pdset, :time, past_frameind)	
+			Δt = t_orig - gete(pdset, :time, past_frameind)
 			if Δt > THRESHOLD_TIMECONSECUTIVEACCEL
 				return THRESHOLD_TIMECONSECUTIVEACCEL
 			end
@@ -2431,7 +2444,7 @@ end
 
 create_feature_basics( "Time_Consecutive_Throttle", "s", false, false, THRESHOLD_TIMECONSECUTIVEACCEL, 0.0, false, :time_consecutive_throttle, L"t_\text{throttle}", "a union between time_consecutive_accel and time_consecutive_brake")
 function _get(::Feature_Time_Consecutive_Throttle, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	
+
 	# returns a positive value if t_consec_accel
 	# returns a negative value if t_consec_brake
 
@@ -2447,7 +2460,7 @@ end
 
 create_feature_basics_boolean( "Subset_Emergency", false, :subset_emergency, L"\mathcal{D}_\text{emerg}", "subset of data for emergency behavior")
 function _get(::Feature_Subset_Emergency, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
-	threshold_acc :: Float64 = 2.0, 
+	threshold_acc :: Float64 = 2.0,
 	threshold_turnrate :: Float64 = 0.05
 	)
 
@@ -2470,7 +2483,7 @@ end
 
 create_feature_basics_boolean( "Subset_Free_Flow", false, :subset_free_flow, L"\mathcal{D}_\text{free}", "subset of data for free flow")
 function _get(::Feature_Subset_Free_Flow, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int;
-	threshold_timegap_front :: Float64 = 3.0, 
+	threshold_timegap_front :: Float64 = 3.0,
 	threshold_d_v_front     :: Float64 = 0.5
 	)
 
@@ -2548,7 +2561,7 @@ function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsP
 	if isapprox(had_lane_crossing, 0.0)
 		return float64(false)
 	end
-	
+
 	pdset = basics.pdset
 	carid = carind2id(pdset, carind, validfind)
 	frameind = validfind2frameind(pdset, validfind)
@@ -2573,13 +2586,13 @@ function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsP
 	t    = gete(pdset, :time, closest_frameind)::Float64
 	dt   = 0.0
 	carind_fut = carid2ind_or_negative_two_otherwise(pdset, carid, vind)
-	
+
 	while dt < req_time_d_cl_threshold_met && carind_fut != -2
 		d_cl = get(pdset, :d_cl, carind_fut, frameind, vind)::Float64
 		if abs(d_cl) > min_abs_d_cl_at_extrema
 			return float64(false)
 		end
-	
+
 		frameind += dir
 		vind  = frameind2validfind(pdset, frameind)
 		while vind == 0
