@@ -3,6 +3,12 @@ using AutomotiveDrivingModels
 using RandomForestBehaviors
 using DynamicBayesianNetworkBehaviors
 
+#=
+1 - load dataset
+2 - split dataset into train and validation
+3 - save them so they can be used by the Spearmint package
+=#
+
 ##############################
 # PARAMETERS
 ##############################
@@ -49,55 +55,15 @@ for (i,str) in enumerate(streetnets)
   streetnets[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
 end
 
+#TODO: split into training and validation sets before splitting training in cross_validation sets
+
 frame_assignment, pdsetseg_fold_assignment = cross_validation_sets(NFOLDS, pdset_segments, dataframe, startframes)
-
-##############################
-# DATASET VISUALIZATION
-##############################
-
-# using PGFPlots
-# for key in (:f_accel_250ms, :f_des_angle_250ms, :speed, :d_x_front)
-
-#     xlabel = replace(string(key), "_", " ") * " [" * units(symbol2feature(key)) * "]"
-#     filepath = DATASET_SUMMARY_PATH * string(key) * ".pdf"
-#     println(filepath)
-#     tic()
-
-#     if isfile(filepath)
-#         rm(filepath)
-#     end
-#     save(filepath, Axis(Plots.Histogram(convert(Vector{Float64}, dataframe[key]), bins=10), ymin=0, xlabel=xlabel))
-
-#     toc()
-# end
-
-# using PyPlot
-
-# fig = figure(facecolor="white")
-# ax = fig[:add_subplot](111)
-# ax[:hist](convert(Vector{Float64}, filter!(v->!isinf(v), dropna(dataframe[:f_accel_250ms]))))
-# ax[:set_xlabel]("acceleration [m/s2]")
-
-# fig = figure(facecolor="white")
-# ax = fig[:add_subplot](111)
-# ax[:hist](convert(Vector{Float64}, filter!(v->!isinf(v), dropna(dataframe[:f_des_angle_250ms]))))
-# ax[:set_xlabel]("f_des_angle_250ms [rad]")
-
-# fig = figure(facecolor="white")
-# ax = fig[:add_subplot](111)
-# ax[:hist](convert(Vector{Float64}, filter!(v->!isinf(v), dropna(dataframe[:speed]))))
-# ax[:set_xlabel]("speed [m/s]")
-
-# fig = figure(facecolor="white")
-# ax = fig[:add_subplot](111)
-# ax[:hist](convert(Vector{Float64}, filter!(v->!isinf(v), dropna(dataframe[:d_x_front]))))
-# ax[:set_xlabel]("d x front [m]")
-
-# sleep(10000)
 
 ##############################
 # MODELS
 ##############################
+
+# perhaps optimize one model at a time using Spearmint?
 
 behaviorset = BehaviorSet()
 add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")

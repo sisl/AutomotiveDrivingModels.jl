@@ -488,7 +488,7 @@ function _cross_validate_fold_logl{B<:AbstractVehicleBehavior, A<:Any}(
     )
 
 
-    model = train(behavior_type, dataframe_for_training, args=behavior_train_params)
+    model = train(behavior_type, dataframe, args=behavior_train_params)
 
     logl = 0.0
     for (frameind,assignment) in enumerate(frame_assignment)
@@ -498,8 +498,8 @@ function _cross_validate_fold_logl{B<:AbstractVehicleBehavior, A<:Any}(
     end
     logl
 end
-function _cross_validate_parallel_logl{A<:Any}(
-    behavior_type::Type{AbstractVehicleBehavior},
+function _cross_validate_parallel_logl{B<:AbstractVehicleBehavior, A<:Any}(
+    behavior_type::Type{B},
     behavior_train_params::Dict{Symbol,A},
     dataframe::DataFrame,
     frame_assignment::Vector{Int},
