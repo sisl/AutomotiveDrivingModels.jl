@@ -1,7 +1,7 @@
 export VehicleBehaviorGaussian
 
 # The vehicle drives following a multivariable Gaussian noise over accel & turnrate
-type VehicleBehaviorGaussian <: AbstractVehicleBehavior 
+type VehicleBehaviorGaussian <: AbstractVehicleBehavior
     Σ::MvNormal # with action vector (accel, turnrate)
 
     function VehicleBehaviorGaussian(σ_lat::Float64, σ_lon::Float64, σ_correlation::Float64=0.0)
@@ -42,6 +42,17 @@ function calc_action_loglikelihood(
     Compute the log-likelihood of the action taken during a single frame
     given the VehicleBehaviorGaussian.
     =#
+
+    logpdf(behavior.Σ, [action_lat, action_lon])
+end
+function calc_action_loglikelihood(
+    behavior::VehicleBehaviorGaussian,
+    features::DataFrame,
+    frameind::Integer,
+    )
+
+    action_lat = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
+    action_lon = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
 
     logpdf(behavior.Σ, [action_lat, action_lon])
 end
