@@ -9,6 +9,12 @@
             "size" : 1,
             "min"  : 5,
             "max"  : 40
+        },
+        "preoptimize_indicator_bins" : {
+            "type" : "INT",
+            "size" : 1,
+            "min"  : 0,
+            "max"  : 1
         }
     }
 }

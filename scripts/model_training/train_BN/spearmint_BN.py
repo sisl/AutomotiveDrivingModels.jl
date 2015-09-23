@@ -9,7 +9,7 @@ def spearmint_BN(params):
   ncandidate_bins = params['ncandidate_bins'][0]
 
   bashCommand = 'julia ' + directory + '/train_BN.jl' \
-                ' ncandidate_bins ' + str(ncandidate_bins)
+                ' ncandidate_bins ' + str(ncandidate_bins) + ' preoptimize_indicator_bins ' + str(preoptimize_indicator_bins)
   print bashCommand
 
   process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)

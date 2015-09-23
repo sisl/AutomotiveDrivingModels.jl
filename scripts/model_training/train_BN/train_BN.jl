@@ -66,7 +66,6 @@ behavior_type = DynamicBayesianNetworkBehavior
 behavior_train_params = Dict{Symbol,Any}()
 behavior_train_params[:indicators] = INDICATOR_SET
 behavior_train_params[:preoptimize_target_bins] = true
-behavior_train_params[:preoptimize_indicator_bins] = true
 behavior_train_params[:optimize_structure] = true
 behavior_train_params[:optimize_target_bins] = false
 behavior_train_params[:optimize_parent_bins] = false
@@ -75,6 +74,8 @@ arg_index = 1
 while arg_index < length(ARGS)
     if ARGS[arg_index] == "ncandidate_bins"
         behavior_train_params[:ncandidate_bins] = int(ARGS[arg_index+=1])
+    elseif ARGS[arg_index] == "preoptimize_indicator_bins"
+        behavior_train_params[:preoptimize_indicator_bins] = bool(ARGS[arg_index+=1])
     else
         error("UNRECOGNIZED PARAMETER $(ARGS[arg_index])")
     end
