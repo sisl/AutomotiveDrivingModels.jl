@@ -86,9 +86,9 @@ end
 logl_mean, logl_stdev = cross_validate_logl(behavior_type, behavior_train_params,
                                             dataframe, frame_cv_assignment)
 
-# ##############################
-# # LOAD PREVIOUSLY BEST MODEL
-# ##############################
+##############################
+# LOAD PREVIOUSLY BEST MODEL
+##############################
 
 # prev_best = readtable(BEST_MODEL_CSV_FILE)
 # if prev_best[1,:logl_mean] < logl_mean

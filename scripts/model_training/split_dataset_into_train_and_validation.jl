@@ -51,6 +51,8 @@ const FRACTION_VALIDATION = 0.10
 
 srand(1)
 
+println("size(dataframe): ", size(dataframe))
+
 (frame_tv_assignment, pdsetseg_tv_assignment) = split_into_train_and_validation(FRACTION_VALIDATION, pdset_segments, dataframe, startframes)
 
 println("n_other_frame: ", sum(v->v!=1 && v!=2, frame_tv_assignment))

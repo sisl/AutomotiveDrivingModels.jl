@@ -19,7 +19,33 @@ type MetricsSet
     histobin_kldiv::Float64 # kldivergence with respect to original histobin
     tracemetrics::Vector{Dict{Symbol, Any}} # metric dictionary computed for every trace
     aggmetrics::Dict{Symbol,Any} # mean and stdev metrics across traces
+
+    counts_speed::Vector{Int}
+    counts_timegap::Vector{Int}
+    counts_laneoffset::Vector{Int}
 end
+
+# type KldivMetricCounts
+
+#     #=
+#     A type that tracks counts for a particular metric which we later
+#     use to compute a kldiv metric score
+#     =#
+
+#     sym::Symbol # the symbol in tracemetrics that we are tracking
+#     disc::AbstractDiscretizer # the discretizer we use to get to our categorical labelling
+#                               # disc will be shared so don't edit it!
+#     counts::Vector{Int} # the collected counts
+
+#     function KldivMetricCounts(
+#         sym::Symbol,
+#         disc::AbstractDiscretizer
+#         )
+
+#         counts = zeros(Int, nlabels(disc))
+#         new(sym, disc, counts)
+#     end
+# end
 
 calc_kl_div_gaussian(μA::Float64, σA::Float64, μB::Float64, σB::Float64) = log(σB/σA) + (σA*σA + (μA-μB)^2)/(2σB*σB) - 0.5
 function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_target::Dict{Symbol,Any}, sym::Symbol)
@@ -42,13 +68,37 @@ function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_
     calc_kl_div_gaussian(μ_orig, σ_orig, μ_target, σ_target)
 end
 
+const KLDIV_METRIC_NBINS = 10
+const KLDIV_METRIC_DISC_SPEED = LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int)
+const KLDIV_METRIC_DISC_TIMEGAP = LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int)
+const KLDIV_METRIC_DISC_LANEOFFSET = LinearDiscretizer(linspace(-3.0,3.0,KLDIV_METRIC_NBINS), Int)
+
+function calc_kl_div_categorical{I<:Integer, J<:Integer}(counts_p::AbstractVector{I}, counts_q::AbstractVector{J})
+
+    #=
+    Calculate the KL-divergence between two categorical distributions
+    =#
+
+    tot_p = sum(counts_p)
+    tot_q = sum(counts_q)
+    qp_ratio = tot_q / tot_p
+
+    kldiv = 0.0
+    for (p,q) in zip(counts_p, counts_q)
+        if p > 0 # isapprox(p,0.0), to avoid divide-by-zero errors
+            kldiv += p/tot_p * log(p/q*qp_ratio)
+        end
+    end
+    kldiv
+end
+
 function calc_rmse_predicted_vs_ground_truth(
     pdset_predicted::PrimaryDataset,
     pdset_truth::PrimaryDataset,
     seg::PdsetSegment,
     nframes::Int=get_horizon(seg)
     )
-    
+
     #=
     RMSE: Root-Mean Square Error
 
@@ -130,7 +180,7 @@ function calc_tracemetrics(
         # NOTE(tim): this assumes that the validfinds are continuous
 
         carind_active = carid2ind(pdset, seg.carid, validfind)
-        
+
         if validfind > seg.validfind_start
             fut_lanetag = get(pdset, :lanetag, carind_active, validfind)::LaneTag
             if fut_lanetag != cur_lanetag
@@ -164,7 +214,7 @@ function calc_tracemetrics(
             timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
         end
         update!(timegap, timegap_x_front)
-            
+
 
         offset = get(pdset, :d_cl, carind_active, validfind)
         update!(centerline_offset, offset)
@@ -191,7 +241,7 @@ function calc_tracemetrics(
 
                 # TODO(tim): these attributes should be in PdSet
                 # TODO(tim): we should be using a better method for collision checking
-                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
+                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
                     has_collision_activecar = true
                     # NOTE(tim): anything after a collision is invalid - break here
                     break
@@ -203,13 +253,13 @@ function calc_tracemetrics(
 
                         Δx = posGx_target - get(pdset, :posGx, carind2, validfind)
                         Δy = posGy_target - get(pdset, :posGy, carind2, validfind)
-            
+
                         # TODO(tim): these attributes should be in PdSet
                         # TODO(tim): we should be using a better method for collision checking
-                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
+                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
                             has_collision = true
                         end
-                    end                    
+                    end
                 end
             end
         end
@@ -266,7 +316,7 @@ function calc_tracemetrics(
         # NOTE(tim): this assumes that the validfinds are continuous
 
         carind_active = carid2ind(pdset_simulation, seg.carid, validfind)
-        
+
         if validfind > seg.validfind_start
             fut_lanetag = get(pdset_simulation, :lanetag, carind_active, validfind)::LaneTag
             if fut_lanetag != cur_lanetag
@@ -331,7 +381,7 @@ function calc_tracemetrics(
 
                 # TODO(tim): these attributes should be in PdSet
                 # TODO(tim): we should be using a better method for collision checking
-                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
+                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
                     has_collision_activecar = true
                     # NOTE(tim): anything after a collision is invalid - break here
                     break
@@ -343,13 +393,13 @@ function calc_tracemetrics(
 
                         Δx = posGx_target - get(pdset_simulation, :posGx, carind2, validfind)
                         Δy = posGy_target - get(pdset_simulation, :posGy, carind2, validfind)
-            
+
                         # TODO(tim): these attributes should be in PdSet
                         # TODO(tim): we should be using a better method for collision checking
-                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH 
+                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
                             has_collision = true
                         end
-                    end                    
+                    end
                 end
             end
         end
@@ -386,7 +436,7 @@ function calc_tracemetrics(
     pdsetseg_fold_assignment::Vector{Int},
     match_fold::Bool
     )
-    
+
     fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
 
     metrics = Array(Dict{Symbol, Any}, fold_size)
@@ -444,12 +494,12 @@ function calc_aggregate_metric(sym::Symbol, ::Type{Float64}, metricset::Vector{D
     (ave, stdev)
 end
 
-function _calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
+function _calc_aggregate_metrics(tracemetrics::Vector{Dict{Symbol, Any}})
 
     aggmetrics = (Symbol=>Any)[]
 
     calc_and_add!(sym::Symbol, ::Type{Float64}, use_abs::Bool=false) = begin
-        res = calc_aggregate_metric(sym, Float64, metricset, use_abs)
+        res = calc_aggregate_metric(sym, Float64, tracemetrics, use_abs)
         aggmetrics[symbol(string(sym)*"_mean")] = res[1]
         aggmetrics[symbol(string(sym)*"_stdev")] = res[2]
     end
@@ -461,27 +511,27 @@ function _calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
     calc_and_add!(:mean_centerline_offset_activecar, Float64, true)
 
     for key in (
-            :mean_speed_activecar, :time_of_first_offroad, :n_lanechanges_activecar, 
-            :mean_headway, :mean_timegap, :logl, 
+            :mean_speed_activecar, :time_of_first_offroad, :n_lanechanges_activecar,
+            :mean_headway, :mean_timegap, :logl,
             :rmse_1000ms, :rmse_2000ms, :rmse_3000ms, :rmse_4000ms
         )
-        if haskey(metricset[1], key)
+        if haskey(tracemetrics[1], key)
             calc_and_add!(key, Float64)
         else
             add!(key, Float64)
         end
     end
 
-    res = calc_aggregate_metric(:went_offroad, Bool, metricset)
+    res = calc_aggregate_metric(:went_offroad, Bool, tracemetrics)
     aggmetrics[:went_offroad_odds_true_per_run] = res[1]
     aggmetrics[:went_offroad_odds_true_per_sec] = res[2]
     aggmetrics[:went_offroad_ave_time_to_true] = res[3]
 
     aggmetrics
 end
-function calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
+function calc_aggregate_metrics(tracemetrics::Vector{Dict{Symbol, Any}})
 
-    aggmetrics = _calc_aggregate_metrics(metricset)
+    aggmetrics = _calc_aggregate_metrics(tracemetrics)
 
     aggmetrics[:mean_lane_offset_kldiv] = NaN
     aggmetrics[:mean_speed_ego_kldiv] = NaN
@@ -491,46 +541,59 @@ function calc_aggregate_metrics(metricset::Vector{Dict{Symbol, Any}})
     aggmetrics
 end
 function calc_aggregate_metrics(
-    metricset::Vector{Dict{Symbol, Any}},
-    aggmetrics_original::Dict{Symbol, Any},
-    histobin_kldiv::Float64)
+    tracemetrics::Vector{Dict{Symbol, Any}},
+    metrics_set_orig::MetricsSet,
+    histobin_kldiv::Float64,
+    counts_speed::Vector{Int},
+    counts_timegap::Vector{Int},
+    counts_laneoffset::Vector{Int},
+    )
 
-    aggmetrics = _calc_aggregate_metrics(metricset)
+    aggmetrics = _calc_aggregate_metrics(tracemetrics)
 
-    aggmetrics[:mean_lane_offset_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_centerline_offset_activecar)
-    aggmetrics[:mean_speed_ego_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_speed_activecar)
-    aggmetrics[:mean_timegap_kldiv] = calc_kl_div_gaussian(aggmetrics_original, aggmetrics, :mean_timegap)
+    aggmetrics[:mean_speed_ego_kldiv] = calc_kl_div_categorical(metrics_set_orig.counts_speed, counts_speed)
+    aggmetrics[:mean_timegap_kldiv] = calc_kl_div_categorical(metrics_set_orig.counts_timegap, counts_timegap)
+    aggmetrics[:mean_lane_offset_kldiv] = calc_kl_div_categorical(metrics_set_orig.counts_laneoffset, counts_laneoffset)
     aggmetrics[:histobin_kldiv] = histobin_kldiv
+
+    # println("model")
+    # println("speed: ", counts_speed)
+    # println("timegap: ", counts_timegap)
+    # println("laneoffset: ", counts_laneoffset)
+    # println("\n")
+    # println("speed: ", aggmetrics[:mean_speed_ego_kldiv])
+    # println("timegap: ", aggmetrics[:mean_timegap_kldiv])
+    # println("laneoffset: ", aggmetrics[:mean_lane_offset_kldiv])
 
     aggmetrics
 end
 
-function create_metrics_set(
-    pdsets_original::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-    pdset_segments::Vector{PdsetSegment},
-    simparams::SimParams,
-    histobin_params::ParamsHistobin,
-    fold::Integer,
-    pdsetseg_fold_assignment::Vector{Int},
-    match_fold::Bool
-    )
+# function create_metrics_set(
+#     pdsets_original::Vector{PrimaryDataset},
+#     streetnets::Vector{StreetNetwork},
+#     pdset_segments::Vector{PdsetSegment},
+#     simparams::SimParams,
+#     histobin_params::ParamsHistobin,
+#     fold::Integer,
+#     pdsetseg_fold_assignment::Vector{Int},
+#     match_fold::Bool
+#     )
 
-    #=
-    Computes the MetricsSet for the original data
 
-    Note that this will NOT compute trace log likelihoods or RMSE values
-    as it makes no sense to compare against itself
-    =#
+#     Computes the MetricsSet for the original data
 
-    histobin = calc_histobin(pdsets_original, streetnets, pdset_segments, histobin_params,
-                             fold, pdsetseg_fold_assignment, match_fold)
-    tracemetrics = calc_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams,
-                                     fold, pdsetseg_fold_assignment, match_fold)
-    aggmetrics = calc_aggregate_metrics(tracemetrics)
+#     Note that this will NOT compute trace log likelihoods or RMSE values
+#     as it makes no sense to compare against itself
 
-    MetricsSet(histobin, 0.0, tracemetrics, aggmetrics)
-end
+
+#     histobin = calc_histobin(pdsets_original, streetnets, pdset_segments, histobin_params,
+#                              fold, pdsetseg_fold_assignment, match_fold)
+#     tracemetrics = calc_tracemetrics(pdsets_original, streetnets, pdset_segments, simparams,
+#                                      fold, pdsetseg_fold_assignment, match_fold)
+#     aggmetrics = calc_aggregate_metrics(tracemetrics)
+
+#     MetricsSet(histobin, 0.0, tracemetrics, aggmetrics)
+# end
 function create_metrics_set_no_tracemetrics(
     pdsets_original::Vector{PrimaryDataset},
     streetnets::Vector{StreetNetwork},
@@ -554,17 +617,47 @@ function create_metrics_set_no_tracemetrics(
                                      fold, pdsetseg_fold_assignment, match_fold)
     aggmetrics = calc_aggregate_metrics(tracemetrics)
 
-    MetricsSet(histobin, 0.0, Dict{Symbol, Any}[], aggmetrics)
+
+    counts_speed = zeros(Int, nlabels(KLDIV_METRIC_DISC_SPEED))
+    counts_timegap = zeros(Int, nlabels(KLDIV_METRIC_DISC_TIMEGAP))
+    counts_laneoffset = zeros(Int, nlabels(KLDIV_METRIC_DISC_LANEOFFSET))
+
+    for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+        if is_in_fold(fold, fold_assignment, match_fold)
+
+            pdset = pdsets_original[seg.pdset_id]
+            sn = streetnets[seg.streetnet_id]
+            basics = FeatureExtractBasicsPdSet(pdset, sn)
+
+            validfind = seg.validfind_end
+            carind = carid2ind(pdset, seg.carid, validfind)
+
+            speed = get_speed(pdset, carind, validfind)
+            timegap = get(TIMEGAP_X_FRONT, basics, carind, validfind)
+            laneoffset = get(pdset, :d_cl, carind, validfind)
+
+            counts_speed[encode(KLDIV_METRIC_DISC_SPEED, speed)] += 1
+            counts_timegap[encode(KLDIV_METRIC_DISC_TIMEGAP, timegap)] += 1
+            counts_laneoffset[encode(KLDIV_METRIC_DISC_LANEOFFSET, laneoffset)] += 1
+        end
+    end
+
+    # println("speed: ", counts_speed)
+    # println("timegap: ", counts_timegap)
+    # println("laneoffset: ", counts_laneoffset)
+
+    MetricsSet(histobin, 0.0, Dict{Symbol, Any}[], aggmetrics,
+               counts_speed, counts_timegap, counts_laneoffset)
 end
 
 function compute_metric_summary_table{S<:String}(
-    behavior_metrics_sets::AbstractVector{MetricsSet}, 
+    behavior_metrics_sets::AbstractVector{MetricsSet},
     original_metrics_set::MetricsSet,
     model_names::Vector{S}
     )
 
 
-    df = DataFrame(labels=["mean lane offset", "mean speed", "mean timegap", 
+    df = DataFrame(labels=["mean lane offset", "mean speed", "mean timegap",
                            "mean lane offset kldiv", "mean speed kldiv", "mean timegap kldiv", "histobin kldiv",
                            "mean trace log prob", "mean rmse 1s", "mean rmse 2s", "mean rmse 3s", "mean rmse 4s"])
 

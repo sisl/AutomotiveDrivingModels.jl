@@ -223,14 +223,14 @@ function create_feature_basics_boolean( name::String, could_be_na::Bool, sym::Sy
 	create_feature_basics(name, "-", true, true, 1.0, 0.0, could_be_na, sym, lstr, desc)
 end
 
-function observe{F<:AbstractFeature}(
+function observe!{F<:AbstractFeature}(
+    observations::Dict{Symbol,Float64},
     basics::FeatureExtractBasicsPdSet,
     carind::Int,
     validfind::Int,
     features::Vector{F}
     )
 
-    observations = Dict{Symbol,Float64}()
     for f in features
         val = get(f, basics, carind, validfind)::Float64
         observations[symbol(f)] = val
@@ -249,6 +249,16 @@ function observe!{F<:AbstractFeature}(
         observations[i] = get(f, basics, carind, validfind)::Float64
     end
     observations
+end
+function observe{F<:AbstractFeature}(
+    basics::FeatureExtractBasicsPdSet,
+    carind::Int,
+    validfind::Int,
+    features::Vector{F}
+    )
+
+    observations = Dict{Symbol,Float64}()
+    observe!(observations, basics, carind, validfind, features)
 end
 
 # ----------------------------------

@@ -4,7 +4,10 @@ export
 
     add_behavior!,
     cross_validate,
-    cross_validate_logl
+    cross_validate_logl,
+
+    create_metrics_sets,
+    create_metrics_sets_no_tracemetrics
 
 type BehaviorSet
     behaviors::Vector{Type}
@@ -36,85 +39,85 @@ type EvaluationParams
     histobin_params::ParamsHistobin
 end
 
-function train( models::BehaviorSet, training_frames::DataFrame )
+function train( behaviorset::BehaviorSet, training_frames::DataFrame )
 
-    retval = Array(AbstractVehicleBehavior, length(models.behaviors))
+    retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
     for i = 1 : length(retval)
-        retval[i] = train(models.behaviors[i], training_frames, args=models.additional_params[i])
+        retval[i] = train(behaviorset.behaviors[i], training_frames, args=behaviorset.additional_params[i])
     end
     retval
 end
 
-function create_metrics_sets{B<:AbstractVehicleBehavior}(
-    model_behaviors::Vector{B},
-    pdsets_original::Vector{PrimaryDataset},
-    pdsets_for_simulation::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-    pdset_segments::Vector{PdsetSegment},
-    evalparams::EvaluationParams,
-    fold::Integer,
-    pdsetseg_fold_assignment::Vector{Int},
-    match_fold::Bool, # if true, then we want to only include folds that match target (validation)
-                      # if false, then we want to only include folds that do not (training)
-    )
+# function create_metrics_sets{B<:AbstractVehicleBehavior}(
+#     model_behaviors::Vector{B},
+#     pdsets_original::Vector{PrimaryDataset},
+#     pdsets_for_simulation::Vector{PrimaryDataset},
+#     streetnets::Vector{StreetNetwork},
+#     pdset_segments::Vector{PdsetSegment},
+#     evalparams::EvaluationParams,
+#     fold::Integer,
+#     pdsetseg_fold_assignment::Vector{Int},
+#     match_fold::Bool, # if true, then we want to only include folds that match target (validation)
+#                       # if false, then we want to only include folds that do not (training)
+#     )
 
-    #=
-    Takes trained behavior models and computes MetricsSet for each
-    =#
+#     #=
+#     Takes trained behavior models and computes MetricsSet for each
+#     =#
 
 
-    retval = Array(MetricsSet, 1+ length(model_behaviors))
+#     retval = Array(MetricsSet, 1+ length(model_behaviors))
 
-    # pull out the parameters
-    simparams = evalparams.simparams
-    histobin_params = evalparams.histobin_params
+#     # pull out the parameters
+#     simparams = evalparams.simparams
+#     histobin_params = evalparams.histobin_params
 
-    # compute original metrics
-    metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, histobin_params,
-                                                          fold, pdsetseg_fold_assignment, match_fold)
-    histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
-    retval[1] = metrics_set_orig
+#     # compute original metrics
+#     metrics_set_orig = create_metrics_set_no_tracemetrics(pdsets_original, streetnets, pdset_segments, histobin_params,
+#                                                           fold, pdsetseg_fold_assignment, match_fold)
+#     histobin_original_with_prior = copy(metrics_set_orig.histobin) .+ 1.0
+#     retval[1] = metrics_set_orig
 
-    # simulate each behavior and compute the behavior metrics
-    basics = FeatureExtractBasicsPdSet(pdsets_for_simulation[1], streetnets[1])
-    behavior_pairs = Array((AbstractVehicleBehavior,Int), 1)
-    fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
-    for (i, behavior) in enumerate(model_behaviors)
+#     # simulate each behavior and compute the behavior metrics
+#     basics = FeatureExtractBasicsPdSet(pdsets_for_simulation[1], streetnets[1])
+#     behavior_pairs = Array((AbstractVehicleBehavior,Int), 1)
+#     fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
+#     for (i, behavior) in enumerate(model_behaviors)
 
-        histobin = allocate_empty_histobin(histobin_params)
-        tracemetrics = Array(Dict{Symbol, Any}, fold_size)
+#         histobin = allocate_empty_histobin(histobin_params)
+#         tracemetrics = Array(Dict{Symbol, Any}, fold_size)
 
-        fold_entry_count = 0
-        for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+#         fold_entry_count = 0
+#         for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
 
-            if is_in_fold(fold, fold_assignment, match_fold)
+#             if is_in_fold(fold, fold_assignment, match_fold)
 
-                fold_entry_count += 1
+#                 fold_entry_count += 1
 
-                pdset_orig = pdsets_original[seg.pdset_id]
-                basics.pdset = pdsets_for_simulation[seg.pdset_id]
-                basics.sn = streetnets[seg.streetnet_id]
-                basics.runid += 1
-                behavior_pairs[1] = (behavior, seg.carid)
-                simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+#                 pdset_orig = pdsets_original[seg.pdset_id]
+#                 basics.pdset = pdsets_for_simulation[seg.pdset_id]
+#                 basics.sn = streetnets[seg.streetnet_id]
+#                 basics.runid += 1
+#                 behavior_pairs[1] = (behavior, seg.carid)
+#                 simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
 
-                # update the MetricsSet calculation
-                update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
-                tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, basics=basics)
+#                 # update the MetricsSet calculation
+#                 update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
+#                 tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, basics=basics)
 
-                # now override the pdset with the original values once more
-                copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
-            end
-        end
+#                 # now override the pdset with the original values once more
+#                 copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
+#             end
+#         end
 
-        histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
-        aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig.aggmetrics, histobin_kldiv)
+#         histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
+#         aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig.aggmetrics, histobin_kldiv)
 
-        retval[i+1] = MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
-    end
+#         retval[i+1] = MetricsSet(histobin, histobin_kldiv, tracemetrics, aggmetrics)
+#     end
 
-    retval
-end
+#     retval
+# end
 function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
     model_behaviors::Vector{B},
     pdsets_original::Vector{PrimaryDataset},
@@ -132,8 +135,8 @@ function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
     Takes trained behavior models and computes MetricsSet for each
     =#
 
-
-    retval = Array(MetricsSet, 1+ length(model_behaviors))
+    num_models_plus_realworld = 1 + length(model_behaviors)
+    retval = Array(MetricsSet, num_models_plus_realworld)
 
     # pull out the parameters
     simparams = evalparams.simparams
@@ -154,6 +157,10 @@ function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
         histobin = allocate_empty_histobin(histobin_params)
         tracemetrics = Array(Dict{Symbol, Any}, fold_size)
 
+        counts_speed = zeros(Int, nlabels(KLDIV_METRIC_DISC_SPEED))
+        counts_timegap = zeros(Int, nlabels(KLDIV_METRIC_DISC_TIMEGAP))
+        counts_laneoffset = zeros(Int, nlabels(KLDIV_METRIC_DISC_LANEOFFSET))
+
         fold_entry_count = 0
         for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
 
@@ -168,6 +175,17 @@ function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
                 behavior_pairs[1] = (behavior, seg.carid)
                 simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
 
+                validfind = seg.validfind_end
+                carind = carid2ind(pdset_orig, seg.carid, validfind)
+
+                speed = get_speed(pdset_orig, carind, validfind)
+                timegap = get(TIMEGAP_X_FRONT, basics, carind, validfind)
+                laneoffset = get(pdset_orig, :d_cl, carind, validfind)
+
+                counts_speed[encode(KLDIV_METRIC_DISC_SPEED, speed)] += 1
+                counts_timegap[encode(KLDIV_METRIC_DISC_TIMEGAP, timegap)] += 1
+                counts_laneoffset[encode(KLDIV_METRIC_DISC_LANEOFFSET, laneoffset)] += 1
+
                 # update the MetricsSet calculation
                 update_histobin!(histobin, basics.pdset, basics.sn, seg, histobin_params)
                 tracemetrics[fold_entry_count] = calc_tracemetrics(behavior, pdset_orig, basics.pdset, basics.sn, seg, basics=basics)
@@ -178,9 +196,11 @@ function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
         end
 
         histobin_kldiv = KL_divergence_dirichlet(histobin_original_with_prior, histobin .+ 1.0 )
-        aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig.aggmetrics, histobin_kldiv)
+        aggmetrics = calc_aggregate_metrics(tracemetrics, metrics_set_orig, histobin_kldiv,
+                                            counts_speed, counts_timegap, counts_laneoffset)
 
-        retval[i+1] = MetricsSet(histobin, histobin_kldiv, Dict{Symbol, Any}[], aggmetrics)
+        retval[i+1] = MetricsSet(histobin, histobin_kldiv, Dict{Symbol, Any}[], aggmetrics,
+                                 counts_speed, counts_timegap, counts_laneoffset)
     end
 
     retval
