@@ -14,7 +14,35 @@ const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvoluti
 const METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * ".jld")
 const MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * SAVE_FILE_MODIFIER * ".jld")
 
-function create_tikzpicture_model_compare_kldiv{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
+function create_tikzpicture_model_compare_logl{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
+
+    #=
+    For each model, add these options
+
+    \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
+    \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
+    \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
+    \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
+    \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
+    =#
+
+    for (i,name) in enumerate(names)
+        μ = metrics_set.aggmetrics[:logl_mean]
+        σ = metrics_set.aggmetrics[:logl_stdev]
+
+        color_letter = string('A' + i - 1)
+
+        println(io, "\\addplot+[thick, mark=*, mark options={color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
+        @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, σ, σ)
+    end
+
+end
+function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
     #=
     The first model is used as the baseline
 
@@ -114,13 +142,13 @@ metrics_sets_validation = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_validation
 all_names = String["Real World"]
 append!(all_names, behaviorset.names)
 
-write_to_texthook(TEXFILE, "model-compare-kldiv-training") do fh
-    create_tikzpicture_model_compare_kldiv(fh, metrics_sets_train[2:end], behaviorset.names)
-end
-write_to_texthook(TEXFILE, "model-compare-kldiv-test") do fh
-    create_tikzpicture_model_compare_kldiv(fh, metrics_sets_validation[2:end], behaviorset.names)
-end
-write_to_texthook(TEXFILE, "model-compare-rmse") do fh
-    create_tikzpicture_model_compare_rmse(fh, metrics_sets_validation[2:end], behaviorset.names)
-end
+# write_to_texthook(TEXFILE, "model-compare-kldiv-training") do fh
+#     create_tikzpicture_model_compare_kldiv(fh, metrics_sets_train[2:end], behaviorset.names)
+# end
+# write_to_texthook(TEXFILE, "model-compare-kldiv-test") do fh
+#     create_tikzpicture_model_compare_kldiv(fh, metrics_sets_validation[2:end], behaviorset.names)
+# end
+# write_to_texthook(TEXFILE, "model-compare-rmse") do fh
+#     create_tikzpicture_model_compare_rmse(fh, metrics_sets_validation[2:end], behaviorset.names)
+# end
 
