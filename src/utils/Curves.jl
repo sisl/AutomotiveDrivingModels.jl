@@ -192,29 +192,28 @@ end
 function closest_point_ind_to_curve_guess( curve::Curve, x::Real, y::Real, ind_guess::Int )
 	# like closest_point_ind_to_curve, but starts from ind_guess and picks the local min
 
-	distat = (i) -> hypot(x - curve.x[i], y - curve.y[i])
-	start_dist = distat(ind_guess)
+	start_dist = _hypot_fast(x - curve.x[ind_guess], y - curve.y[ind_guess])
 
 	up_ind_prev = ind_guess
 	up_ind = min(ind_guess + 1, length(curve))
 	dist_up_prev = start_dist
-	dist_up = distat(up_ind)
+	dist_up = _hypot_fast(x - curve.x[up_ind], y - curve.y[up_ind])
 	while dist_up < dist_up_prev
 		up_ind_prev = up_ind
 		up_ind = min(up_ind + 1, length(curve))
 		dist_up_prev = dist_up
-		dist_up = distat(up_ind)
+		dist_up = _hypot_fast(x - curve.x[up_ind], y - curve.y[up_ind])
 	end
 
 	lo_ind_prev = ind_guess
 	lo_ind = max(ind_guess - 1, 1)
 	dist_lo_prev = start_dist
-	dist_lo = distat(lo_ind)
+	dist_lo = _hypot_fast(x - curve.x[lo_ind], y - curve.y[lo_ind])
 	while dist_lo < dist_lo_prev
 		lo_ind_prev = lo_ind
 		lo_ind = max(lo_ind - 1, 1)
 		dist_lo_prev = dist_lo
-		dist_lo = distat(lo_ind)
+		dist_lo = _hypot_fast(x - curve.x[lo_ind], y - curve.y[lo_ind])
 	end
 
 	i = indmin([dist_lo_prev, start_dist, dist_up_prev])
@@ -234,29 +233,29 @@ end
 function closest_point_ind_to_curve_guess( curve::Curve, s::Real, ind_guess::Int )
 	# like closest_point_ind_to_curve, but starts from ind_guess and picks the local min
 
-	distat = (i) -> abs(curve.s[i] - s)
-	start_dist = distat(ind_guess)
+	# distat = (i) -> abs(curve.s[i] - s)
+	start_dist = abs(curve.s[ind_guess] - s)
 
 	up_ind_prev = ind_guess
 	up_ind = min(ind_guess + 1, length(curve))
 	dist_up_prev = start_dist
-	dist_up = distat(up_ind)
+	dist_up = abs(curve.s[up_ind] - s)
 	while dist_up < dist_up_prev
 		up_ind_prev = up_ind
 		up_ind = min(up_ind + 1, length(curve))
 		dist_up_prev = dist_up
-		dist_up = distat(up_ind)
+		dist_up = abs(curve.s[up_ind] - s)
 	end
 
 	lo_ind_prev = ind_guess
 	lo_ind = max(ind_guess - 1, 1)
 	dist_lo_prev = start_dist
-	dist_lo = distat(lo_ind)
+	dist_lo = abs(curve.s[lo_ind] - s)
 	while dist_lo < dist_lo_prev
 		lo_ind_prev = lo_ind
 		lo_ind = max(lo_ind - 1, 1)
 		dist_lo_prev = dist_lo
-		dist_lo = distat(lo_ind)
+		dist_lo = abs(curve.s[lo_ind] - s)
 	end
 
 	i = indmin([dist_lo_prev, start_dist, dist_up_prev])
@@ -983,6 +982,8 @@ function _binary_search(
 		end
 	end
 end
+
+_hypot_fast(x::Float64, y::Float64) = sqrt(x*x + y*y)
 
 # ----------------------------------------------------------------
 

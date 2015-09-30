@@ -15,10 +15,10 @@ export
     gen_primary_data,
     gen_primary_data_no_smoothing,
     load_trajdata
-    
+
 
 type PrimaryDataExtractionParams
-    
+
     resample_rate :: Float64 # seconds between re-sampled samples (>0)
     padding_size  :: Int     # number of samples to append to either end in smoothing (≥0)
 
@@ -80,7 +80,7 @@ type PrimaryDataExtractionParams
 
             # NOTE(tim): do not do ransac
             self.ransac_n_iter = 1
-            self.ransac_window_width = 3 
+            self.ransac_window_width = 3
             self.ransac_window_overlap = 0
             self.ransac_n_inliers_for_first_fit = 3
 
@@ -107,7 +107,7 @@ end
 
 function quat2euler{T <: Real}( quat::Array{T,1} )
     # convert a quaternion to roll-pitch-yaw
-    
+
     d = norm(quat)
     w = quat[1]/d
     x = quat[2]/d
@@ -311,7 +311,7 @@ function pad_linear(arr::Vector{Float64}, n_samples_each_side::Int)
         ind_start -= 1
         ind_end += 1
     end
-    
+
     retval
 end
 function remove_pad(arr::Vector, n_samples_each_side::Int)
@@ -386,9 +386,9 @@ function smooth(x_arr::Vector{Float64}, y_arr::Vector{Float64}, x_arr2::Vector{F
     N = length(x_arr)
     y_arr2 = Array(Float64, length(x_arr2))
     for (i, x) in enumerate(x_arr2)
-        
+
         ind_closest = indmin([abs(x-x0) for x0 in x_arr])
-        
+
         i_left  = ind_closest - 1 # number of indeces to the left
         i_right = N - ind_closest # number of indeces to the right
         i_lo,i_hi    = i_left < i_right ? (1,2ind_closest-1) : (2ind_closest-N,N)
@@ -437,7 +437,7 @@ function resample_snap_to_closest{R<:Any}(x_arr::Vector{Float64}, y_arr::DataVec
 
     for i = 1 : m
         x2 = x_arr2[i]
-        
+
         while x2 > x && x_ind < n
             x_ind += 1
             x = (x_arr[x_ind] + x_arr[min(x_ind+1,n)])/2
@@ -475,7 +475,7 @@ function continuous_segments(arr::AbstractVector{Bool})
             ind = curseg_2
             curseg_2 -= 1
         end
-        
+
         push!(segmentset, (curseg_1, curseg_2))
     end
     segmentset
@@ -514,7 +514,7 @@ function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{
     # find the set of indeces in sample_time_B that encompass inds
 
     keep = falses(length(sample_time_B))
-    
+
     Ni = length(inds)
     Na = length(sample_time_A)
     Nb = length(sample_time_B)
@@ -535,7 +535,7 @@ function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{
         ia += 1
 
         # next project [t_lo ↔ t_hi] onto sample_time_B
-        
+
         while indB < Nb && sample_time_B[indB+1] ≤ t_lo
             indB += 1
         end
@@ -574,9 +574,9 @@ function load_trajdata(csvfile::String)
 
     file = open(temp_name, "w")
     for (i,line) in enumerate(lines)
-        
+
         line = replace(line, "None", "Inf")
-        
+
         cols = length(matchall(r",", lines[i]))+1
         @printf(file, "%s", lines[i][1:end-1]*(","^(n_cols-cols))*"\n" )
     end
@@ -600,13 +600,13 @@ function load_trajdata(csvfile::String)
 
     carind = 0
     while haskey(df, symbol(@sprintf("car_id%d", carind)))
-       
+
         rename!(df, symbol(@sprintf("car_id%d",carind)), symbol(@sprintf("id_%d",    carind)))
         rename!(df, symbol(@sprintf("ego_x%d", carind)), symbol(@sprintf("posEx_%d", carind)))
         rename!(df, symbol(@sprintf("ego_y%d", carind)), symbol(@sprintf("posEy_%d", carind)))
         rename!(df, symbol(@sprintf("v_x%d",   carind)), symbol(@sprintf("velEx_%d", carind)))
         rename!(df, symbol(@sprintf("v_y%d",   carind)), symbol(@sprintf("velEy_%d", carind)))
-        
+
         carind += 1
     end
     maxcarind = carind - 1
@@ -713,7 +713,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
         if isinf(RANSAC_fit_threshold) || params.ransac_n_inliers_for_first_fit ≤ 3
             outliers = Set{Int}()
         else
-            outliers = sliding_window_RANSAC(arr_time_padded, arr_orig_padded, params.ransac_n_iter, 
+            outliers = sliding_window_RANSAC(arr_time_padded, arr_orig_padded, params.ransac_n_iter,
                             RANSAC_fit_threshold, params.ransac_n_inliers_for_first_fit,
                             params.ransac_window_width, params.ransac_window_overlap)
         end
@@ -806,14 +806,14 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
             df_ego_primary[frameind, :posFx] = s
             df_ego_primary[frameind, :posFy] = d
             df_ego_primary[frameind, :posFyaw] = θ
-            
+
             meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_ego
             meets_lane_angle_criterion = abs(θ) < params.threshold_lane_angle_ego
             ego_car_on_freeway[frameind] = meets_lane_lateral_offset_criterion && meets_lane_angle_criterion
 
             println((posGx, posGy, posGyaw))
             println("($s $d $θ)  ", meets_lane_lateral_offset_criterion, "  ", meets_lane_angle_criterion)
-            
+
             if ego_car_on_freeway[frameind]
 
                 # extract specifics
@@ -822,24 +822,24 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                 df_ego_primary[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
 
                 df_ego_primary[frameind,:lanetag] = proj.lane.id
-                df_ego_primary[frameind,:curvature] = ptG[KIND]
-                
+                df_ego_primary[frameind,:curvature] = ptG.k
+
                 df_ego_primary[frameind,:d_cl   ] = d::Float64
-                
+
                 laneid = proj.lane.id.lane
                 seg = get_segment(sn, proj.lane.id)
-                d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-                d_split = distance_to_lane_split(seg, laneid, proj.extind)
+                d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+                d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
                 df_ego_primary[frameind, :d_merge]  =isinf(d_merge)  ? NA : d_merge
                 df_ego_primary[frameind, :d_split] = isinf(d_split) ? NA : d_split
-                
-                nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+
+                nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
                 @assert(nll >= 0)
                 @assert(nlr >= 0)
                 df_ego_primary[frameind,:nll    ] = nll # number of lanes to the left
                 df_ego_primary[frameind,:nlr    ] = nlr # number of lanes to the right
-                
-                lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+
+                lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
                 df_ego_primary[frameind, :d_mr] = (d <  lane_width_left)  ?  lane_width_left - d  : Inf
                 df_ego_primary[frameind, :d_ml] = (d > -lane_width_right) ?  d - lane_width_right : Inf
             end
@@ -901,7 +901,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     #                   hi = len_start + 2
     #               end
     #           end
-    #       end 
+    #       end
     #   end
     # end
 
@@ -1003,7 +1003,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     next_available_carind = fill(int32(-1), n_frames_on_freeway)
 
     # --------------------------------------------------
-    
+
     # println("1:", N)
     # println(extrema(freeway_frameinds))
     # println(extrema(freeway_frameinds_raw))
@@ -1131,7 +1131,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                 if  params.ransac_n_inliers_for_first_fit ≤ 3
                     outliers = Set{Int}()
                 else
-                    outliers = sliding_window_RANSAC(time_obs_padded, arr_orig_padded, params.ransac_n_iter, 
+                    outliers = sliding_window_RANSAC(time_obs_padded, arr_orig_padded, params.ransac_n_iter,
                                         RANSAC_fit_threshold, params.ransac_n_inliers_for_first_fit,
                                         params.ransac_window_width, params.ransac_window_overlap)
                 end
@@ -1180,10 +1180,10 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
                     ptG = proj.curvept
                     s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
-                    
+
                     laneid = int(proj.lane.id.lane)
                     seg = get_segment(sn, proj.lane.id)
-                    d_end = distance_to_lane_end(seg, laneid, proj.extind)
+                    d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
 
                     meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_other
                     meets_lane_angle_criterion = abs(θ) < params.threshold_lane_angle_other
@@ -1216,21 +1216,21 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                         local_setc!("velFx",     carind, validfind, speed * cos(θ)) # vel along the lane
                         local_setc!("velFy",     carind, validfind, speed * sin(θ)) # vel perpendicular to lane
                         local_setc!("lanetag",   carind, validfind, proj.lane.id)
-                        local_setc!("curvature", carind, validfind, ptG[KIND])
+                        local_setc!("curvature", carind, validfind, ptG.k)
                         local_setc!("d_cl",      carind, validfind, d::Float64)
-                       
-                        d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-                        d_split = distance_to_lane_split(seg, laneid, proj.extind)
+
+                        d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+                        d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
                         local_setc!("d_merge", carind, validfind, isinf(d_merge) ? NA : d_merge)
                         local_setc!("d_split", carind, validfind, isinf(d_split) ? NA : d_split)
-                        
-                        nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+
+                        nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
                         @assert(nll >= 0)
                         @assert(nlr >= 0)
                         local_setc!("nll", carind, validfind, nll)
                         local_setc!("nlr", carind, validfind, nlr)
-                        
-                        lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+
+                        lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
                         local_setc!("d_mr", carind, validfind, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
                         local_setc!("d_ml", carind, validfind, (d > -lane_width_right) ?  d - lane_width_right : Inf)
 
@@ -1326,21 +1326,21 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
         df_ego_primary[frameind, :lanetag] = proj.lane.id
         df_ego_primary[frameind, :curvature] = ptG.k
         df_ego_primary[frameind, :d_cl] = d::Float64
-        
+
         seg = get_segment(sn, proj.lane.id)
         laneid = proj.lane.id.lane
-        d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-        d_split = distance_to_lane_split(seg, laneid, proj.extind)
+        d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+        d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
         df_ego_primary[frameind, :d_merge] = isinf(d_merge)  ? NA : d_merge
         df_ego_primary[frameind, :d_split] = isinf(d_split) ? NA : d_split
-        
-        nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+
+        nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
         @assert(nll ≥ 0)
         @assert(nlr ≥ 0)
         df_ego_primary[frameind,:nll    ] = nll # number of lanes to the left
         df_ego_primary[frameind,:nlr    ] = nlr # number of lanes to the right
-        
-        lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+
+        lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
         df_ego_primary[frameind, :d_mr] = (d <  lane_width_left)  ?  lane_width_left - d  : Inf
         df_ego_primary[frameind, :d_ml] = (d > -lane_width_right) ?  d - lane_width_right : Inf
     end
@@ -1445,7 +1445,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                             posGx = DataArray(Float64, n_frames_in_seg),
                             posGy = DataArray(Float64, n_frames_in_seg),
                             yawG  = DataArray(Float64, n_frames_in_seg),
-                            velBx = DataArray(Float64, n_frames_in_seg) 
+                            velBx = DataArray(Float64, n_frames_in_seg)
                         )
 
             car_exists = falses(n_frames_in_seg)
@@ -1502,10 +1502,10 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
 
                 ptG = proj.curvept
                 s, d, θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
-                
+
                 laneid = proj.lane.id.lane
                 seg = get_segment(sn, proj.lane.id)
-                d_end = distance_to_lane_end(seg, laneid, proj.extind)
+                d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
 
                 validfind = frameind
                 carind = (next_available_carind[validfind] += 1)
@@ -1534,19 +1534,19 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                 local_setc!("lanetag",   carind, validfind, proj.lane.id)
                 local_setc!("curvature", carind, validfind, ptG.k)
                 local_setc!("d_cl",      carind, validfind, d::Float64)
-               
-                d_merge = distance_to_lane_merge(seg, laneid, proj.extind)
-                d_split = distance_to_lane_split(seg, laneid, proj.extind)
+
+                d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+                d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
                 local_setc!("d_merge", carind, validfind, isinf(d_merge) ? NA : d_merge)
                 local_setc!("d_split", carind, validfind, isinf(d_split) ? NA : d_split)
-                
-                nll, nlr = StreetNetworks.num_lanes_on_sides(seg, laneid, proj.extind)
+
+                nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
                 @assert(nll >= 0)
                 @assert(nlr >= 0)
                 local_setc!("nll", carind, validfind, nll)
                 local_setc!("nlr", carind, validfind, nlr)
-                
-                lane_width_left, lane_width_right = marker_distances(seg, laneid, proj.extind)
+
+                lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
                 local_setc!("d_mr", carind, validfind, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
                 local_setc!("d_ml", carind, validfind, (d > -lane_width_right) ?  d - lane_width_right : Inf)
 

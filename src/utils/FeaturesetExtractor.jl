@@ -25,8 +25,9 @@ export
 
         gen_featureset,
         extract_csvfile_set,
-        extract_csvfile_sets
+        extract_csvfile_sets,
 
+        create_dataframe_with_feature_columns
         # extract,
         # extract_and_save,
 
@@ -91,7 +92,7 @@ end
 #                 [417,4266],
 #                 [1,416,4483,4830,4977,5900]
 #                 ),
-#             CSVFileSet(CARIND_EGO, "2014-08-03-11-52-58-raw", "its_inner_loop_v1_2", 
+#             CSVFileSet(CARIND_EGO, "2014-08-03-11-52-58-raw", "its_inner_loop_v1_2",
 #                 Int[],
 #                 Int[],
 #                 [1,153,359,518],
@@ -171,7 +172,7 @@ end
 const FEATURES = allfeatures()
 # [
 #         YAW, POSFX, POSFY, SPEED, VELFX, VELFY, DELTA_SPEED_LIMIT,
-#         D_CL, D_ML, D_MR, D_MERGE, D_SPLIT, 
+#         D_CL, D_ML, D_MR, D_MERGE, D_SPLIT,
 #         TIMETOCROSSING_RIGHT, TIMETOCROSSING_LEFT, ESTIMATEDTIMETOLANECROSSING, TIMESINCELANECROSSING,
 #         N_LANE_L, N_LANE_R, HAS_LANE_L, HAS_LANE_R,
 #         TURNRATE, TURNRATE_GLOBAL, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, LANECURVATURE,
@@ -187,14 +188,14 @@ const FEATURES = allfeatures()
 
 #         SCENEVELFX,
 
-#         OCCUPANCYSCHEDULEGRID_TIME_FRONT,      OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONT, 
-#         OCCUPANCYSCHEDULEGRID_TIME_FRONTRIGHT, OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONTRIGHT, 
-#         OCCUPANCYSCHEDULEGRID_TIME_RIGHT,      OCCUPANCYSCHEDULEGRID_ISOCCUPIED_RIGHT, 
-#         OCCUPANCYSCHEDULEGRID_TIME_BACKRIGHT,  OCCUPANCYSCHEDULEGRID_ISOCCUPIED_BACKRIGHT, 
-#         OCCUPANCYSCHEDULEGRID_TIME_BACK,       OCCUPANCYSCHEDULEGRID_ISOCCUPIED_BACK, 
-#         OCCUPANCYSCHEDULEGRID_TIME_BACKLEFT,   OCCUPANCYSCHEDULEGRID_ISOCCUPIED_BACKLEFT, 
-#         OCCUPANCYSCHEDULEGRID_TIME_LEFT,       OCCUPANCYSCHEDULEGRID_ISOCCUPIED_LEFT, 
-#         OCCUPANCYSCHEDULEGRID_TIME_FRONTLEFT,  OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONTLEFT, 
+#         OCCUPANCYSCHEDULEGRID_TIME_FRONT,      OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONT,
+#         OCCUPANCYSCHEDULEGRID_TIME_FRONTRIGHT, OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONTRIGHT,
+#         OCCUPANCYSCHEDULEGRID_TIME_RIGHT,      OCCUPANCYSCHEDULEGRID_ISOCCUPIED_RIGHT,
+#         OCCUPANCYSCHEDULEGRID_TIME_BACKRIGHT,  OCCUPANCYSCHEDULEGRID_ISOCCUPIED_BACKRIGHT,
+#         OCCUPANCYSCHEDULEGRID_TIME_BACK,       OCCUPANCYSCHEDULEGRID_ISOCCUPIED_BACK,
+#         OCCUPANCYSCHEDULEGRID_TIME_BACKLEFT,   OCCUPANCYSCHEDULEGRID_ISOCCUPIED_BACKLEFT,
+#         OCCUPANCYSCHEDULEGRID_TIME_LEFT,       OCCUPANCYSCHEDULEGRID_ISOCCUPIED_LEFT,
+#         OCCUPANCYSCHEDULEGRID_TIME_FRONTLEFT,  OCCUPANCYSCHEDULEGRID_ISOCCUPIED_FRONTLEFT,
 
 #         TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE,
 #              PASTACC250MS,      PASTACC500MS,      PASTACC750MS,      PASTACC1S,
@@ -233,7 +234,7 @@ function extract_all_lanechanges(
     =#
 
     lanechange_validfinds = Int[]
-    
+
 
     for validfind = 2 : length(validfind_contains_carid)
         if validfind_contains_carid[validfind] && validfind_contains_carid[validfind-1]
@@ -359,7 +360,7 @@ function extract_csvfile_set(
 
     # identify all lane changes
     lanechange_validfinds = extract_all_lanechanges(pdset, sn, carid, validfind_contains_carid)
-    identify_lane_changes!(validfind_is_lanechange, validfind_contains_carid, 
+    identify_lane_changes!(validfind_is_lanechange, validfind_contains_carid,
                            lanechange_validfinds, pdset, carid)
 
     # identify all free flow frames
@@ -371,7 +372,7 @@ function extract_csvfile_set(
     carfollow = extract_continuous_segments(!validfind_is_freeflow & validfind_contains_carid)
     freeflow = extract_continuous_segments(validfind_is_freeflow)
 
-    CSVFileSet(carid, csvfile, streetmapbasename, 
+    CSVFileSet(carid, csvfile, streetmapbasename,
                              lanechanges_normal,
                              lanechanges_postpass,
                              lanechanges_arbitrary,
@@ -432,7 +433,7 @@ function get_validfind_regions(behavior::String, csvfileset::CSVFileSet)
     elseif behavior == "freeflow"
         merge_region_segments([csvfileset.freeflow])
     else behavior == "all"
-        merge_region_segments([csvfileset.lanechanges_normal, csvfileset.lanechanges_postpass, 
+        merge_region_segments([csvfileset.lanechanges_normal, csvfileset.lanechanges_postpass,
                                csvfileset.lanechanges_arbitrary, csvfileset.freeflow,
                                csvfileset.carfollow])
     end
@@ -565,7 +566,7 @@ function gen_featureset{F<:AbstractFeature, G<:AbstractFeature}(
     features::Vector{F};
     filters::Vector{G}=AbstractFeature[] # list of boolean features; if true the car is kept
     )
-    
+
     estimated_row_count = calc_row_count_from_region_segments(validfind_regions)
     df = create_dataframe_with_feature_columns(features, estimated_row_count)
 
@@ -601,7 +602,7 @@ function gen_featureset{F <: AbstractFeature, G <: AbstractFeature}(
     features::Vector{F};
     filters::Vector{G}=AbstractFeature[] # list of boolean features; if true the car is kept
     )
-    
+
     estimated_row_count = length(validfinds)
     df = create_dataframe_with_feature_columns(features, estimated_row_count)
 
@@ -625,15 +626,15 @@ function gen_featureset{F <: AbstractFeature, G <: AbstractFeature}(
     df[1:row_index,:]
 end
 # function replace_behavior_features_with_hand_labels!(df::DataFrame, behavior::String)
-    
+#
 #     value_emergency      = 0.0
 #     value_freeflow       = 0.0
 #     value_carfollow      = 0.0
 #     value_lanechange     = 0.0
 #     value_sustainedcross = 0.0
-
+#
 #     in(behavior, BEHAVIORS) || error("unknown behavior $behavior")
-
+#
 #     if behavior == "lanechange"
 #         value_lanechange = 1.0
 #     elseif behavior == "carfollow"
@@ -641,13 +642,13 @@ end
 #     else behavior == "freeflow"
 #         value_freeflow = 1.0
 #     end
-
+#
 #     fill!(df[symbol(SUBSET_EMERGENCY)],          value_emergency)
 #     fill!(df[symbol(SUBSET_FREE_FLOW)],          value_freeflow)
 #     fill!(df[symbol(SUBSET_CAR_FOLLOWING)],      value_carfollow)
 #     fill!(df[symbol(SUBSET_LANE_CROSSING)],      value_lanechange)
 #     fill!(df[symbol(SUBSET_SUSTAINED_CROSSING)], value_sustainedcross)
-    
+#
 #     df
 # end
 
@@ -737,7 +738,7 @@ end
 #         featuresets[featuresetind+=1] = extract(csvfileset, behavior, validfinds, features, streetnet_cache, filters=filters)
 #         verbosity == 0 || toc()
 #     end
-    
+
 #     featuresets[1:featuresetind]
 # end
 # function extract(

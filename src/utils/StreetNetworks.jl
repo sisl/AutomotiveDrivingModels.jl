@@ -489,7 +489,7 @@ function prev_node_index(sn::StreetNetwork, node_index::Int)
 
 	G = sn.graph
 
-	if outdegree(G, node_index) == 0
+	if indegree(G, node_index) == 0
 		return node_index
 	end
 
@@ -1508,7 +1508,7 @@ function rndf2streetnetwork(
 			vE = Vec.polar(-1.0, θ)
 
 			best_node_index = node_index
-			best_perp_dist = Inf
+			best_score = Inf
 
 			tile = get_tile(sn, node)
 			for seg in values(tile.segments)
@@ -1587,7 +1587,10 @@ function rndf2streetnetwork(
 	verbosity < 1 || @printf("COMPUTE CURVES [%.2f]\n", time()-starttime)
 	for tile in values(sn.tile_dict)
 		for seg in values(tile.segments)
-			for lane in values(seg.lanes)
+			for key in keys(seg.lanes)
+
+				lane = seg.lanes[key]
+
 				node_indeces = lane.node_indeces
 				node_index_prev = prev_node_index(sn, node_indeces[1])
 				node_index_next = next_node_index(sn, node_indeces[end])
@@ -1596,6 +1599,8 @@ function rndf2streetnetwork(
 
 				n_nodes = length(node_indeces) + has_prev + has_next
 				if n_nodes < 2
+					println("DELETING LANE WITH $n_nodes nodes")
+					delete!(seg.lanes, key)
 					continue
 				end
 
@@ -1632,7 +1637,7 @@ function rndf2streetnetwork(
 					lane.has_leading_node = has_prev
 					lane.has_trailing_node = has_next
 				else
-					println("LANE WITH ONE POINT!")
+					error("LANE WITH ONE POINT!")
 				end
 			end
 		end
@@ -1643,10 +1648,10 @@ function rndf2streetnetwork(
 	for tile in values(sn.tile_dict)
 		for seg in values(tile.segments)
 			for lane in values(seg.lanes)
-
 				guess = 1.0
 				for node_index in lane.node_indeces
 					node = sn.nodes[node_index]
+					@assert(length(lane.curve) > 1)
 					extind = closest_point_extind_to_curve_guess(lane.curve, node.pos.x, node.pos.y, guess)
 					d_along = curve_at(lane.curve, extind).s
 
