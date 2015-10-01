@@ -13,12 +13,15 @@ using DynamicBayesianNetworkBehaviors
 # PARAMETERS
 ##############################
 
+# const INCLUDE_FILE_BASE = "vires_highway_2lane_sixcar"
+const INCLUDE_FILE_BASE = "realworld"
+
 const INCLUDE_FILE = let
     hostname = gethostname()
     if hostname == "Cupertino"
-        "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
+        joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
     elseif hostname == "tula"
-        "/home/wheelert/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
+        joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
     else
         "unknown"
     end
@@ -37,9 +40,9 @@ println("\t", TRAIN_VALIDATION_JLD_FILE)
 # DATA
 ##############################
 
-dataset_filepath = joinpath(EVALUATION_DIR, "dataset_small.jld")
+# dataset_filepath = joinpath(EVALUATION_DIR, "dataset_small.jld")
 # dataset_filepath = joinpath(EVALUATION_DIR, "dataset_medium.jld")
-# dataset_filepath = joinpath(EVALUATION_DIR, "dataset.jld")
+dataset_filepath = joinpath(EVALUATION_DIR, "dataset.jld")
 pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loaded =
             load_pdsets_streetnets_segements_and_dataframe(dataset_filepath)
 
@@ -47,13 +50,11 @@ pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loade
 # SPLIT INTO TRAIN AND VALIDATION
 #################################
 
-const FRACTION_VALIDATION = 0.10
-
-srand(1)
+srand(1) # <- initialize random number generator to enforce consistency
 
 println("size(dataframe): ", size(dataframe))
 
-(frame_tv_assignment, pdsetseg_tv_assignment) = split_into_train_and_validation(FRACTION_VALIDATION, pdset_segments, dataframe, startframes)
+(frame_tv_assignment, pdsetseg_tv_assignment) = split_into_train_and_validation(TRAIN_TEST_SPLIT_TEST_FRACTION, pdset_segments, dataframe, startframes)
 
 println("n_other_frame: ", sum(v->v!=1 && v!=2, frame_tv_assignment))
 println("n_train_frame: ", sum(v->v==1, frame_tv_assignment))

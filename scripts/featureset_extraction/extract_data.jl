@@ -26,18 +26,16 @@ dataset_filepath = joinpath(EVALUATION_DIR, "dataset" * DATASET_MODIFIER * ".jld
 features = unique([INDICATOR_SET, TARGET_SET.lat, TARGET_SET.lon])
 
 tic()
-pdsets, streetnets, pdset_segments, dataframe, startframes =
-    pull_pdsets_streetnets_segments_and_dataframe(EXTRACT_PARAMS, CSVFILESETS, pdset_dir=PDSET_DIR, features=features)
+model_training_data = pull_model_training_data(EXTRACT_PARAMS, CSVFILESETS, pdset_dir=PDSET_DIR, features=features)
 toc()
 
 println("dataset extraction complete")
 
-save_pdsets_streetnets_segements_and_dataframe(dataset_filepath, pdsets, streetnets,
-                                               pdset_segments, dataframe,
-                                               startframes, EXTRACT_PARAMS)
+JLD.save(dataset_filepath, "model_training_data", model_training_data,
+                           "extract_params", EXTRACT_PARAMS)
 
-println("num pdset_segments: ", length(pdset_segments))
-println("size of dataframe:  ", size(dataframe))
+println("num pdset_segments: ", length(model_training_data.pdset_segments))
+println("size of dataframe:  ", size(model_training_data.dataframe))
 
 println("output saved to ", dataset_filepath)
 println("[DONE]")
