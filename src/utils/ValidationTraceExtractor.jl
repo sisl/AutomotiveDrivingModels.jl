@@ -9,6 +9,7 @@ using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Features
 using AutomotiveDrivingModels.FeaturesetExtractor
+using AutomotiveDrivingModels.Curves # TODO: remove this
 
 import Base: ==, isequal
 import Base.Collections: PriorityQueue, dequeue!
@@ -719,8 +720,14 @@ function pull_pdset_segments(
     max_dist::Float64 = 5000.0, # max_dist used in frenet_distance_between_points() [m]
     )
 
-    println("csvfileset")
-    println(csvfileset)
+    #=
+    Returns pdset_segments::PdsetSegments[],
+    where each segment has length 0 -> SIM_HORIZON,
+    they do not overlap over 0 : SIM_HORIZON,
+    but the history SIM_HISTORY does exist.
+
+    Various conditions, as given in extract_params, must be true as well.
+    =#
 
     const PDSET_FRAMES_PER_SIM_FRAME = extract_params.pdset_frames_per_sim_frame
     const SIM_HORIZON         = extract_params.sim_horizon
@@ -786,16 +793,22 @@ function pull_pdset_segments(
                 posGxB = get(pdset, :posGx, carind_end, validfind_end)
                 posGyB = get(pdset, :posGy, carind_end, validfind_end)
 
-                # @printf("posA: %15.6f, %15.6f\n", posGxA, posGyA)
-                # @printf("posB: %15.6f, %15.6f\n", posGxB, posGyB)
-                # println("proj: ", project_point_to_streetmap(posGxA, posGyA, sn))
-                # println("proj: ", project_point_to_streetmap(posGxB, posGyB, sn))
-
+                # NOTE(tim): may be NAN if we cross from a lane that terminates into a new lane that doesn't
+                #            In this case we cannot compute the frenet (Δx, Δy) unless we do something special
+                #            like extrapolate the missing lane (which is iffy)
                 (Δx, Δy) = frenet_distance_between_points(sn, posGxA, posGyA, posGxB, posGyB, max_dist)
 
-                @assert(!isnan(Δx))
-                push!(pdset_segments, PdsetSegment(pdset_id, streetnet_id, carid, validfind, validfind_end))
-                validfind += max(extract_params.frameskip_between_extracted_scenes * PDSET_FRAMES_PER_SIM_FRAME - 1, 0)
+                # if isnan(Δx)
+                    # @printf("posA: %15.6f, %15.6f\n", posGxA, posGyA)
+                    # @printf("posB: %15.6f, %15.6f\n", posGxB, posGyB)
+                    # println("proj: ", project_point_to_streetmap(posGxA, posGyA, sn))
+                    # println("proj: ", project_point_to_streetmap(posGxB, posGyB, sn))
+                # end
+
+                if !isnan(Δx)
+                    push!(pdset_segments, PdsetSegment(pdset_id, streetnet_id, carid, validfind, validfind_end))
+                    validfind += max(extract_params.frameskip_between_extracted_scenes * PDSET_FRAMES_PER_SIM_FRAME - 1, 0)
+                end
             end
         end
     end
