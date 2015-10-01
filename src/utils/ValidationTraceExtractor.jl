@@ -156,14 +156,14 @@ function pull_pdset_segments_and_dataframe(
     startframes = Int[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
-    for carid in get_carids(pdset)
-        more_pdset_segments = pull_pdset_segments(extract_params, csvfileset, pdset, sn,
-                                                    pdset_id, streetnet_id, carid)
 
-        append!(pdset_segments, more_pdset_segments)
-        append!(startframes, map(seg->nrow(dataframe)+div((seg.validfind_start-1), pdset_frames_per_sim_frame)+1, more_pdset_segments)) #fill(nrow(dataframe)+1, length(more_pdset_segments)))
-        append!(dataframe, gen_featureset(carid, pdset, validfinds, sn, features, filters=filters))
-    end
+
+    more_pdset_segments = pull_pdset_segments(extract_params, csvfileset, pdset, sn,
+                                                pdset_id, streetnet_id)
+
+    append!(pdset_segments, more_pdset_segments)
+    append!(startframes, map(seg->nrow(dataframe)+div((seg.validfind_start-1), pdset_frames_per_sim_frame)+1, more_pdset_segments)) #fill(nrow(dataframe)+1, length(more_pdset_segments)))
+    append!(dataframe, gen_featureset(csvfileset.carid, pdset, validfinds, sn, features, filters=filters))
 
     # println("pdset_segments: ", pdset_segments)
     # println("startframes: ", startframes)
@@ -176,10 +176,9 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
     csvfilesets::Vector{CSVFileSet},
     features::Vector{AbstractFeature},
     filters::Vector{AbstractFeature},
-    pdset_dir::String
+    pdset_dir::String,
+    streetmap_base::String,
     )
-
-    println("called! ", length(csvfilesets))
 
     streetnet_cache = (String, StreetNetwork)[]
 
@@ -206,7 +205,7 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
 
         streetnet_id = findfirst(tup->tup[1]==streetmapbasename, streetnet_cache)
         if streetnet_id == 0
-            streetnet = load(STREETMAP_BASE*streetmapbasename*".jld")["streetmap"]
+            streetnet = load(joinpath(streetmap_base, "streetmap_"*streetmapbasename*".jld"))["streetmap"]
             push!(streetnet_cache, (streetmapbasename, streetnet))
             streetnet_id = length(streetnet_cache)
         end
@@ -231,7 +230,7 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
 
     streetnets = Array(String, length(streetnet_cache))
     for streetnet_id = 1 : length(streetnet_cache)
-        streetnets[streetnet_id] = STREETMAP_BASE*streetnet_cache[streetnet_id][1]*".jld"
+        streetnets[streetnet_id] = streetmap_base*streetnet_cache[streetnet_id][1]*".jld"
     end
 
     (pdsets, streetnets, pdset_segments, dataframe, startframes)
@@ -241,7 +240,8 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
     csvfilesets::Vector{CSVFileSet},
     features::Vector{AbstractFeature},
     filters::Vector{AbstractFeature},
-    pdset_dir::String
+    pdset_dir::String,
+    streetmap_base::String,
     )
 
     num_csvfilesets = length(csvfilesets)
@@ -264,7 +264,7 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
 
     more_stuff = pmap(assigned_csvfilesets->_pull_pdsets_streetnets_segments_and_dataframe(
                                                 extract_params, assigned_csvfilesets,
-                                                features, filters, pdset_dir
+                                                features, filters, pdset_dir, streetmap_base
                                             ), csvfileset_assignment)
 
     pdsets = Array(String, num_csvfilesets)
@@ -307,15 +307,16 @@ function pull_pdsets_streetnets_segments_and_dataframe(
     csvfilesets::Vector{CSVFileSet};
     features::Vector{AbstractFeature}=FEATURES,
     filters::Vector{AbstractFeature}=AbstractFeature[],
-    pdset_dir::String=PRIMARYDATA_DIR
+    pdset_dir::String=PRIMARYDATA_DIR,
+    streetmap_base::String="/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
     )
 
     if nworkers() > 1
         _pull_pdsets_streetnets_segments_and_dataframe_parallel(extract_params, csvfilesets,
-                                                                features, filters, pdset_dir)
+                                                                features, filters, pdset_dir, streetmap_base)
     else
         _pull_pdsets_streetnets_segments_and_dataframe(extract_params, csvfilesets,
-                                                       features, filters, pdset_dir)
+                                                       features, filters, pdset_dir, streetmap_base)
     end
 end
 
@@ -715,9 +716,11 @@ function pull_pdset_segments(
     sn::StreetNetwork,
     pdset_id::Integer,
     streetnet_id::Integer,
-    carid::Integer;
     max_dist::Float64 = 5000.0, # max_dist used in frenet_distance_between_points() [m]
     )
+
+    println("csvfileset")
+    println(csvfileset)
 
     const PDSET_FRAMES_PER_SIM_FRAME = extract_params.pdset_frames_per_sim_frame
     const SIM_HORIZON         = extract_params.sim_horizon
@@ -729,6 +732,7 @@ function pull_pdset_segments(
     @assert(SIM_HISTORY ≥ 1)
     @assert(SIM_HORIZON ≥ 0)
 
+    carid = csvfileset.carid
     pdset_segments = PdsetSegment[]
     num_validfinds = nvalidfinds(pdset)
     df_subsets = _calc_subsets_based_on_csvfileset(csvfileset, num_validfinds)
