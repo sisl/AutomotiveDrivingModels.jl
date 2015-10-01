@@ -18,21 +18,27 @@ import AutomotiveDrivingModels.FeaturesetExtractor: create_dataframe_with_featur
 export
         OrigHistobinExtractParameters,
         StartCondition,
+        ModelTrainingData,
+        FoldAssignment,
+
+        FOLD_TRAIN,
+        FOLD_TEST,
 
         total_framecount,
         pull_start_conditions,
         calc_traces_to_keep_with_frameskip,
 
-        pull_pdsets_streetnets_segments_and_dataframe,
-        save_pdsets_streetnets_segements_and_dataframe,
-        load_pdsets_streetnets_segements_and_dataframe,
+        pull_model_training_data,
 
         is_strictly_monotonically_increasing,
         merge_region_segments,
         calc_row_count_from_region_segments,
 
-        cross_validation_sets,
-        split_into_train_and_validation
+        get_cross_validation_fold_assignment,
+        get_train_test_fold_assignment,
+
+        load_pdsets,
+        load_streetnets
 
 
 ########################################
@@ -128,6 +134,66 @@ immutable StartCondition
 end
 
 ########################################
+#         MODEL TRAINING DATA          #
+########################################
+
+type ModelTrainingData
+    pdset_filepaths::Vector{String}      # list of pdset full filepaths
+    streetnet_filepaths::Vector{String}  # list of streetnet full filepaths
+    pdset_segments::Vector{PdsetSegment} # set of PdsetSegments, all should be of the same length
+    dataframe::DataFrame                 # dataframe of features used in training. A bunch of vcat'ed pdset data
+    startframes::Vector{Int}             # dataframe[startframes[i], :] is data row for pdset_segments[i].validfind_start
+                                         # seg_to_framestart[i] -> j
+                                         # where i is the pdsetsegment index
+                                         # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
+end
+
+########################################
+#            Fold Assignment           #
+########################################
+
+type FoldAssignment
+    # assigns each frame and pdsetseg to
+    # an integer fold
+    # first fold is fold 1
+    frame_assignment::Vector{Int}
+    pdsetseg_assignment::Vector{Int}
+    nfolds::Int
+
+    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int}, nfolds::Int)
+
+        # some precautions...
+        for a in frame_assignment
+            @assert(a > 0)
+            @assert(a ≤ nfolds)
+        end
+        for a in pdsetseg_assignment
+            @assert(a > 0)
+            @assert(a ≤ nfolds)
+        end
+
+        new(frame_assignment, pdsetseg_assignment, nfolds)
+    end
+    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int})
+
+        # some precautions...
+        nfolds = -1
+        for a in frame_assignment
+            @assert(a > 0)
+            nfolds = max(a, nfolds)
+        end
+        for a in pdsetseg_assignment
+            @assert(a > 0)
+            nfolds = max(a, nfolds)
+        end
+
+        new(frame_assignment, pdsetseg_assignment, nfolds)
+    end
+end
+const FOLD_TRAIN = 1
+const FOLD_TEST = 2
+
+########################################
 #              FUNCTIONS               #
 ########################################
 
@@ -172,7 +238,7 @@ function pull_pdset_segments_and_dataframe(
 
     (pdset_segments, dataframe, startframes)
 end
-function _pull_pdsets_streetnets_segments_and_dataframe(
+function _pull_model_training_data(
     extract_params::OrigHistobinExtractParameters,
     csvfilesets::Vector{CSVFileSet},
     features::Vector{AbstractFeature},
@@ -183,14 +249,14 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
 
     streetnet_cache = (String, StreetNetwork)[]
 
-    pdsets = String[]
+    pdset_filepaths = String[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
     startframes = Int[]
 
     for csvfileset in csvfilesets
 
-        tic()
+        # tic()
 
         csvfile = csvfileset.csvfile
         streetmapbasename = csvfileset.streetmapbasename
@@ -200,8 +266,8 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
         end
 
         pdset = _load_pdset(csvfile, pdset_dir)
-        push!(pdsets, _get_pdsetfile(csvfile, pdset_dir))
-        pdset_id = length(pdsets)
+        push!(pdset_filepaths, _get_pdsetfile(csvfile, pdset_dir))
+        pdset_id = length(pdset_filepaths)
 
 
         streetnet_id = findfirst(tup->tup[1]==streetmapbasename, streetnet_cache)
@@ -213,7 +279,7 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
         sn = streetnet_cache[streetnet_id][2]
 
 
-        println(csvfile)
+        # println(csvfile)
 
         more_pdset_segments, more_dataframe, more_startframes = pull_pdset_segments_and_dataframe(
                                                                     extract_params, csvfileset, pdset, sn,
@@ -226,17 +292,17 @@ function _pull_pdsets_streetnets_segments_and_dataframe(
         append!(dataframe, more_dataframe)
         append!(startframes, more_startframes)
 
-        toc()
+        # toc()
     end
 
-    streetnets = Array(String, length(streetnet_cache))
+    streetnet_filepaths = Array(String, length(streetnet_cache))
     for streetnet_id = 1 : length(streetnet_cache)
-        streetnets[streetnet_id] = streetmap_base*streetnet_cache[streetnet_id][1]*".jld"
+        streetnet_filepaths[streetnet_id] = streetmap_base*streetnet_cache[streetnet_id][1]*".jld"
     end
 
-    (pdsets, streetnets, pdset_segments, dataframe, startframes)
+     ModelTrainingData(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes)
 end
-function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
+function _pull_model_training_data_parallel(
     extract_params::OrigHistobinExtractParameters,
     csvfilesets::Vector{CSVFileSet},
     features::Vector{AbstractFeature},
@@ -268,8 +334,8 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
                                                 features, filters, pdset_dir, streetmap_base
                                             ), csvfileset_assignment)
 
-    pdsets = Array(String, num_csvfilesets)
-    streetnets = String[]
+    pdset_filepaths = Array(String, num_csvfilesets)
+    streetnet_filepaths = String[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
     startframes = Int[]
@@ -282,10 +348,10 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
         for (i,seg) in enumerate(more_pdset_segments)
             target_streetnet = more_streetnets[seg.streetnet_id]
 
-            streetnet_id = findfirst(streetnets, target_streetnet)
+            streetnet_id = findfirst(streetnet_filepaths, target_streetnet)
             if streetnet_id == 0
-                push!(streetnets, target_streetnet)
-                streetnet_id = length(streetnets)
+                push!(streetnet_filepaths, target_streetnet)
+                streetnet_id = length(streetnet_filepaths)
             end
 
             push!(pdset_segments, PdsetSegment(seg.pdset_id, streetnet_id, seg.carid,
@@ -294,16 +360,16 @@ function _pull_pdsets_streetnets_segments_and_dataframe_parallel(
 
         for pdset in more_pdsets
             pdset_index += 1
-            pdsets[pdset_index] = pdset
+            pdset_filepaths[pdset_index] = pdset
         end
 
         append!(dataframe, more_dataframe)
         append!(startframes, more_startframes)
     end
 
-    return (pdsets, streetnets, pdset_segments, dataframe, startframes)
+    return ModelTrainingData(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes)
 end
-function pull_pdsets_streetnets_segments_and_dataframe(
+function pull_model_training_data(
     extract_params::OrigHistobinExtractParameters,
     csvfilesets::Vector{CSVFileSet};
     features::Vector{AbstractFeature}=FEATURES,
@@ -313,11 +379,11 @@ function pull_pdsets_streetnets_segments_and_dataframe(
     )
 
     if nworkers() > 1
-        _pull_pdsets_streetnets_segments_and_dataframe_parallel(extract_params, csvfilesets,
-                                                                features, filters, pdset_dir, streetmap_base)
+        _pull_model_training_data_parallel(extract_params, csvfilesets,
+                                           features, filters, pdset_dir, streetmap_base)
     else
-        _pull_pdsets_streetnets_segments_and_dataframe(extract_params, csvfilesets,
-                                                       features, filters, pdset_dir, streetmap_base)
+        _pull_model_training_data(extract_params, csvfilesets,
+                                           features, filters, pdset_dir, streetmap_base)
     end
 end
 
@@ -818,32 +884,32 @@ function pull_pdset_segments(
     pdset_segments
 end
 
-function save_pdsets_streetnets_segements_and_dataframe(
-    filepath::String,
-    pdsets::Vector{String},
-    streetnets::Vector{String},
-    pdset_segments::Vector{PdsetSegment},
-    dataframe::DataFrame,
-    startframes::Vector{Int},
-    extract_params::OrigHistobinExtractParameters
-    )
+# function save_pdsets_streetnets_segements_and_dataframe(
+#     filepath::String,
+#     pdsets::Vector{String},
+#     streetnets::Vector{String},
+#     pdset_segments::Vector{PdsetSegment},
+#     dataframe::DataFrame,
+#     startframes::Vector{Int},
+#     extract_params::OrigHistobinExtractParameters
+#     )
 
-    save(filepath, "pdsets", pdsets, "streetnets", streetnets,
-                    "pdset_segments", pdset_segments, "dataframe", dataframe,
-                    "startframes", startframes, "extract_params", extract_params)
-end
-function load_pdsets_streetnets_segements_and_dataframe(filepath::String)
+#     save(filepath, "pdsets", pdsets, "streetnets", streetnets,
+#                     "pdset_segments", pdset_segments, "dataframe", dataframe,
+#                     "startframes", startframes, "extract_params", extract_params)
+# end
+# function load_pdsets_streetnets_segements_and_dataframe(filepath::String)
 
-    input = load(filepath)
-    pdsets         = input["pdsets"]::Vector{String}
-    streetnets     = input["streetnets"]::Vector{String}
-    pdset_segments = input["pdset_segments"]::Vector{PdsetSegment}
-    dataframe      = input["dataframe"]::DataFrame
-    startframes    = input["startframes"]::Vector{Int}
-    extract_params = input["extract_params"]::OrigHistobinExtractParameters
+#     input = load(filepath)
+#     pdsets         = input["pdsets"]::Vector{String}
+#     streetnets     = input["streetnets"]::Vector{String}
+#     pdset_segments = input["pdset_segments"]::Vector{PdsetSegment}
+#     dataframe      = input["dataframe"]::DataFrame
+#     startframes    = input["startframes"]::Vector{Int}
+#     extract_params = input["extract_params"]::OrigHistobinExtractParameters
 
-    (pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params)
-end
+#     (pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params)
+# end
 
 function is_strictly_monotonically_increasing(vec::AbstractVector{Int})
     if isempty(vec)
@@ -933,13 +999,9 @@ function calc_row_count_from_region_segments(validfind_regions::AbstractVector{I
     estimated_row_count
 end
 
-function cross_validation_sets(
+function get_cross_validation_fold_assignment(
     nfolds::Int,
-    pdset_segments::Vector{PdsetSegment},
-    dataframe::DataFrame,
-    seg_to_framestart::Vector{Int} # seg_to_framestart[i] -> j
-                                   # where i is the pdsetsegment index
-                                   # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
+    dset::ModelTrainingData,
     )
 
     #=
@@ -955,6 +1017,10 @@ function cross_validation_sets(
     3) assign those frames to each training set
     4) divide the remaining training frames among the training sets
     =#
+
+    pdset_segments = dset.pdset_segments
+    dataframe = dset.dataframe
+    seg_to_framestart = dset.startframes
 
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
@@ -1031,18 +1097,12 @@ function cross_validation_sets(
 
     # println("frame_fold_sizes (after): ", frame_fold_sizes)
 
-    (frame_fold_assignment, pdsetsegment_fold_assignment)
+    FoldAssignment(frame_fold_assignment, pdsetsegment_fold_assignment, nfolds)
 end
-
-function cross_validation_sets(
+function get_cross_validation_fold_assignment(
     nfolds::Int,
-    pdset_segments::Vector{PdsetSegment},
-    dataframe::DataFrame,
-    seg_to_framestart::Vector{Int},# seg_to_framestart[i] -> j
-                                   # where i is the pdsetsegment index
-                                   # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
-    frame_tv_assignment::Vector{Int},  # training and validation assignment for frames
-    pdsetseg_tv_assignment::Vector{Int}, # training and validation assignment for pdsetsegs
+    dset::ModelTrainingData,
+    train_test_split::FoldAssignment,
     )
 
     #=
@@ -1059,21 +1119,26 @@ function cross_validation_sets(
     4) divide the remaining training frames among the training sets
     =#
 
-    TRAIN = 1
+    pdset_segments = dset.pdset_segments
+    dataframe = dset.dataframe
+    seg_to_framestart = dset.startframes
+
+    frame_tv_assignment = train_test_split.frame_assignment
+    pdsetseg_tv_assignment = train_test_split.pdsetseg_assignment
 
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
 
     nframes_assigned_to_training = 0
     for v in frame_tv_assignment
-        if v == TRAIN
+        if v == FOLD_TRAIN
             nframes_assigned_to_training += 1
         end
     end
 
     npdsetsegments_assigned_to_training = 0
     for v in pdsetseg_tv_assignment
-        if v == TRAIN
+        if v == FOLD_TRAIN
             npdsetsegments_assigned_to_training += 1
         end
     end
@@ -1081,7 +1146,7 @@ function cross_validation_sets(
     indeces_of_train_frames = Array(Int, nframes_assigned_to_training)
     ind = 1
     for (i,v) in enumerate(frame_tv_assignment)
-        if v == TRAIN
+        if v == FOLD_TRAIN
             indeces_of_train_frames[ind] = i
             ind += 1
         end
@@ -1090,7 +1155,7 @@ function cross_validation_sets(
     indeces_of_train_pdsetsegs = Array(Int, npdsetsegments_assigned_to_training)
     ind = 1
     for (i,v) in enumerate(pdsetseg_tv_assignment)
-        if v == TRAIN
+        if v == FOLD_TRAIN
             indeces_of_train_pdsetsegs[ind] = i
             ind += 1
         end
@@ -1169,16 +1234,20 @@ function cross_validation_sets(
 
     # println("frame_fold_sizes (after): ", frame_fold_sizes)
 
-    (frame_fold_assignment, pdsetsegment_fold_assignment)
+    FoldAssignment(frame_fold_assignment, pdsetsegment_fold_assignment, nfolds)
 end
-function split_into_train_and_validation(
+function get_train_test_fold_assignment(
     fraction_validation::Float64,
-    pdset_segments::Vector{PdsetSegment},
-    dataframe::DataFrame,
-    seg_to_framestart::Vector{Int} # seg_to_framestart[i] -> j
-                                   # where i is the pdsetsegment index
-                                   # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
+    dset::ModelTrainingData,
     )
+
+    #=
+    returns a FoldAssignment with two folds: 1 for train, 2 for test
+    =#
+
+    pdset_segments = dset.pdset_segments
+    dataframe = dset.dataframe
+    seg_to_framestart = dset.startframes
 
     @assert(fraction_validation ≥ 0.0)
     frac_train = 1.0 - fraction_validation
@@ -1186,9 +1255,6 @@ function split_into_train_and_validation(
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
     @assert(length(seg_to_framestart) ≥ npdsetsegments)
-
-    const TRAIN = 1
-    const VALIDATION = 2
 
     frame_tv_assignment = zeros(Int, nframes) # train = 1, validation = 2
     pdsetseg_tv_assignment = zeros(Int, npdsetsegments) # train = 1, validation = 2
@@ -1199,14 +1265,14 @@ function split_into_train_and_validation(
     p = randperm(npdsetsegments)
     for i = 1 : npdsetsegments_to_assign_to_training
         pdsetsegmentind = p[i]
-        pdsetseg_tv_assignment[pdsetsegmentind] = TRAIN
+        pdsetseg_tv_assignment[pdsetsegmentind] = FOLD_TRAIN
 
         framestart = seg_to_framestart[pdsetsegmentind]
         frameend = framestart + get_horizon(pdset_segments[pdsetsegmentind])
         frameind = framestart
         for _ in framestart : 5 : frameend
             @assert(frame_tv_assignment[frameind] == 0)
-            frame_tv_assignment[frameind] = TRAIN
+            frame_tv_assignment[frameind] = FOLD_TRAIN
             frameind += 1
         end
     end
@@ -1222,10 +1288,10 @@ function split_into_train_and_validation(
     nframes_assigned_to_training = nframes - nremaining_frames_unassigned
     nremaining_frames_to_assign = nframes_to_assign_to_training - nframes_assigned_to_training
 
-    println("nframes:                      ", nframes)
-    println("nframes_assigned_to_training: ", nframes_assigned_to_training)
-    println("nremaining_frames_to_assign:  ", nremaining_frames_to_assign)
-    println("nremaining_frames_unassigned: ", nremaining_frames_unassigned)
+    # println("nframes:                      ", nframes)
+    # println("nframes_assigned_to_training: ", nframes_assigned_to_training)
+    # println("nremaining_frames_to_assign:  ", nremaining_frames_to_assign)
+    # println("nremaining_frames_unassigned: ", nremaining_frames_unassigned)
 
     remaining_frames = Array(Int, nremaining_frames_unassigned)
     rem_frame_count = 0
@@ -1241,21 +1307,36 @@ function split_into_train_and_validation(
         i = p[rem_frame_ind]
         j = remaining_frames[i]
         k = frame_tv_assignment[remaining_frames[p[rem_frame_ind]]]
-        frame_tv_assignment[remaining_frames[p[rem_frame_ind]]] = TRAIN
+        frame_tv_assignment[remaining_frames[p[rem_frame_ind]]] = FOLD_TRAIN
     end
 
     for (i,v) in enumerate(frame_tv_assignment)
-        if v != TRAIN
-          frame_tv_assignment[i] = VALIDATION
+        if v != FOLD_TRAIN
+          frame_tv_assignment[i] = FOLD_TEST
         end
     end
     for (i,v) in enumerate(pdsetseg_tv_assignment)
-        if v != TRAIN
-          pdsetseg_tv_assignment[i] = VALIDATION
+        if v != FOLD_TRAIN
+          pdsetseg_tv_assignment[i] = FOLD_TEST
         end
     end
 
-    (frame_tv_assignment, pdsetseg_tv_assignment)
+    FoldAssignment(frame_tv_assignment, pdsetseg_tv_assignment, 2)
+end
+
+function load_pdsets(dset::ModelTrainingData)
+    pdsets = Array(PrimaryDataset, length(dset.pdset_filepaths))
+    for (i,pdset_filepath) in enumerate(dset.pdset_filepaths)
+        pdsets[i] = load(pdset_filepath, "pdset")
+    end
+    pdsets
+end
+function load_streetnets(dset::ModelTrainingData)
+    streetnets = Array(StreetNetwork, length(dset.streetnet_filepaths))
+    for (i,streetnet_filepath) in enumerate(dset.streetnet_filepaths)
+        streetnets[i] = load(streetnet_filepath, "streetmap")
+    end
+    streetnets
 end
 
 end # end module
