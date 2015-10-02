@@ -15,10 +15,12 @@ using DynamicBayesianNetworkBehaviors
 # PARAMETERS
 ##############################
 
+# const INCLUDE_FILE_BASE = "vires_highway_2lane_sixcar"
+const INCLUDE_FILE_BASE = "realworld"
+
 const AM_ON_TULA = gethostname() == "tula"
-const INCLUDE_FILE = AM_ON_TULA ?
-                        "/home/wheelert/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl" :
-                        "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
+const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
+                                  joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
 const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
 include(INCLUDE_FILE)
@@ -27,7 +29,7 @@ const SAVE_FILE_MODIFIER = ""
 const METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * ".jld")
 const MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * SAVE_FILE_MODIFIER * ".jld")
 const TRAIN_VALIDATION_JLD_FILE = joinpath(EVALUATION_DIR, "train_validation_split" * SAVE_FILE_MODIFIER * ".jld")
-const DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset_small" * SAVE_FILE_MODIFIER * ".jld")
+const DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset" * SAVE_FILE_MODIFIER * ".jld")
 
 println("results will be exported to:")
 println("\t", METRICS_OUTPUT_FILE)
@@ -36,24 +38,18 @@ println("\t", METRICS_OUTPUT_FILE)
 # LOAD TRAIN AND VALIDATION SETS
 ################################
 
-pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes, extract_params_loaded =
-            load_pdsets_streetnets_segements_and_dataframe(DATASET_JLD_FILE)
 
-frame_tv_assignment, pdsetseg_tv_assignment = let
-    jld = JLD.load(TRAIN_VALIDATION_JLD_FILE)
-    frame_tv_assignment = jld["frame_tv_assignment"]
-    pdsetseg_tv_assignment = jld["pdsetseg_tv_assignment"]
-    (frame_tv_assignment, pdsetseg_tv_assignment)
-end
+dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
+train_test_split = JLD.load(TRAIN_VALIDATION_JLD_FILE, "train_test_split")
 
 if AM_ON_TULA
     # replace foldernames
-    for (i,str) in enumerate(pdset_filepaths)
-        pdset_filepaths[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
+    for (i,str) in enumerate(dset.pdset_filepaths)
+        dset.pdset_filepaths[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
     end
 
-    for (i,str) in enumerate(streetnet_filepaths)
-        streetnet_filepaths[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
+    for (i,str) in enumerate(dset.streetnet_filepaths)
+        dset.streetnet_filepaths[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
     end
 end
 
@@ -91,7 +87,8 @@ add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
      :ncandidate_bins=>20,
      ])
 
-models = train(behaviorset, dataframe[frame_tv_assignment.==1, :])
+# TODO(tim): fix train test split.....
+models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])
 
 JLD.save(MODEL_OUTPUT_JLD_FILE,
         "behaviorset", behaviorset,
@@ -104,34 +101,31 @@ JLD.save(MODEL_OUTPUT_JLD_FILE,
 
 evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
 
-pdsets = Array(PrimaryDataset, length(pdset_filepaths))
-for (i,pdset_filepath) in enumerate(pdset_filepaths)
-    pdsets[i] = load(pdset_filepath, "pdset")
-end
+metric_types_train = [LoglikelihoodMetric]#, LoglikelihoodBoundsCVMetric]
+metric_types_validation = [LoglikelihoodMetric]#, LoglikelihoodBaggedBoundsMetric]
 
-streetnets = Array(StreetNetwork, length(streetnet_filepaths))
-for (i,streetnet_filepath) in enumerate(streetnet_filepaths)
-    streetnets[i] = load(streetnet_filepath, "streetmap")
-end
+# pdsets = load_pdsets(dset)
+# streetnets = load_pdsets(dset)
+# pdsets_for_simulation = deepcopy(pdsets)
 
-pdsets_for_simulation = deepcopy(pdsets)
+metrics_sets_train = extract_metrics(metric_types_train, models, dset, train_test_split, FOLD_TRAIN, true)
 
-nbehaviors = length(behaviorset.behaviors)
+# metrics_sets_train = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
+#                                                               streetnets, pdset_segments, evalparams,
+#                                                               1, pdsetseg_tv_assignment, true)
+# metrics_sets_validation = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
+#                                                               streetnets, pdset_segments, evalparams,
+#                                                               2, pdsetseg_tv_assignment, true)
 
-metrics_sets_train = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
-                                                              streetnets, pdset_segments, evalparams,
-                                                              1, pdsetseg_tv_assignment, true)
-metrics_sets_validation = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
-                                                              streetnets, pdset_segments, evalparams,
-                                                              2, pdsetseg_tv_assignment, true)
+# JLD.save(METRICS_OUTPUT_FILE,
+#             "metrics_sets_train", metrics_sets_train,
+#             "metrics_sets_validation", metrics_sets_validation,
+#             "evalparams", evalparams,
+#             "nframes", size(dset.dataframe, 1),
+#             "npdset_segments", length(dset.pdset_segments)
+#             )
 
-JLD.save(METRICS_OUTPUT_FILE,
-            "metrics_sets_train", metrics_sets_train,
-            "metrics_sets_validation", metrics_sets_validation,
-            "evalparams", evalparams,
-            "nframes", size(dataframe, 1),
-            "npdset_segments", length(pdset_segments)
-            )
+println(metrics_sets_train)
 
 # println("DONE")
 println("DONE")
