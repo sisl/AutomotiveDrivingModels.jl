@@ -24,10 +24,20 @@ end
 
 dataset_filepath = joinpath(EVALUATION_DIR, "dataset" * DATASET_MODIFIER * ".jld")
 features = unique([INDICATOR_SET, TARGET_SET.lat, TARGET_SET.lon])
+filters = AbstractFeature[Feature_IsClean{symbol(TARGET_SET.lat)}(),
+                          Feature_IsClean{symbol(TARGET_SET.lon)}()]
 
 tic()
-model_training_data = pull_model_training_data(EXTRACT_PARAMS, CSVFILESETS, pdset_dir=PDSET_DIR, features=features)
+model_training_data = pull_model_training_data(EXTRACT_PARAMS, CSVFILESETS, pdset_dir=PDSET_DIR, features=features, filters=filters)
 toc()
+
+for i in nrow(model_training_data.dataframe)
+    v = model_training_data.dataframe[i, symbol(FUTUREACCELERATION_250MS)]
+    @assert(!isnan(v) && !isinf(v))
+
+    v = model_training_data.dataframe[i, symbol(FUTUREDESIREDANGLE_250MS)]
+    @assert(!isnan(v) && !isinf(v))
+end
 
 println("dataset extraction complete")
 
