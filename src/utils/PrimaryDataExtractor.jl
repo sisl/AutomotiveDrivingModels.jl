@@ -1215,7 +1215,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                         speed = data_smoothed[i, :velBx]
                         local_setc!("velFx",     carind, validfind, speed * cos(θ)) # vel along the lane
                         local_setc!("velFy",     carind, validfind, speed * sin(θ)) # vel perpendicular to lane
-                        local_setc!("lanetag",   carind, validfind, proj.lane.id)
+                        local_setc!("lanetag",   carind, validfind, proj.lane.id::LaneTag)
                         local_setc!("curvature", carind, validfind, ptG.k)
                         local_setc!("d_cl",      carind, validfind, d::Float64)
 

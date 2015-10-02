@@ -71,6 +71,7 @@ export  STDTURNRATE250MS,  STDTURNRATE500MS,  STDTURNRATE750MS,  STDTURNRATE1S, 
 
 export SUBSET_EMERGENCY, SUBSET_FREE_FLOW, SUBSET_CAR_FOLLOWING, SUBSET_LANE_CROSSING, SUBSET_SUSTAINED_CROSSING
 export SUBSET_AT_SIXTYFIVE, SUBSET_AUTO
+export Feature_IsClean
 
 export observe, observe!
 export description, units, isint, isbool, lowerbound, upperbound, symbol, lsymbol, couldna, get, symbol2feature
@@ -274,21 +275,11 @@ create_feature_basics("PosFy", "m", false, false, Inf, -Inf, false, :posFy, L"p^
 get(::Feature_PosFy, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :posFy, carind, validfind)::Float64
 
 create_feature_basics("Speed", "m/s", false, false, Inf, -Inf, false, :speed, L"\|v\|", "speed")
-function _get(::Feature_Speed, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	if carind == CARIND_EGO
-		frameind = validfind2frameind(basics.pdset, validfind)
-		velx = gete(basics.pdset, :velFx, frameind)::Float64
-		vely = gete(basics.pdset, :velFy, frameind)::Float64
-		return hypot(velx, vely)
-	end
-	velx = getc(basics.pdset, :velFx, carind, validfind)::Float64
-	vely = getc(basics.pdset, :velFy, carind, validfind)::Float64
-	return hypot(velx, vely)
-end
+_get(::Feature_Speed, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get_speed(basics.pdset, carind::Integer, validfind)
 
 create_feature_basics("Delta_Speed_Limit", "m/s", false, false, Inf, -Inf, false, :delta_speed_limit, L"Δv_{\text{limit}}", "difference between current speed and speed limit")
 function get(::Feature_Delta_Speed_Limit, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-	speed = get(SPEED, basics.pdset, carind, validfind)
+	speed = get_speed(basics.pdset, carind::Integer, validfind)
 	SPEED_LIMIT - speed
 end
 
@@ -595,7 +586,7 @@ function _project_pt_to_lane_frenet(
 
 	if successful
 
-		origin_s = origin.curvept[SIND]
+		origin_s = origin.curvept.s
 
 		if njumps == 0
 
@@ -820,7 +811,7 @@ function calc_occupancy_schedule_grid(basics::FeatureExtractBasicsPdSet, carind:
 end
 function put_occupancy_schedule_grid_in_meta!(basics::FeatureExtractBasicsPdSet, grid::OccupancyScheduleGrid, carind::Int, validfind::Int)
 
-	checkmeta(carind, validfind, :osg_isoccupied_f) # need symbol so Dict is initialized
+	# checkmeta(carind, validfind, :osg_isoccupied_f) # need symbol so Dict is initialized
 
 	basics[(carind, validfind, :osg_isoccupied_f)]  = float(grid.F.occupied)
 	basics[(carind, validfind, :osg_isoccupied_fr)] = float(grid.FR.occupied)
@@ -1139,8 +1130,8 @@ function get( ::Feature_TTC_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::
 	min(-dx / dv, THRESHOLD_TIME_TO_COLLISION)
 end
 
-create_feature_basics( "TimeGap_X_FRONT", "s", false, false, Inf, 0.0, false, :timegap_x_front, L"\tau_{x,fo}", "timegap between cars")
-function get( ::Feature_TimeGap_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
+create_feature_basics( "Timegap_X_FRONT", "s", false, false, Inf, 0.0, false, :timegap_x_front, L"\tau_{x,fo}", "timegap between cars")
+function get( ::Feature_Timegap_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	ind_front = get(INDFRONT, basics, carind, validfind)
 	if ind_front == NA_ALIAS
 		return Features.THRESHOLD_TIMEGAP
@@ -2635,6 +2626,21 @@ function _get(::Feature_Subset_Auto, basics::FeatureExtractBasicsPdSet, carind::
 
 	status = gete_validfind(basics.pdset, :control_status, validfind)::Int
 	return float64(status == Trajdata.CONTROL_STATUS_AUTO)
+end
+
+immutable Feature_IsClean{target_symbol} <: AbstractFeature end
+description( ::Feature_IsClean) = "Whether the given feature is nan or inf"
+units(       ::Feature_IsClean) = "-"
+isint(       ::Feature_IsClean) = true
+isbool(      ::Feature_IsClean) = true
+upperbound(  ::Feature_IsClean) = 1.0
+lowerbound(  ::Feature_IsClean) = 0.0
+couldna(     ::Feature_IsClean) = false
+symbol(      ::Feature_IsClean) = symbol("isclean_" * string(target_symbol))
+function get{F}(::Feature_IsClean{F}, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
+    f = symbol2feature(F)
+    v = get(f, basics, carind, validfind)
+    !isnan(v) && !isinf(v)
 end
 
 # ----------------------------------

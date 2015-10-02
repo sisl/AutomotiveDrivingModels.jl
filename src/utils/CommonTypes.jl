@@ -10,11 +10,13 @@ export
     DEFAULT_FRAME_PER_SEC,
     DEFAULT_SEC_PER_FRAME,
     N_FRAMES_PER_SIM_FRAME,
-    
+
     get_nframes,
     get_horizon
 
 using AutomotiveDrivingModels.Vec
+
+#############################################################################
 
 const DEFAULT_CAR_LENGTH = 4.6 # [m]
 const DEFAULT_CAR_WIDTH  = 2.0 # [m]
@@ -23,6 +25,9 @@ const DEFAULT_LANE_WIDTH = 3.25 # [m]
 const DEFAULT_FRAME_PER_SEC = 20 # [frame / s]
 const DEFAULT_SEC_PER_FRAME = 1.0 / DEFAULT_FRAME_PER_SEC # [s]
 const N_FRAMES_PER_SIM_FRAME = 5
+
+#############################################################################
+# Vehicle
 
 type Vehicle
     pos    :: VecSE2 # [m,m,rad] (center of the vehicle)
@@ -60,6 +65,9 @@ function Base.show(io::IO, veh::Vehicle)
     @printf(io, "\twidth:    %d\n", veh.width)
 end
 
+#############################################################################
+# PdsetSegment
+
 immutable PdsetSegment
     pdset_id        :: Int
     streetnet_id    :: Int
@@ -85,5 +93,7 @@ end
 
 get_nframes(seg::PdsetSegment) = seg.validfind_end - seg.validfind_start + 1
 get_horizon(seg::PdsetSegment) = seg.validfind_end - seg.validfind_start # NOTE(tim): no +1 as the first frame does not count in horizon
+
+#############################################################################
 
 end

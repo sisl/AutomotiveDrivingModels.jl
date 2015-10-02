@@ -1133,7 +1133,6 @@ function frenet_distance_between_points(
 
 			extind = Curves.closest_point_extind_to_curve(lane.curve, B_east, B_north)
 			# println("extind: ", extind)
-			# println("s_length: ", s_length)
 			# println(lane.curve.x[1])
 			# println(lane.curve.y[1])
 			# println(lane.curve.x[end])

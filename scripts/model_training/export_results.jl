@@ -32,15 +32,14 @@ function create_tikzpicture_model_compare_logl{S<:String}(io::IO, metrics_sets::
     =#
 
     for (i,name) in enumerate(names)
-        μ = metrics_set.aggmetrics[:logl_mean]
-        σ = metrics_set.aggmetrics[:logl_stdev]
+        μ = metrics_sets[i].aggmetrics[:logl_mean]
+        σ = metrics_sets[i].aggmetrics[:logl_stdev] # TODO(tim): extract correct value!
 
         color_letter = string('A' + i - 1)
 
-        println(io, "\\addplot+[thick, mark=*, mark options={color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
+        println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, σ, σ)
     end
-
 end
 function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
     #=
@@ -48,38 +47,20 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO, metri
 
     This outputs, for each model by order of names:
 
-    \addplot [black,fill=black!20,error bars/.cd,y dir=both,y explicit]
-        coordinates{
-          (loglikelihood,1.0000)+-(0,0.1774)
-          (speed,1.0000)+-(0,0.1986)
-          (timegap,1.0000)+-(0,0.1774)
-          (laneoffset,1.0000)+-(0,0.1774)
+    \addplot [colorA,fill=colorA!60,error bars/.cd,y dir=both,y explicit]
+            coordinates{
+            (speed,     0.005)+-(0,0.002)
+            (timegap,   0.005)+-(0,0.002)
+            (laneoffset,0.010)+-(0,0.002)
         };
     =#
 
-    nmodels = length(names)
-    model_color_percentages = int(linspace(0,100,nmodels+2))[2:end-1]
-
-    arr_logl = Array(Float64, nmodels, 2)
-    arr_speed = Array(Float64, nmodels, 2)
-    arr_timegap = Array(Float64, nmodels, 2)
-    arr_laneoffset = Array(Float64, nmodels, 2)
-
-    for (i,metrics_set) in enumerate(metrics_sets)
-        arr_logl[i,1] = metrics_set.aggmetrics[:logl_mean]
-        arr_logl[i,2] = metrics_set.aggmetrics[:logl_stdev]
-        arr_speed[i,1] = metrics_set.aggmetrics[:mean_speed_ego_kldiv]
-        arr_timegap[i,1] = metrics_set.aggmetrics[:mean_timegap_kldiv]
-        arr_laneoffset[i,1] = metrics_set.aggmetrics[:mean_lane_offset_kldiv]
-    end
-
-    for i in 1 : nmodels
+    for i in 1 : length(metrics_sets)
         color = "color" * string('A' + i - 1)
         print(io, "\\addplot [", color, ",fill=", color, "!60,error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
-        @printf(io, "\t\t\(%s,%.4f)+-(0,%.4f)\n", "loglikelihood", arr_logl[i,1]/arr_logl[1,1], arr_logl[i,2]/arr_logl[1,1])
-        @printf(io, "\t\t\(%s,%.4f)\n", "speed",      arr_speed[i,1])
-        @printf(io, "\t\t\(%s,%.4f)\n", "timegap",    arr_timegap[i,1])
-        @printf(io, "\t\t\(%s,%.4f)\n", "laneoffset", arr_laneoffset[i,1])
+        @printf(io, "\t\t\(%-15s%.4f)+-(%.4f)\n", "speed,",      metrics_sets[i].aggmetrics[:mean_speed_ego_kldiv],   0.02) # TODO(tim): fix this
+        @printf(io, "\t\t\(%-15s%.4f)+-(%.4f)\n", "timegap,",    metrics_sets[i].aggmetrics[:mean_timegap_kldiv],     0.02) # TODO(tim): fix this
+        @printf(io, "\t\t\(%-15s%.4f)+-(%.4f)\n", "laneoffset,", metrics_sets[i].aggmetrics[:mean_lane_offset_kldiv], 0.02) # TODO(tim): fix this
         @printf(io, "\t};\n")
     end
 
@@ -92,15 +73,23 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO, metri
     end
     print(io, "}\n")
 end
-function create_tikzpicture_model_compare_rmse{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
+function create_tikzpicture_model_compare_rmse_mean{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
 
     #=
     The first model is used as the baseline
 
     This outputs, for each model by order of names:
 
-    \addplot[black, dotted, mark=none, error bars/.cd,y dir=both,y explicit] coordinates{
-          (0,0.0)+=(0,0.0)-=(0,0.0) (1,0.0039)+=(0,0.0000)-=(0,0.0000) (2,0.0169)+=(0,0.0001)-=(0,0.0002) (3,0.0345)+=(0,0.0003)-=(0,0.0006) (4,0.0562)+=(0,0.0006)-=(0,0.0013)};
+    \addplot[colorA, solid, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0042) (2,0.0180) (3,0.0376) (4,0.0610)};
+    \addplot[colorB, dashdotted, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0032) (2,0.0133) (3,0.0257) (4,0.0396)};
+    \addplot[colorC, dashed, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0024) (2,0.0107) (3,0.0235) (4,0.0408)};
+    \addplot[colorD, densely dotted, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0011) (2,0.0047) (3,0.0105) (4,0.0180)};
+    \addplot[colorE, dotted, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0015) (2,0.0057) (3,0.0125) (4,0.0380)};
 
     And for the legend:
 
@@ -109,18 +98,67 @@ function create_tikzpicture_model_compare_rmse{S<:String}(io::IO, metrics_sets::
 
     nmodels = length(names)
 
-    dash_types = ["solid", "dashdotted", "dashed", "dotted"]
+    dash_types = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
 
     for (i,metrics_set) in enumerate(metrics_sets)
 
         color = "color" * string('A' + i - 1)
 
-        @printf(io, "\\addplot[%s, %s, thick, mark=none, error bars/.cd,y dir=both,y explicit] coordinates{\n", color, dash_types[i])
-        @printf(io, "\t(0,0.0)+=(0,0.0)-=(0,0.0) (1,%.4f)+=(0,%.4f)-=(0,%.4f) (2,%.4f)+=(0,%.4f)-=(0,%.4f) (3,%.4f)+=(0,%.4f)-=(0,%.4f) (4,%.4f)+=(0,%.4f)-=(0,%.4f)};\n",
-                metrics_set.aggmetrics[:rmse_1000ms_mean], metrics_set.aggmetrics[:rmse_1000ms_stdev], metrics_set.aggmetrics[:rmse_1000ms_stdev],
-                metrics_set.aggmetrics[:rmse_2000ms_mean], metrics_set.aggmetrics[:rmse_2000ms_stdev], metrics_set.aggmetrics[:rmse_2000ms_stdev],
-                metrics_set.aggmetrics[:rmse_3000ms_mean], metrics_set.aggmetrics[:rmse_3000ms_stdev], metrics_set.aggmetrics[:rmse_3000ms_stdev],
-                metrics_set.aggmetrics[:rmse_4000ms_mean], metrics_set.aggmetrics[:rmse_4000ms_stdev], metrics_set.aggmetrics[:rmse_4000ms_stdev]
+        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
+        @printf(io, "\t(0,0.0) (1,%.4f) (2,%.4f) (3,%.4f) (4,%.4f)};\n",
+                metrics_set.aggmetrics[:rmse_1000ms_mean],
+                metrics_set.aggmetrics[:rmse_2000ms_mean],
+                metrics_set.aggmetrics[:rmse_3000ms_mean],
+                metrics_set.aggmetrics[:rmse_4000ms_mean]
+            )
+    end
+
+    print(io, "\\legend{")
+    for (i,name) in enumerate(names)
+        print(io, name)
+        if i != length(names)
+            print(io, ", ")
+        end
+    end
+    print(io, "}\n")
+end
+function create_tikzpicture_model_compare_rmse_stdev{S<:String}(io::IO, metrics_sets::Vector{MetricsSet}, names::Vector{S})
+
+    #=
+    The first model is used as the baseline
+
+    This outputs, for each model by order of names:
+
+    \addplot[colorA, solid, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0042) (2,0.0180) (3,0.0376) (4,0.0610)};
+    \addplot[colorB, dashdotted, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0032) (2,0.0133) (3,0.0257) (4,0.0396)};
+    \addplot[colorC, dashed, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0024) (2,0.0107) (3,0.0235) (4,0.0408)};
+    \addplot[colorD, densely dotted, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0011) (2,0.0047) (3,0.0105) (4,0.0180)};
+    \addplot[colorE, dotted, thick, mark=none] coordinates{
+      (0,0.0) (1,0.0015) (2,0.0057) (3,0.0125) (4,0.0380)};
+
+    And for the legend:
+
+    \legend{Gaussian Filter, Random Forest, Dynamic Forest, Bayesian Network}
+    =#
+
+    nmodels = length(names)
+
+    dash_types = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
+
+    for (i,metrics_set) in enumerate(metrics_sets)
+
+        color = "color" * string('A' + i - 1)
+
+        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
+        @printf(io, "\t(0,0.0) (1,%.4f) (2,%.4f) (3,%.4f) (4,%.4f)};\n",
+                metrics_set.aggmetrics[:rmse_1000ms_stdev],
+                metrics_set.aggmetrics[:rmse_2000ms_stdev],
+                metrics_set.aggmetrics[:rmse_3000ms_stdev],
+                metrics_set.aggmetrics[:rmse_4000ms_stdev]
             )
     end
 
@@ -142,13 +180,35 @@ metrics_sets_validation = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_validation
 all_names = String["Real World"]
 append!(all_names, behaviorset.names)
 
-# write_to_texthook(TEXFILE, "model-compare-kldiv-training") do fh
-#     create_tikzpicture_model_compare_kldiv(fh, metrics_sets_train[2:end], behaviorset.names)
+println("TRAIN")
+create_tikzpicture_model_compare_logl(STDOUT, metrics_sets_train[2:end], behaviorset.names)
+println("\nTEST")
+create_tikzpicture_model_compare_logl(STDOUT, metrics_sets_validation[2:end], behaviorset.names)
+
+# @assert(behaviorset.names == ["Gaussian Filter", "Single Variable", "Random Forest", "Dynamic Forest", "Bayesian Network"])
+# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+#     create_tikzpicture_model_compare_logl(fh, metrics_sets_train[2:end], behaviorset.names)
 # end
+
+# @assert(behaviorset.names == ["Gaussian Filter", "Single Variable", "Random Forest", "Dynamic Forest", "Bayesian Network"])
+# write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+#     create_tikzpicture_model_compare_logl(fh, metrics_sets_test[2:end], behaviorset.names)
+# end
+
+create_tikzpicture_model_compare_kldiv_barplot(STDOUT, metrics_sets_validation[2:end], behaviorset.names)
+create_tikzpicture_model_compare_rmse_mean(STDOUT, metrics_sets_validation[2:end], behaviorset.names)
+create_tikzpicture_model_compare_rmse_stdev(STDOUT, metrics_sets_validation[2:end], behaviorset.names)
+
 # write_to_texthook(TEXFILE, "model-compare-kldiv-test") do fh
-#     create_tikzpicture_model_compare_kldiv(fh, metrics_sets_validation[2:end], behaviorset.names)
+#     short_names = ["GF", "SV", "RF", "DF", "BN"]
+#     create_tikzpicture_model_compare_kldiv(fh, metrics_sets_validation[2:end], shorten(behaviorset.names))
 # end
-# write_to_texthook(TEXFILE, "model-compare-rmse") do fh
+# write_to_texthook(TEXFILE, "model-compare-rmse-mean") do fh
+#     short_names = ["GF", "SV", "RF", "DF", "BN"]
+#     create_tikzpicture_model_compare_rmse(fh, metrics_sets_validation[2:end], behaviorset.names)
+# end
+# write_to_texthook(TEXFILE, "model-compare-rmse-stdev") do fh
+#     short_names = ["GF", "SV", "RF", "DF", "BN"]
 #     create_tikzpicture_model_compare_rmse(fh, metrics_sets_validation[2:end], behaviorset.names)
 # end
 

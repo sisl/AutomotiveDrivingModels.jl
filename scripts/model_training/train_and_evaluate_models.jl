@@ -102,13 +102,14 @@ JLD.save(MODEL_OUTPUT_JLD_FILE,
 evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
 
 metric_types_train = [LoglikelihoodMetric]#, LoglikelihoodBoundsCVMetric]
-metric_types_validation = [LoglikelihoodMetric]#, LoglikelihoodBaggedBoundsMetric]
+metric_types_test = [LoglikelihoodMetric, LoglikelihoodBaggedBoundsMetric]
 
 # pdsets = load_pdsets(dset)
 # streetnets = load_pdsets(dset)
 # pdsets_for_simulation = deepcopy(pdsets)
 
-metrics_sets_train = extract_metrics(metric_types_train, models, dset, train_test_split, FOLD_TRAIN, true)
+# metrics_sets_train = extract_metrics(metric_types_train, models, dset, train_test_split, FOLD_TRAIN, true)
+metrics_sets_test = extract_metrics(metric_types_test, models, dset, train_test_split, FOLD_TEST, true)
 
 # metrics_sets_train = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
 #                                                               streetnets, pdset_segments, evalparams,
@@ -125,7 +126,8 @@ metrics_sets_train = extract_metrics(metric_types_train, models, dset, train_tes
 #             "npdset_segments", length(dset.pdset_segments)
 #             )
 
-println(metrics_sets_train)
+# println(metrics_sets_train)
+println(metrics_sets_test)
 
 # println("DONE")
 println("DONE")
