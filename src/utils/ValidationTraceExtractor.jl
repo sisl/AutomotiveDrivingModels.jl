@@ -36,6 +36,9 @@ export
 
         get_cross_validation_fold_assignment,
         get_train_test_fold_assignment,
+        calc_fold_size,
+        is_in_fold,
+
 
         load_pdsets,
         load_streetnets
@@ -190,6 +193,20 @@ type FoldAssignment
 end
 const FOLD_TRAIN = 1
 const FOLD_TEST = 2
+
+function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
+    fold_size = 0
+    for a in fold_assignment
+        if is_in_fold(fold, a, match_fold)
+            fold_size += 1
+        end
+    end
+    fold_size
+end
+function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
+    (fold != 0) && # NOTE(tim): zero never matches
+        ((match_fold && fold_assignment == fold) || (!match_fold && fold_assignment != fold))
+end
 
 ########################################
 #              FUNCTIONS               #
@@ -1430,5 +1447,7 @@ function load_streetnets(dset::ModelTrainingData)
     end
     streetnets
 end
+
+
 
 end # end module

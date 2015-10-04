@@ -43,6 +43,65 @@ end
 
 ####################################################
 
+type CVFoldResults
+    metrics_train::Vector{BehaviorMetric}
+    metrics_validation::Vector{BehaviorMetric}
+
+    CVFoldResults() = new(BehaviorMetric[], BehaviorMetric[])
+    CVFoldResults(train::Vector{BehaviorMetric}, validate::Vector{BehaviorMetric}) = new(train, validate)
+end
+type ModelCrossValidationResults
+    results::Vector{CVFoldResults}
+
+    ModelCrossValidationResults(nfolds::Int) = new(Array(CVFoldResults, nfolds))
+end
+type CrossValidationResults
+    realworld::ModelCrossValidationResults
+    models::Vector{ModelCrossValidationResults}
+end
+
+function cross_validate{DV<:DataType, DT<:DataType}(
+    behaviorset::BehaviorSet,
+    dset::ModelTrainingData,
+    assignment::FoldAssignment,
+    metrics_validation::Vector{DV},
+    metrics_train::Vector{DT},
+    )
+
+    #=
+    For each cross validation fold:
+      - train each model
+      - compute the validation metrics on the witheld dataset
+      - compute the train metrics on the training data
+
+    Returns a CrossValidationResults object
+    =#
+
+    nfolds = assignment.nfolds
+    nmodels = length(behaviorset.behaviors)
+
+    retval_realworld = CrossValidationResults(nfolds)
+    retval_models = [CrossValidationResults(nfolds) for i = 1 : nmodels]
+
+    max_dataframe_training_frames = length(assignment.frame_assignment) - _min_count_of_unique_value(assignment.frame_assignment)
+    dataframe_for_training = similar(dset.dataframe, max_dataframe_training_frames)
+
+    for fold = 1 : nfolds
+
+        _copy_in_fold_frames!(dataframe_for_training, dset.dataframe, assignment, fold, false)
+        behaviors = train(behaviorset, dataframe_for_training)
+
+        for i in 1 : nmodels
+            retval_models[i].results[fold] = CVFoldResults(
+                extract_metrics(metrics_train, dset, behaviors[i], assignment, fold, true),
+                extract_metrics(metrics_validation, dset, behaviors[i], assignment, fold, true))
+            end
+        end
+    end
+
+    CrossValidationResults(retval_realworld, retval_models)
+end
+
 function _cross_validate(
     behaviorset::BehaviorSet,
     pdsets::Vector{PrimaryDataset},
@@ -418,20 +477,6 @@ function cross_validate_logl{B<:AbstractVehicleBehavior, A<:Any}(
     end
 end
 
-function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
-    fold_size = 0
-    for a in fold_assignment
-        if is_in_fold(fold, a, match_fold)
-            fold_size += 1
-        end
-    end
-    fold_size
-end
-function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
-    (match_fold && fold_assignment == fold) ||
-    (!match_fold && fold_assignment != fold)
-end
-
 function _get_training_and_validation(
     fold::Int,
     pdset_segments::Vector{PdsetSegment},
@@ -490,4 +535,40 @@ function _min_count_of_unique_value(arr::AbstractArray)
         dict[v] = get(dict, v, 0) + 1
     end
     minimum(values(dict))::Int
+end
+
+function _copy_in_fold_frames!(
+    dest::DataFrame,
+    src::DataFrame,
+    assignment::FoldAssignment,
+    fold::Int,
+    match_fold::Bool
+    )
+
+    # NOTE(tim): assumes dest is preallocated with enough rows
+
+    nrow_dest = nrow(dest)
+
+    framecount = 0
+    for (i,assignment) in enumerate(frame_assignment)
+        if is_in_fold(fold, assignment.frame_assignment, match_fold)
+            framecount += 1
+            for j = 1 : size(src, 2)
+                dest[framecount, j] = src[i, j]
+            end
+        end
+    end
+    while framecount < nrow_dest
+
+        # now we need to fill in any extra training frames so that the entire thing is populated
+        # If properly used this will only be one extra row so the overall effect will be negligible
+
+        row = rand(1:framecount) # choose something at random
+        framecount += 1
+        for j = 1 : size(src, 2)
+            dest[framecount, j] = src[row, j]
+        end
+    end
+
+    dest
 end

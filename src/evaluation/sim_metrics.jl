@@ -7,7 +7,6 @@ export
     EmergentKLDivMetric,
     LoglikelihoodMetric,
     LoglikelihoodBaggedBoundsMetric,
-    LoglikelihoodBoundsCVMetric,
     RootWeightedSquareError,
 
     EvaluationParams,
@@ -29,7 +28,7 @@ export
     compute_metric_summary_table
 
 abstract BehaviorMetric
-abstract BehaviorMetricCV <: BehaviorMetric
+abstract BehaviorMetric_FromTraces
 
 type HistobinMetric <: BehaviorMetric
     histobin::Matrix{Float64} # histobin image over deviation during run
@@ -55,10 +54,6 @@ type LoglikelihoodBaggedBoundsMetric <: BehaviorMetric
     μ::Float64 # sample mean
     σ::Float64 # sample standard deviation
     confidence95::Float64 # 95% confidence bounds on logl
-end
-type LoglikelihoodBoundsCVMetric <: BehaviorMetricCV
-    lo::Float64 # lowest LoglikelihoodMetric seen during cross validation
-    hi::Float64 # highest LoglikelihoodMetric seen during cross validation
 end
 type RootWeightedSquareError{horizon} <: BehaviorMetric
     # RWSE for the given horizon
@@ -193,7 +188,9 @@ function extract_metrics{D<:DataType, B<:AbstractVehicleBehavior}(
 end
 
 
-
+# init
+# update_metric!
+# complete_metric!
 
 
 
@@ -783,6 +780,93 @@ end
 #     MetricsSet(histobin, 0.0, Dict{Symbol, Any}[], aggmetrics,
 #                counts_speed, counts_timegap, counts_laneoffset)
 # end
+
+function extract_metrics_from_traces{D<:DataType}(
+    metric_types::Vector{D},
+    metrics_realworld::Vector{BehaviorMetric_FromTraces},
+    behavior::AbstractVehicleBehavior,
+
+    basics::FeatureExtractBasicsPdSet,
+    pdsets_original::Vector{PrimaryDataset},
+    pdsets_for_simulation::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+
+    assignment::FoldAssignment,
+    fold::Int,
+    match_fold::Bool,
+    )
+
+    metrics = Vector{BehaviorMetric_FromTraces, length(metric_types)}
+    for (i,T) in enumerate(metric_types)
+        metrics[i] = init(T)
+    end
+
+    for (fold_assignment, seg) in zip(assignment.pdsetseg_assignment, pdset_segments)
+        if is_in_fold(fold, fold_assignment, match_fold)
+
+            pdset_orig = pdsets_original[seg.pdset_id]
+            basics.pdset = pdsets_for_simulation[seg.pdset_id]
+            basics.sn = streetnets[seg.streetnet_id]
+            basics.runid += 1
+            behavior_pairs[1] = (behavior, seg.carid)
+            copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
+            simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+
+            for metric in metrics
+                update_metric!(metric, behavior, pdset_orig, basics, seg)
+            end
+        end
+    end
+
+    for (metric, metric_realworld) in zip(metrics, metrics_realworld)
+        complete_metric!(metric, metric_realworld, behavior)
+    end
+
+    metrics
+end
+function extract_metrics_from_traces{B<:AbstractVehicleBehavior}(
+    metric_types::Vector{D},
+    behaviors::Vector{B},
+
+    pdsets_original::Vector{PrimaryDataset},
+    pdsets_for_simulation::Vector{PrimaryDataset},
+    streetnets::Vector{StreetNetwork},
+    pdset_segments::Vector{PdsetSegment},
+
+    assignment::FoldAssignment,
+    fold::Int,
+    match_fold::Bool,
+    )
+
+    metrics_realworld = Array(BehaviorMetric_FromTraces, length(metric_types))
+    for (i,T) in enumerate(metric_types)
+        metrics_realworld[i] = init(T)
+    end
+
+    basics = FeatureExtractBasicsPdSet(pdsets_original[1], streetnets[1])
+    for (fold_assignment, seg) in zip(assignment.pdsetseg_assignment, pdset_segments)
+        if is_in_fold(fold, fold_assignment, match_fold)
+            pdset_orig = pdsets_original[seg.pdset_id]
+            basics.pdset = pdset_orig
+            basics.sn = streetnets[seg.streetnet_id]
+            for metric in metrics_realworld
+                update_metric!(metric, VEHICLE_BEHAVIOR_NONE, pdset_orig, basics, seg)
+            end
+        end
+    end
+
+    retval = Array(Vector{BehaviorMetric_FromTraces}, length(behaviors)+1)
+    retval[1] = metrics_realworld
+    for (i,behavior) in enumerate(behaviors)
+        retval[i+1] = extract_metrics_from_traces(metric_types, metrics_realworld, behavior,
+                                                  basics, pdsets_original, pdset_simulation,
+                                                  streetnets, pdset_segments, assignment, fold, match_fold)
+    end
+
+    retval
+end
+
 # function create_metrics_sets_no_tracemetrics{B<:AbstractVehicleBehavior}(
 #     model_behaviors::Vector{B},
 #     pdsets_original::Vector{PrimaryDataset},
