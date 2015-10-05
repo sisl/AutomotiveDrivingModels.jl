@@ -42,10 +42,6 @@ type AggregateTraceMetrics <: BehaviorMetric
     # metrics derived by aggregated over traces
     metrics::Dict{Symbol,Any}
 end
-type EmergentKLDivMetric{F<:AbstractFeature} <: BehaviorMetric
-    counts::Vector{Int}
-    kldiv::Float64
-end
 type LoglikelihoodMetric <: BehaviorMetric
     # log likelihood of dataset frames on model
     logl::Float64
@@ -54,14 +50,6 @@ type LoglikelihoodBaggedBoundsMetric <: BehaviorMetric
     μ::Float64 # sample mean
     σ::Float64 # sample standard deviation
     confidence95::Float64 # 95% confidence bounds on logl
-end
-type RootWeightedSquareError{F<:AbstractFeature, horizon} <: BehaviorMetric
-    # RWSE for the given horizon
-
-    running_sum::Float64
-    N::Int
-
-    rwse::Float64
 end
 
 type EvaluationParams
@@ -96,6 +84,14 @@ const DEFAULT_METRIC_SET = [
 #                                  fold, pdsetseg_fold_assignment, match_fold)
 
 # end
+
+#########################################################################################################
+# EmergentKLDivMetric
+
+type EmergentKLDivMetric{F<:AbstractFeature} <: BehaviorMetric
+    counts::Vector{Int}
+    kldiv::Float64
+end
 
 const KLDIV_METRIC_NBINS = 100
 const KLDIV_METRIC_DISC_DICT = [
@@ -132,9 +128,22 @@ function complete_metric!{F}(
     metric
 end
 
-init{F,horizon}(::Type{RootWeightedSquareError{F,horizon}}) = RootWeightedSquareError{F,horizon}(0.0, 0, NaN)
-function update_metric!{F, horizon}(
-    metric::RootWeightedSquareError{horizon},
+#########################################################################################################
+# RootWeightedSquareError
+
+type RootWeightedSquareError{F<:AbstractFeature} <: BehaviorMetric
+    # RWSE for the given horizon
+
+    running_sums::Vector{Float64}
+    N::Int
+
+    rwse::Float64
+end
+const RWSE_HORIZONS = [1.0,2.0,3.0,4.0]
+
+init{F}(::Type{RootWeightedSquareError{F}}) = RootWeightedSquareError{F}(zeros(Float64, length(RWSE_HORIZONS)), 0, NaN)
+function update_metric!{F}(
+    metric::RootWeightedSquareError{F},
     behavior::AbstractVehicleBehavior,
     pdset_orig::PrimaryDataset,
     basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
@@ -143,7 +152,7 @@ function update_metric!{F, horizon}(
     n_monte_carlo_samples::Int=10
     )
 
-    @assert(horizon ≥ 0.0)
+    @assert((seg.validfind_end - seg.validfind_start)*DEFAULT_SEC_PER_FRAME ≥ RWSE_HORIZONS[end])
 
     #=
     The Root Weighted Square Error over the target feature F for horizon [sec]
@@ -169,7 +178,8 @@ function update_metric!{F, horizon}(
         push!(v_true_arr, get(F, basics_orig, carind, validfind))
     end
 
-    rwse_component = 0.0
+    n_horizons = length(RWSE_HORIZONS)
+    rwse_components = zeros(Float64, n_horizons)
     for i in 1 : n_monte_carlo_samples
 
         basics.runid += 1
@@ -177,23 +187,32 @@ function update_metric!{F, horizon}(
         simulate!(basics, behavior, seg.carid, seg.validfind_start, seg.validfind_end)
 
         for (j,validfind) in enumerate(seg.validfind_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.validfind_end)
+
             v_true = v_true_arr[j]
             carind = carid2ind(pdset_orig, carid, validfind)
             v_montecarlo = get(F, basics, carind, validfind)
 
             Δ = v_true - v_montecarlo
-            rwse_component += Δ*Δ
+            Δ2 = Δ*Δ
+            h = n_horizons
+            Δt = (validfind - seg.validfind_start)*DEFAULT_SEC_PER_FRAME
+            while h > 0 && RWSE_HORIZONS[h] ≥ Δt
+                rwse_component[h] += Δ2
+                h -= 1
+            end
         end
     end
-    rwse_component /= n_monte_carlo_samples
+    for h = 1 : n_horizons
+        rwse_component[h] /= n_monte_carlo_samples
+        metric.running_sum[h] += rwse_component[h]
+    end
 
-    metric.running_sum += rwse_component
     metric.N += 1
 
     metric
 end
-function update_metric!{F, horizon}(
-    metric::RootWeightedSquareError{horizon},
+function update_metric!{F}(
+    metric::RootWeightedSquareError{F},
     behavior::VehicleBehaviorNone,
     pdset_orig::PrimaryDataset,
     basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
@@ -213,6 +232,9 @@ function complete_metric!(
     metric.rwse = sqrt(metric.running_sum / metric.N)
     metric
 end
+
+#########################################################################################################
+# LoglikelihoodMetric
 
 function extract(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData,
@@ -276,6 +298,8 @@ function extract(::Type{LoglikelihoodBaggedBoundsMetric},
     LoglikelihoodBaggedBoundsMetric(μ, σ, confidence95)
 end
 
+#########################################################################################################
+
 function extract_metrics{D<:DataType}(
     metric_types::Vector{D}, # each type should be a BehaviorMetric
     dset::ModelTrainingData,
@@ -307,7 +331,7 @@ function extract_metrics{D<:DataType, B<:AbstractVehicleBehavior}(
     retval
 end
 
-
+#########################################################################################################
 
 calc_kl_div_gaussian(μA::Float64, σA::Float64, μB::Float64, σB::Float64) = log(σB/σA) + (σA*σA + (μA-μB)^2)/(2σB*σB) - 0.5
 function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_target::Dict{Symbol,Any}, sym::Symbol)
