@@ -55,9 +55,13 @@ type LoglikelihoodBaggedBoundsMetric <: BehaviorMetric
     σ::Float64 # sample standard deviation
     confidence95::Float64 # 95% confidence bounds on logl
 end
-type RootWeightedSquareError{horizon} <: BehaviorMetric
+type RootWeightedSquareError{F<:AbstractFeature, horizon} <: BehaviorMetric
     # RWSE for the given horizon
-    val::Float64
+
+    running_sum::Float64
+    N::Int
+
+    rwse::Float64
 end
 
 type EvaluationParams
@@ -92,6 +96,123 @@ const DEFAULT_METRIC_SET = [
 #                                  fold, pdsetseg_fold_assignment, match_fold)
 
 # end
+
+const KLDIV_METRIC_NBINS = 100
+const KLDIV_METRIC_DISC_DICT = [
+        Features.Feature_SPEED => LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int),
+        Features.Feature_Timegap_X_FRONT => LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int),
+        Features.Feature_D_CL => LinearDiscretizer(linspace(-3.0,3.0,KLDIV_METRIC_NBINS), Int),
+    ]
+
+
+init{F}(::Type{EmergentKLDivMetric{F}}) = EmergentKLDivMetric{F}(zeros(Int, KLDIV_METRIC_NBINS), NaN)
+function update_metric!{F}(
+    metric::EmergentKLDivMetric{F},
+    ::AbstractVehicleBehavior,
+    pdset_orig::PrimaryDataset,
+    basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
+    seg::PdsetSegment
+    )
+
+    validfind_end = seg.validfind_end
+    carid = seg.carid
+    carind = carid2ind(basics.pdset, carid, validfind_end)
+    v = get(F, basics, carind, validfind_end)
+    metric.counts[encode(KLDIV_METRIC_DISC_DICT[F], v)] += 1
+
+    metric
+end
+function complete_metric!{F}(
+    metric::EmergentKLDivMetric{F},
+    metric_realworld::EmergentKLDivMetric{F},
+    ::AbstractVehicleBehavior,
+    )
+
+    metric.kldiv = calc_kl_div_categorical(metrics_realworld.counts, metric.counts)
+    metric
+end
+
+init{F,horizon}(::Type{RootWeightedSquareError{F,horizon}}) = RootWeightedSquareError{F,horizon}(0.0, 0, NaN)
+function update_metric!{F, horizon}(
+    metric::RootWeightedSquareError{horizon},
+    behavior::AbstractVehicleBehavior,
+    pdset_orig::PrimaryDataset,
+    basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
+    seg::PdsetSegment,
+
+    n_monte_carlo_samples::Int=10
+    )
+
+    @assert(horizon ≥ 0.0)
+
+    #=
+    The Root Weighted Square Error over the target feature F for horizon [sec]
+
+    √(Σ ∫p(f)⋅(f(t+h) - fₑ(t+h))² df ) / N
+
+    The square difference between true and predicted value weighted by probability.
+    This function approximates the above value using a Monte Carlo approach:
+
+    √(Σ_traj Σ_mc Σ_t (f(t+h) - fₑ(t+h))²/M ) / N
+
+        N = number of trajectories
+        M = n_monte_carlo_samples
+        t runs from 0 to horizon (error at 0 should is 0, so is skipped)
+    =#
+
+    carid = seg.carid
+
+    basics_orig = FeatureExtractBasicsPdSet(pdset_orig, basics.sn)
+    v_true_arr = Float64[]
+    for validfind in seg.validfind_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.validfind_end
+        carind = carid2ind(pdset_orig, carid, validfind)
+        push!(v_true_arr, get(F, basics_orig, carind, validfind))
+    end
+
+    rwse_component = 0.0
+    for i in 1 : n_monte_carlo_samples
+
+        basics.runid += 1
+        copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
+        simulate!(basics, behavior, seg.carid, seg.validfind_start, seg.validfind_end)
+
+        for (j,validfind) in enumerate(seg.validfind_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.validfind_end)
+            v_true = v_true_arr[j]
+            carind = carid2ind(pdset_orig, carid, validfind)
+            v_montecarlo = get(F, basics, carind, validfind)
+
+            Δ = v_true - v_montecarlo
+            rwse_component += Δ*Δ
+        end
+    end
+    rwse_component /= n_monte_carlo_samples
+
+    metric.running_sum += rwse_component
+    metric.N += 1
+
+    metric
+end
+function update_metric!{F, horizon}(
+    metric::RootWeightedSquareError{horizon},
+    behavior::VehicleBehaviorNone,
+    pdset_orig::PrimaryDataset,
+    basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
+    seg::PdsetSegment,
+    )
+
+    # do nothing for vehicle behavior none (ie, realworld version)
+
+    metric
+end
+function complete_metric!(
+    metric::RootWeightedSquareError,
+    metric_realworld::RootWeightedSquareError,
+    ::AbstractVehicleBehavior,
+    )
+
+    metric.rwse = sqrt(metric.running_sum / metric.N)
+    metric
+end
 
 function extract(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData,
@@ -170,7 +291,6 @@ function extract_metrics{D<:DataType}(
     end
     retval
 end
-
 function extract_metrics{D<:DataType, B<:AbstractVehicleBehavior}(
     metric_types::Vector{D},
     models::Vector{B},
@@ -186,15 +306,6 @@ function extract_metrics{D<:DataType, B<:AbstractVehicleBehavior}(
     end
     retval
 end
-
-
-# init
-# update_metric!
-# complete_metric!
-
-
-
-
 
 
 
@@ -219,15 +330,11 @@ function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_
     calc_kl_div_gaussian(μ_orig, σ_orig, μ_target, σ_target)
 end
 
-const KLDIV_METRIC_NBINS = 100
-const KLDIV_METRIC_DISC_SPEED = LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int)
-const KLDIV_METRIC_DISC_TIMEGAP = LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int)
-const KLDIV_METRIC_DISC_LANEOFFSET = LinearDiscretizer(linspace(-3.0,3.0,KLDIV_METRIC_NBINS), Int)
-
 function calc_kl_div_categorical{I<:Integer, J<:Integer}(counts_p::AbstractVector{I}, counts_q::AbstractVector{J})
 
     #=
     Calculate the KL-divergence between two categorical distributions
+    (also works if is it a piecewise uniform univariate with equally-spaced bins)
     =#
 
     tot_p = sum(counts_p)
