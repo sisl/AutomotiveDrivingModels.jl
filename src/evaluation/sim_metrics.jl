@@ -1,17 +1,21 @@
 export
     # MetricsSet,
     BehaviorMetric,
-    HistobinMetric,
-    TraceMetricSet,
-    AggregateTraceMetrics,
+    BehaviorFrameMetric,
+    BehaviorTraceMetric,
+
+    # HistobinMetric,
+    # TraceMetricSet,
+    # AggregateTraceMetrics,
     EmergentKLDivMetric,
-    LoglikelihoodMetric,
-    LoglikelihoodBaggedBoundsMetric,
     RootWeightedSquareError,
 
-    EvaluationParams,
+    LoglikelihoodMetric,
+    LoglikelihoodBaggedBoundsMetric,
 
-    DEFAULT_METRIC_SET,
+    # EvaluationParams,
+
+    # DEFAULT_METRIC_SET,
 
     extract_metrics,
     # create_metrics_set,
@@ -28,43 +32,29 @@ export
     compute_metric_summary_table
 
 abstract BehaviorMetric
-abstract BehaviorMetric_FromTraces
+abstract BehaviorFrameMetric <: BehaviorMetric
+abstract BehaviorTraceMetric <: BehaviorMetric
 
-type HistobinMetric <: BehaviorMetric
-    histobin::Matrix{Float64} # histobin image over deviation during run
-    histobin_kldiv::Float64 # kldivergence with respect to original histobin
-end
-type TraceMetricSet <: BehaviorMetric
-    # collection of individually extracted metrics across all traces
-    metrics::Vector{Dict{Symbol,Any}}
-end
-type AggregateTraceMetrics <: BehaviorMetric
-    # metrics derived by aggregated over traces
-    metrics::Dict{Symbol,Any}
-end
-type LoglikelihoodMetric <: BehaviorMetric
-    # log likelihood of dataset frames on model
-    logl::Float64
-end
-type LoglikelihoodBaggedBoundsMetric <: BehaviorMetric
-    μ::Float64 # sample mean
-    σ::Float64 # sample standard deviation
-    confidence95::Float64 # 95% confidence bounds on logl
-end
+# type EvaluationParams
+#     sim_history_in_frames::Int
+#     simparams::SimParams
+#     histobin_params::ParamsHistobin
+# end
 
-type EvaluationParams
-    sim_history_in_frames::Int
-    simparams::SimParams
-    histobin_params::ParamsHistobin
-end
+# type HistobinMetric <: BehaviorMetric
+#     histobin::Matrix{Float64} # histobin image over deviation during run
+#     histobin_kldiv::Float64 # kldivergence with respect to original histobin
+# end
+# type TraceMetricSet <: BehaviorMetric
+#     # collection of individually extracted metrics across all traces
+#     metrics::Vector{Dict{Symbol,Any}}
+# end
+# type AggregateTraceMetrics <: BehaviorMetric
+#     # metrics derived by aggregated over traces
+#     metrics::Dict{Symbol,Any}
+# end
 
-const DEFAULT_METRIC_SET = [
-                            HistobinMetric,
-                            AggregateTraceMetrics,
-                            EmergentKLDivMetric{Features.Feature_Speed},
-                            EmergentKLDivMetric{Features.Feature_Timegap_X_FRONT},
-                            EmergentKLDivMetric{Features.Feature_D_CL},
-                            ]
+
 
 # type MetricsSet
 #     histobin::Matrix{Float64} # histobin image over deviation during run
@@ -88,16 +78,16 @@ const DEFAULT_METRIC_SET = [
 #########################################################################################################
 # EmergentKLDivMetric
 
-type EmergentKLDivMetric{F<:AbstractFeature} <: BehaviorMetric
+type EmergentKLDivMetric{F<:AbstractFeature} <: BehaviorTraceMetric
     counts::Vector{Int}
     kldiv::Float64
 end
 
 const KLDIV_METRIC_NBINS = 100
 const KLDIV_METRIC_DISC_DICT = [
-        Features.Feature_SPEED => LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int),
-        Features.Feature_Timegap_X_FRONT => LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int),
-        Features.Feature_D_CL => LinearDiscretizer(linspace(-3.0,3.0,KLDIV_METRIC_NBINS), Int),
+        SPEED => LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int),
+        TIMEGAP_X_FRONT => LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int),
+        D_CL => LinearDiscretizer(linspace(-3.0,3.0,KLDIV_METRIC_NBINS), Int),
     ]
 
 
@@ -131,17 +121,18 @@ end
 #########################################################################################################
 # RootWeightedSquareError
 
-type RootWeightedSquareError{F<:AbstractFeature} <: BehaviorMetric
+# F <: DataType{AbstractFeature}
+type RootWeightedSquareError{F} <: BehaviorTraceMetric
     # RWSE for the given horizon
 
     running_sums::Vector{Float64}
     N::Int
 
-    rwse::Float64
+    rwse_arr::Vector{Float64}
 end
-const RWSE_HORIZONS = [1.0,2.0,3.0,4.0]
+const RWSE_HORIZONS = [1.0,2.0,3.0,4.0] # [s]
 
-init{F}(::Type{RootWeightedSquareError{F}}) = RootWeightedSquareError{F}(zeros(Float64, length(RWSE_HORIZONS)), 0, NaN)
+init{F}(::Type{RootWeightedSquareError{F}}) = RootWeightedSquareError{F}(zeros(Float64, length(RWSE_HORIZONS)), 0, Array(Float64, length(RWSE_HORIZONS)))
 function update_metric!{F}(
     metric::RootWeightedSquareError{F},
     behavior::AbstractVehicleBehavior,
@@ -197,14 +188,14 @@ function update_metric!{F}(
             h = n_horizons
             Δt = (validfind - seg.validfind_start)*DEFAULT_SEC_PER_FRAME
             while h > 0 && RWSE_HORIZONS[h] ≥ Δt
-                rwse_component[h] += Δ2
+                rwse_components[h] += Δ2
                 h -= 1
             end
         end
     end
     for h = 1 : n_horizons
-        rwse_component[h] /= n_monte_carlo_samples
-        metric.running_sum[h] += rwse_component[h]
+        rwse_components[h] /= n_monte_carlo_samples
+        metric.running_sums[h] += rwse_components[h]
     end
 
     metric.N += 1
@@ -229,13 +220,20 @@ function complete_metric!(
     ::AbstractVehicleBehavior,
     )
 
-    metric.rwse = sqrt(metric.running_sum / metric.N)
+    for (i,s) in enumerate(metric.running_sums)
+        metric.rwse_arr[i] = sqrt(s / metric.N)
+    end
+
     metric
 end
 
 #########################################################################################################
 # LoglikelihoodMetric
 
+type LoglikelihoodMetric <: BehaviorFrameMetric
+    # log likelihood of dataset frames on model
+    logl::Float64
+end
 function extract(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData,
     behavior::AbstractVehicleBehavior,
@@ -251,6 +249,12 @@ function extract(::Type{LoglikelihoodMetric},
         end
     end
     LoglikelihoodMetric(logl)
+end
+
+type LoglikelihoodBaggedBoundsMetric <: BehaviorFrameMetric
+    μ::Float64 # sample mean
+    σ::Float64 # sample standard deviation
+    confidence95::Float64 # 95% confidence bounds on logl
 end
 function extract(::Type{LoglikelihoodBaggedBoundsMetric},
     dset::ModelTrainingData,
@@ -300,8 +304,8 @@ end
 
 #########################################################################################################
 
-function extract_metrics{D<:DataType}(
-    metric_types::Vector{D}, # each type should be a BehaviorMetric
+function extract_metrics(
+    metric_types::Vector{DataType}, # each type should be a BehaviorMetric
     dset::ModelTrainingData,
     behavior::AbstractVehicleBehavior,
     assignment::FoldAssignment,
@@ -309,14 +313,14 @@ function extract_metrics{D<:DataType}(
     match_fold::Bool,
     )
 
-    retval = Array(BehaviorMetric, length(metric_types))
+    retval = Array(BehaviorFrameMetric, length(metric_types))
     for (i,metric_type) in enumerate(metric_types)
         retval[i] = extract(metric_type, dset, behavior, assignment, fold, match_fold)
     end
     retval
 end
-function extract_metrics{D<:DataType, B<:AbstractVehicleBehavior}(
-    metric_types::Vector{D},
+function extract_metrics{B<:AbstractVehicleBehavior}(
+    metric_types::Vector{DataType},
     models::Vector{B},
     dset::ModelTrainingData,
     assignment::FoldAssignment,
@@ -324,7 +328,16 @@ function extract_metrics{D<:DataType, B<:AbstractVehicleBehavior}(
     match_fold::Bool,
     )
 
-    retval = Array(Vector{BehaviorMetric}, length(models))
+    retval = Array(Vector{BehaviorFrameMetric}, length(models))
+
+    if isempty(metric_types)
+        for i = 1 : length(models)
+            retval[i] = BehaviorMetric[]
+        end
+        return retval
+    end
+
+
     for (i,model) in enumerate(models)
         retval[i] = extract_metrics(metric_types, dset, model, assignment, fold, match_fold)
     end
@@ -434,399 +447,399 @@ function calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, 
     calc_probability_for_uniform_sample_from_bin(bindiscreteprob, width_of_bin)
 end
 
-function calc_tracemetrics(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    seg::PdsetSegment;
-    basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset, sn),
-    pdset_frames_per_sim_frame::Int=5
-    )
-
-    has_collision = false # whether any collision occurs
-    has_collision_activecar = false # whether the active car collides with another car
-    n_lanechanges = 0 # number of lanechanges the active car makes
-    elapsed_time = get_elapsed_time(pdset, seg.validfind_start, seg.validfind_end)
-
-    speed = StreamStats.Var()
-    headway = StreamStats.Var()
-    timegap = StreamStats.Var()
-    centerline_offset = StreamStats.Var()
-
-    validfind_of_first_offroad = -1
-    n_frames_offroad = 0
-
-    cur_lanetag = get(pdset, :lanetag, carid2ind(pdset, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
-    cur_lane = get_lane(sn, cur_lanetag)
-
-    for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
-        # NOTE(tim): this assumes that the validfinds are continuous
-
-        carind_active = carid2ind(pdset, seg.carid, validfind)
-
-        if validfind > seg.validfind_start
-            fut_lanetag = get(pdset, :lanetag, carind_active, validfind)::LaneTag
-            if fut_lanetag != cur_lanetag
-                if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
-                    lane_change_occurred = true
-                else
-                    cur_lane = next_lane(sn, cur_lane)
-                    cur_lanetag = cur_lane.id
-                    lane_change_occurred = fut_lanetag != cur_lanetag
-                end
-
-                if lane_change_occurred
-                    n_lanechanges += 1
-                end
-            end
-        end
-
-        update!(speed, Features._get(SPEED, basics, carind_active, validfind))
-        (best_carind, d_x_front, d_y_front) = Features._get_carind_front_and_dist(basics, carind_active, validfind)
-        update!(headway, d_x_front)
-
-        if !isinf(d_x_front)
-            timegap_x_front = Features.THRESHOLD_TIMEGAP
-        else
-            v  = get(basics.pdset, :velFx, carind_active, validfind) # our current velocity
-
-            if v <= 0.0
-                timegap_x_front = Features.THRESHOLD_TIMEGAP
-            else
-                timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
-            end
-        end
-        update!(timegap, timegap_x_front)
-
-
-        offset = get(pdset, :d_cl, carind_active, validfind)
-        update!(centerline_offset, offset)
-        is_on_road = abs(offset) < 2.0 # NOTE(tim): there should be a call for this in StreetNetwork
-
-        if !is_on_road
-            n_frames_offroad += 1
-            validfind_of_first_offroad = min(validfind, validfind_of_first_offroad)
-        end
-
-        # check for collision
-        posGx = get(pdset, :posGx, carind_active, validfind)
-        posGy = get(pdset, :posGy, carind_active, validfind)
-
-        max_carind = get_maxcarind(pdset, validfind)
-        for carind in -1 : max_carind
-            if carind != carind_active
-
-                posGx_target = get(pdset, :posGx, carind, validfind)
-                posGy_target = get(pdset, :posGy, carind, validfind)
-
-                Δx = posGx - posGx_target
-                Δy = posGx - posGy_target
-
-                # TODO(tim): these attributes should be in PdSet
-                # TODO(tim): we should be using a better method for collision checking
-                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
-                    has_collision_activecar = true
-                    # NOTE(tim): anything after a collision is invalid - break here
-                    break
-                end
-
-                for carind2 in -1 : max_carind
-                    if carind2 != carind_active &&
-                       carind2 != carind
-
-                        Δx = posGx_target - get(pdset, :posGx, carind2, validfind)
-                        Δy = posGy_target - get(pdset, :posGy, carind2, validfind)
-
-                        # TODO(tim): these attributes should be in PdSet
-                        # TODO(tim): we should be using a better method for collision checking
-                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
-                            has_collision = true
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    went_offroad = (validfind_of_first_offroad == -1)
-
-    [
-     :has_collision => has_collision,
-     :has_collision_activecar => has_collision_activecar,
-     :n_lanechanges_activecar => n_lanechanges,
-     :mean_speed_activecar => mean(speed),
-     :mean_centerline_offset_activecar => mean(centerline_offset),
-     :std_speed_activecar => std(speed),
-     :std_centerline_offset_activecar => std(centerline_offset),
-     :n_sec_offroad_ego => went_offroad ? 0.0 : get_elapsed_time(pdset, validfind_of_first_offroad, seg.validfind_end),
-     :elapsed_time => elapsed_time,
-     :time_of_first_offroad => went_offroad ? Inf : gete(pdset, :time, validfind_of_first_offroad)::Float64,
-     :went_offroad => went_offroad,
-     :mean_headway => mean(headway),
-     :mean_timegap => mean(timegap),
-     :logl => NaN, # NOTE(tim): no defined behavior
-    ]::Dict{Symbol, Any}
-end
-function calc_tracemetrics(
-    behavior::AbstractVehicleBehavior,
-    pdset_original::PrimaryDataset,
-    pdset_simulation::PrimaryDataset,
-    sn::StreetNetwork,
-    seg::PdsetSegment;
-    basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset_simulation, sn),
-    pdset_frames_per_sim_frame::Int=5
-    )
-
-    has_collision = false # whether any collision occurs
-    has_collision_activecar = false # whether the active car collides with another car
-    n_lanechanges = 0 # number of lanechanges the active car makes
-    elapsed_time = get_elapsed_time(pdset_simulation, seg.validfind_start, seg.validfind_end)
-
-    speed = StreamStats.Var()
-    headway = StreamStats.Var()
-    timegap = StreamStats.Var()
-    centerline_offset = StreamStats.Var()
-
-    total_action_loglikelihood = 0.0
-
-    validfind_of_first_offroad = -1
-    n_frames_offroad = 0
-
-    cur_lanetag = get(pdset_simulation, :lanetag, carid2ind(pdset_simulation, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
-    cur_lane = get_lane(sn, cur_lanetag)
-
-    for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
-        # NOTE(tim): this assumes that the validfinds are continuous
-
-        carind_active = carid2ind(pdset_simulation, seg.carid, validfind)
-
-        if validfind > seg.validfind_start
-            fut_lanetag = get(pdset_simulation, :lanetag, carind_active, validfind)::LaneTag
-            if fut_lanetag != cur_lanetag
-                if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
-                    lane_change_occurred = true
-                else
-                    cur_lane = next_lane(sn, cur_lane)
-                    cur_lanetag = cur_lane.id
-                    lane_change_occurred = fut_lanetag != cur_lanetag
-                end
-
-                if lane_change_occurred
-                    n_lanechanges += 1
-                end
-            end
-        end
-
-        update!(speed, Features._get(SPEED, basics, carind_active, validfind))
-        (best_carind, d_x_front, d_y_front) = Features._get_carind_front_and_dist(basics, carind_active, validfind)
-        update!(headway, d_x_front)
-
-        if !isinf(d_x_front)
-            timegap_x_front = Features.THRESHOLD_TIMEGAP
-        else
-            v  = get(basics.pdset, :velFx, carind_active, validfind) # our current velocity
-
-            if v <= 0.0
-                timegap_x_front = Features.THRESHOLD_TIMEGAP
-            else
-                timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
-            end
-        end
-        update!(timegap, timegap_x_front)
-
-        if validfind != seg.validfind_end
-            total_action_loglikelihood += calc_action_loglikelihood(basics, behavior, carind_active, validfind)
-            if isinf(total_action_loglikelihood)
-                println(typeof(behavior))
-                error("Inf action loglikelihood")
-            end
-        end
-
-        offset = get(pdset_simulation, :d_cl, carind_active, validfind)
-        update!(centerline_offset, offset)
-        is_on_road = abs(offset) < 2.0 # NOTE(tim): there should be a call for this in StreetNetwork
-
-        if !is_on_road
-            n_frames_offroad += 1
-            validfind_of_first_offroad = min(validfind, validfind_of_first_offroad)
-        end
-
-        # check for collision
-        posGx = get(pdset_simulation, :posGx, carind_active, validfind)
-        posGy = get(pdset_simulation, :posGy, carind_active, validfind)
-
-        max_carind = get_maxcarind(pdset_simulation, validfind)
-        for carind in -1 : max_carind
-            if carind != carind_active
-
-                posGx_target = get(pdset_simulation, :posGx, carind, validfind)
-                posGy_target = get(pdset_simulation, :posGy, carind, validfind)
-
-                Δx = posGx - posGx_target
-                Δy = posGx - posGy_target
-
-                # TODO(tim): these attributes should be in PdSet
-                # TODO(tim): we should be using a better method for collision checking
-                if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
-                    has_collision_activecar = true
-                    # NOTE(tim): anything after a collision is invalid - break here
-                    break
-                end
-
-                for carind2 in -1 : max_carind
-                    if carind2 != carind_active &&
-                       carind2 != carind
-
-                        Δx = posGx_target - get(pdset_simulation, :posGx, carind2, validfind)
-                        Δy = posGy_target - get(pdset_simulation, :posGy, carind2, validfind)
-
-                        # TODO(tim): these attributes should be in PdSet
-                        # TODO(tim): we should be using a better method for collision checking
-                        if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
-                            has_collision = true
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    went_offroad = (validfind_of_first_offroad == -1)
-
-    [
-     :has_collision => has_collision,
-     :has_collision_activecar => has_collision_activecar,
-     :n_lanechanges_activecar => n_lanechanges,
-     :mean_speed_activecar => mean(speed),
-     :mean_centerline_offset_activecar => mean(centerline_offset),
-     :std_speed_activecar => std(speed),
-     :std_centerline_offset_activecar => std(centerline_offset),
-     :n_sec_offroad_ego => went_offroad ? 0.0 : get_elapsed_time(pdset, validfind_of_first_offroad, seg.validfind_end),
-     :elapsed_time => elapsed_time,
-     :time_of_first_offroad => went_offroad ? Inf : gete(pdset, :time, validfind_of_first_offroad)::Float64,
-     :went_offroad => went_offroad,
-     :mean_headway => mean(headway),
-     :mean_timegap => mean(timegap),
-     :logl => total_action_loglikelihood,
-     :rmse_1000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 4),
-     :rmse_2000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 8),
-     :rmse_3000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 12),
-     :rmse_4000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 16),
-    ]::Dict{Symbol, Any}
-end
-function calc_tracemetrics(
-    pdsets::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-    pdset_segments::Vector{PdsetSegment},
-    fold::Integer,
-    pdsetseg_fold_assignment::Vector{Int},
-    match_fold::Bool
-    )
-
-    fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
-
-    @assert(length(pdset_segments) == length(pdsetseg_fold_assignment))
-
-    metrics = Array(Dict{Symbol, Any}, fold_size)
-    i = 0
-    for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
-        if is_in_fold(fold, fold_assignment, match_fold)
-            i += 1
-            metrics[i] = calc_tracemetrics(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg)
-        end
-    end
-
-    metrics
-end
-
-function calc_aggregate_metric(sym::Symbol, ::Type{Int}, metricset::Vector{Dict{Symbol, Any}})
-
-    # counts = Dict{Int,Int}()
-    # for i = 1 : length(metricset)
-    #     counts[metricset[i][sym]] = get(counts, metricset[i][sym], 0) + 1
-    # end
-
-    t_arr = [metricset[i][:elapsed_time] for i in 1 : length(metricset)]
-    tot_time = sum(t_arr)
-
-    arr = [metricset[i][sym] for i in 1 : length(metricset)]
-    ave = mean(arr)
-    stdev = stdm(arr, ave)
-    weighted_ave = sum([metricset[i][sym] * metricset[i][:elapsed_time] for i in 1 : length(metricset)]) / tot_time
-
-    (ave, stdev, weighted_ave)
-end
-function calc_aggregate_metric(sym::Symbol, ::Type{Bool}, metricset::Vector{Dict{Symbol, Any}})
-    n_true = sum([metricset[i][sym] for i in 1 : length(metricset)])
-    ave_time_to_true = sum([metricset[i][sym] ? metricset[i][:elapsed_time] : 0.0 for i in 1 : length(metricset)]) / n_true
-
-    t_arr = [metricset[i][:elapsed_time] for i in 1 : length(metricset)]
-    tot_time = sum(t_arr)
-
-    odds_true_per_run = n_true / length(metricset)
-    odds_true_per_sec = n_true / tot_time
-
-    (odds_true_per_run, odds_true_per_sec, ave_time_to_true)
-end
-function calc_aggregate_metric(sym::Symbol, ::Type{Float64}, metricset::Vector{Dict{Symbol, Any}}, use_abs=false)
-    if use_abs
-        arr = convert(Vector{Float64}, [abs(metricset[i][sym]) for i in 1 : length(metricset)])
-    else
-        arr = convert(Vector{Float64}, [metricset[i][sym] for i in 1 : length(metricset)])
-    end
-
-    inds = find(a->a!=Inf, arr)
-    arr = arr[inds]
-    ave = mean(arr)
-    stdev = stdm(arr, ave)
-    (ave, stdev)
-end
-
-function _calc_aggregate_metrics(tracemetrics::Vector{Dict{Symbol, Any}})
-
-    aggmetrics = (Symbol=>Any)[]
-
-    calc_and_add!(sym::Symbol, ::Type{Float64}, use_abs::Bool=false) = begin
-        res = calc_aggregate_metric(sym, Float64, tracemetrics, use_abs)
-        aggmetrics[symbol(string(sym)*"_mean")] = res[1]
-        aggmetrics[symbol(string(sym)*"_stdev")] = res[2]
-    end
-    add!(sym::Symbol, ::Type{Float64}) = begin
-        aggmetrics[symbol(string(sym)*"_mean")] = NaN
-        aggmetrics[symbol(string(sym)*"_stdev")] = NaN
-    end
-
-    calc_and_add!(:mean_centerline_offset_activecar, Float64, true)
-
-    for key in (
-            :mean_speed_activecar, :time_of_first_offroad, :n_lanechanges_activecar,
-            :mean_headway, :mean_timegap, :logl,
-            :rmse_1000ms, :rmse_2000ms, :rmse_3000ms, :rmse_4000ms
-        )
-        if haskey(tracemetrics[1], key)
-            calc_and_add!(key, Float64)
-        else
-            add!(key, Float64)
-        end
-    end
-
-    res = calc_aggregate_metric(:went_offroad, Bool, tracemetrics)
-    aggmetrics[:went_offroad_odds_true_per_run] = res[1]
-    aggmetrics[:went_offroad_odds_true_per_sec] = res[2]
-    aggmetrics[:went_offroad_ave_time_to_true] = res[3]
-
-    aggmetrics
-end
-function calc_aggregate_metrics(tracemetrics::Vector{Dict{Symbol, Any}})
-
-    aggmetrics = _calc_aggregate_metrics(tracemetrics)
-
-    aggmetrics[:mean_lane_offset_kldiv] = NaN
-    aggmetrics[:mean_speed_ego_kldiv] = NaN
-    aggmetrics[:mean_timegap_kldiv] = NaN
-    aggmetrics[:histobin_kldiv] = NaN
-
-    aggmetrics
-end
+# function calc_tracemetrics(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     seg::PdsetSegment;
+#     basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset, sn),
+#     pdset_frames_per_sim_frame::Int=5
+#     )
+
+#     has_collision = false # whether any collision occurs
+#     has_collision_activecar = false # whether the active car collides with another car
+#     n_lanechanges = 0 # number of lanechanges the active car makes
+#     elapsed_time = get_elapsed_time(pdset, seg.validfind_start, seg.validfind_end)
+
+#     speed = StreamStats.Var()
+#     headway = StreamStats.Var()
+#     timegap = StreamStats.Var()
+#     centerline_offset = StreamStats.Var()
+
+#     validfind_of_first_offroad = -1
+#     n_frames_offroad = 0
+
+#     cur_lanetag = get(pdset, :lanetag, carid2ind(pdset, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
+#     cur_lane = get_lane(sn, cur_lanetag)
+
+#     for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
+#         # NOTE(tim): this assumes that the validfinds are continuous
+
+#         carind_active = carid2ind(pdset, seg.carid, validfind)
+
+#         if validfind > seg.validfind_start
+#             fut_lanetag = get(pdset, :lanetag, carind_active, validfind)::LaneTag
+#             if fut_lanetag != cur_lanetag
+#                 if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
+#                     lane_change_occurred = true
+#                 else
+#                     cur_lane = next_lane(sn, cur_lane)
+#                     cur_lanetag = cur_lane.id
+#                     lane_change_occurred = fut_lanetag != cur_lanetag
+#                 end
+
+#                 if lane_change_occurred
+#                     n_lanechanges += 1
+#                 end
+#             end
+#         end
+
+#         update!(speed, Features._get(SPEED, basics, carind_active, validfind))
+#         (best_carind, d_x_front, d_y_front) = Features._get_carind_front_and_dist(basics, carind_active, validfind)
+#         update!(headway, d_x_front)
+
+#         if !isinf(d_x_front)
+#             timegap_x_front = Features.THRESHOLD_TIMEGAP
+#         else
+#             v  = get(basics.pdset, :velFx, carind_active, validfind) # our current velocity
+
+#             if v <= 0.0
+#                 timegap_x_front = Features.THRESHOLD_TIMEGAP
+#             else
+#                 timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
+#             end
+#         end
+#         update!(timegap, timegap_x_front)
+
+
+#         offset = get(pdset, :d_cl, carind_active, validfind)
+#         update!(centerline_offset, offset)
+#         is_on_road = abs(offset) < 2.0 # NOTE(tim): there should be a call for this in StreetNetwork
+
+#         if !is_on_road
+#             n_frames_offroad += 1
+#             validfind_of_first_offroad = min(validfind, validfind_of_first_offroad)
+#         end
+
+#         # check for collision
+#         posGx = get(pdset, :posGx, carind_active, validfind)
+#         posGy = get(pdset, :posGy, carind_active, validfind)
+
+#         max_carind = get_maxcarind(pdset, validfind)
+#         for carind in -1 : max_carind
+#             if carind != carind_active
+
+#                 posGx_target = get(pdset, :posGx, carind, validfind)
+#                 posGy_target = get(pdset, :posGy, carind, validfind)
+
+#                 Δx = posGx - posGx_target
+#                 Δy = posGx - posGy_target
+
+#                 # TODO(tim): these attributes should be in PdSet
+#                 # TODO(tim): we should be using a better method for collision checking
+#                 if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
+#                     has_collision_activecar = true
+#                     # NOTE(tim): anything after a collision is invalid - break here
+#                     break
+#                 end
+
+#                 for carind2 in -1 : max_carind
+#                     if carind2 != carind_active &&
+#                        carind2 != carind
+
+#                         Δx = posGx_target - get(pdset, :posGx, carind2, validfind)
+#                         Δy = posGy_target - get(pdset, :posGy, carind2, validfind)
+
+#                         # TODO(tim): these attributes should be in PdSet
+#                         # TODO(tim): we should be using a better method for collision checking
+#                         if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
+#                             has_collision = true
+#                         end
+#                     end
+#                 end
+#             end
+#         end
+#     end
+
+#     went_offroad = (validfind_of_first_offroad == -1)
+
+#     [
+#      :has_collision => has_collision,
+#      :has_collision_activecar => has_collision_activecar,
+#      :n_lanechanges_activecar => n_lanechanges,
+#      :mean_speed_activecar => mean(speed),
+#      :mean_centerline_offset_activecar => mean(centerline_offset),
+#      :std_speed_activecar => std(speed),
+#      :std_centerline_offset_activecar => std(centerline_offset),
+#      :n_sec_offroad_ego => went_offroad ? 0.0 : get_elapsed_time(pdset, validfind_of_first_offroad, seg.validfind_end),
+#      :elapsed_time => elapsed_time,
+#      :time_of_first_offroad => went_offroad ? Inf : gete(pdset, :time, validfind_of_first_offroad)::Float64,
+#      :went_offroad => went_offroad,
+#      :mean_headway => mean(headway),
+#      :mean_timegap => mean(timegap),
+#      :logl => NaN, # NOTE(tim): no defined behavior
+#     ]::Dict{Symbol, Any}
+# end
+# function calc_tracemetrics(
+#     behavior::AbstractVehicleBehavior,
+#     pdset_original::PrimaryDataset,
+#     pdset_simulation::PrimaryDataset,
+#     sn::StreetNetwork,
+#     seg::PdsetSegment;
+#     basics::FeatureExtractBasicsPdSet=FeatureExtractBasicsPdSet(pdset_simulation, sn),
+#     pdset_frames_per_sim_frame::Int=5
+#     )
+
+#     has_collision = false # whether any collision occurs
+#     has_collision_activecar = false # whether the active car collides with another car
+#     n_lanechanges = 0 # number of lanechanges the active car makes
+#     elapsed_time = get_elapsed_time(pdset_simulation, seg.validfind_start, seg.validfind_end)
+
+#     speed = StreamStats.Var()
+#     headway = StreamStats.Var()
+#     timegap = StreamStats.Var()
+#     centerline_offset = StreamStats.Var()
+
+#     total_action_loglikelihood = 0.0
+
+#     validfind_of_first_offroad = -1
+#     n_frames_offroad = 0
+
+#     cur_lanetag = get(pdset_simulation, :lanetag, carid2ind(pdset_simulation, seg.carid, seg.validfind_start), seg.validfind_start)::LaneTag
+#     cur_lane = get_lane(sn, cur_lanetag)
+
+#     for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
+#         # NOTE(tim): this assumes that the validfinds are continuous
+
+#         carind_active = carid2ind(pdset_simulation, seg.carid, validfind)
+
+#         if validfind > seg.validfind_start
+#             fut_lanetag = get(pdset_simulation, :lanetag, carind_active, validfind)::LaneTag
+#             if fut_lanetag != cur_lanetag
+#                 if same_tile(cur_lanetag, fut_lanetag) || !has_next_lane(sn, cur_lane)
+#                     lane_change_occurred = true
+#                 else
+#                     cur_lane = next_lane(sn, cur_lane)
+#                     cur_lanetag = cur_lane.id
+#                     lane_change_occurred = fut_lanetag != cur_lanetag
+#                 end
+
+#                 if lane_change_occurred
+#                     n_lanechanges += 1
+#                 end
+#             end
+#         end
+
+#         update!(speed, Features._get(SPEED, basics, carind_active, validfind))
+#         (best_carind, d_x_front, d_y_front) = Features._get_carind_front_and_dist(basics, carind_active, validfind)
+#         update!(headway, d_x_front)
+
+#         if !isinf(d_x_front)
+#             timegap_x_front = Features.THRESHOLD_TIMEGAP
+#         else
+#             v  = get(basics.pdset, :velFx, carind_active, validfind) # our current velocity
+
+#             if v <= 0.0
+#                 timegap_x_front = Features.THRESHOLD_TIMEGAP
+#             else
+#                 timegap_x_front = min(d_x_front / v, Features.THRESHOLD_TIMEGAP)
+#             end
+#         end
+#         update!(timegap, timegap_x_front)
+
+#         if validfind != seg.validfind_end
+#             total_action_loglikelihood += calc_action_loglikelihood(basics, behavior, carind_active, validfind)
+#             if isinf(total_action_loglikelihood)
+#                 println(typeof(behavior))
+#                 error("Inf action loglikelihood")
+#             end
+#         end
+
+#         offset = get(pdset_simulation, :d_cl, carind_active, validfind)
+#         update!(centerline_offset, offset)
+#         is_on_road = abs(offset) < 2.0 # NOTE(tim): there should be a call for this in StreetNetwork
+
+#         if !is_on_road
+#             n_frames_offroad += 1
+#             validfind_of_first_offroad = min(validfind, validfind_of_first_offroad)
+#         end
+
+#         # check for collision
+#         posGx = get(pdset_simulation, :posGx, carind_active, validfind)
+#         posGy = get(pdset_simulation, :posGy, carind_active, validfind)
+
+#         max_carind = get_maxcarind(pdset_simulation, validfind)
+#         for carind in -1 : max_carind
+#             if carind != carind_active
+
+#                 posGx_target = get(pdset_simulation, :posGx, carind, validfind)
+#                 posGy_target = get(pdset_simulation, :posGy, carind, validfind)
+
+#                 Δx = posGx - posGx_target
+#                 Δy = posGx - posGy_target
+
+#                 # TODO(tim): these attributes should be in PdSet
+#                 # TODO(tim): we should be using a better method for collision checking
+#                 if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
+#                     has_collision_activecar = true
+#                     # NOTE(tim): anything after a collision is invalid - break here
+#                     break
+#                 end
+
+#                 for carind2 in -1 : max_carind
+#                     if carind2 != carind_active &&
+#                        carind2 != carind
+
+#                         Δx = posGx_target - get(pdset_simulation, :posGx, carind2, validfind)
+#                         Δy = posGy_target - get(pdset_simulation, :posGy, carind2, validfind)
+
+#                         # TODO(tim): these attributes should be in PdSet
+#                         # TODO(tim): we should be using a better method for collision checking
+#                         if abs(Δx) < DEFAULT_CAR_LENGTH && abs(Δy) < DEFAULT_CAR_WIDTH
+#                             has_collision = true
+#                         end
+#                     end
+#                 end
+#             end
+#         end
+#     end
+
+#     went_offroad = (validfind_of_first_offroad == -1)
+
+#     [
+#      :has_collision => has_collision,
+#      :has_collision_activecar => has_collision_activecar,
+#      :n_lanechanges_activecar => n_lanechanges,
+#      :mean_speed_activecar => mean(speed),
+#      :mean_centerline_offset_activecar => mean(centerline_offset),
+#      :std_speed_activecar => std(speed),
+#      :std_centerline_offset_activecar => std(centerline_offset),
+#      :n_sec_offroad_ego => went_offroad ? 0.0 : get_elapsed_time(pdset, validfind_of_first_offroad, seg.validfind_end),
+#      :elapsed_time => elapsed_time,
+#      :time_of_first_offroad => went_offroad ? Inf : gete(pdset, :time, validfind_of_first_offroad)::Float64,
+#      :went_offroad => went_offroad,
+#      :mean_headway => mean(headway),
+#      :mean_timegap => mean(timegap),
+#      :logl => total_action_loglikelihood,
+#      :rmse_1000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 4),
+#      :rmse_2000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 8),
+#      :rmse_3000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 12),
+#      :rmse_4000ms => calc_rmse_predicted_vs_ground_truth(pdset_simulation, pdset_original, seg, 16),
+#     ]::Dict{Symbol, Any}
+# end
+# function calc_tracemetrics(
+#     pdsets::Vector{PrimaryDataset},
+#     streetnets::Vector{StreetNetwork},
+#     pdset_segments::Vector{PdsetSegment},
+#     fold::Integer,
+#     pdsetseg_fold_assignment::Vector{Int},
+#     match_fold::Bool
+#     )
+
+#     fold_size = calc_fold_size(fold, pdsetseg_fold_assignment, match_fold)
+
+#     @assert(length(pdset_segments) == length(pdsetseg_fold_assignment))
+
+#     metrics = Array(Dict{Symbol, Any}, fold_size)
+#     i = 0
+#     for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
+#         if is_in_fold(fold, fold_assignment, match_fold)
+#             i += 1
+#             metrics[i] = calc_tracemetrics(pdsets[seg.pdset_id], streetnets[seg.streetnet_id], seg)
+#         end
+#     end
+
+#     metrics
+# end
+
+# function calc_aggregate_metric(sym::Symbol, ::Type{Int}, metricset::Vector{Dict{Symbol, Any}})
+
+#     # counts = Dict{Int,Int}()
+#     # for i = 1 : length(metricset)
+#     #     counts[metricset[i][sym]] = get(counts, metricset[i][sym], 0) + 1
+#     # end
+
+#     t_arr = [metricset[i][:elapsed_time] for i in 1 : length(metricset)]
+#     tot_time = sum(t_arr)
+
+#     arr = [metricset[i][sym] for i in 1 : length(metricset)]
+#     ave = mean(arr)
+#     stdev = stdm(arr, ave)
+#     weighted_ave = sum([metricset[i][sym] * metricset[i][:elapsed_time] for i in 1 : length(metricset)]) / tot_time
+
+#     (ave, stdev, weighted_ave)
+# end
+# function calc_aggregate_metric(sym::Symbol, ::Type{Bool}, metricset::Vector{Dict{Symbol, Any}})
+#     n_true = sum([metricset[i][sym] for i in 1 : length(metricset)])
+#     ave_time_to_true = sum([metricset[i][sym] ? metricset[i][:elapsed_time] : 0.0 for i in 1 : length(metricset)]) / n_true
+
+#     t_arr = [metricset[i][:elapsed_time] for i in 1 : length(metricset)]
+#     tot_time = sum(t_arr)
+
+#     odds_true_per_run = n_true / length(metricset)
+#     odds_true_per_sec = n_true / tot_time
+
+#     (odds_true_per_run, odds_true_per_sec, ave_time_to_true)
+# end
+# function calc_aggregate_metric(sym::Symbol, ::Type{Float64}, metricset::Vector{Dict{Symbol, Any}}, use_abs=false)
+#     if use_abs
+#         arr = convert(Vector{Float64}, [abs(metricset[i][sym]) for i in 1 : length(metricset)])
+#     else
+#         arr = convert(Vector{Float64}, [metricset[i][sym] for i in 1 : length(metricset)])
+#     end
+
+#     inds = find(a->a!=Inf, arr)
+#     arr = arr[inds]
+#     ave = mean(arr)
+#     stdev = stdm(arr, ave)
+#     (ave, stdev)
+# end
+
+# function _calc_aggregate_metrics(tracemetrics::Vector{Dict{Symbol, Any}})
+
+#     aggmetrics = (Symbol=>Any)[]
+
+#     calc_and_add!(sym::Symbol, ::Type{Float64}, use_abs::Bool=false) = begin
+#         res = calc_aggregate_metric(sym, Float64, tracemetrics, use_abs)
+#         aggmetrics[symbol(string(sym)*"_mean")] = res[1]
+#         aggmetrics[symbol(string(sym)*"_stdev")] = res[2]
+#     end
+#     add!(sym::Symbol, ::Type{Float64}) = begin
+#         aggmetrics[symbol(string(sym)*"_mean")] = NaN
+#         aggmetrics[symbol(string(sym)*"_stdev")] = NaN
+#     end
+
+#     calc_and_add!(:mean_centerline_offset_activecar, Float64, true)
+
+#     for key in (
+#             :mean_speed_activecar, :time_of_first_offroad, :n_lanechanges_activecar,
+#             :mean_headway, :mean_timegap, :logl,
+#             :rmse_1000ms, :rmse_2000ms, :rmse_3000ms, :rmse_4000ms
+#         )
+#         if haskey(tracemetrics[1], key)
+#             calc_and_add!(key, Float64)
+#         else
+#             add!(key, Float64)
+#         end
+#     end
+
+#     res = calc_aggregate_metric(:went_offroad, Bool, tracemetrics)
+#     aggmetrics[:went_offroad_odds_true_per_run] = res[1]
+#     aggmetrics[:went_offroad_odds_true_per_sec] = res[2]
+#     aggmetrics[:went_offroad_ave_time_to_true] = res[3]
+
+#     aggmetrics
+# end
+# function calc_aggregate_metrics(tracemetrics::Vector{Dict{Symbol, Any}})
+
+#     aggmetrics = _calc_aggregate_metrics(tracemetrics)
+
+#     aggmetrics[:mean_lane_offset_kldiv] = NaN
+#     aggmetrics[:mean_speed_ego_kldiv] = NaN
+#     aggmetrics[:mean_timegap_kldiv] = NaN
+#     aggmetrics[:histobin_kldiv] = NaN
+
+#     aggmetrics
+# end
 # function calc_aggregate_metrics(
 #     tracemetrics::Vector{Dict{Symbol, Any}},
 #     metrics_set_orig::MetricsSet,
@@ -912,9 +925,9 @@ end
 #                counts_speed, counts_timegap, counts_laneoffset)
 # end
 
-function extract_metrics_from_traces{D<:DataType}(
-    metric_types::Vector{D},
-    metrics_realworld::Vector{BehaviorMetric_FromTraces},
+function extract_metrics_from_traces(
+    metric_types::Vector{DataType},
+    metrics_realworld::Vector{BehaviorTraceMetric},
     behavior::AbstractVehicleBehavior,
 
     basics::FeatureExtractBasicsPdSet,
@@ -928,7 +941,7 @@ function extract_metrics_from_traces{D<:DataType}(
     match_fold::Bool,
     )
 
-    metrics = Vector{BehaviorMetric_FromTraces, length(metric_types)}
+    metrics = Array(BehaviorTraceMetric, length(metric_types))
     for (i,T) in enumerate(metric_types)
         metrics[i] = init(T)
     end
@@ -940,9 +953,8 @@ function extract_metrics_from_traces{D<:DataType}(
             basics.pdset = pdsets_for_simulation[seg.pdset_id]
             basics.sn = streetnets[seg.streetnet_id]
             basics.runid += 1
-            behavior_pairs[1] = (behavior, seg.carid)
             copy_trace!(basics.pdset, pdset_orig, seg.carid, seg.validfind_start, seg.validfind_end)
-            simulate!(basics, behavior_pairs, seg.validfind_start, seg.validfind_end)
+            simulate!(basics, behavior, seg.carid, seg.validfind_start, seg.validfind_end)
 
             for metric in metrics
                 update_metric!(metric, behavior, pdset_orig, basics, seg)
@@ -957,7 +969,7 @@ function extract_metrics_from_traces{D<:DataType}(
     metrics
 end
 function extract_metrics_from_traces{B<:AbstractVehicleBehavior}(
-    metric_types::Vector{D},
+    metric_types::Vector{DataType}, # BehaviorTraceMetric
     behaviors::Vector{B},
 
     pdsets_original::Vector{PrimaryDataset},
@@ -967,10 +979,18 @@ function extract_metrics_from_traces{B<:AbstractVehicleBehavior}(
 
     assignment::FoldAssignment,
     fold::Int,
-    match_fold::Bool,
+    match_fold::Bool, # true for CV where we test on withheld data
     )
 
-    metrics_realworld = Array(BehaviorMetric_FromTraces, length(metric_types))
+    if isempty(metric_types)
+        retval = Array(Vector{BehaviorTraceMetric}, length(behaviors)+1)
+        for i = 1 : length(retval)
+            retval[i] = BehaviorTraceMetric[]
+        end
+        return retval
+    end
+
+    metrics_realworld = Array(BehaviorTraceMetric, length(metric_types))
     for (i,T) in enumerate(metric_types)
         metrics_realworld[i] = init(T)
     end
@@ -987,11 +1007,11 @@ function extract_metrics_from_traces{B<:AbstractVehicleBehavior}(
         end
     end
 
-    retval = Array(Vector{BehaviorMetric_FromTraces}, length(behaviors)+1)
+    retval = Array(Vector{BehaviorTraceMetric}, length(behaviors)+1)
     retval[1] = metrics_realworld
     for (i,behavior) in enumerate(behaviors)
         retval[i+1] = extract_metrics_from_traces(metric_types, metrics_realworld, behavior,
-                                                  basics, pdsets_original, pdset_simulation,
+                                                  basics, pdsets_original, pdsets_for_simulation,
                                                   streetnets, pdset_segments, assignment, fold, match_fold)
     end
 

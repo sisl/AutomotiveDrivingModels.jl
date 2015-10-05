@@ -1,6 +1,6 @@
 export  SimParams,
 		DEFAULT_SIM_PARAMS,
-       
+
         simulate!,
         simulate_but_terminate_if_collision!,
         propagate!,
@@ -39,8 +39,9 @@ function simulate!(
     )
 
     for validfind in validfind_start : pdset_frames_per_sim_frame : validfind_end-1
-        action_lat, action_lon = select_action(basics, behavior, carid, validfind)
-        propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon, 
+        carind = carid2ind(basics.pdset, carid, validfind)
+        action_lat, action_lon = select_action(basics, behavior, carind, validfind)
+        propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
                    pdset_frames_per_sim_frame, n_euler_steps)
     end
 
@@ -58,8 +59,9 @@ function simulate!(
     for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
         for (behavior,carid) in behavior_pairs
             if !isa(behavior, VehicleBehaviorNone)
-                action_lat, action_lon = select_action(basics, behavior, carid, validfind)
-                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon, 
+                carind = carid2ind(basics.pdset, carid, validfind)
+                action_lat, action_lon = select_action(basics, behavior, carind, validfind)
+                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
                           pdset_frames_per_sim_frame, n_euler_steps)
             end
         end
@@ -89,7 +91,7 @@ function simulate_but_terminate_if_collision!(
         for (behavior,carid) in behavior_pairs
             if !isa(behavior, VehicleBehaviorNone)
                 action_lat, action_lon = select_action(basics, behavior, carid, validfind)
-                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon, 
+                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
                           pdset_frames_per_sim_frame, n_euler_steps)
             end
         end
@@ -137,7 +139,7 @@ function _propagate_one_pdset_frame!(
     x = inertial.x
     y = inertial.y
     θ = inertial.θ
-    
+
     s = d = 0.0
     ϕ = get(pdset, :posFyaw, carind, validfind)
     v = get_speed(pdset, carind, validfind)
@@ -263,7 +265,7 @@ function propagate!(
     for jump = 0 : pdset_frames_per_sim_frame-1
         validfind_fut = jumpframe(pdset, validfind, jump)
         @assert(validfind_fut != 0)
-        _propagate_one_pdset_frame!(pdset, sn, validfind_fut, carid, action_lat, action_lon, n_euler_steps)        
+        _propagate_one_pdset_frame!(pdset, sn, validfind_fut, carid, action_lat, action_lon, n_euler_steps)
     end
 
     # carind = carid2ind(pdset, carid, validfind)
@@ -331,7 +333,7 @@ function calc_weighted_moving_average(
 end
 
 function _reverse_smoothing_sequential_moving_average(
-	vec::AbstractArray{Float64}, # vector of values originally smoothed on; 
+	vec::AbstractArray{Float64}, # vector of values originally smoothed on;
 	                             # with the most recent value having been overwritten with the smoothed value
 	index_start::Int, # the present index; value must be already populated
 	history::Int # the number of values to smooth over, (≥ 1)
@@ -354,7 +356,7 @@ function _reverse_smoothing_sequential_moving_average(
 	retval
 end
 function _reverse_smoothing_weighted_moving_average(
-	vec::AbstractArray{Float64}, # vector of values originally smoothed on; 
+	vec::AbstractArray{Float64}, # vector of values originally smoothed on;
 	                             # with the most recent value having been overwritten with the smoothed value
 	index_start::Int, # the present index; value must be already populated
 	history::Int # the number of values to smooth over, (≥ 1)

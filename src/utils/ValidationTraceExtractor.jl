@@ -1017,10 +1017,10 @@ function _pull_model_training_data(
 
     streetnet_filepaths = Array(String, length(streetnet_cache))
     for streetnet_id = 1 : length(streetnet_cache)
-        streetnet_filepaths[streetnet_id] = streetmap_base*streetnet_cache[streetnet_id][1]*".jld"
+        streetnet_filepaths[streetnet_id] = streetmap_base*"streetmap_"*streetnet_cache[streetnet_id][1]*".jld"
     end
 
-     ModelTrainingData(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes)
+    ModelTrainingData(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes)
 end
 function _pull_model_training_data_parallel(
     extract_params::OrigHistobinExtractParameters,

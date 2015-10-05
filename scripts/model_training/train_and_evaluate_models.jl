@@ -40,7 +40,9 @@ println("\t", METRICS_OUTPUT_FILE)
 
 
 dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
+
 train_test_split = JLD.load(TRAIN_VALIDATION_JLD_FILE, "train_test_split")
+cross_validation_split = JLD.load(TRAIN_VALIDATION_JLD_FILE, "cross_validation_split")
 
 if AM_ON_TULA
     # replace foldernames
@@ -99,17 +101,25 @@ JLD.save(MODEL_OUTPUT_JLD_FILE,
 # COMPUTE VALIDATION METRICS
 ##############################
 
-evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
+# evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
 
-metric_types_train = [LoglikelihoodMetric]#, LoglikelihoodBoundsCVMetric]
-metric_types_test = [LoglikelihoodMetric, LoglikelihoodBaggedBoundsMetric]
-
-# pdsets = load_pdsets(dset)
-# streetnets = load_pdsets(dset)
-# pdsets_for_simulation = deepcopy(pdsets)
+metric_types_test = [LoglikelihoodMetric,
+                     LoglikelihoodBaggedBoundsMetric,
+                    ]
+metric_types_cv_train_frames = DataType[]
+metric_types_cv_test_frames = DataType[] # [LoglikelihoodMetric]
+metric_types_cv_train_traces = DataType[]
+metric_types_cv_test_traces = [
+                              RootWeightedSquareError{SPEED},
+                              # RootWeightedSquareError{Timegap_X_FRONT},
+                              # RootWeightedSquareError{D_CL},
+                             ]
 
 # metrics_sets_train = extract_metrics(metric_types_train, models, dset, train_test_split, FOLD_TRAIN, true)
-metrics_sets_test = extract_metrics(metric_types_test, models, dset, train_test_split, FOLD_TEST, true)
+metrics_sets_train = cross_validate(behaviorset, dset, cross_validation_split,
+                            metric_types_cv_train_frames, metric_types_cv_test_frames,
+                            metric_types_cv_train_traces, metric_types_cv_test_traces)
+# metrics_sets_test = extract_metrics(metric_types_test, models, dset, train_test_split, FOLD_TEST, true)
 
 # metrics_sets_train = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
 #                                                               streetnets, pdset_segments, evalparams,
@@ -126,8 +136,8 @@ metrics_sets_test = extract_metrics(metric_types_test, models, dset, train_test_
 #             "npdset_segments", length(dset.pdset_segments)
 #             )
 
-# println(metrics_sets_train)
-println(metrics_sets_test)
+println(metrics_sets_train)
+# println(metrics_sets_test)
 
 # println("DONE")
 println("DONE")
