@@ -157,14 +157,14 @@ function _propagate_one_pdset_frame!(
         proj = project_point_to_streetmap(x, y, sn)
         @assert(proj.successful)
 
-        ptG = proj.curvept
+        ptG = proj.footpoint
         s, d, ϕ = pt_to_frenet_xyy(ptG, x, y, θ)
     end
 
     proj = project_point_to_streetmap(x, y, sn)
     @assert(proj.successful)
 
-    ptG = proj.curvept
+    ptG = proj.footpoint
     lane = proj.lane
     seg = get_segment(sn, lane.id)
     d_end = distance_to_lane_end(sn, seg, lane.id.lane, proj.extind)
@@ -253,7 +253,7 @@ function propagate!(
     )
 
     # println("\n")
-    # println(pdset.df_ego_primary[validfind, :])
+    # println(pdset.df_ego[validfind, :])
     # for i = 0 : pdset_frames_per_sim_frame
     #     carind = carid2ind(pdset, carid, validfind+i)
     #     velFx = get(pdset, "velFx", carind, validfind+i)
@@ -283,8 +283,8 @@ function propagate!(
 
     # @printf("before: %10.6f %10.6f\n", action_lat, action_lon)
     # @printf("after:  %10.6f %10.6f\n", action_lat_after, action_lon_after)
-    # println(pdset.df_ego_primary[validfind, :])
-    # println(pdset.df_ego_primary[validfind+5, :])
+    # println(pdset.df_ego[validfind, :])
+    # println(pdset.df_ego[validfind+5, :])
     # println("\n")
     # exit()
 

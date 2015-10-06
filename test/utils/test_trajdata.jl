@@ -14,18 +14,18 @@
 
 function are_sizes_consistent(pdset::PrimaryDataset)
 
-    nframes = nrow(pdset.df_ego_primary)
+    nframes = nrow(pdset.df_ego)
     @test nframes == length(pdset.ego_car_on_freeway)
     @test nframes == length(pdset.frameind2validfind)
 
-    nvalidfinds = nrow(pdset.df_other_primary)
+    nvalidfinds = nrow(pdset.df_other)
     @test nvalidfinds ≤ nframes
     @test nvalidfinds == size(pdset.mat_other_indmap, 1)
     @test sum(pdset.ego_car_on_freeway) == nvalidfinds
 
     n_matinds = size(pdset.mat_other_indmap, 2)
     @test length(unique(collect(values(pdset.dict_other_idmap)))) == n_matinds
-    @test pdset.maxcarind == div(ncol(pdset.df_other_primary), pdset.df_other_ncol_per_entry)-1
+    @test pdset.maxcarind == div(ncol(pdset.df_other), pdset.df_other_ncol_per_entry)-1
 
     @test pdset.df_other_ncol_per_entry > 0
     @test pdset.df_other_ncol_per_entry == length(pdset.df_other_column_map)
@@ -35,7 +35,7 @@ function is_time_ascending(pdset::PrimaryDataset)
     num_frameinds = nframeinds(pdset)
     if num_frameinds ≥ 1
         for frameind = 2 : num_frameinds
-            if pdset.df_ego_primary[frameind, :time] ≤ pdset.df_ego_primary[frameind-1, :time]
+            if pdset.df_ego[frameind, :time] ≤ pdset.df_ego[frameind-1, :time]
                 return false
             end
         end
@@ -237,7 +237,7 @@ add_car_slot!(pdset)
 test_pdset_for_common_problems(pdset)
 @test get_num_cars_in_frame(pdset, 1) == 1
 
-set_ego!(pdset, 1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, LaneTag(1,2,3,4), 0.6, 
+set_ego!(pdset, 1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, LaneTag(1,2,3,4), 0.6,
                    0.7, 0, 1, 0.8, 0.9, 0.11, 0.12)
 
 @test isapprox(gete(pdset, :posGx,     1), 0.0)
@@ -260,8 +260,8 @@ add_car_to_validfind!(pdset, 1, 1)
 test_pdset_for_common_problems(pdset)
 @test get_num_cars_in_frame(pdset, 1) == 2
 
-set_other!(pdset, 0, 1, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 
-                  LaneTag(5,6,7,8), 0.19, 
+set_other!(pdset, 0, 1, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18,
+                  LaneTag(5,6,7,8), 0.19,
                   0.20, 2, 3, 0.21, 0.22, 0.23, 0.24)
 
 @test isapprox(getc(pdset, :posGx,     0, 1), 0.13)

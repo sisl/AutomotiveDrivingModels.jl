@@ -161,8 +161,8 @@ type PrimaryDataset
 	=#
 
 
-	df_ego_primary     :: DataFrame              # [frameind,  :feature] -> value
-	df_other_primary   :: DataFrame              # [validfind, :feature] -> value, missing features are NA
+	df_ego     :: DataFrame              # [frameind,  :feature] -> value
+	df_other   :: DataFrame              # [validfind, :feature] -> value, missing features are NA
 	dict_trajmat       :: Dict{Uint32,DataFrame} # [carid] -> trajmat (DEPRECATED)
 	dict_other_idmap   :: Dict{Uint32,Uint16}    # [carid] -> matind
 	mat_other_indmap   :: Matrix{Int16}          # [validfind, matind] -> carind, -1 if not present
@@ -175,15 +175,15 @@ type PrimaryDataset
 	df_other_column_map :: Dict{Symbol, Int}     # maps symbol to column index
 
 	function PrimaryDataset(
-		df_ego_primary     :: DataFrame,
-		df_other_primary   :: DataFrame,
+		df_ego     :: DataFrame,
+		df_other   :: DataFrame,
 		dict_trajmat       :: Dict{Uint32,DataFrame},
 		dict_other_idmap   :: Dict{Uint32,Uint16},
 		mat_other_indmap   :: Matrix{Int16},
 		ego_car_on_freeway :: BitVector
 		)
 
-		n_frames = size(df_ego_primary, 1)
+		n_frames = size(df_ego, 1)
 		n_valid  = sum(ego_car_on_freeway)
 
 		validfind2frameind = zeros(Int32, n_valid)
@@ -199,12 +199,12 @@ type PrimaryDataset
 		end
 
 		maxcarind = -1
-		while haskey(df_other_primary, symbol(@sprintf("id_%d", maxcarind+1)))
+		while haskey(df_other, symbol(@sprintf("id_%d", maxcarind+1)))
 			maxcarind += 1
 		end
 
 		df_other_column_map = Dict{Symbol, Int}()
-		df_names = names(df_other_primary)
+		df_names = names(df_other)
 		col = 0
 		while col < length(df_names)
 			col += 1
@@ -218,8 +218,8 @@ type PrimaryDataset
 		end
 		df_other_ncol_per_entry = length(df_other_column_map)
 
-		new(df_ego_primary,
-			df_other_primary,
+		new(df_ego,
+			df_other,
 			dict_trajmat,
 			dict_other_idmap,
 			mat_other_indmap,
@@ -233,7 +233,7 @@ type PrimaryDataset
 	end
 end
 
-function _create_df_ego_primary(nframes::Integer)
+function _create_df_ego(nframes::Integer)
 	DataFrame(
 	        time           = DataArray(Float64, nframes),
 	        frame          = DataArray(Int,     nframes),
@@ -266,9 +266,9 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec
 	@assert(n_other_vehicles ≥ 0)
 	@assert(sec_per_frame > 0.0)
 
-	df_ego_primary = _create_df_ego_primary(nframes)
-	df_other_primary = DataFrame()
-    add_symbol! = (str,ind,typ)->df_other_primary[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, nframes)
+	df_ego = _create_df_ego(nframes)
+	df_other = DataFrame()
+    add_symbol! = (str,ind,typ)->df_other[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, nframes)
     add_slot!   = (cind)->begin
                                 add_symbol!("posGx",     cind, Float64)
                                 add_symbol!("posGy",     cind, Float64)
@@ -301,11 +301,11 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec
     ego_car_on_freeway = trues(nframes)
 
     for frame = 1 : nframes
-    	df_ego_primary[frame, :frame] = frame
-    	df_ego_primary[frame, :time] = (frame-1)*sec_per_frame
+    	df_ego[frame, :frame] = frame
+    	df_ego[frame, :time] = (frame-1)*sec_per_frame
     end
 
-    PrimaryDataset(df_ego_primary, df_other_primary, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+    PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
 function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME)
 
@@ -314,8 +314,8 @@ function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float
 	- ego_car_on_freeway is set to true and the number of validfinds is increased
 	=#
 
-	append!(pdset.df_ego_primary, similar(pdset.df_ego_primary, nframes))
-	append!(pdset.df_other_primary, similar(pdset.df_other_primary, nframes))
+	append!(pdset.df_ego, similar(pdset.df_ego, nframes))
+	append!(pdset.df_other, similar(pdset.df_other, nframes))
 
     pdset.mat_other_indmap = vcat(pdset.mat_other_indmap, fill(int16(-1), nframes, size(pdset.mat_other_indmap,2)))
     append!(pdset.ego_car_on_freeway, trues(nframes))
@@ -333,11 +333,11 @@ function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float
     	pdset.frameind2validfind[frameind] = validfind
 
     	if frameind > 1
-    		pdset.df_ego_primary[frameind, :frame] = pdset.df_ego_primary[frameind-1, :frame] + 1
-    		pdset.df_ego_primary[frameind, :time] = pdset.df_ego_primary[frameind-1, :time] + sec_per_frame
+    		pdset.df_ego[frameind, :frame] = pdset.df_ego[frameind-1, :frame] + 1
+    		pdset.df_ego[frameind, :time] = pdset.df_ego[frameind-1, :time] + sec_per_frame
     	else
-    		pdset.df_ego_primary[frameind, :frame] = 1
-    		pdset.df_ego_primary[frameind, :time] = 0.0
+    		pdset.df_ego[frameind, :frame] = 1
+    		pdset.df_ego[frameind, :time] = 0.0
     	end
     end
 
@@ -438,8 +438,8 @@ Base.next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
 
 function Base.deepcopy(pdset::PrimaryDataset)
     PrimaryDataset(
-        deepcopy(pdset.df_ego_primary),
-        deepcopy(pdset.df_other_primary),
+        deepcopy(pdset.df_ego),
+        deepcopy(pdset.df_other),
         deepcopy(pdset.dict_trajmat),
         deepcopy(pdset.dict_other_idmap),
         deepcopy(pdset.mat_other_indmap),
@@ -476,8 +476,8 @@ function indinframe( pdset::PrimaryDataset, carind::Integer, validfind::Integer 
 	end
 	if 0 ≤ carind ≤ pdset.maxcarind
 		col = pdset.df_other_column_map[:id] + pdset.df_other_ncol_per_entry * carind
-		id_ = pdset.df_other_primary[validfind, col]
-		# id_ = pdset.df_other_primary[validfind, symbol(@sprintf("id_%d", carind))]
+		id_ = pdset.df_other[validfind, col]
+		# id_ = pdset.df_other[validfind, symbol(@sprintf("id_%d", carind))]
 		!isa(id_, NAtype)
 	else
 		false
@@ -545,7 +545,7 @@ function carind2id( pdset::PrimaryDataset, carind::Integer, validfind::Integer )
 		return CARID_EGO
 	end
 	col = pdset.df_other_column_map[:id] + pdset.df_other_ncol_per_entry * carind
-	carid = pdset.df_other_primary[validfind, col]::Uint32
+	carid = pdset.df_other[validfind, col]::Uint32
 	@assert(carid != -1)
 	int(carid)
 end
@@ -677,8 +677,8 @@ function closest_validfind( pdset::PrimaryDataset, time::Float64 )
 	return dp ≤ dn ? fp : fn
 end
 
-gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego_primary[frameind, sym]
-gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer ) = pdset.df_ego_primary[validfind2frameind(pdset, validfind), sym]
+gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego[frameind, sym]
+gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer ) = pdset.df_ego[validfind2frameind(pdset, validfind), sym]
 
 getc_symb( str::String, carind::Integer ) = symbol(@sprintf("%s_%d", str, carind))
 function getc( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer )
@@ -687,7 +687,7 @@ function getc( trajdata::DataFrame, str::String, carind::Integer, frameind::Inte
 end
 function getc( pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer )
 	col = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind
-	pdset.df_other_primary[validfind, col]
+	pdset.df_other[validfind, col]
 end
 function get(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer)
 	if carind == CARIND_EGO
@@ -707,11 +707,11 @@ function setc!( trajdata::DataFrame, str::String, carind::Integer, frameind::Int
 end
 function sete!( pdset::PrimaryDataset, sym::Symbol, frameind::Integer, val::Any )
 	@assert(1 <= frameind && frameind <= length(pdset.frameind2validfind))
-	pdset.df_ego_primary[frameind, sym] = val
+	pdset.df_ego[frameind, sym] = val
 end
 function setc!( pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer, val::Any )
 	col = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind
-	pdset.df_other_primary[validfind, col] = val
+	pdset.df_other[validfind, col] = val
 end
 function set!(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::Integer, val::Any)
 	if carind == CARIND_EGO
@@ -722,14 +722,14 @@ function set!(pdset::PrimaryDataset, sym::Symbol, carind::Integer, validfind::In
 end
 
 function get_speed_ego(pdset::PrimaryDataset, frameind::Integer)
-	velFx = pdset.df_ego_primary[frameind, :velFx]::Float64
-	velFy = pdset.df_ego_primary[frameind, :velFy]::Float64
+	velFx = pdset.df_ego[frameind, :velFx]::Float64
+	velFy = pdset.df_ego[frameind, :velFy]::Float64
 	sqrt(velFx*velFx + velFy*velFy) # NOTE: faster than hypot
 end
 function get_speed_other(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
 	baseindex = pdset.df_other_ncol_per_entry * carind
-	velFx = pdset.df_other_primary[validfind, pdset.df_other_column_map[:velFx] + baseindex]::Float64
-	velFy = pdset.df_other_primary[validfind, pdset.df_other_column_map[:velFy] + baseindex]::Float64
+	velFx = pdset.df_other[validfind, pdset.df_other_column_map[:velFx] + baseindex]::Float64
+	velFy = pdset.df_other[validfind, pdset.df_other_column_map[:velFy] + baseindex]::Float64
 	sqrt(velFx*velFx + velFy*velFy) # NOTE: faster than hypot
 end
 function get_speed(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
@@ -742,16 +742,16 @@ function get_speed(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
 end
 
 function get_inertial_ego(pdset::PrimaryDataset, frameind::Integer)
-	VecSE2(pdset.df_ego_primary[frameind, :posGx],
-		   pdset.df_ego_primary[frameind, :posGy],
-		   pdset.df_ego_primary[frameind, :posGyaw])
+	VecSE2(pdset.df_ego[frameind, :posGx],
+		   pdset.df_ego[frameind, :posGy],
+		   pdset.df_ego[frameind, :posGyaw])
 end
 function get_inertial_other(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
 	baseindex = pdset.df_other_ncol_per_entry * carind
 	VecSE2(
-		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGx] + baseindex],
-		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGy] + baseindex],
-		pdset.df_other_primary[validfind, pdset.df_other_column_map[:posGyaw] + baseindex]
+		pdset.df_other[validfind, pdset.df_other_column_map[:posGx] + baseindex],
+		pdset.df_other[validfind, pdset.df_other_column_map[:posGy] + baseindex],
+		pdset.df_other[validfind, pdset.df_other_column_map[:posGyaw] + baseindex]
 		)
 end
 function get_inertial(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
@@ -882,7 +882,7 @@ get_num_cars_in_frame( pdset::PrimaryDataset, validfind::Integer ) = get_num_oth
 
 function get_valid_frameinds( pdset::PrimaryDataset )
 
-	all_inds = [1:size(pdset.df_ego_primary,1)]
+	all_inds = [1:size(pdset.df_ego,1)]
 	all_inds[pdset.ego_car_on_freeway]
 end
 frame2frameind( trajdata::DataFrame, frame::Integer ) = findfirst(x->x == frame, array(trajdata[:frame], -999))
@@ -1245,8 +1245,8 @@ function copy_vehicle!(
         frameind_source = validfind2frameind(source, validfind_source)
         frameind_dest = validfind2frameind(dest, validfind_dest)
 
-        for col = 1 : ncol(source.df_ego_primary)
-            dest.df_ego_primary[frameind_dest, col] = source.df_ego_primary[frameind_source, col]
+        for col = 1 : ncol(source.df_ego)
+            dest.df_ego[frameind_dest, col] = source.df_ego[frameind_source, col]
         end
     else
         col_source = dest.df_other_ncol_per_entry * carind_source
@@ -1254,7 +1254,7 @@ function copy_vehicle!(
         for col_ind in 1 : dest.df_other_ncol_per_entry
             col_source += 1
             col_dest += 1
-            dest.df_other_primary[validfind_dest, col_dest] = source.df_other_primary[validfind_source, col_source]
+            dest.df_other[validfind_dest, col_dest] = source.df_other[validfind_source, col_source]
         end
     end
 
@@ -1322,7 +1322,7 @@ function add_car_slot!( pdset::PrimaryDataset )
 	returns the index of the newly added slot
   	=#
 
-	num_rows = nrow(pdset.df_other_primary)
+	num_rows = nrow(pdset.df_other)
 	carind = pdset.maxcarind + 1 # new index to add
 	pdset.maxcarind += 1
 
@@ -1330,8 +1330,8 @@ function add_car_slot!( pdset::PrimaryDataset )
 	for col in 1 : pdset.df_other_ncol_per_entry
 		sym = column_keys[findfirst(key->pdset.df_other_column_map[key]==col, column_keys)]
 		str = string(sym)
-		typ = eltype(pdset.df_other_primary[col])
-		pdset.df_other_primary[symbol(@sprintf("%s_%d",str,carind))] = DataArray(typ, num_rows)
+		typ = eltype(pdset.df_other[col])
+		pdset.df_other[symbol(@sprintf("%s_%d",str,carind))] = DataArray(typ, num_rows)
 	end
 
 	return carind

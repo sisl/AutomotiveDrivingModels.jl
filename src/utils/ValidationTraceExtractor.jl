@@ -166,12 +166,12 @@ type FoldAssignment
     function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int}, nfolds::Int)
 
         # some precautions...
-        for a in frame_assignment
-            @assert(a ≤ nfolds)
-        end
-        for a in pdsetseg_assignment
-            @assert(a ≤ nfolds)
-        end
+        # for a in frame_assignment
+        #     @assert(a ≤ nfolds)
+        # end
+        # for a in pdsetseg_assignment
+        #     @assert(a ≤ nfolds)
+        # end
 
         new(frame_assignment, pdsetseg_assignment, nfolds)
     end

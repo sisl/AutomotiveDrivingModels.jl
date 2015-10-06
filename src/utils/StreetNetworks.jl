@@ -161,26 +161,26 @@ Base.convert(::Type{LaneID}, tag::LaneTag) = LaneID(tag.segment, tag.lane)
 
 immutable TilePoint2DProjectionResult
 	successful :: Bool       # whether the projection was successful
-	curvept    :: CurvePt    # the closest point on the curve (footpoint)
+	footpoint    :: CurvePt  # the closest point on the curve
 	extind     :: Float64    # the extind on the curve
 	lane       :: StreetLane # the corresponding lane
 	sqdist     :: Float64    # square distance to the curve
 
 	TilePoint2DProjectionResult() = new(false)
 	function TilePoint2DProjectionResult(
-		curvept    :: CurvePt,
+		footpoint  :: CurvePt,
 		extind     :: Float64,
 		lane       :: StreetLane,
 		sqdist     :: Float64,
 		)
 
-		new(true, curvept, extind, lane, sqdist)
+		new(true, footpoint, extind, lane, sqdist)
 	end
 end
 
 function Base.show(io::IO, proj::TilePoint2DProjectionResult)
 	println(io, "TilePoint2DProjectionResult:")
-	println(io, "\tcurvept:    ", proj.curvept)
+	println(io, "\tcurvept:    ", proj.footpoint)
 	println(io, "\textind:     ", proj.extind)
 	println(io, "\tlanetag:    ", proj.lane.id)
 	println(io, "\tsqdist:     ", proj.sqdist)
@@ -1119,7 +1119,7 @@ function frenet_distance_between_points(
 	projA = project_point_to_streetmap(A_east, A_north, sn)
 	if projA.successful
 
-		A_s, A_d = Curves.pt_to_frenet_xy(projA.curvept, A_east, A_north)
+		A_s, A_d = Curves.pt_to_frenet_xy(projA.footpoint, A_east, A_north)
 
 		# println("A: ", (A_s, A_d))
 
@@ -1759,7 +1759,7 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 			if proj.successful
 				lanetag = proj.lane.id
 				if !in(lanetag, lanes_seen) # found a new one!
-					perp_dist = hypot(x - proj.curvept.x, y - proj.curvept.y)
+					perp_dist = hypot(x - proj.footpoint.x, y - proj.footpoint.y)
 					if LANE_SEP_MIN < perp_dist-dist_add < LANE_SEP_MAX
 						n_lanes_left += 1
 						if n_lanes_left == 1
@@ -1802,7 +1802,7 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 			if proj.successful
 				lanetag = proj.lane.id
 				if !in(lanetag, lanes_seen) # found a new one!
-					perp_dist = hypot(x-proj.curvept.x, y-proj.curvept.y)
+					perp_dist = hypot(x-proj.footpoint.x, y-proj.footpoint.y)
 					if LANE_SEP_MIN < perp_dist-dist_add < LANE_SEP_MAX
 
 						n_lanes_right += 1

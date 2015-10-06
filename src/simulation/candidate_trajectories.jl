@@ -56,14 +56,14 @@ function Base.get!(
     @assert(proj.successful)
 
     s.lane = proj.lane
-    s.footpoint = proj.curvept
+    s.footpoint = proj.footpoint
     s.extind = proj.extind
 
     start_velFx = get(pdset, :velFx, carind, validfind)
     start_velFy = get(pdset, :velFy, carind, validfind)
     start_speed = sqrt(start_velFx*start_velFx + start_velFy*start_velFy)
     s.v = start_speed
-    s.ϕ = s.inertial.θ - proj.curvept.θ
+    s.ϕ = s.inertial.θ - proj.footpoint.θ
 
     if validfind > 1
         past_validfind = validfind-1
@@ -76,7 +76,7 @@ function Base.get!(
         start_time = gete(pdset, :time, validfind)
         past_time = gete(pdset, :time, past_validfind)
 
-        s.ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.curvept.θ
+        s.ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.footpoint.θ
         s.a = abs((start_speed - past_speed) / (start_time - past_time))
     else
         s.ψ = 0.0
@@ -321,7 +321,7 @@ type TrajDef2
 
         extind = proj.extind
         lanetag = proj.lane.id
-        dcl = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, 0.0)[2]
+        dcl = pt_to_frenet_xyy(proj.footpoint, inertial.x, inertial.y, 0.0)[2]
 
         new(lanetag, extind, dcl, v, a, ϕ, ψ, links)
     end
@@ -344,7 +344,7 @@ type TrajDef2
 
         extind = proj.extind
         lanetag = proj.lane.id
-        s, dcl, ϕ = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, inertial.θ)
+        s, dcl, ϕ = pt_to_frenet_xyy(proj.footpoint, inertial.x, inertial.y, inertial.θ)
 
         if validfind > 1
             past_validfind = validfind-1
@@ -357,7 +357,7 @@ type TrajDef2
             start_time = gete(pdset, :time, validfind)
             past_time = gete(pdset, :time, past_validfind)
 
-            ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.curvept.θ
+            ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.footpoint.θ
             start_accel = abs((start_speed - past_speed) / (start_time - past_time))
         else
             ψ = 0.0
@@ -513,7 +513,7 @@ type TrajDef
 
         extind = proj.extind
         lanetag = proj.lane.id
-        dcl = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, 0.0)[2]
+        dcl = pt_to_frenet_xyy(proj.footpoint, inertial.x, inertial.y, 0.0)[2]
 
         new(lanetag, extind, dcl, v, a, ϕ, ψ, links)
     end
@@ -536,7 +536,7 @@ type TrajDef
 
         extind = proj.extind
         lanetag = proj.lane.id
-        s, dcl, ϕ = pt_to_frenet_xyy(proj.curvept, inertial.x, inertial.y, inertial.θ)
+        s, dcl, ϕ = pt_to_frenet_xyy(proj.footpoint, inertial.x, inertial.y, inertial.θ)
 
         if validfind > 2
 
@@ -566,7 +566,7 @@ type TrajDef
 
 
             start_accel = abs(c[2] + 2*c[3]*start_time) # a(t) is merely the derivative
-            ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.curvept.θ
+            ψ = atan2(start_velFy-past_velFy, start_velFx-past_velFx) - proj.footpoint.θ
             # start_accel = abs((start_speed - past_speed) / (start_time - past_time))
         else
             ψ = 0.0
@@ -717,7 +717,7 @@ function _set_vehicle_other!(
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
 
-    footpoint = proj.curvept
+    footpoint = proj.footpoint
     extind = proj.extind
     lanetag = proj.lane.id
     s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -746,7 +746,7 @@ function _set_vehicle_other!(
         _set_vehicle_other_nocheck!(pdset, sn, carid, validfind, inertial, speed,
                                     footpoint, extind, lanetag, dcl, ϕ)
     else
-        footpoint = proj.curvept
+        footpoint = proj.footpoint
         extind = proj.extind
         lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -768,7 +768,7 @@ function _set_vehicle_ego!(
     proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
     @assert(proj.successful)
 
-    footpoint = proj.curvept
+    footpoint = proj.footpoint
     extind = proj.extind
     lanetag = proj.lane.id
     s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -796,7 +796,7 @@ function _set_vehicle_ego!(
         _set_vehicle_ego_nocheck!(pdset, sn, frameind, inertial, speed,
                                   footpoint, extind, lanetag, dcl, ϕ)
     else
-        footpoint = proj.curvept
+        footpoint = proj.footpoint
         extind = proj.extind
         lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -1085,7 +1085,7 @@ end
 ###################
 
 type ExtractedTrajdef
-    df::DataFrame # same format as df_ego_primary
+    df::DataFrame # same format as df_ego
     carid::Integer
 end
 type ExtractedPolynomialFactoredTrajectories
@@ -1173,7 +1173,7 @@ function _set_vehicle!(
         _set_vehicle_nocheck!(extracted, sn, frameind, inertial, speed,
                               footpoint, extind, lanetag, dcl, ϕ)
     else
-        footpoint = proj.curvept
+        footpoint = proj.footpoint
         extind = proj.extind
         lanetag = proj.lane.id
         s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -1195,7 +1195,7 @@ function _set_vehicle!(
     @assert(proj.successful)
 
 
-    footpoint = proj.curvept
+    footpoint = proj.footpoint
     extind = proj.extind
     lanetag = proj.lane.id
     s, dcl, ϕ = pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)
@@ -1278,12 +1278,12 @@ function extract_trajdef(
     )
 
     #=
-    produces a DataFrame with the same form as df_ego_primary
+    produces a DataFrame with the same form as df_ego
     with the trajdef contents
     =#
 
     nframes = get_num_pdset_frames(trajdef)
-    df = Trajdata._create_df_ego_primary(nframes) # TODO(tim): preallocate this stuff
+    df = Trajdata._create_df_ego(nframes) # TODO(tim): preallocate this stuff
     extracted = ExtractedTrajdef(df, carid)
     for i = 1 : nrow(df)
         df[i,:frame] = frameind_start + i - 1
@@ -1570,7 +1570,7 @@ function Base.insert!(
         for sym in (:posGx, :posGy, :posGyaw, :posFyaw, :velFx, :velFy, :lanetag,
                     :curvature, :d_cl, :d_merge, :d_split, :nll, :nlr, :d_mr, :d_ml)
             for (i,frameind) in enumerate(source[:frame])
-                pdset.df_ego_primary[frameind,sym] = source[i,sym]
+                pdset.df_ego[frameind,sym] = source[i,sym]
             end
         end
     else
@@ -1591,7 +1591,7 @@ function Base.insert!(
                         :id, :t_inview)
 
                 col = pdset.df_other_column_map[sym] + baseindex
-                pdset.df_other_primary[frameind,col] = source[i,sym]
+                pdset.df_other[frameind,col] = source[i,sym]
             end
         end
     end
@@ -1624,7 +1624,7 @@ function Base.insert!(
         for sym in (:posGx, :posGy, :posGyaw, :posFyaw, :velFx, :velFy, :lanetag,
                     :curvature, :d_cl, :d_merge, :d_split, :nll, :nlr, :d_mr, :d_ml)
             for (extracted_row, frameind) in zip(extracted_row_start:extracted_row_end, frameind_start:frameind_end)
-                pdset.df_ego_primary[frameind,sym] = source[extracted_row,sym]
+                pdset.df_ego[frameind,sym] = source[extracted_row,sym]
             end
         end
     else
@@ -1646,7 +1646,7 @@ function Base.insert!(
                         :id, :t_inview)
 
                 col = pdset.df_other_column_map[sym] + baseindex
-                pdset.df_other_primary[frameind,col] = source[i,sym]
+                pdset.df_other[frameind,col] = source[i,sym]
             end
         end
     end

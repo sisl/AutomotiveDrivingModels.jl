@@ -758,7 +758,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     # initialize the DataFrame
     # ----------------------------------------
 
-    df_ego_primary = DataFrame(
+    df_ego = DataFrame(
         time           = arr_time_resampled,              # time
         frame          = [1:n_resamples],                 # frame
         control_status = DataArray(Int, n_resamples),     # trajdata[:control_status], # enum identifier of control status (5==AUTO)
@@ -787,9 +787,9 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     ego_car_on_freeway = falses(n_resamples)
 
     if :control_status in names(trajdata)
-        df_ego_primary[:,:control_status] = resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
+        df_ego[:,:control_status] = resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
     else
-        fill!(df_ego_primary[:control_status], params.default_control_status)
+        fill!(df_ego[:control_status], params.default_control_status)
     end
 
     for frameind = params.buffer_frames : (n_resamples-params.buffer_frames)
@@ -800,12 +800,12 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
         proj = project_point_to_streetmap(posGx, posGy, sn)
         if proj.successful && proj.sqdist < params.threshold_proj_sqdist_ego
-            ptG = proj.curvept
+            ptG = proj.footpoint
             s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
 
-            df_ego_primary[frameind, :posFx] = s
-            df_ego_primary[frameind, :posFy] = d
-            df_ego_primary[frameind, :posFyaw] = θ
+            df_ego[frameind, :posFx] = s
+            df_ego[frameind, :posFy] = d
+            df_ego[frameind, :posFyaw] = θ
 
             meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_ego
             meets_lane_angle_criterion = abs(θ) < params.threshold_lane_angle_ego
@@ -818,37 +818,37 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
                 # extract specifics
                 speed = hypot(trajdata_smoothed[frameind, :velEx], trajdata_smoothed[frameind, :velEy])
-                df_ego_primary[frameind, :velFx] = speed * cos(θ) # vel along the lane
-                df_ego_primary[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
+                df_ego[frameind, :velFx] = speed * cos(θ) # vel along the lane
+                df_ego[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
 
-                df_ego_primary[frameind,:lanetag] = proj.lane.id
-                df_ego_primary[frameind,:curvature] = ptG.k
+                df_ego[frameind,:lanetag] = proj.lane.id
+                df_ego[frameind,:curvature] = ptG.k
 
-                df_ego_primary[frameind,:d_cl   ] = d::Float64
+                df_ego[frameind,:d_cl   ] = d::Float64
 
                 laneid = proj.lane.id.lane
                 seg = get_segment(sn, proj.lane.id)
                 d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
                 d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
-                df_ego_primary[frameind, :d_merge]  =isinf(d_merge)  ? NA : d_merge
-                df_ego_primary[frameind, :d_split] = isinf(d_split) ? NA : d_split
+                df_ego[frameind, :d_merge]  =isinf(d_merge)  ? NA : d_merge
+                df_ego[frameind, :d_split] = isinf(d_split) ? NA : d_split
 
                 nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
                 @assert(nll >= 0)
                 @assert(nlr >= 0)
-                df_ego_primary[frameind,:nll    ] = nll # number of lanes to the left
-                df_ego_primary[frameind,:nlr    ] = nlr # number of lanes to the right
+                df_ego[frameind,:nll    ] = nll # number of lanes to the left
+                df_ego[frameind,:nlr    ] = nlr # number of lanes to the right
 
                 lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
-                df_ego_primary[frameind, :d_mr] = (d <  lane_width_left)  ?  lane_width_left - d  : Inf
-                df_ego_primary[frameind, :d_ml] = (d > -lane_width_right) ?  d - lane_width_right : Inf
+                df_ego[frameind, :d_mr] = (d <  lane_width_left)  ?  lane_width_left - d  : Inf
+                df_ego[frameind, :d_ml] = (d > -lane_width_right) ?  d - lane_width_right : Inf
             end
         end
     end
 
-    # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:posFyaw]))))
-    # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:velFx]))))
-    # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:velFy]))))
+    # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego[:posFyaw]))))
+    # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFx]))))
+    # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFy]))))
     # println("")
 
     if !isempty(params.frameinds)
@@ -918,22 +918,22 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
     arr_time_on_freeway = pad_linear(arr_time_resampled[ego_car_on_freeway], params.padding_size)
 
-    df_ego_primary[ego_car_on_freeway, :posFyaw] = make_angle_continuous!(convert(Vector{Float64}, df_ego_primary[ego_car_on_freeway, :posFyaw]))
+    df_ego[ego_car_on_freeway, :posFyaw] = make_angle_continuous!(convert(Vector{Float64}, df_ego[ego_car_on_freeway, :posFyaw]))
     for (variable, smoothing_variance) in
         [(:posFyaw,   0.2),
          (:velFx,     0.2),
          (:velFy,     0.2),
          (:curvature, 0.2)]
 
-        arr_orig = pad_linear(convert(Vector{Float64}, df_ego_primary[ego_car_on_freeway, variable]), params.padding_size)
+        arr_orig = pad_linear(convert(Vector{Float64}, df_ego[ego_car_on_freeway, variable]), params.padding_size)
         arr_smoothed = smooth(arr_time_on_freeway, arr_orig, smoothing_variance)
-        df_ego_primary[ego_car_on_freeway, variable] = remove_pad(arr_smoothed, params.padding_size)
+        df_ego[ego_car_on_freeway, variable] = remove_pad(arr_smoothed, params.padding_size)
     end
-    df_ego_primary[ego_car_on_freeway, :posFyaw] = mod2pi_neg_pi_to_pi!(convert(Vector{Float64}, df_ego_primary[ego_car_on_freeway, :posFyaw]))
+    df_ego[ego_car_on_freeway, :posFyaw] = mod2pi_neg_pi_to_pi!(convert(Vector{Float64}, df_ego[ego_car_on_freeway, :posFyaw]))
 
-    # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:posFyaw]))))
-    # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:velFx]))))
-    # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:velFy]))))
+    # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego[:posFyaw]))))
+    # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFx]))))
+    # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFy]))))
 
     # Other Car Extraction
     #  - for each continuous freeway segment
@@ -945,7 +945,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     #            - map to frenet
     # --------------------------------------------
 
-    const N = size(df_ego_primary, 1)
+    const N = size(df_ego, 1)
 
     const maxncars = get_max_num_cars(trajdata)
     const frameinds = [1:N]
@@ -960,11 +960,11 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                                 end
 
     # --------------------------------------------------
-    # df_other_primary contains values for each validfind indexed by carind
+    # df_other contains values for each validfind indexed by carind
     # to obtain values from a carid one needs to go through dict_other_idmap, and mat_other_indmap
 
-    df_other_primary = DataFrame()
-    add_symbol! = (str,ind,typ)->df_other_primary[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, n_frames_on_freeway)
+    df_other = DataFrame()
+    add_symbol! = (str,ind,typ)->df_other[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, n_frames_on_freeway)
     add_slot!   = (cind)->begin
                                 add_symbol!("posGx",     cind, Float64)
                                 add_symbol!("posGy",     cind, Float64)
@@ -999,7 +999,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     dict_other_idmap = Dict{Uint32,Uint16}() # dict carid -> matind,  index for mat_other_indmap
     mat_other_indmap = fill(int16(-1), n_frames_on_freeway, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
 
-    local_setc! = (str,carind,vind,value) -> df_other_primary[vind, symbol(@sprintf("%s_%d", str, carind))] = value
+    local_setc! = (str,carind,vind,value) -> df_other[vind, symbol(@sprintf("%s_%d", str, carind))] = value
     next_available_carind = fill(int32(-1), n_frames_on_freeway)
 
     # --------------------------------------------------
@@ -1063,7 +1063,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
             time_resampled_ind_hi = findnext(i->arr_time_resampled[i+1] > time_obs[end], 1:n_resamples-1, time_resampled_ind_lo)
             @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
             time_resampled = arr_time_resampled[time_resampled_ind_lo:time_resampled_ind_hi]
-            smoothed_frameinds = df_ego_primary[time_resampled_ind_lo:time_resampled_ind_hi, :frame]
+            smoothed_frameinds = df_ego[time_resampled_ind_lo:time_resampled_ind_hi, :frame]
 
             # println(time_resampled_ind_lo, "  ", arr_time_resampled[time_resampled_ind_lo-1], " < ", time_obs[1], " ≤ ", arr_time_resampled[time_resampled_ind_lo])
             # println(time_resampled_ind_hi, "  ", arr_time_resampled[time_resampled_ind_hi], " ≤ ", time_obs[end], " < ", arr_time_resampled[time_resampled_ind_hi+1])
@@ -1178,7 +1178,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                 proj = project_point_to_streetmap(posGx, posGy, sn)
                 if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
 
-                    ptG = proj.curvept
+                    ptG = proj.footpoint
                     s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
 
                     laneid = int(proj.lane.id.lane)
@@ -1250,12 +1250,12 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     end
 
 
-    # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:posFyaw]))))
-    # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:velFx]))))
-    # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego_primary[:velFy]))))
+    # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego[:posFyaw]))))
+    # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFx]))))
+    # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFy]))))
 
     dict_trajmat = Dict{Uint32,DataFrame}()
-    pdset = PrimaryDataset(df_ego_primary, df_other_primary, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+    pdset = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
 function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, params::PrimaryDataExtractionParams)
 
@@ -1267,7 +1267,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     # initialize the DataFrame
     # ----------------------------------------
 
-    df_ego_primary = DataFrame(
+    df_ego = DataFrame(
         time           = (trajdata[:time] .- trajdata[1, :time])::DataArray{Float64}, # time
         frame          = [1:nframes],                 # frame
         control_status = DataArray(Int, nframes),     # trajdata[:control_status], # enum identifier of control status (5==AUTO)
@@ -1294,9 +1294,9 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     # --------------------------------------------
 
     if :control_status in names(trajdata)
-        df_ego_primary[:,:control_status] = trajdata[:control_status]
+        df_ego[:,:control_status] = trajdata[:control_status]
     else
-        fill!(df_ego_primary[:control_status], params.default_control_status)
+        fill!(df_ego[:control_status], params.default_control_status)
     end
 
     for frameind = 1 : nframes
@@ -1308,41 +1308,41 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
         proj = project_point_to_streetmap(posGx, posGy, sn)
         @assert(proj.successful)
 
-        ptG = proj.curvept
+        ptG = proj.footpoint
         s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
 
-        df_ego_primary[frameind, :posFx] = s
-        df_ego_primary[frameind, :posFy] = d
-        df_ego_primary[frameind, :posFyaw] = θ
+        df_ego[frameind, :posFx] = s
+        df_ego[frameind, :posFy] = d
+        df_ego[frameind, :posFyaw] = θ
 
         # println((posGx, posGy, posGyaw))
         # println("($s $d $θ)  ")
 
         # extract specifics
         speed = hypot(trajdata[frameind, :velEx], trajdata[frameind, :velEy])
-        df_ego_primary[frameind, :velFx] = speed * cos(θ) # vel along the lane
-        df_ego_primary[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
+        df_ego[frameind, :velFx] = speed * cos(θ) # vel along the lane
+        df_ego[frameind, :velFy] = speed * sin(θ) # vel perpendicular to lane
 
-        df_ego_primary[frameind, :lanetag] = proj.lane.id
-        df_ego_primary[frameind, :curvature] = ptG.k
-        df_ego_primary[frameind, :d_cl] = d::Float64
+        df_ego[frameind, :lanetag] = proj.lane.id
+        df_ego[frameind, :curvature] = ptG.k
+        df_ego[frameind, :d_cl] = d::Float64
 
         seg = get_segment(sn, proj.lane.id)
         laneid = proj.lane.id.lane
         d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
         d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
-        df_ego_primary[frameind, :d_merge] = isinf(d_merge)  ? NA : d_merge
-        df_ego_primary[frameind, :d_split] = isinf(d_split) ? NA : d_split
+        df_ego[frameind, :d_merge] = isinf(d_merge)  ? NA : d_merge
+        df_ego[frameind, :d_split] = isinf(d_split) ? NA : d_split
 
         nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
         @assert(nll ≥ 0)
         @assert(nlr ≥ 0)
-        df_ego_primary[frameind,:nll    ] = nll # number of lanes to the left
-        df_ego_primary[frameind,:nlr    ] = nlr # number of lanes to the right
+        df_ego[frameind,:nll    ] = nll # number of lanes to the left
+        df_ego[frameind,:nlr    ] = nlr # number of lanes to the right
 
         lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
-        df_ego_primary[frameind, :d_mr] = (d <  lane_width_left)  ?  lane_width_left - d  : Inf
-        df_ego_primary[frameind, :d_ml] = (d > -lane_width_right) ?  d - lane_width_right : Inf
+        df_ego[frameind, :d_mr] = (d <  lane_width_left)  ?  lane_width_left - d  : Inf
+        df_ego[frameind, :d_ml] = (d > -lane_width_right) ?  d - lane_width_right : Inf
     end
 
     # Other Car Extraction
@@ -1357,11 +1357,11 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     const maxncars = get_max_num_cars(trajdata)
 
     # --------------------------------------------------
-    # df_other_primary contains values for each validfind indexed by carind
+    # df_other contains values for each validfind indexed by carind
     # to obtain values from a carid one needs to go through dict_other_idmap, and mat_other_indmap
 
-    df_other_primary = DataFrame()
-    add_symbol! = (str,ind,typ)->df_other_primary[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, nframes)
+    df_other = DataFrame()
+    add_symbol! = (str,ind,typ)->df_other[symbol(@sprintf("%s_%d",str,ind))] = DataArray(typ, nframes)
     add_slot!   = (cind)->begin
                                 add_symbol!("posGx",     cind, Float64)
                                 add_symbol!("posGy",     cind, Float64)
@@ -1397,7 +1397,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     mat_other_indmap = fill(int16(-1), nframes, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
 
     function local_setc!(str::String, carind::Integer, validfind::Integer, value::Any)
-        df_other_primary[validfind, symbol(@sprintf("%s_%d", str, carind))] = value
+        df_other[validfind, symbol(@sprintf("%s_%d", str, carind))] = value
     end
     next_available_carind = fill(int32(-1), nframes)
 
@@ -1500,7 +1500,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                 proj = project_point_to_streetmap(posGx, posGy, sn)
                 @assert(proj.successful)
 
-                ptG = proj.curvept
+                ptG = proj.footpoint
                 s, d, θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
 
                 laneid = proj.lane.id.lane
@@ -1560,7 +1560,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     end
 
     dict_trajmat = Dict{Uint32,DataFrame}()
-    pdset = PrimaryDataset(df_ego_primary, df_other_primary, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+    pdset = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
 
 end # module

@@ -586,7 +586,7 @@ function _project_pt_to_lane_frenet(
 
 	if successful
 
-		origin_s = origin.curvept.s
+		origin_s = origin.footpoint.s
 
 		if njumps == 0
 
@@ -1383,7 +1383,7 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 		if proj.successful
 
-			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
+			posFx, posFy = pt_to_frenet_xy(proj.footpoint, posGx, posGy)
 
 			left_lane = proj.lane
 			left_lanetag = left_lane.id
@@ -1604,7 +1604,7 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 
 		if proj.successful
 
-			posFx, posFy = pt_to_frenet_xy(proj.curvept, posGx, posGy)
+			posFx, posFy = pt_to_frenet_xy(proj.footpoint, posGx, posGy)
 
 
 			right_lane = proj.lane
