@@ -61,6 +61,7 @@ end
 
 behaviorset = BehaviorSet()
 add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")
+add_behavior!(behaviorset, VehicleBehaviorGaussian, "Single Variable")
 add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
     [:indicators=>INDICATOR_SET,
      :ntrees=>5,
@@ -103,41 +104,52 @@ JLD.save(MODEL_OUTPUT_JLD_FILE,
 
 # evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
 
-metric_types_test = [LoglikelihoodMetric,
-                     LoglikelihoodBaggedBoundsMetric,
-                    ]
-metric_types_cv_train_frames = DataType[]
-metric_types_cv_test_frames = DataType[] # [LoglikelihoodMetric]
-metric_types_cv_train_traces = DataType[]
-metric_types_cv_test_traces = [
-                              RootWeightedSquareError{SPEED},
-                              # RootWeightedSquareError{Timegap_X_FRONT},
-                              # RootWeightedSquareError{D_CL},
-                             ]
+metric_types_test_frames = [LoglikelihoodMetric]
+metric_types_test_traces = [
+                            EmergentKLDivMetric{symbol(SPEED)},
+                            EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
+                            EmergentKLDivMetric{symbol(D_CL)},
+                            RootWeightedSquareError{symbol(SPEED)},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT)},
+                            # RootWeightedSquareError{symbol(D_CL)},
+                           ]
+metric_types_test_frames_bagged = [LoglikelihoodMetric]
+metric_types_test_traces_bagged = [
+                                   EmergentKLDivMetric{symbol(SPEED)},
+                                   EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
+                                   EmergentKLDivMetric{symbol(D_CL)},
+                                  ]
 
-# metrics_sets_train = extract_metrics(metric_types_train, models, dset, train_test_split, FOLD_TRAIN, true)
-metrics_sets_train = cross_validate(behaviorset, dset, cross_validation_split,
+metric_types_cv_train_frames = DataType[]
+metric_types_cv_test_frames = [LoglikelihoodMetric]
+metric_types_cv_train_traces = DataType[]
+metric_types_cv_test_traces = DataType[]
+
+metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models, dset, train_test_split, FOLD_TEST, true)
+
+pdsets_original = load_pdsets(dset)
+streetnets = load_streetnets(dset)
+pdsets_for_simulation = deepcopy(pdsets_original)
+metrics_sets_test_traces = extract_metrics_from_traces(metric_types_test_traces, models,
+                                pdsets_original, pdsets_for_simulation, streetnets,
+                                dset.pdset_segments, train_test_split, FOLD_TEST, true)
+
+metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
+metrics_sets_test_traces_bagged = extract_bagged_metrics_from_traces(metric_types_test_traces, models,
+                                       pdsets_original, pdsets_for_simulation, streetnets,
+                                       dset.pdset_segments, train_test_split, FOLD_TEST, true)
+
+metrics_sets_cv = cross_validate(behaviorset, dset, cross_validation_split,
                             metric_types_cv_train_frames, metric_types_cv_test_frames,
                             metric_types_cv_train_traces, metric_types_cv_test_traces)
-# metrics_sets_test = extract_metrics(metric_types_test, models, dset, train_test_split, FOLD_TEST, true)
 
-# metrics_sets_train = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
-#                                                               streetnets, pdset_segments, evalparams,
-#                                                               1, pdsetseg_tv_assignment, true)
-# metrics_sets_validation = create_metrics_sets_no_tracemetrics(models, pdsets, pdsets_for_simulation,
-#                                                               streetnets, pdset_segments, evalparams,
-#                                                               2, pdsetseg_tv_assignment, true)
-
-# JLD.save(METRICS_OUTPUT_FILE,
-#             "metrics_sets_train", metrics_sets_train,
-#             "metrics_sets_validation", metrics_sets_validation,
-#             "evalparams", evalparams,
-#             "nframes", size(dset.dataframe, 1),
-#             "npdset_segments", length(dset.pdset_segments)
-#             )
-
-println(metrics_sets_train)
-# println(metrics_sets_test)
+JLD.save(METRICS_OUTPUT_FILE,
+         "metrics_sets_test_frames", metrics_sets_test_frames,
+         "metrics_sets_test_traces", metrics_sets_test_traces,
+         "metrics_sets_test_frames_bagged", metrics_sets_test_frames_bagged,
+         "metrics_sets_test_traces_bagged", metrics_sets_test_traces_bagged,
+         "metrics_sets_cv", metrics_sets_cv,
+        )
 
 # println("DONE")
 println("DONE")
