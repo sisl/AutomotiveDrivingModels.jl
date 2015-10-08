@@ -4,12 +4,15 @@ export VehicleBehaviorGaussian
 type VehicleBehaviorGaussian <: AbstractVehicleBehavior
     Σ::MvNormal # with action vector (accel, turnrate)
 
+    # preallocated memory
+    action::Vector{Float64}
+
     function VehicleBehaviorGaussian(σ_lat::Float64, σ_lon::Float64, σ_correlation::Float64=0.0)
-        new(MvNormal([σ_lat σ_correlation; σ_correlation σ_lon]))
+        new(MvNormal([σ_lat σ_correlation; σ_correlation σ_lon]), [0.0,0.0])
     end
     function VehicleBehaviorGaussian(Σ::MvNormal)
         @assert(length(Σ) == 2)
-        new(Σ)
+        new(Σ, [0.0,0.0])
     end
 end
 
@@ -20,11 +23,10 @@ function select_action(
     validfind::Int
     )
 
-    action = rand(behavior.Σ)
-    logl = logpdf(behavior.Σ, action)
+    Distributions._rand!(behavior.Σ, behavior.action)
 
-    action_lat = action[1]
-    action_lon = action[2]
+    action_lat = behavior.action[1]
+    action_lon = behavior.action[2]
 
     (action_lat, action_lon)
 end
@@ -43,7 +45,10 @@ function calc_action_loglikelihood(
     given the VehicleBehaviorGaussian.
     =#
 
-    logpdf(behavior.Σ, [action_lat, action_lon])
+    behavior.action[1] = action_lat
+    behavior.action[2] = action_lon
+
+    logpdf(behavior.Σ, behavior.action)
 end
 function calc_action_loglikelihood(
     behavior::VehicleBehaviorGaussian,
@@ -51,10 +56,10 @@ function calc_action_loglikelihood(
     frameind::Integer,
     )
 
-    action_lat = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
-    action_lon = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
+    behavior.action[1] = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
+    behavior.action[2] = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
 
-    logpdf(behavior.Σ, [action_lat, action_lon])
+    logpdf(behavior.Σ, behavior.action)
 end
 
 function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
