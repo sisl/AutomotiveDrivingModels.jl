@@ -323,7 +323,6 @@ for csvfileset in CSVFILESETS
 
         push!(csvfilesets, csvfileset)
     end
-    break
 end
 toc()
 

@@ -106,6 +106,28 @@ function update_metric!{Fsym}(
 
     metric
 end
+function update_metric!{Fsym}(
+    metric::EmergentKLDivMetric{Fsym},
+    ::VehicleBehaviorNone,
+    pdset_orig::PrimaryDataset,
+    basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
+    seg::PdsetSegment
+    )
+
+    # the same thing but if we have ones() we need to remove it
+    if sum(metric.counts == length(metric.counts))
+        fill!(metric.counts, 0)
+    end
+
+    # the rest is the same
+    validfind_end = seg.validfind_end
+    carid = seg.carid
+    carind = carid2ind(basics.pdset, carid, validfind_end)
+    v = get(symbol2feature(Fsym), basics, carind, validfind_end)
+    metric.counts[encode(KLDIV_METRIC_DISC_DICT[Fsym], v)] += 1
+
+    metric
+end
 function complete_metric!{Fsym}(
     metric::EmergentKLDivMetric{Fsym},
     metric_realworld::EmergentKLDivMetric{Fsym},
@@ -121,19 +143,17 @@ get_score(metric::EmergentKLDivMetric) = metric.kldiv
 # RootWeightedSquareError
 
 # F isa AbstractFeature
-type RootWeightedSquareError{feature_symbol} <: BehaviorTraceMetric
+type RootWeightedSquareError{feature_symbol, horizon} <: BehaviorTraceMetric
     # RWSE for the given horizon
 
-    running_sums::Vector{Float64}
+    running_sum::Float64
     N::Int
-
-    rwse_arr::Vector{Float64}
+    rwse::Float64
 end
-const RWSE_HORIZONS = [1.0,2.0,3.0,4.0] # [s]
 
-init{Fsym}(::Type{RootWeightedSquareError{Fsym}}) = RootWeightedSquareError{Fsym}(zeros(Float64, length(RWSE_HORIZONS)), 0, Array(Float64, length(RWSE_HORIZONS)))
-function update_metric!{Fsym}(
-    metric::RootWeightedSquareError{Fsym},
+init{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}}) = RootWeightedSquareError{Fsym, H}(0.0, 0, NaN)
+function update_metric!{Fsym, H}(
+    metric::RootWeightedSquareError{Fsym, H},
     behavior::AbstractVehicleBehavior,
     pdset_orig::PrimaryDataset,
     basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
@@ -141,8 +161,6 @@ function update_metric!{Fsym}(
 
     n_monte_carlo_samples::Int=10
     )
-
-    @assert((seg.validfind_end - seg.validfind_start)*DEFAULT_SEC_PER_FRAME ≥ RWSE_HORIZONS[end])
 
     #=
     The Root Weighted Square Error over the target feature F for horizon [sec]
@@ -169,8 +187,7 @@ function update_metric!{Fsym}(
         push!(v_true_arr, get(F, basics_orig, carind, validfind))
     end
 
-    n_horizons = length(RWSE_HORIZONS)
-    rwse_components = zeros(Float64, n_horizons)
+    rwse_component = 0.0
     for i in 1 : n_monte_carlo_samples
 
         basics.runid += 1
@@ -179,24 +196,21 @@ function update_metric!{Fsym}(
 
         for (j,validfind) in enumerate(seg.validfind_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.validfind_end)
 
-            v_true = v_true_arr[j]
-            carind = carid2ind(pdset_orig, carid, validfind)
-            v_montecarlo = get(F, basics, carind, validfind)
-
-            Δ = v_true - v_montecarlo
-            Δ2 = Δ*Δ
-            h = n_horizons
             Δt = (validfind - seg.validfind_start)*DEFAULT_SEC_PER_FRAME
-            while h > 0 && RWSE_HORIZONS[h] ≥ Δt
-                rwse_components[h] += Δ2
-                h -= 1
+
+            if Δt ≤ H
+                v_true = v_true_arr[j]
+                carind = carid2ind(pdset_orig, carid, validfind)
+                v_montecarlo = get(F, basics, carind, validfind)
+
+                Δ = v_true - v_montecarlo
+                rwse_component += Δ*Δ
             end
         end
     end
-    for h = 1 : n_horizons
-        rwse_components[h] /= n_monte_carlo_samples
-        metric.running_sums[h] += rwse_components[h]
-    end
+
+    rwse_component /= n_monte_carlo_samples
+    metric.running_sum += rwse_component
 
     metric.N += 1
 
@@ -220,13 +234,12 @@ function complete_metric!(
     ::AbstractVehicleBehavior,
     )
 
-    for (i,s) in enumerate(metric.running_sums)
-        metric.rwse_arr[i] = sqrt(s / metric.N)
-    end
+
+    metric.rwse = sqrt(metric.running_sum / metric.N)
 
     metric
 end
-get_score(metric::RootWeightedSquareError) = metric.rwse_arr[end] # NOTE(tim): only extracts final RWSE
+get_score(metric::RootWeightedSquareError) = metric.rwse
 
 #########################################################################################################
 # LoglikelihoodMetric
@@ -250,6 +263,14 @@ function extract(::Type{LoglikelihoodMetric},
         end
     end
     LoglikelihoodMetric(logl)
+end
+function get_frame_score(::Type{LoglikelihoodMetric},
+    dset::ModelTrainingData,
+    behavior::AbstractVehicleBehavior,
+    frameind::Int,
+    )
+
+    calc_action_loglikelihood(behavior, dset.dataframe, frameind)
 end
 get_score(metric::LoglikelihoodMetric) = metric.logl
 
@@ -288,8 +309,7 @@ function extract_bagged_metrics(
         if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
             nvalid_frames += 1
             for (j,metric_type) in enumerate(metric_types_frame_test)
-                metric = extract(metric_type, dset, behavior, assignment, fold, match_fold)
-                frame_scores[nvalid_frames, j] = get_score(metric)
+                frame_scores[nvalid_frames, j] = get_frame_score(metric_type, dset, behavior, frameind)
             end
         end
     end
@@ -300,11 +320,14 @@ function extract_bagged_metrics(
     retval = Array(BaggedMetricResult, n_metrics)
     for (j,metric_type) in enumerate(metric_types_frame_test)
 
+        println(frame_scores[1:nvalid_frames, j])
+
         for i in 1 : n_bagging_samples
             for k in bag_range
                 row_index = rand(bag_range)
-                bootstrap_scores[i] += frame_scores[row_index]
+                bootstrap_scores[i] += frame_scores[row_index, j]
             end
+            bootstrap_scores[i] /= n_bagging_samples
         end
 
         μ = mean(bootstrap_scores)
@@ -313,6 +336,7 @@ function extract_bagged_metrics(
         confidence_bound = z * σ / sqrt(n_bagging_samples)
 
         retval[j] = BaggedMetricResult(metric_type, μ, σ, confidence_bound, confidence_level, n_bagging_samples)
+        println(metric_type, "  ", retval[j])
     end
 
     retval
@@ -389,13 +413,13 @@ function extract_bagged_metrics_from_traces{B<:AbstractVehicleBehavior}(
     bagged_assignment = FoldAssignment(Int[], ones(Int, n_valid_samples), 1) # take 'em all
     bagged_pdset_segments = Array(PdsetSegment, n_valid_samples)
 
-    bootstrap_scores = Array(Float64, n_valid_samples, n_metrics, n_models)
+    bootstrap_scores = Array(Float64, n_bagging_samples, n_metrics, n_models)
     sample_range = 1:n_valid_samples
     for i = 1 : n_bagging_samples
 
         # sample a bagged set
         for k = 1 : n_valid_samples
-            bagged_pdset_segments[k] = pdset_segments[rand(sample_range)]
+            bagged_pdset_segments[k] = pdset_segments[valid_sample_indeces[rand(sample_range)]]
         end
 
         # compute metrics for all behaviors ::Vector{Vector{BehaviorTraceMetric}}
@@ -403,7 +427,7 @@ function extract_bagged_metrics_from_traces{B<:AbstractVehicleBehavior}(
                         pdsets_original, pdsets_for_simulation, streetnets, bagged_pdset_segments,
                         bagged_assignment, 1, true)
 
-        # compute scores on said trace
+        # compute scores on those traces
         for k in 1 : n_models
             metric_list = metrics[k+1] # skip the realworld result
             for (j,metric) in enumerate(metric_list)

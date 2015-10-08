@@ -1,6 +1,10 @@
 export
     BehaviorSet,
 
+    CVFoldResults,
+    ModelCrossValidationResults,
+    CrossValidationResults,
+
     add_behavior!,
     cross_validate,
     cross_validate_logl,

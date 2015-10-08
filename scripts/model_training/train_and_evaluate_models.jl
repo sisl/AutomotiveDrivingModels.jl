@@ -74,7 +74,7 @@ add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
 add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
     [:indicators=>INDICATOR_SET,
      :ntrees=>5,
-     :max_depth=>5,
+     :max_depth=>2,
      :min_samples_split=>20,
      :min_samples_leaves=>10,
      :min_split_improvement=>0.2,
@@ -91,12 +91,14 @@ add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
      ])
 
 # TODO(tim): fix train test split.....
-models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])
+# models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])
 
-JLD.save(MODEL_OUTPUT_JLD_FILE,
-        "behaviorset", behaviorset,
-        "models", models,
-        )
+# JLD.save(MODEL_OUTPUT_JLD_FILE,
+#         "behaviorset", behaviorset,
+#         "models", models,
+#         )
+
+models = JLD.load(MODEL_OUTPUT_JLD_FILE, "models")
 
 ##############################
 # COMPUTE VALIDATION METRICS
@@ -109,7 +111,10 @@ metric_types_test_traces = [
                             EmergentKLDivMetric{symbol(SPEED)},
                             EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                             EmergentKLDivMetric{symbol(D_CL)},
-                            RootWeightedSquareError{symbol(SPEED)},
+                            RootWeightedSquareError{symbol(SPEED), 1.0},
+                            RootWeightedSquareError{symbol(SPEED), 2.0},
+                            RootWeightedSquareError{symbol(SPEED), 3.0},
+                            RootWeightedSquareError{symbol(SPEED), 4.0},
                             # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT)},
                             # RootWeightedSquareError{symbol(D_CL)},
                            ]
@@ -118,6 +123,10 @@ metric_types_test_traces_bagged = [
                                    EmergentKLDivMetric{symbol(SPEED)},
                                    EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                                    EmergentKLDivMetric{symbol(D_CL)},
+                                   RootWeightedSquareError{symbol(SPEED), 1.0},
+                                   RootWeightedSquareError{symbol(SPEED), 2.0},
+                                   RootWeightedSquareError{symbol(SPEED), 3.0},
+                                   RootWeightedSquareError{symbol(SPEED), 4.0},
                                   ]
 
 metric_types_cv_train_frames = DataType[]
@@ -126,15 +135,16 @@ metric_types_cv_train_traces = DataType[]
 metric_types_cv_test_traces = DataType[]
 
 metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models, dset, train_test_split, FOLD_TEST, true)
+metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
 
 pdsets_original = load_pdsets(dset)
 streetnets = load_streetnets(dset)
 pdsets_for_simulation = deepcopy(pdsets_original)
+
 metrics_sets_test_traces = extract_metrics_from_traces(metric_types_test_traces, models,
                                 pdsets_original, pdsets_for_simulation, streetnets,
-                                dset.pdset_segments, train_test_split, FOLD_TEST, true)
+                                dset.pdset_segments, train_test_split, FOLD_TEST, true) # NOTE(tim): includes realworld entry
 
-metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
 metrics_sets_test_traces_bagged = extract_bagged_metrics_from_traces(metric_types_test_traces, models,
                                        pdsets_original, pdsets_for_simulation, streetnets,
                                        dset.pdset_segments, train_test_split, FOLD_TEST, true)
