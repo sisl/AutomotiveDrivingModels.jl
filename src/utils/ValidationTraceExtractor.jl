@@ -25,7 +25,6 @@ export
         FOLD_TEST,
 
         total_framecount,
-        # pull_start_conditions,
         calc_traces_to_keep_with_frameskip,
 
         pull_model_training_data,
@@ -354,261 +353,6 @@ function _calc_subsets_based_on_csvfileset(csvfileset::CSVFileSet, nframes::Int)
 
     df
 end
-# function pull_start_conditions(
-#     extract_params  :: OrigHistobinExtractParameters,
-#     pdset          :: PrimaryDataset,
-#     sn             :: StreetNetwork;
-#     MAX_DIST       :: Float64 = 5000.0, # max_dist used in frenet_distance_between_points() [m]
-#     )
-
-#     #=
-#     Identify the set of frameinds that are valid starting locations
-#     =#
-
-#     start_conditions = StartCondition[]
-
-#     const PDSET_FRAMES_PER_SIM_FRAME = extract_params.pdset_frames_per_sim_frame
-#     const SIM_HORIZON = extract_params.sim_horizon
-#     const SIM_HISTORY = extract_params.sim_history
-
-#     @assert(SIM_HISTORY ≥ 1)
-#     @assert(SIM_HORIZON ≥ 0)
-
-#     const TOLERANCE_D_CL      = extract_params.tol_d_cl
-#     const TOLERANCE_YAW       = extract_params.tol_yaw
-#     const TOLERANCE_TURNRATE  = extract_params.tol_turnrate
-#     const TOLERANCE_SPEED     = extract_params.tol_speed
-#     const TOLERANCE_ACCEL     = extract_params.tol_accel
-#     const TOLERANCE_D_X_FRONT = extract_params.tol_d_x_front
-#     const TOLERANCE_D_Y_FRONT = extract_params.tol_d_y_front
-#     const TOLERANCE_D_V_FRONT = extract_params.tol_d_v_front
-
-#     const TARGET_SPEED        = extract_params.target_speed
-
-#     const N_SIM_FRAMES = total_framecount(extract_params)
-
-#     for validfind = SIM_HISTORY : nvalidfinds(pdset)
-
-#         validfind_start = int(jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
-#         validfind_end   = int(jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
-
-#         if are_validfinds_continuous(pdset, validfind_start, validfind_end) &&
-#             _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets)
-
-#             frameind = validfind2frameind(pdset, validfind)
-
-#             posFy  = gete(pdset, :posFy, frameind)::Float64
-#             ϕ      = gete(pdset, :posFyaw, frameind)::Float64
-#             d_cl   = gete(pdset, :d_cl, frameind)::Float64
-#             v_orig = get(SPEED,    pdset, sn, CARIND_EGO, validfind)::Float64
-#             ω      = get(TURNRATE, pdset, sn, CARIND_EGO, validfind)::Float64
-#             a      = get(ACC,      pdset, sn, CARIND_EGO, validfind)::Float64
-#             has_front = bool(get(HAS_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64)
-#             d_x_front = get(D_X_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
-#             d_y_front = get(D_Y_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
-#             v_x_front = get(V_X_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
-#             nll    = int(get(N_LANE_L, pdset, sn, CARIND_EGO, validfind)::Float64)
-#             nlr    = int(get(N_LANE_R, pdset, sn, CARIND_EGO, validfind)::Float64)
-
-#             if  abs(d_cl) ≤ TOLERANCE_D_CL      &&
-#                 abs(ϕ)    ≤ TOLERANCE_YAW       &&
-#                 abs(ω)    ≤ TOLERANCE_TURNRATE  &&
-#                 abs(a)    ≤ TOLERANCE_ACCEL     &&
-#                 abs(v_orig-TARGET_SPEED) ≤ TOLERANCE_SPEED &&
-#                 d_x_front ≤ TOLERANCE_D_X_FRONT &&
-#                 abs(d_y_front) ≤ TOLERANCE_D_Y_FRONT &&
-#                 v_x_front ≤ TOLERANCE_D_V_FRONT #&&
-#                 # (nll + nlr) > 0
-
-#                 find_start = validfind2frameind(pdset, validfind_start)
-#                 find_end = validfind2frameind(pdset, validfind_end)
-
-#                 posGxA = gete(pdset, :posGx, find_start)
-#                 posGyA = gete(pdset, :posGy, find_start)
-#                 posGxB = gete(pdset, :posGx, find_end)
-#                 posGyB = gete(pdset, :posGy, find_end)
-
-#                 (Δx, Δy) = frenet_distance_between_points(sn, posGxA, posGyA, posGxB, posGyB, MAX_DIST)
-
-#                 # if Δy < -6
-#                 #     println("posFy  =  ", posFy)
-#                 #     println("ϕ      =  ", ϕ)
-#                 #     println("d_cl   =  ", d_cl)
-#                 #     println("v_orig =  ", v_orig)
-#                 #     println("ω      =  ", ω)
-#                 #     println("a      =  ", a)
-#                 #     println("has_front ", has_front)
-#                 #     println("d_x_front ", d_x_front)
-#                 #     println("d_y_front ", d_y_front)
-#                 #     println("v_x_front ", v_x_front)
-#                 #     println("nll    =  ", nll)
-#                 #     println("nlr    =  ", nlr)
-#                 # end
-
-#                 if !isnan(Δx)
-#                     error("This code needs to be changed")
-#                     if extract_params.behavior == "freeflow"
-#                         startcon = StartCondition(validfind_start, Int[CARID_EGO])
-#                         push!(start_conditions, startcon)
-#                     elseif extract_params.behavior == "carfollow"
-#                         # need to pull the leading vehicle
-
-#                         @assert(has_front)
-#                         carind_front = int(get(INDFRONT, pdset, sn, CARIND_EGO, validfind))
-#                         carid_front = carind2id(pdset, carind_front, validfind)
-#                         if frames_contain_carid(pdset, carid_front, validfind_start, validfind_end, frameskip=PDSET_FRAMES_PER_SIM_FRAME)
-#                             startcon = StartCondition(validfind_start, Int[CARID_EGO, carid_front])
-#                             push!(start_conditions, startcon)
-#                         end
-#                     end
-#                 end
-#             end
-#         end
-#     end
-
-#     start_conditions
-# end
-# function pull_start_conditions(
-#     extract_params :: OrigHistobinExtractParameters,
-#     csvfileset     :: CSVFileSet,
-#     pdset          :: PrimaryDataset,
-#     sn             :: StreetNetwork;
-#     MAX_DIST       :: Float64 = 5000.0, # max_dist used in frenet_distance_between_points() [m]
-#     )
-
-#     #=
-#     Identify the set of frameinds that are valid starting locations
-#     =#
-
-#     start_conditions = StartCondition[]
-
-#     const PDSET_FRAMES_PER_SIM_FRAME = extract_params.pdset_frames_per_sim_frame
-#     const SIM_HORIZON = extract_params.sim_horizon
-#     const SIM_HISTORY = extract_params.sim_history
-
-#     @assert(SIM_HISTORY ≥ 1)
-#     @assert(SIM_HORIZON ≥ 0)
-
-#     const TOLERANCE_D_CL      = extract_params.tol_d_cl
-#     const TOLERANCE_YAW       = extract_params.tol_yaw
-#     const TOLERANCE_TURNRATE  = extract_params.tol_turnrate
-#     const TOLERANCE_SPEED     = extract_params.tol_speed
-#     const TOLERANCE_ACCEL     = extract_params.tol_accel
-#     const TOLERANCE_D_X_FRONT = extract_params.tol_d_x_front
-#     const TOLERANCE_D_Y_FRONT = extract_params.tol_d_y_front
-#     const TOLERANCE_D_V_FRONT = extract_params.tol_d_v_front
-
-#     const TARGET_SPEED        = extract_params.target_speed
-
-#     const N_SIM_FRAMES = total_framecount(extract_params)
-
-#     num_validfinds = nvalidfinds(pdset)
-
-#     df_subsets = _calc_subsets_based_on_csvfileset(csvfileset, num_validfinds)
-
-#     for validfind = SIM_HISTORY : num_validfinds
-
-#         validfind_start = int(jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
-#         validfind_end   = int(jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
-
-#         # println(validfind, "  ",
-#         #        int(are_validfinds_continuous(pdset, validfind_start, validfind_end)), "  ",
-#         #         int(_calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)))
-
-#         if are_validfinds_continuous(pdset, validfind_start, validfind_end) &&
-#             _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)
-
-#             frameind = validfind2frameind(pdset, validfind)
-
-#             posFy  = gete(pdset, :posFy, frameind)::Float64
-#             ϕ      = gete(pdset, :posFyaw, frameind)::Float64
-#             d_cl   = gete(pdset, :d_cl, frameind)::Float64
-#             v_orig = get(SPEED,    pdset, sn, CARIND_EGO, validfind)::Float64
-#             ω      = get(TURNRATE, pdset, sn, CARIND_EGO, validfind)::Float64
-#             a      = get(ACC,      pdset, sn, CARIND_EGO, validfind)::Float64
-#             has_front = bool(get(HAS_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64)
-#             d_x_front = get(D_X_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
-#             d_y_front = get(D_Y_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
-#             v_x_front = get(V_X_FRONT, pdset, sn, CARIND_EGO, validfind)::Float64
-#             nll    = int(get(N_LANE_L, pdset, sn, CARIND_EGO, validfind)::Float64)
-#             nlr    = int(get(N_LANE_R, pdset, sn, CARIND_EGO, validfind)::Float64)
-
-#             # println(frameind)
-
-#             if  abs(d_cl) ≤ TOLERANCE_D_CL      &&
-#                 abs(ϕ)    ≤ TOLERANCE_YAW       &&
-#                 abs(ω)    ≤ TOLERANCE_TURNRATE  &&
-#                 abs(a)    ≤ TOLERANCE_ACCEL     &&
-#                 abs(v_orig-TARGET_SPEED) ≤ TOLERANCE_SPEED &&
-#                 d_x_front ≤ TOLERANCE_D_X_FRONT &&
-#                 abs(d_y_front) ≤ TOLERANCE_D_Y_FRONT &&
-#                 v_x_front ≤ TOLERANCE_D_V_FRONT #&&
-#                 #(nll + nlr) > 0
-
-#                 find_start = validfind2frameind(pdset, validfind_start)
-#                 find_end = validfind2frameind(pdset, validfind_end)
-
-#                 posGxA = gete(pdset, :posGx, find_start)
-#                 posGyA = gete(pdset, :posGy, find_start)
-#                 posGxB = gete(pdset, :posGx, find_end)
-#                 posGyB = gete(pdset, :posGy, find_end)
-
-#                 (Δx, Δy) = frenet_distance_between_points(sn, posGxA, posGyA, posGxB, posGyB, MAX_DIST)
-
-#                 # if Δy < -6
-#                 #     println("posFy  =  ", posFy)
-#                 #     println("ϕ      =  ", ϕ)
-#                 #     println("d_cl   =  ", d_cl)
-#                 #     println("v_orig =  ", v_orig)
-#                 #     println("ω      =  ", ω)
-#                 #     println("a      =  ", a)
-#                 #     println("has_front ", has_front)
-#                 #     println("d_x_front ", d_x_front)
-#                 #     println("d_y_front ", d_y_front)
-#                 #     println("v_x_front ", v_x_front)
-#                 #     println("nll    =  ", nll)
-#                 #     println("nlr    =  ", nlr)
-#                 # end
-
-#                 # println(Δx, "  ", Δy)
-
-#                 if !isnan(Δx)
-
-#                     # create a start condition with all of the vehicles
-#                     # println("selected")
-
-#                     startcon = StartCondition(validfind_start, Int[CARID_EGO])
-#                     for carid in get_carids(pdset)
-#                         if carid != CARID_EGO &&
-#                            frames_contain_carid(pdset, carid, validfind_start, validfind_end, frameskip=PDSET_FRAMES_PER_SIM_FRAME)
-
-#                             push!(startcon.carids, carid)
-#                         end
-#                     end
-#                     push!(start_conditions, startcon)
-
-
-#                     # if extract_params.behavior == "freeflow"
-#                     #     startcon = StartCondition(validfind_start, Int[CARID_EGO])
-#                     #     push!(start_conditions, startcon)
-#                     # elseif extract_params.behavior == "carfollow"
-#                     #     # need to pull the leading vehicle
-
-#                     #     @assert(has_front)
-#                     #     carind_front = int(get(INDFRONT, pdset, sn, CARIND_EGO, validfind))
-#                     #     carid_front = carind2id(pdset, carind_front, validfind)
-#                     #     if frames_contain_carid(pdset, carid_front, validfind_start, validfind_end, frameskip=PDSET_FRAMES_PER_SIM_FRAME)
-#                     #         startcon = StartCondition(validfind_start, Int[CARID_EGO, carid_front])
-#                     #         push!(start_conditions, startcon)
-#                     #     end
-#                     # end
-#                 end
-#             end
-#         end
-#     end
-
-#     start_conditions
-# end
 
 function _control_input_exists_at_each_point(
     basics::FeatureExtractBasicsPdSet,
@@ -636,9 +380,9 @@ end
 
 function pull_pdset_segments(
     extract_params::OrigHistobinExtractParameters,
-    csvfileset::CSVFileSet,
     pdset::PrimaryDataset,
     sn::StreetNetwork,
+    carid::Int,
     pdset_id::Integer,
     streetnet_id::Integer,
     validfinds::Vector{Int};
@@ -666,10 +410,8 @@ function pull_pdset_segments(
     @assert(SIM_HISTORY ≥ 1)
     @assert(SIM_HORIZON ≥ 0)
 
-    carid = csvfileset.carid
     pdset_segments = PdsetSegment[]
     num_validfind_indeces = length(validfinds)
-    df_subsets = _calc_subsets_based_on_csvfileset(csvfileset, nvalidfinds(pdset))
 
     validfind_index = 0
     while validfind_index < num_validfind_indeces
@@ -703,19 +445,8 @@ function pull_pdset_segments(
             end
         end
 
-        # if !all_points_are_in_validfinds
-        #     println(validfind_index, " failed all_points_are_in_validfinds")
-        # end
-        # if !are_validfinds_continuous(pdset, validfind_start, validfind_end)
-        #     println(validfind_index, " failed are_validfinds_continuous")
-        # end
-        # if !_calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)
-        #     println(validfind_index, " failed _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)")
-        # end
-
         if all_points_are_in_validfinds &&
-           are_validfinds_continuous(pdset, validfind_start, validfind_end) &&
-           _calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets)
+           are_validfinds_continuous(pdset, validfind_start, validfind_end)
 
             carind = carid2ind(pdset, carid, validfind)
             posFy     =      get(pdset, :posFy,   carind, validfind)::Float64
@@ -880,11 +611,15 @@ function pull_pdset_segments_and_dataframe(
 
     ########################################################################################################
     # pull all of the validfinds that pass the filters
+
     validfinds = filter(validfind->!does_violate_filter(filters, basics, carid2ind(pdset, csvfileset.carid, validfind), validfind), 1 : nvalidfinds(pdset))
+    subsets_based_on_csvfileset = _calc_subsets_based_on_csvfileset(csvfileset, length(validfinds))
+    validfinds = filter!(validfind->_calc_frame_passes_subsets(pdset, sn, carid2ind(pdset, csvfileset.carid, validfind),
+                                                               validfind, extract_params.subsets, subsets_based_on_csvfileset), validfinds)
 
     ########################################################################################################
     # pull all of the pdset_segments that lie within validfinds
-    pdset_segments = pull_pdset_segments(extract_params, csvfileset, pdset, sn,
+    pdset_segments = pull_pdset_segments(extract_params, pdset, sn, csvfileset.carid,
                                          pdset_id, streetnet_id, validfinds,
                                          basics=basics)
 

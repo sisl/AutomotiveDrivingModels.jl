@@ -16,7 +16,6 @@ export
     gen_primary_data_no_smoothing,
     load_trajdata
 
-
 type PrimaryDataExtractionParams
 
     resample_rate :: Float64 # seconds between re-sampled samples (>0)
