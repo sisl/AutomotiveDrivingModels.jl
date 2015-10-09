@@ -11,7 +11,6 @@ using AutomotiveDrivingModels.Features
 using AutomotiveDrivingModels.FeaturesetExtractor
 using AutomotiveDrivingModels.Curves # TODO: remove this
 
-import Base: ==, isequal
 import Base.Collections: PriorityQueue, dequeue!
 import AutomotiveDrivingModels.FeaturesetExtractor: create_dataframe_with_feature_columns
 
@@ -104,7 +103,7 @@ type OrigHistobinExtractParameters
     end
 end
 total_framecount(stats::OrigHistobinExtractParameters) = stats.sim_history + stats.sim_horizon
-function ==(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters)
+function Base.(:(==))(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters)
     a.behavior == b.behavior &&
     length(a.subsets) == length(b.subsets) &&
     all([findfirst(item->isa(item, typeof(feature_a)), b.subsets)!=0 for feature_a in a.subsets]) &&
@@ -122,8 +121,8 @@ function ==(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters)
     a.sim_history                        == b.sim_history &&
     a.frameskip_between_extracted_scenes == b.frameskip_between_extracted_scenes
 end
-!=(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters) = !(a==b)
-isequal(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters) = a == b
+Base.(:(!=))(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters) = !(a==b)
+Base.isequal(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters) = a == b
 
 
 ########################################
@@ -612,10 +611,13 @@ function pull_pdset_segments_and_dataframe(
     ########################################################################################################
     # pull all of the validfinds that pass the filters
 
-    validfinds = filter(validfind->!does_violate_filter(filters, basics, carid2ind(pdset, csvfileset.carid, validfind), validfind), 1 : nvalidfinds(pdset))
-    subsets_based_on_csvfileset = _calc_subsets_based_on_csvfileset(csvfileset, length(validfinds))
-    validfinds = filter!(validfind->_calc_frame_passes_subsets(pdset, sn, carid2ind(pdset, csvfileset.carid, validfind),
-                                                               validfind, extract_params.subsets, subsets_based_on_csvfileset), validfinds)
+    subsets_based_on_csvfileset = _calc_subsets_based_on_csvfileset(csvfileset, nvalidfinds(pdset))
+    validfinds = filter(1 : nvalidfinds(pdset)) do validfind
+                    carind = carid2ind(pdset, csvfileset.carid, validfind)
+                    _calc_frame_passes_subsets(pdset, sn, carind, validfind, extract_params.subsets, subsets_based_on_csvfileset) &&
+                        !does_violate_filter(filters, basics, carind, validfind)
+                 end
+
 
     ########################################################################################################
     # pull all of the pdset_segments that lie within validfinds
