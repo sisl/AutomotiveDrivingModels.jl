@@ -59,9 +59,13 @@ end
 # MODELS
 ##############################
 
+# TODO(tim): load optimal behavior set params from file
 behaviorset = BehaviorSet()
 add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")
-add_behavior!(behaviorset, VehicleBehaviorGaussian, "Single Variable")
+add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Single Variable",
+    [:indicators=>INDICATOR_SET,
+     :ridge_regression_constant=>0.1,
+    ])
 add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
     [:indicators=>INDICATOR_SET,
      :ntrees=>5,
@@ -90,9 +94,7 @@ add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
      :ncandidate_bins=>20,
      ])
 
-# TODO(tim): fix train test split.....
 # models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])
-
 # JLD.save(MODEL_OUTPUT_JLD_FILE,
 #         "behaviorset", behaviorset,
 #         "models", models,

@@ -23,7 +23,7 @@ function create_tikzpicture_model_logl_vs_param(io::IO, df::DataFrame, active_va
     nmodels = ncol(df)-2
     modelnames = map(i->replace(string(names(df)[i+2]), "_", " "), 1:nmodels)
 
-    dash_types = ["solid", "dashdotted", "dashed", "dotted"]
+    dash_types = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
 
     for i in 1 : nmodels
 
@@ -42,7 +42,10 @@ function create_tikzpicture_model_logl_vs_param(io::IO, df::DataFrame, active_va
 
     print(io, "\\legend{")
     for (i,name) in enumerate(modelnames)
-        print(io, name)
+
+        for word in split(name)
+            print(io, word[1])
+        end
         if i != length(modelnames)
             print(io, ", ")
         end
@@ -56,4 +59,4 @@ write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
     create_tikzpicture_model_logl_vs_param(fh, df_exp1, :dataset_amount)
 end
 
-
+println("DONE EXPORTING RESULTS")

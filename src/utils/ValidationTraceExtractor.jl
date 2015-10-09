@@ -148,6 +148,50 @@ type ModelTrainingData
                                          # where i is the pdsetsegment index
                                          # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
 end
+function Base.append!(A::ModelTrainingData, B::ModelTrainingData)
+
+    # assume that the dataframe is non-overlapping (no way to tell)
+    nrow_df_A = nrow(A.dataframe)
+    append!(A.dataframe, B.dataframe)
+
+
+    B_pdset_filepath_id_map = Array(Int, length(B.pdset_filepaths))
+    for (i,pdset_filepath) in enumerate(B.pdset_filepaths)
+        j = findfirst(A.pdset_filepaths, pdset_filepath)
+        if j == 0
+            push!(A.pdset_filepaths, pdset_filepath)
+            B_pdset_filepath_id_map[i] = length(A.pdset_filepaths)
+        else
+            B_pdset_filepath_id_map[i] = j
+        end
+    end
+
+    B_sn_filepath_id_map = Array(Int, length(B.streetnet_filepaths))
+    for (i,sn_filepath) in enumerate(B.streetnet_filepaths)
+        j = findfirst(A.streetnet_filepaths, sn_filepath)
+        if j == 0
+            push!(A.streetnet_filepaths, sn_filepath)
+            B_sn_filepath_id_map[i] = length(A.streetnet_filepaths)
+        else
+            B_sn_filepath_id_map[i] = j
+        end
+    end
+
+    for (i,seg) in enumerate(B.pdset_segments)
+        seg_new = PdsetSegment(B_pdset_filepath_id_map[seg.pdset_id],
+                               B_sn_filepath_id_map[seg.streetnet_id],
+                               seg.carid, seg.validfind_start,
+                               seg.validfind_end
+                               )
+        if !in(seg_new, A.pdset_segments)
+            push!(A.pdset_segments, seg_new)
+            push!(A.startframes, B.startframes[i]+nrow_df_A)
+        end
+    end
+
+    A
+end
+
 
 ########################################
 #            Fold Assignment           #

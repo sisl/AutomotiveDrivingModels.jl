@@ -1,5 +1,7 @@
 export VehicleBehaviorLinearGaussian
 
+using PDMats
+
 # This vehicle derives a linear gaussian representation based on a single feature
 # - for features which can be Inf we include a separate Gaussian
 
@@ -7,7 +9,7 @@ type VehicleBehaviorLinearGaussian <: AbstractVehicleBehavior
 
     F::AbstractFeature # the predictor
     A::Vector{Float64} # the autoregression matrix (here use vector of len 2), μ = A⋅ϕ
-    μ_Inf::Vector{Float64} # used for Inf values (also length 2)
+    μ∞::Vector{Float64} # used for Inf values (also length 2)
     N::MvNormal # with action vector (accel, turnrate) (Σ is const)
 
     action::Vector{Float64} # the action, preallocated
@@ -16,21 +18,21 @@ type VehicleBehaviorLinearGaussian <: AbstractVehicleBehavior
     function VehicleBehaviorLinearGaussian(
         F::AbstractFeature,
         A::Vector{Float64},
-        μ_inf::Vector{Float64},
+        μ∞::Vector{Float64},
         N::MvNormal,
         )
 
         @assert(length(A) == 2)
-        @assert(length(μ_Inf) == 2)
+        @assert(length(μ∞) == 2)
 
-        new(F, A, μ_inf, N, [0.0,0.0])
+        new(F, A, μ∞, N, [0.0,0.0])
     end
 end
 
 function _regress_on_feature!(behavior::VehicleBehaviorLinearGaussian, ϕ::Float64)
     if isinf(ϕ)
-        behavior.N.μ[1] = behavior.μ_Inf[1]
-        behavior.N.μ[2] = behavior.μ_Inf[2]
+        behavior.N.μ[1] = behavior.μ∞[1]
+        behavior.N.μ[2] = behavior.μ∞[2]
     else
         behavior.N.μ[1] = behavior.A[1] * ϕ
         behavior.N.μ[2] = behavior.A[2] * ϕ
@@ -102,17 +104,21 @@ function train(::Type{VehicleBehaviorLinearGaussian}, trainingframes::DataFrame;
                     HAS_FRONT, D_X_FRONT, D_Y_FRONT, V_X_FRONT, V_Y_FRONT, TTC_X_FRONT,
                     A_REQ_FRONT, TIMEGAP_X_FRONT,
                  ],
+    ridge_regression_constant::Float64=0.5,
     args::Dict=Dict{Symbol,Any}()
     )
 
     for (k,v) in args
         if k == :indicators
             indicators = v
+        elseif k == :ridge_regression_constant
+            ridge_regression_constant = v
         else
             warn("Train VehicleBehaviorLinearGaussian: ignoring $k")
         end
     end
 
+    γ = ridge_regression_constant
     nframes = size(trainingframes, 1)
 
     # A = (ΦΦᵀ + γI)⁻¹ ΦUᵀ
@@ -143,31 +149,95 @@ function train(::Type{VehicleBehaviorLinearGaussian}, trainingframes::DataFrame;
             U[2, framecount] = action_lon
         end
     end
-    U = U[:, 1:framecount]
+    n_validframes = framecount
+    U = U[:, 1:n_validframes]
 
     Φ = Array(Float64, framecount, 1)
+    R = Array(Float64, 2, framecount) # residual vectors [o×n]
+    μ∞ = Array(Float64, 2)
 
     best_predictor_index = 1
     best_predictor_loss = Inf # want to minimize
-    for F in indicators
+    best_R = Array(Float64, 2, framecount)
+    best_A = Array(Float64, 2)
+    best_μ∞ = Array(Float64, 2)
+    for (predictor_index, F) in enumerate(indicators)
         sym = symbol(F)
 
+        μ∞[1], μ∞[2] = 0.0, 0.0
+        n∞ = 0
         Φdot = 0.0
+
         framecount = 0
         for i = 1 : nframes
             if is_frame_valid[i]
                 framecount += 1
-                Φ[framecount] = trainingframes[i, sym]
-                Φdot += Φ[framecount]*Φ[framecount]
+                ϕ = trainingframes[i, sym]
+                if !isinf(ϕ)
+                    Φ[framecount] = ϕ
+                    Φdot += Φ[framecount]*Φ[framecount]
+                else
+                    n∞ += 1
+                    μ∞[1] += U[1, framecount]
+                    μ∞[2] += U[2, framecount]
+                    Φ[framecount] = 0.0
+                end
             end
         end
 
-        A = (Φ*U')./(Φdot + γ)
+        # println(size(U))
+        # println(size(Φ))
+        A = (U*Φ)./(Φdot + γ)
+        if n∞ > 0
+            μ∞[1] /= n∞
+            μ∞[2] /= n∞
+        end
 
         # compute the loss from the residual vectors
-        # compute the associated Σ from the residual error
-        # store the model results
+        # rₜ = yₜ - A⋅ϕ
+        # ε = ∑(|rₜ|₂)²
+
+        loss = 0.0
+        framecount = 0
+        for i in 1 : nframes
+            if is_frame_valid[i]
+                framecount += 1
+                if !isinf(trainingframes[i, sym])
+                    R[1,framecount] = U[1,framecount] - A[1]*Φ[framecount]
+                    R[2,framecount] = U[2,framecount] - A[2]*Φ[framecount]
+                else
+                    R[1,framecount] = U[1,framecount] - μ∞[1]
+                    R[2,framecount] = U[2,framecount] - μ∞[2]
+                end
+                loss += R[1,framecount]*R[1,framecount] + R[2,framecount]*R[2,framecount]
+            end
+        end
+
+        if loss < best_predictor_loss
+            # store the model results
+            best_predictor_loss = loss
+            copy!(best_R, R)
+            best_predictor_index = predictor_index
+            copy!(best_μ∞, μ∞)
+            copy!(best_A, A)
+        end
     end
 
-    VehicleBehaviorLinearGaussian(fit_mle(MvNormal, trainingmatrix))
+    # compute the associated Σ with the residual error
+    Σ = zeros(Float64, 2, 2)
+    for i = 1 : n_validframes
+        for j = 1 : 2
+            Σ[1,1] += best_R[1,i]*best_R[1,i]
+            Σ[2,1] += best_R[1,i]*best_R[2,i]
+            Σ[2,2] += best_R[2,i]*best_R[2,i]
+        end
+    end
+    Σ[1,1] /= (nframes-1)
+    Σ[2,1] /= (nframes-1)
+    Σ[2,2] /= (nframes-1)
+    Σ[1,2] = Σ[2,1]
+
+    N = MvNormal([0.0,0.0], PDMat(Σ))
+
+    VehicleBehaviorLinearGaussian(indicators[best_predictor_index], best_A, best_μ∞, N)
 end

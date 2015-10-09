@@ -31,6 +31,7 @@ end
 function _grab_confidence(T::DataType, metrics::Vector{BaggedMetricResult})
     j = findfirst(m-> m.M <: T, metrics)
     confidence = metrics[j].confidence_bound
+    @assert(!isnan(confidence))
     if isnan(confidence)
         confidence = 0.0
     end
@@ -47,39 +48,7 @@ function _grab_score_and_confidence{B<:BehaviorMetric}(
 
     (μ, Δ)
 end
-function create_tikzpicture_model_compare_logl_test{S<:String}(io::IO,
-    metrics_sets_test::Vector{Vector{BehaviorFrameMetric}},
-    metrics_sets_test_frames_bagged::Vector{Vector{BaggedMetricResult}},
-    names::Vector{S},
-    )
 
-    #=
-    For each model, add these options:
-    (produces 95% confidence bounds)
-
-    \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
-    \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
-    \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
-    \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
-    \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
-    =#
-
-    for (i,name) in enumerate(names)
-
-        μ, Δ = _grab_score_and_confidence(LoglikelihoodMetric, metrics_sets_test[i],
-                                          metrics_sets_test_frames_bagged[i])
-
-        color_letter = string('A' + i - 1)
-
-        println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
-        @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, Δ, Δ)
-    end
-end
 function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
     metrics_sets_cv::CrossValidationResults,
     names::Vector{S},
@@ -122,6 +91,39 @@ function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
 
         println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", likelihood_μ, name, likelihood_hi-likelihood_μ, likelihood_μ-likelihood_lo)
+    end
+end
+function create_tikzpicture_model_compare_logl_test{S<:String}(io::IO,
+    metrics_sets_test::Vector{Vector{BehaviorFrameMetric}},
+    metrics_sets_test_frames_bagged::Vector{Vector{BaggedMetricResult}},
+    names::Vector{S},
+    )
+
+    #=
+    For each model, add these options:
+    (produces 95% confidence bounds)
+
+    \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
+    \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
+    \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
+    \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
+    \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
+    coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
+    =#
+
+    for (i,name) in enumerate(names)
+
+        μ, Δ = _grab_score_and_confidence(LoglikelihoodMetric, metrics_sets_test[i],
+                                          metrics_sets_test_frames_bagged[i])
+
+        color_letter = string('A' + i - 1)
+
+        println(io, "\\addplot+[thick, mark=o, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
+        @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, Δ, Δ)
     end
 end
 function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
@@ -267,15 +269,13 @@ metrics_sets_cv = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_cv")
 # all_names = String["Real World"]
 # append!(all_names, behaviorset.names)
 
-# println("TEST")
+write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+    create_tikzpicture_model_compare_logl_train(fh, metrics_sets_cv, behaviorset.names)
+end
+
 write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
     create_tikzpicture_model_compare_logl_test(fh, metrics_sets_test_frames,
                                                metrics_sets_test_frames_bagged, behaviorset.names)
-end
-
-# println("\nTRAIN")
-write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    create_tikzpicture_model_compare_logl_train(fh, metrics_sets_cv, behaviorset.names)
 end
 
 write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh
@@ -291,3 +291,4 @@ write_to_texthook(TEXFILE, "model-compare-rmse-stdev") do fh
     create_tikzpicture_model_compare_rwse_variance(fh, metrics_sets_test_traces_bagged, behaviorset.names)
 end
 
+println("DONE EXPORTING RESULTS TO TEX")

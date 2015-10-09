@@ -1044,6 +1044,7 @@ function plot_manipulable_pdset_with_traces(
     active_carid::Integer=CARID_EGO,
     color_history::Colorant=RGBA(0.7,0.3,0.0,0.8),
     color_horizon::Colorant=RGBA(0.3,0.3,0.7,0.8),
+    history::Int=20,
     )
 
     nvalidfinds_total = nvalidfinds(pdset)

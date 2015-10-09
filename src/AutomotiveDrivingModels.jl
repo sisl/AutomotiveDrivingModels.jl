@@ -58,6 +58,7 @@ include("evaluation/model_evaluation.jl")
 
 include("behaviors/drive_straight.jl")
 include("behaviors/behavior_gaussian.jl")
+include("behaviors/behavior_linear_gaussian.jl")
 
 include("policies/risk_estimation_policy.jl")
 
