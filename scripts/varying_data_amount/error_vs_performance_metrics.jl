@@ -19,12 +19,6 @@ using DynamicBayesianNetworkBehaviors
 # PARAMETERS
 ##############################
 
-const SIM_HISTORY_IN_FRAMES  = 8
-const SIMPARAMS = DEFAULT_SIM_PARAMS
-const HISTOBIN_PARAMS = ParamsHistobin(
-                    LinearDiscretizer(linspace(4.0 - 0.5, 4.0 + 0.5, 50), force_outliers_to_closest=true),
-                    LinearDiscretizer(linspace(     -3.5,       3.5, 50), force_outliers_to_closest=true))
-const EVAL_PARAMS = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
 const STREETNET_CACHE = Dict{String, StreetNetwork}()
 const STREETMAP_BASE = "/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
 
