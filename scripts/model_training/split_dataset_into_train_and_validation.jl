@@ -23,61 +23,54 @@ const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
 include(INCLUDE_FILE)
 
-const SAVE_FILE_MODIFIER = ""
-const TRAIN_VALIDATION_JLD_FILE = joinpath(EVALUATION_DIR, "train_validation_split" * SAVE_FILE_MODIFIER * ".jld")
+for dset_filepath_modifier in (
+        "_subset_car_following",
+        "_subset_free_flow",
+        "_subset_lane_crossing",
+    )
 
-println("results will be exported to:")
-println("\t", TRAIN_VALIDATION_JLD_FILE)
+    println(dset_filepath_modifier)
 
-##############################
-# DATA
-##############################
+    TRAIN_VALIDATION_JLD_FILE = joinpath(EVALUATION_DIR, "train_validation_split" * dset_filepath_modifier * ".jld")
+    DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset" * dset_filepath_modifier * ".jld")
 
-println(joinpath(EVALUATION_DIR, "dataset.jld"))
+    dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
 
-# dataset_filepath = joinpath(EVALUATION_DIR, "dataset_small.jld")
-# dataset_filepath = joinpath(EVALUATION_DIR, "dataset_medium.jld")
-dataset_filepath = joinpath(EVALUATION_DIR, "dataset.jld")
+    #################################
+    # SPLIT INTO TRAIN AND VALIDATION
+    #################################
 
-dset = JLD.load(dataset_filepath, "model_training_data")
+    srand(1) # <- initialize random number generator to enforce consistency
+    train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION, dset)
 
-#################################
-# SPLIT INTO TRAIN AND VALIDATION
-#################################
+    println("n_other_frame: ", sum(v->v!=1 && v!=2, train_test_split.frame_assignment))
+    println("n_train_frame: ", sum(v->v==1, train_test_split.frame_assignment))
+    println("n_valid_frame: ", sum(v->v==2, train_test_split.frame_assignment))
+    println("n_other_pdset: ", sum(v->v!=1 && v!=2, train_test_split.pdsetseg_assignment))
+    println("n_train_pdset: ", sum(v->v==1, train_test_split.pdsetseg_assignment))
+    println("n_valid_pdset: ", sum(v->v==2, train_test_split.pdsetseg_assignment))
 
-srand(1) # <- initialize random number generator to enforce consistency
+    cross_validation_split = get_cross_validation_fold_assignment(NFOLDS, dset, train_test_split)
 
-println("size(dataframe): ", size(dset.dataframe))
-
-train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION, dset)
-
-println("n_other_frame: ", sum(v->v!=1 && v!=2, train_test_split.frame_assignment))
-println("n_train_frame: ", sum(v->v==1, train_test_split.frame_assignment))
-println("n_valid_frame: ", sum(v->v==2, train_test_split.frame_assignment))
-println("n_other_pdset: ", sum(v->v!=1 && v!=2, train_test_split.pdsetseg_assignment))
-println("n_train_pdset: ", sum(v->v==1, train_test_split.pdsetseg_assignment))
-println("n_valid_pdset: ", sum(v->v==2, train_test_split.pdsetseg_assignment))
-
-cross_validation_split = get_cross_validation_fold_assignment(NFOLDS, dset, train_test_split)
-
-counts = zeros(Int, 10)
-counts2 = zeros(Int, 10)
-for v in cross_validation_split.frame_assignment
-    if v != 0
-        counts[v] += 1
+    counts = zeros(Int, 10)
+    counts2 = zeros(Int, 10)
+    for v in cross_validation_split.frame_assignment
+        if v != 0
+            counts[v] += 1
+        end
     end
-end
-for v in cross_validation_split.pdsetseg_assignment
-    if v != 0
-        counts2[v] += 1
+    for v in cross_validation_split.pdsetseg_assignment
+        if v != 0
+            counts2[v] += 1
+        end
     end
+
+    println("counts frame_cv_assignment: ", counts)
+    println("counts pdsetseg_cv_assignment: ", counts2)
+
+    JLD.save(TRAIN_VALIDATION_JLD_FILE, "train_test_split", train_test_split,
+                                        "cross_validation_split", cross_validation_split)
 end
-
-println("counts frame_cv_assignment: ", counts)
-println("counts pdsetseg_cv_assignment: ", counts2)
-
-JLD.save(TRAIN_VALIDATION_JLD_FILE, "train_test_split", train_test_split,
-                                    "cross_validation_split", cross_validation_split)
 
 println("DONE")
 
