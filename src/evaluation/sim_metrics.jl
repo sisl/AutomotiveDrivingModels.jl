@@ -294,7 +294,7 @@ function extract_bagged_metrics(
     fold::Int,
     match_fold::Bool;
 
-    n_bagging_samples::Int=10, # number of bootstrap aggregated samples to take from data to eval on
+    n_bagging_samples::Int=100, # number of bootstrap aggregated samples to take from data to eval on
     confidence_level::Float64=0.95,
     )
 
@@ -320,14 +320,12 @@ function extract_bagged_metrics(
     retval = Array(BaggedMetricResult, n_metrics)
     for (j,metric_type) in enumerate(metric_types_frame_test)
 
-        println(frame_scores[1:nvalid_frames, j])
-
         for i in 1 : n_bagging_samples
             for k in bag_range
                 row_index = rand(bag_range)
                 bootstrap_scores[i] += frame_scores[row_index, j]
             end
-            bootstrap_scores[i] /= n_bagging_samples
+            bootstrap_scores[i]
         end
 
         μ = mean(bootstrap_scores)
@@ -336,7 +334,6 @@ function extract_bagged_metrics(
         confidence_bound = z * σ / sqrt(n_bagging_samples)
 
         retval[j] = BaggedMetricResult(metric_type, μ, σ, confidence_bound, confidence_level, n_bagging_samples)
-        println(metric_type, "  ", retval[j])
     end
 
     retval
