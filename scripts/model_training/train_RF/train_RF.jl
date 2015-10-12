@@ -1,6 +1,10 @@
 using AutomotiveDrivingModels
 using RandomForestBehaviors
 
+# mongod --fork --logpath /home/tim/Documents/code/Spearmint/db/log.txt --dbpath /home/tim/Documents/code/Spearmint/db
+# cd ~/Documents/code/Spearmint/spearmint
+# python main.py /home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/model_training/train_RF/
+
 #=
 1 - receive parameters from Spearmint
 2 - load train and validation datasets
@@ -18,7 +22,7 @@ using RandomForestBehaviors
 const INCLUDE_FILE = let
     hostname = gethostname()
     if hostname == "Cupertino"
-        "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
+        "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/extract_params.jl"
     elseif hostname == "tula"
         "/home/wheelert/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
     else
@@ -29,7 +33,7 @@ const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
 include(INCLUDE_FILE)
 
-const SAVE_FILE_MODIFIER = ""
+const SAVE_FILE_MODIFIER = "_subset_car_following"
 const BEST_MODEL_CSV_FILE = joinpath(EVALUATION_DIR, "best_model_rf" * SAVE_FILE_MODIFIER * ".csv")
 const TRAIN_VALIDATION_JLD_FILE = joinpath(EVALUATION_DIR, "train_validation_split" * SAVE_FILE_MODIFIER * ".jld")
 const DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset" * SAVE_FILE_MODIFIER * ".jld")
@@ -38,31 +42,15 @@ const DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset" * SAVE_FILE_MODIFIER
 # LOAD TRAIN AND VALIDATION SETS
 ################################
 
-pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loaded =
-            load_pdsets_streetnets_segements_and_dataframe(DATASET_JLD_FILE)
-
-frame_tv_assignment, pdsetseg_tv_assignment, frame_cv_assignment, pdsetseg_cv_assignment = let
-    jld = JLD.load(TRAIN_VALIDATION_JLD_FILE)
-    frame_tv_assignment = jld["frame_tv_assignment"]
-    pdsetseg_tv_assignment = jld["pdsetseg_tv_assignment"]
-    frame_cv_assignment = jld["frame_cv_assignment"]
-    pdsetseg_cv_assignment = jld["pdsetseg_cv_assignment"]
-    (frame_tv_assignment, pdsetseg_tv_assignment, frame_cv_assignment, pdsetseg_cv_assignment)
-end
-
-# replace foldername
-for (i,str) in enumerate(pdsets)
-    pdsets[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
-end
-for (i,str) in enumerate(streetnets)
-    streetnets[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
-end
+dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
+cross_validation_split = JLD.load(TRAIN_VALIDATION_JLD_FILE, "cross_validation_split")
 
 ##############################
 # TRAIN
 ##############################
 
 behavior_type = GindeleRandomForestBehavior
+behavior_name = "Random Forest"
 behavior_train_params = Dict{Symbol,Any}()
 behavior_train_params[:indicators] = INDICATOR_SET
 
@@ -87,8 +75,14 @@ while arg_index < length(ARGS)
 end
 
 # obtain mean and stdev of logl over the folds
-logl_mean, logl_stdev = cross_validate_logl(behavior_type, behavior_train_params,
-                             dataframe, frame_cv_assignment)
+behaviorset = BehaviorSet()
+add_behavior!(behaviorset, behavior_type, behavior_name, behavior_train_params)
+
+metric_types_train_frames = DataType[]
+metric_types_test_frames = [LoglikelihoodMetric]
+
+cv_res = cross_validate(behaviorset, dset, cross_validation_split,
+                        metric_types_train_frames, metric_types_test_frames)
 
 # ##############################
 # # LOAD PREVIOUSLY BEST MODEL
@@ -106,5 +100,5 @@ logl_mean, logl_stdev = cross_validate_logl(behavior_type, behavior_train_params
 # RETURN SCORE
 ##############################
 
-score = logl_mean
+score = get_score(cv_res.models[1].results[1].metrics_test_frames[1])
 println(score)

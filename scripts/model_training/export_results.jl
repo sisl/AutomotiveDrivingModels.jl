@@ -11,7 +11,7 @@ const TEXDIR = splitdir(TEXFILE)[1]
 
 const INCLUDE_FILE_BASE = "realworld"
 
-const SAVE_FILE_MODIFIER = ""
+const SAVE_FILE_MODIFIER = "_subset_car_following"
 const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/" * INCLUDE_FILE_BASE* "/"
 const METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * ".jld")
 const MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * SAVE_FILE_MODIFIER * ".jld")
@@ -47,6 +47,13 @@ function _grab_score_and_confidence{B<:BehaviorMetric}(
     Δ = _grab_confidence(T, metrics_bagged)
 
     (μ, Δ)
+end
+function _convert_to_short_name(name::String)
+    retval = ""
+    for word in split(name)
+        retval *= string(uppercase(word[1]))
+    end
+    retval
 end
 
 function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
@@ -146,11 +153,11 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
 
     for i in 1 : length(names)
 
-        speed_μ, speed_Δ = μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, metrics_sets_test_traces[i+1],
+        speed_μ, speed_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, metrics_sets_test_traces[i+1],
                                                             metrics_sets_test_traces_bagged[i])
-        timegap_μ, timegap_Δ = μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, metrics_sets_test_traces[i+1],
+        timegap_μ, timegap_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, metrics_sets_test_traces[i+1],
                                                             metrics_sets_test_traces_bagged[i])
-        offset_μ, offset_Δ = μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, metrics_sets_test_traces[i+1],
+        offset_μ, offset_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, metrics_sets_test_traces[i+1],
                                                             metrics_sets_test_traces_bagged[i])
 
         color = "color" * string('A' + i - 1)
@@ -163,7 +170,8 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
 
     print(io, "\\legend{")
     for (i,name) in enumerate(names)
-        print(io, name)
+
+        print(io, _convert_to_short_name(name))
         if i != length(names)
             print(io, ", ")
         end
@@ -258,6 +266,148 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
     print(io, "}\n")
 end
 
+function create_table_validation_across_context_classes{S<:String, T<:String}(
+    io::IO,
+    context_classes::Vector{Dict},
+    context_class_names::Vector{S},
+    model_names::Vector{T})
+
+    #=
+    \begin{tabular}{lcccccccc}
+    \toprule
+                                  & Context     & \GF             & \SV             & \RF             & \DF              & \BN             \\
+    \midrule
+    log-likelihood                & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+    KL divergence, timegap        & \freeflow   & \num{0.005+-0.002} & \num{0.006+-0.002} & \num{0.003+-0.002} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+    KL divergence, speed          & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+    KL divergence, lane offset    & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+    RWSE, \num{4}\si{s} horizon   & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+    \bottomrule
+    \end{tabular}
+    =#
+
+    nmodels = length(model_names)
+
+    print(io, "\\begin{tabular}{ll", "c"^nmodels, "}\n")
+    print(io, "\\toprule\n")
+    @printf(io, "%30s & %-11s ", "", "Context")
+    for name in model_names
+        @printf(io, "& \\%-20s ", _convert_to_short_name(name))
+    end
+    print(io, "\\\\\n")
+    print(io, "\\midrule\n")
+
+    # Testing Log Likelihood
+    for (context_class, context_class_name) in zip(context_classes, context_class_names)
+
+        if context_class_name == context_class_names[1]
+            @printf(io, "%-30s &", "log-likelihood (test)")
+        else
+            @printf(io, "%-30s &", "")
+        end
+
+        @printf(io, " %-11s ", "\\"*context_class_name)
+        for i in 1 : nmodels
+            logl_μ, logl_Δ = _grab_score_and_confidence(LoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
+                                                        context_class["metrics_sets_test_frames_bagged"][i])
+            logl_string = @sprintf("\\num{%.1f+-%.1f}", logl_μ, logl_Δ)
+            @printf(io, "& %-20s ", logl_string)
+        end
+        @printf(io, "\\\\\n")
+    end
+
+    # KL divergence, speed
+    for (context_class, context_class_name) in zip(context_classes, context_class_names)
+
+        if context_class_name == context_class_names[1]
+            @printf(io, "%-30s &", "KL divergence (speed)")
+        else
+            @printf(io, "%-30s &", "")
+        end
+
+        @printf(io, " %-11s ", "\\"*context_class_name)
+        for i in 1 : nmodels
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i+1],
+                                                            context_class["metrics_sets_test_traces_bagged"][i])
+            logl_string = @sprintf("\\num{%.3f+-%.3f}", μ, Δ)
+            @printf(io, "& %-20s ", logl_string)
+        end
+        @printf(io, "\\\\\n")
+    end
+
+    # KL divergence, timegap
+    for (context_class, context_class_name) in zip(context_classes, context_class_names)
+
+        if context_class_name == context_class_names[1]
+            @printf(io, "%-30s &", "KL divergence (timegap)")
+        else
+            @printf(io, "%-30s &", "")
+        end
+
+        @printf(io, " %-11s ", "\\"*context_class_name)
+        for i in 1 : nmodels
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i+1],
+                                                            context_class["metrics_sets_test_traces_bagged"][i])
+            logl_string = @sprintf("\\num{%.3f+-%.3f}", μ, Δ)
+            @printf(io, "& %-20s ", logl_string)
+        end
+        @printf(io, "\\\\\n")
+    end
+
+    # KL divergence, lane offset
+    for (context_class, context_class_name) in zip(context_classes, context_class_names)
+
+        if context_class_name == context_class_names[1]
+            @printf(io, "%-30s &", "KL divergence (lane offset)")
+        else
+            @printf(io, "%-30s &", "")
+        end
+
+        @printf(io, " %-11s ", "\\"*context_class_name)
+        for i in 1 : nmodels
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i+1],
+                                                            context_class["metrics_sets_test_traces_bagged"][i])
+            logl_string = @sprintf("\\num{%.3f+-%.3f}", μ, Δ)
+            @printf(io, "& %-20s ", logl_string)
+        end
+        @printf(io, "\\\\\n")
+    end
+
+    # RWSE (4s)
+    horizon = 4.0
+    for (context_class, context_class_name) in zip(context_classes, context_class_names)
+
+        if context_class_name == context_class_names[1]
+            @printf(io, "%-30s &", "RWSE (\\num{4}\\si{s}) [\\si{m}]")
+        else
+            @printf(io, "%-30s &", "")
+        end
+
+        @printf(io, " %-11s ", "\\"*context_class_name)
+        for i in 1 : nmodels
+            μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i+1]))
+            Δ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces_bagged"][i]).σ
+            logl_string = @sprintf("\\num{%.2f+-%.2f}", μ, Δ)
+            @printf(io, "& %-20s ", logl_string)
+        end
+        @printf(io, "\\\\\n")
+    end
+
+    print(io, "\\bottomrule\n")
+    print(io, "\\end{tabular}\n")
+
+end
+
 behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")
 
 metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
@@ -289,6 +439,22 @@ end
 
 write_to_texthook(TEXFILE, "model-compare-rmse-stdev") do fh
     create_tikzpicture_model_compare_rwse_variance(fh, metrics_sets_test_traces_bagged, behaviorset.names)
+end
+
+context_class_data = Dict[]
+context_class_names = ["freeflow", "following", "lanechange"]
+for dset_filepath_modifier in (
+    "_subset_free_flow",
+    "_subset_car_following",
+    "_subset_lane_crossing",
+    )
+
+    jld_filepath = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * ".jld")
+    push!(context_class_data, JLD.load(jld_filepath))
+end
+
+write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
+    create_table_validation_across_context_classes(fh, context_class_data, context_class_names, behaviorset.names)
 end
 
 println("DONE EXPORTING RESULTS TO TEX")
