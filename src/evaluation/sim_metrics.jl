@@ -151,6 +151,7 @@ type RootWeightedSquareError{feature_symbol, horizon} <: BehaviorTraceMetric
     rwse::Float64
 end
 
+const DEFAULT_N_MONTE_CARLO_SAMPLES = 50
 init{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}}) = RootWeightedSquareError{Fsym, H}(0.0, 0, NaN)
 function update_metric!{Fsym, H}(
     metric::RootWeightedSquareError{Fsym, H},
@@ -159,7 +160,7 @@ function update_metric!{Fsym, H}(
     basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
     seg::PdsetSegment,
 
-    n_monte_carlo_samples::Int=10
+    n_monte_carlo_samples::Int=DEFAULT_N_MONTE_CARLO_SAMPLES
     )
 
     #=
@@ -277,6 +278,7 @@ get_score(metric::LoglikelihoodMetric) = metric.logl
 #########################################################################################################
 # BaggedMetric
 
+const DEFAULT_N_BAGGING_SAMPLES = 20
 immutable BaggedMetricResult
     M::DataType # datatype of the source BehaviorMetric
     μ::Float64 # sample mean
@@ -294,7 +296,7 @@ function extract_bagged_metrics(
     fold::Int,
     match_fold::Bool;
 
-    n_bagging_samples::Int=100, # number of bootstrap aggregated samples to take from data to eval on
+    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
     confidence_level::Float64=0.95,
     )
 
@@ -347,7 +349,7 @@ function extract_bagged_metrics{B<:AbstractVehicleBehavior}(
     fold::Int,
     match_fold::Bool;
 
-    n_bagging_samples::Int=10, # number of bootstrap aggregated samples to take from data to eval on
+    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
     confidence_level::Float64=0.95,
     )
 
@@ -376,7 +378,7 @@ function extract_bagged_metrics_from_traces{B<:AbstractVehicleBehavior}(
     fold::Int,
     match_fold::Bool; # true for CV where we test on withheld data
 
-    n_bagging_samples::Int=10, # number of bootstrap aggregated samples to take from data to eval on
+    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
     confidence_level::Float64=0.95,
     )
 

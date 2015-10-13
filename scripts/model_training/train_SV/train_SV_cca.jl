@@ -41,7 +41,7 @@ type Parameter
 end
 
 params = [
-    Parameter(:ridge_regression_constant, linspace(0.0,1.0,5)),
+    Parameter(:ridge_regression_constant, linspace(0.0,1.0,20)),
 ]
 
 nparams = length(params)
@@ -134,17 +134,17 @@ while true # do forever
     μ = mean(metric_arr)
     σ = stdm(metric_arr, μ)
 
+    augment_array[1] = μ
+    augment_array[2] = σ
+    for (i,p) in enumerate(params)
+        augment_array[i+2] = behavior_train_params[p.sym]
+    end
+
     if μ > best_param_score
         best_param_score = μ
     else # previous was better
         behavior_train_params[sym] = prev_param
         param_indeces[param_index] = prev_index
-    end
-
-    augment_array[1] = μ
-    augment_array[2] = σ
-    for (i,p) in enumerate(params)
-        augment_array[i+2] = behavior_train_params[p.sym]
     end
 
     println("  ", μ, "  elapsed time: ", Δt, "  best score: ", best_param_score)

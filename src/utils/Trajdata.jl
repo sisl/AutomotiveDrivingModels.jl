@@ -1642,6 +1642,15 @@ function get_validfinds_containing_carid( pdset::PrimaryDataset, carid::Integer 
 	validfind_contains_carid = falses(nvalidfinds(pdset))
 	_get_validfinds_containing_carid!(validfind_contains_carid, pdset, carid)
 end
+function get_validfinds_containing_carid( ::Type{Vector{Int}}, pdset::PrimaryDataset, carid::Integer )
+	retval = Int[]
+	for validfind in 1 : nvalidfinds(pdset)
+		if idinframe(pdset, carid, validfind)
+			push!(retval, validfind)
+		end
+	end
+	retval
+end
 
 function are_validfinds_continuous(pdset::PrimaryDataset, validfind_start::Int, validfind_end::Int)
 	# true if validfinds are continuous between and including validfind start -> end

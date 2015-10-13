@@ -38,17 +38,8 @@ const DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset" * SAVE_FILE_MODIFIER
 # LOAD TRAIN AND VALIDATION SETS
 ################################
 
-pdsets, streetnets, pdset_segments, dataframe, startframes, extract_params_loaded =
-            load_pdsets_streetnets_segements_and_dataframe(DATASET_JLD_FILE)
-
-frame_tv_assignment, pdsetseg_tv_assignment, frame_cv_assignment, pdsetseg_cv_assignment = let
-    jld = JLD.load(TRAIN_VALIDATION_JLD_FILE)
-    frame_tv_assignment = jld["frame_tv_assignment"]
-    pdsetseg_tv_assignment = jld["pdsetseg_tv_assignment"]
-    frame_cv_assignment = jld["frame_cv_assignment"]
-    pdsetseg_cv_assignment = jld["pdsetseg_cv_assignment"]
-    (frame_tv_assignment, pdsetseg_tv_assignment, frame_cv_assignment, pdsetseg_cv_assignment)
-end
+dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
+cross_validation_split = JLD.load(TRAIN_VALIDATION_JLD_FILE, "cross_validation_split")
 
 # replace foldername
 for (i,str) in enumerate(pdsets)

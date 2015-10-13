@@ -30,9 +30,9 @@ include(INCLUDE_FILE)
 ################################
 
 for dset_filepath_modifier in (
-        "_subset_car_following",
-        "_subset_free_flow",
-        "_subset_lane_crossing",
+    "_subset_car_following",
+    "_subset_free_flow",
+    "_subset_lane_crossing",
     )
 
     println(dset_filepath_modifier)
@@ -67,25 +67,26 @@ for dset_filepath_modifier in (
     add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")
     add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Single Variable",
         [:indicators=>INDICATOR_SET,
-         :ridge_regression_constant=>0.1,
+         :ridge_regression_constant=>0.3157894736842105,
         ])
     add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
         [:indicators=>INDICATOR_SET,
-         :ntrees=>5,
-         :max_depth=>5,
-         :min_samples_split=>20,
-         :min_samples_leaves=>10,
-         :min_split_improvement=>0.2,
-         :partial_sampling=>0.7,
+         :ntrees=>26,
+         :max_depth=>20,
+         :min_samples_split=>10,
+         :min_samples_leaves=>4,
+         :min_split_improvement=>0.0,
+         :partial_sampling=>1.0,
         ])
     add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
         [:indicators=>INDICATOR_SET,
-         :ntrees=>5,
-         :max_depth=>2,
-         :min_samples_split=>20,
-         :min_samples_leaves=>10,
-         :min_split_improvement=>0.2,
-         :partial_sampling=>0.7,
+         :ntrees=>51,
+         :max_depth=>1,
+         :min_samples_split=>50,
+         :min_samples_leaves=>20,
+         :min_split_improvement=>0.5,
+         :partial_sampling=>0.95,
+         :n_split_tries=>10,
         ])
     add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
         [:indicators=>INDICATOR_SET,
@@ -94,7 +95,10 @@ for dset_filepath_modifier in (
          :optimize_structure=>true,
          :optimize_target_bins=>false,
          :optimize_parent_bins=>false,
-         :ncandidate_bins=>20,
+         :ncandidate_bins=>35,
+         :max_parents=>5,
+         # :nbins_lat=>5,
+         # :nbins_lon=>5,
          ])
 
     models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])

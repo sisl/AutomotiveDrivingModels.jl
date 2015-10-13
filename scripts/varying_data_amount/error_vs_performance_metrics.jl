@@ -21,11 +21,14 @@ using DynamicBayesianNetworkBehaviors
 
 const STREETNET_CACHE = Dict{String, StreetNetwork}()
 const STREETMAP_BASE = "/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
-
-const DATASET_VALIDATION = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/dataset_small.jld"
-const OPTIMAL_MODEL_PARAMS = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/model_training/opt_model_params.jld"
 const ERROR_AMOUNTS = linspace(0.0, 0.5, 3) # gaussian error
 const PDSET_EXTRACT_PARAMS = PrimaryDataExtractionParams()
+const DATA_INPUT_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/"
+const SCENARIO_DATASETS = [
+    "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/dataset_subset_car_following.jld",
+    "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/dataset_subset_free_flow.jld",
+    "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/dataset_subset_lane_crossing.jld",
+]
 
 const features = [
     YAW, SPEED, VELFX, VELFY, DELTA_SPEED_LIMIT, TURNRATE, TURNRATE_GLOBAL, ACC, ACCFX, ACCFY,
@@ -41,90 +44,93 @@ const features = [
     FUTUREACCELERATION_250MS, FUTUREDESIREDANGLE_250MS
 ]
 
-type Dataset
-    pdset_filepaths::Vector{String}
-    streetnet_filepaths::Vector{String}
-    pdset_segments::Vector{PdsetSegment}
-    dataframe::DataFrame
-    startframes::Vector{Int}
-    extract_params::OrigHistobinExtractParameters
+const INCLUDE_FILE_BASE = "realworld"
+const AM_ON_TULA = gethostname() == "tula"
+const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
+                                  joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
+const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
-    function Dataset(filename::String)
-        pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes, extract_params_loaded =
-            load_pdsets_streetnets_segements_and_dataframe(filename)
-
-        new(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes, extract_params_loaded)
-    end
-end
-type RunAndMap
-    csvfilename::String
-    streetmapbasename::String
-end
+include(INCLUDE_FILE)
 
 ##############################
-# VALIDATION DATASET
+# Test Dataset
 ##############################
 
-dset_validation = Dataset(DATASET_VALIDATION)
-
-pdsetseg_assignment = ones(Int, length(dset_validation.pdset_segments))
-
-pdsets = Array(PrimaryDataset, length(dset_validation.pdset_filepaths))
-for (i,pdset_filepath) in enumerate(dset_validation.pdset_filepaths)
-    pdsets[i] = load(pdset_filepath, "pdset")
+# construct a mega dset
+dset = JLD.load(SCENARIO_DATASETS[1], "model_training_data")
+for i = 2 : length(SCENARIO_DATASETS)
+    append!(dset, JLD.load(SCENARIO_DATASETS[i], "model_training_data"))
 end
 
-streetnets = Array(StreetNetwork, length(dset_validation.streetnet_filepaths))
-for (i,streetnet_filepath) in enumerate(dset_validation.streetnet_filepaths)
-    streetnets[i] = load(streetnet_filepath, "streetmap")
-end
-
-pdsets_for_simulation = deepcopy(pdsets)
-
-##############################
-# BEHAVIORSET
-##############################
-
-behaviorset = JLD.load(OPTIMAL_MODEL_PARAMS, "behaviorset")
-behaviorset.behaviors = [
-                            VehicleBehaviorGaussian,
-                            GindeleRandomForestBehavior,
-                            DynamicForestBehavior,
-                            DynamicBayesianNetworkBehavior
-                        ]
+# construct a train/test split
+srand(1)
+TRAIN_TEST_SPLIT_TEST_FRACTION = 0.1
+train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION, dset)
 
 ##############################
 # LOAD ALL RAW CSV DATA FILES
 ##############################
 
-runandmaps = RunAndMap[]
-for (input_dir, streetmap_basename) in [
-    # ("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_1lane_freeflow/csv_bosch/", "highway_1lane"),
-      ("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/csv_bosch/", "highway_2lane"),
-    ]
+csvfilesets = JLD.load(joinpath(DATA_INPUT_DIR, "csvfilesets.jld"), "csvfilesets")
 
-    for content in readdir(input_dir)
-        csvfilename = joinpath(input_dir, content)
-        if isfile(csvfilename) && endswith(csvfilename, ".csv")
-            push!(runandmaps, RunAndMap(csvfilename, streetmap_basename))
-        end
-    end
-end
-
-trajdatas = Array(DataFrame, length(runandmaps))
-for (i,runandmap) in enumerate(runandmaps)
-    csvfilename = runandmap.csvfilename
-    streetmapbasename = runandmap.streetmapbasename
+trajdatas = Array(DataFrame, length(csvfilesets))
+for (i,csvfileset) in enumerate(csvfilesets)
+    csvfile = csvfileset.csvfile
+    streetmapbasename = csvfileset.streetmapbasename
 
     if !haskey(STREETNET_CACHE, streetmapbasename)
         STREETNET_CACHE[streetmapbasename] = load(joinpath(STREETMAP_BASE, "streetmap_" * streetmapbasename*".jld"))["streetmap"]
     end
     sn = STREETNET_CACHE[streetmapbasename]
 
-    trajdatas[i] = load_trajdata(csvfilename)
+    trajdatas[i] = load_trajdata(csvfile)
 end
 
 trajdatas_for_sim = deepcopy(trajdatas)
+
+##############################
+# BEHAVIORSET
+##############################
+
+behaviorset = BehaviorSet()
+add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")
+add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Single Variable",
+    [:indicators=>INDICATOR_SET,
+     :ridge_regression_constant=>0.75,
+    ])
+add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
+    [:indicators=>INDICATOR_SET,
+     :ntrees=>6,
+     :max_depth=>18,
+     :min_samples_split=>30,
+     :min_samples_leaves=>2,
+     :min_split_improvement=>0.0,
+     :partial_sampling=>1.0,
+    ])
+add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
+    [:indicators=>INDICATOR_SET,
+     :ntrees=>36,
+     :max_depth=>10,
+     :min_samples_split=>20,
+     :min_samples_leaves=>2,
+     :min_split_improvement=>5.0,
+     :partial_sampling=>1.0,
+    ])
+add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
+    [:indicators=>INDICATOR_SET,
+     :preoptimize_target_bins=>true,
+     :preoptimize_parent_bins=>true,
+     :optimize_structure=>true,
+     :optimize_target_bins=>false,
+     :optimize_parent_bins=>false,
+     :ncandidate_bins=>20,
+     ])
+
+##############################
+# METRICS
+##############################
+
+metric_types_test_frames = [LoglikelihoodMetric]
 
 ##############################
 # TRAIN MODELS
@@ -180,15 +186,14 @@ function add_gaussian_error_to_sample!(dest::DataFrame, source::DataFrame, σ::F
     dest
 end
 
-df = DataFrame(gaussian_error_in_meters=ERROR_AMOUNTS)
+df_results = DataFrame(gaussian_error_in_meters=ERROR_AMOUNTS)
 for name in behaviorset.names
-    df[symbol(name)] = Array(Float64, nrow(df))
+    df_results[symbol(name)] = Array(Float64, nrow(df_results))
 end
 
-for i in 1 : nrow(df)
+for i in 1 : nrow(df_results)
 
-    gaussian_error = df[i, :gaussian_error_in_meters]::Float64
-
+    gaussian_error = df_results[i, :gaussian_error_in_meters]::Float64
     println("$i) Gaussian Error: ", gaussian_error, " [m]")
 
     df_train = create_dataframe_with_feature_columns(features, 0)
@@ -206,27 +211,32 @@ for i in 1 : nrow(df)
         end
 
         # extract the dataset
-        sn = STREETNET_CACHE[runandmaps[j].streetmapbasename]
+        sn = STREETNET_CACHE[csvfilesets[j].streetmapbasename]
         pdset = gen_primary_data_no_smoothing(trajdata_for_sim, sn, PDSET_EXTRACT_PARAMS)
+        basics = FeatureExtractBasicsPdSet(pdset, sn)
         for carid in get_carids(pdset)
-            append!(df_train, gen_featureset(carid, pdset, [1,nvalidfinds(pdset)], sn, features))
+            append!(df_train, gen_featureset_from_validfinds(carid, basics, get_validfinds_containing_carid(Vector{Int}, pdset, carid), features))
         end
     end
+
+    println("done extraction")
 
     # train the models on the training set
     models = train(behaviorset, df_train)
 
-    # validate the models on the validation set
-    metrics_sets = create_metrics_sets_no_tracemetrics(
-                    models, pdsets, pdsets_for_simulation,
-                    streetnets, dset_validation.pdset_segments,
-                    EVAL_PARAMS, 1, pdsetseg_assignment, true)
+    println("done training")
 
-    for (metric_set, name) in zip(metrics_sets, behaviorset.names)
-        df[i, symbol(name)] = metric_set.aggmetrics[:logl_mean]
+    # validate the models on the validation set
+    metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models,
+                                               dset, train_test_split, FOLD_TEST, true)
+
+    println("done metric extraction")
+
+    for (metric_set, name) in zip(metrics_sets_test_frames, behaviorset.names)
+        df_results[i, symbol(name)] = (metric_set[1]::LoglikelihoodMetric).logl
     end
 
-    println(df)
+    println(df_results)
 end
 
 writetable("results/error_vs_performance_metrics.csv", df)

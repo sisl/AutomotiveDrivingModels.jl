@@ -23,7 +23,7 @@ const SCENARIO_DATASETS = [
     "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/dataset_subset_lane_crossing.jld",
 ]
 const OPTIMAL_MODEL_PARAMS = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/model_training/opt_model_params.jld"
-const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 10)
+const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 21)
 
 # construct a mega dset
 dset = JLD.load(SCENARIO_DATASETS[1], "model_training_data")
@@ -33,7 +33,7 @@ end
 
 # construct a train/test split
 srand(1)
-TRAIN_TEST_SPLIT_TEST_FRACTION = 0.2
+TRAIN_TEST_SPLIT_TEST_FRACTION = 0.1
 train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION, dset)
 
 df_train = dset.dataframe[train_test_split.frame_assignment .== FOLD_TRAIN,:]
@@ -79,25 +79,25 @@ behaviorset = BehaviorSet()
 add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")
 add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Single Variable",
     [:indicators=>INDICATOR_SET,
-     :ridge_regression_constant=>0.1,
+     :ridge_regression_constant=>0.75,
     ])
 add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
     [:indicators=>INDICATOR_SET,
-     :ntrees=>5,
-     :max_depth=>5,
-     :min_samples_split=>20,
-     :min_samples_leaves=>10,
-     :min_split_improvement=>0.2,
-     :partial_sampling=>0.7,
+     :ntrees=>6,
+     :max_depth=>18,
+     :min_samples_split=>30,
+     :min_samples_leaves=>2,
+     :min_split_improvement=>0.0,
+     :partial_sampling=>1.0,
     ])
 add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
     [:indicators=>INDICATOR_SET,
-     :ntrees=>5,
-     :max_depth=>2,
+     :ntrees=>36,
+     :max_depth=>10,
      :min_samples_split=>20,
-     :min_samples_leaves=>10,
-     :min_split_improvement=>0.2,
-     :partial_sampling=>0.7,
+     :min_samples_leaves=>2,
+     :min_split_improvement=>5.0,
+     :partial_sampling=>1.0,
     ])
 add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
     [:indicators=>INDICATOR_SET,

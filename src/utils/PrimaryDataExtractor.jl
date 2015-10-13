@@ -277,6 +277,21 @@ function make_angle_continuous!( arr::Vector{Float64} )
     end
     arr
 end
+function make_angle_continuous!( arr::DataVector{Float64} )
+    # take an array of angles in [0,2pi] and unwind it without wraparound
+    # (jumps from 0 -> 2pi become 0 -> < 0 instead)
+
+    del = 0.0
+    add = [0.0, 2pi, -2pi]
+    for i = 2 : length(arr)
+        if !isna(arr[i]) && !isna(arr[i-1])
+            δ = arr[i] + del - arr[i-1]
+            del += add[indmin(abs(δ + add))]
+            arr[i] += del
+        end
+    end
+    arr
+end
 function mod2pi_neg_pi_to_pi!( arr::Vector{Float64} )
     for i = 1 : length(arr)
         ψ = mod2pi(arr[i])
@@ -1444,7 +1459,8 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                             posGx = DataArray(Float64, n_frames_in_seg),
                             posGy = DataArray(Float64, n_frames_in_seg),
                             yawG  = DataArray(Float64, n_frames_in_seg),
-                            velBx = DataArray(Float64, n_frames_in_seg)
+                            velBx = DataArray(Float64, n_frames_in_seg),
+                            exists = falses(n_frames_in_seg),
                         )
 
             car_exists = falses(n_frames_in_seg)
@@ -1481,77 +1497,81 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                     end
                     data_obs[total, :velBx] = hypot(velGx, velGy)
                     data_obs[total, :yawG]  = yawG
+                    data_obs[total, :exists] = true
                 end
             end
-            @assert(total == size(data_obs, 1))
-            data_obs[:yawG] = make_angle_continuous!(convert(Vector{Float64}, data_obs[:yawG]))
+            # @assert(total == size(data_obs, 1))
+            data_obs[:yawG] = make_angle_continuous!(data_obs[:yawG])
 
             # ------------------------------------------
             # map to frenet frame & extract values
 
             segment_count += 1
-            for frameind in 1 : nframes
+            for frameind in 1 : n_frames_in_seg
 
-                posGx   = data_obs[frameind, :posGx]
-                posGy   = data_obs[frameind, :posGy]
-                posGyaw = data_obs[frameind, :yawG ]
+                if data_obs[frameind, :exists]
 
-                proj = project_point_to_streetmap(posGx, posGy, sn)
-                @assert(proj.successful)
+                    posGx   = data_obs[frameind, :posGx]
+                    posGy   = data_obs[frameind, :posGy]
+                    posGyaw = data_obs[frameind, :yawG ]
 
-                ptG = proj.footpoint
-                s, d, θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
+                    proj = project_point_to_streetmap(posGx, posGy, sn)
+                    @assert(proj.successful)
 
-                laneid = proj.lane.id.lane
-                seg = get_segment(sn, proj.lane.id)
-                d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
+                    ptG = proj.footpoint
+                    s, d, θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
 
-                validfind = frameind
-                carind = (next_available_carind[validfind] += 1)
+                    laneid = proj.lane.id.lane
+                    seg = get_segment(sn, proj.lane.id)
+                    d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
 
-                # need to add another car slot
-                if carind > maxncars
-                    maxncars += 1
-                    add_slot!(maxncars)
-                    carind = maxncars
+                    validfind = frameind
+                    carind = (next_available_carind[validfind] += 1)
+
+                    # need to add another car slot
+                    if carind > maxncars
+                        maxncars += 1
+                        add_slot!(maxncars)
+                        carind = maxncars
+                    end
+
+                    #set mat_other_indmap to point to the carind for this car for all valid frames
+                    mat_other_indmap[validfind, matind] = carind
+
+                    local_setc!("posGx",   carind, validfind, posGx)
+                    local_setc!("posGy",   carind, validfind, posGy)
+                    local_setc!("posGyaw", carind, validfind, posGyaw)
+                    local_setc!("posFx",   carind, validfind, s)
+                    local_setc!("posFy",   carind, validfind, d)
+                    local_setc!("posFyaw", carind, validfind, θ)
+
+                    # extract specifics
+                    speed = data_obs[frameind, :velBx]
+                    local_setc!("velFx",     carind, validfind, speed * cos(θ)) # vel along the lane
+                    local_setc!("velFy",     carind, validfind, speed * sin(θ)) # vel perpendicular to lane
+                    local_setc!("lanetag",   carind, validfind, proj.lane.id)
+                    local_setc!("curvature", carind, validfind, ptG.k)
+                    local_setc!("d_cl",      carind, validfind, d::Float64)
+
+                    d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
+                    d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
+                    local_setc!("d_merge", carind, validfind, isinf(d_merge) ? NA : d_merge)
+                    local_setc!("d_split", carind, validfind, isinf(d_split) ? NA : d_split)
+
+                    nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
+                    @assert(nll >= 0)
+                    @assert(nlr >= 0)
+                    local_setc!("nll", carind, validfind, nll)
+                    local_setc!("nlr", carind, validfind, nlr)
+
+                    lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
+                    local_setc!("d_mr", carind, validfind, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
+                    local_setc!("d_ml", carind, validfind, (d > -lane_width_right) ?  d - lane_width_right : Inf)
+
+                    local_setc!("id",        carind, validfind, carid)
+                    local_setc!("t_inview",  carind, validfind, trajdata[end, :time] - trajdata[frameind, :time])
+                    local_setc!("trajind",   carind, validfind, segment_count)
                 end
-
-                #set mat_other_indmap to point to the carind for this car for all valid frames
-                mat_other_indmap[validfind, matind] = carind
-
-                local_setc!("posGx",   carind, validfind, posGx)
-                local_setc!("posGy",   carind, validfind, posGy)
-                local_setc!("posGyaw", carind, validfind, posGyaw)
-                local_setc!("posFx",   carind, validfind, s)
-                local_setc!("posFy",   carind, validfind, d)
-                local_setc!("posFyaw", carind, validfind, θ)
-
-                # extract specifics
-                speed = data_obs[frameind, :velBx]
-                local_setc!("velFx",     carind, validfind, speed * cos(θ)) # vel along the lane
-                local_setc!("velFy",     carind, validfind, speed * sin(θ)) # vel perpendicular to lane
-                local_setc!("lanetag",   carind, validfind, proj.lane.id)
-                local_setc!("curvature", carind, validfind, ptG.k)
-                local_setc!("d_cl",      carind, validfind, d::Float64)
-
-                d_merge = distance_to_lane_merge(sn, seg, laneid, proj.extind)
-                d_split = distance_to_lane_split(sn, seg, laneid, proj.extind)
-                local_setc!("d_merge", carind, validfind, isinf(d_merge) ? NA : d_merge)
-                local_setc!("d_split", carind, validfind, isinf(d_split) ? NA : d_split)
-
-                nll, nlr = StreetNetworks.num_lanes_on_sides(sn, seg, laneid, proj.extind)
-                @assert(nll >= 0)
-                @assert(nlr >= 0)
-                local_setc!("nll", carind, validfind, nll)
-                local_setc!("nlr", carind, validfind, nlr)
-
-                lane_width_left, lane_width_right = marker_distances(sn, seg, laneid, proj.extind)
-                local_setc!("d_mr", carind, validfind, (d <  lane_width_left)  ?  lane_width_left - d  : Inf)
-                local_setc!("d_ml", carind, validfind, (d > -lane_width_right) ?  d - lane_width_right : Inf)
-
-                local_setc!("id",        carind, validfind, carid)
-                local_setc!("t_inview",  carind, validfind, trajdata[end, :time] - trajdata[frameind, :time])
-                local_setc!("trajind",   carind, validfind, segment_count)
             end
         end
 

@@ -41,11 +41,11 @@ type Parameter
 end
 
 params = [
-    Parameter(:forced, [ParentFeatures(),
-                        ParentFeatures(AbstractFeature[D_CL], AbstractFeature[])
-                       ]),
-    Parameter(:nbins_lat, 5:20),
-    Parameter(:nbins_lon, 5:20),
+    # Parameter(:forced, [ParentFeatures(),
+    #                     ParentFeatures(AbstractFeature[D_CL], AbstractFeature[])
+    #                    ]),
+    # Parameter(:nbins_lat, 5:10),
+    # Parameter(:nbins_lon, 5:10),
     Parameter(:max_parents, 6:-1:0),
     Parameter(:ncandidate_bins, 50:-5:5),
     Parameter(:preoptimize_target_bins, [true]),

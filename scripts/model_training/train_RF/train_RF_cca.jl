@@ -41,12 +41,13 @@ type Parameter
 end
 
 params = [
-    Parameter(:ntrees, 1:5:50),
-    Parameter(:max_depth, 1:20),
+    Parameter(:ntrees, 51:-5:1),
+    Parameter(:max_depth, 20:-1:1),
     Parameter(:min_samples_split, 10:10:50),
-    Parameter(:min_samples_leaves, [2,4,10,20]),
-    Parameter(:min_split_improvement, [0.0,1.0,5.0,10.0]),
-    Parameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,1.0]),
+    Parameter(:min_samples_leaves, [20,10,4,2]),
+    Parameter(:min_split_improvement, [10.0,5.0, 1.0,0.5,0.1,0.0]),
+    Parameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0]),
+    Parameter(:n_split_tries, [50,100,200,25,10]),
 ]
 
 nparams = length(params)
@@ -140,17 +141,17 @@ while true # do forever
     μ = mean(metric_arr)
     σ = stdm(metric_arr, μ)
 
+    augment_array[1] = μ
+    augment_array[2] = σ
+    for (i,p) in enumerate(params)
+        augment_array[i+2] = behavior_train_params[p.sym]
+    end
+
     if μ > best_param_score
         best_param_score = μ
     else # previous was better
         behavior_train_params[sym] = prev_param
         param_indeces[param_index] = prev_index
-    end
-
-    augment_array[1] = μ
-    augment_array[2] = σ
-    for (i,p) in enumerate(params)
-        augment_array[i+2] = behavior_train_params[p.sym]
     end
 
     println("  ", μ, "  elapsed time: ", Δt, "  best score: ", best_param_score)

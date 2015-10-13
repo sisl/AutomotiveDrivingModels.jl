@@ -10,7 +10,9 @@ export
     cross_validate_logl,
 
     create_metrics_sets,
-    create_metrics_sets_no_tracemetrics
+    create_metrics_sets_no_tracemetrics,
+
+    get_mean_and_std_for_metric
 
 type BehaviorSet
     behaviors::Vector{Type}
@@ -108,7 +110,8 @@ function cross_validate(
         for i in 1 : nmodels
             retval_models[i].results[fold] = CVFoldResults(
                 extract_metrics(metric_types_train_frames, dset, behaviors[i], assignment, fold, true),
-                extract_metrics(metric_types_test_frames, dset, behaviors[i], assignment, fold, true))
+                extract_metrics(metric_types_test_frames, dset, behaviors[i], assignment, fold, true),
+                BehaviorTraceMetric[], BehaviorTraceMetric[])
         end
     end
 
