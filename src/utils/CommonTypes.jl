@@ -12,7 +12,8 @@ export
     N_FRAMES_PER_SIM_FRAME,
 
     get_nframes,
-    get_horizon
+    get_horizon,
+    get_nsimframes
 
 using AutomotiveDrivingModels.Vec
 
@@ -93,6 +94,11 @@ end
 
 get_nframes(seg::PdsetSegment) = seg.validfind_end - seg.validfind_start + 1
 get_horizon(seg::PdsetSegment) = seg.validfind_end - seg.validfind_start # NOTE(tim): no +1 as the first frame does not count in horizon
+function get_nsimframes(seg::PdsetSegment, nframes_per_simframe::Int=N_FRAMES_PER_SIM_FRAME)
+    # NOTE(tim): this includes the first frame
+    h = get_horizon(seg)
+    int(h / nframes_per_simframe) + 1
+end
 
 #############################################################################
 

@@ -1154,6 +1154,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                 if percent_outliers > params.threshold_percent_outliers_toss
                     should_toss_due_to_outliers = true
                     print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
+                    toc()
                     break
                 end
 
@@ -1174,6 +1175,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
             if size(data_smoothed, 1) < params.threshold_other_segment_length
                 print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                toc()
                 continue
             end
 
@@ -1578,8 +1580,10 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
         toc()
     end
 
+    println("PrimaryDataExtractor: ASBDFASDASFD")
+
     dict_trajmat = Dict{Uint32,DataFrame}()
-    pdset = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+    PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
 
 end # module

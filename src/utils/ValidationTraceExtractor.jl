@@ -147,6 +147,7 @@ type ModelTrainingData
                                          # seg_to_framestart[i] -> j
                                          # where i is the pdsetsegment index
                                          # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
+
 end
 function Base.append!(A::ModelTrainingData, B::ModelTrainingData)
 
@@ -1126,8 +1127,8 @@ function get_cross_validation_fold_assignment(
 
     FoldAssignment(frame_fold_assignment, pdsetsegment_fold_assignment, nfolds)
 end
-function get_train_test_fold_assignment(
-    fraction_validation::Float64,
+function get_train_test_fold_assignment_old(
+    fraction_test::Float64,
     dset::ModelTrainingData,
     )
 
@@ -1139,8 +1140,8 @@ function get_train_test_fold_assignment(
     dataframe = dset.dataframe
     seg_to_framestart = dset.startframes
 
-    @assert(fraction_validation ≥ 0.0)
-    frac_train = 1.0 - fraction_validation
+    @assert(fraction_test ≥ 0.0)
+    fraction_train = 1.0 - fraction_test
 
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
@@ -1149,8 +1150,8 @@ function get_train_test_fold_assignment(
     frame_tv_assignment = zeros(Int, nframes) # train = 1, validation = 2
     pdsetseg_tv_assignment = zeros(Int, npdsetsegments) # train = 1, validation = 2
 
-    nframes_to_assign_to_training = ifloor(nframes * frac_train)
-    npdsetsegments_to_assign_to_training = ifloor(npdsetsegments * frac_train)
+    nframes_to_assign_to_training = ifloor(nframes * fraction_train)
+    npdsetsegments_to_assign_to_training = ifloor(npdsetsegments * fraction_train)
 
     p = randperm(npdsetsegments)
     for i = 1 : npdsetsegments_to_assign_to_training
@@ -1213,6 +1214,80 @@ function get_train_test_fold_assignment(
 
     FoldAssignment(frame_tv_assignment, pdsetseg_tv_assignment, 2)
 end
+function get_train_test_fold_assignment(
+    fraction_test::Float64,
+    dset::ModelTrainingData,
+    )
+
+    #=
+    returns a FoldAssignment with two folds: 1 for train, 2 for test
+
+    Works by splitting over pdset_id's in order to get the closest match to
+    fraction_validation on the test vs train frames
+    =#
+
+    @assert(0.0 ≤ fraction_test ≤ 1.0)
+
+    pdset_segments = dset.pdset_segments
+    dataframe = dset.dataframe
+    seg_to_framestart = dset.startframes
+
+    nframes = nrow(dataframe)
+    npdsetsegments = length(pdset_segments)
+    @assert(length(seg_to_framestart) ≥ npdsetsegments)
+
+    # count the number of frames and traces in each pdset
+
+    n_frames_per_pdset = Dict{Int,Int}()
+    n_traces_per_pdset = Dict{Int,Int}()
+    for pdset in pdset_segments
+
+        id = pdset.pdset_id
+        if !haskey(n_frames_per_pdset, id)
+            n_frames_per_pdset[id] = 0
+            n_traces_per_pdset[id] = 0
+        end
+
+        n_frames_per_pdset[id] = n_frames_per_pdset[id] + get_nsimframes(pdset)
+        n_traces_per_pdset[id] = n_traces_per_pdset[id] + 1
+    end
+
+    # solve the subset-sum problem of picking your pdset_ids such that we don't
+    # go over fraction_test
+
+    n_pdset_ids = length(n_frames_per_pdset)
+    subsetsum_capacity = ifloor(sum(Base.values(n_frames_per_pdset)) * fraction_test)
+    selected_for_test = falses(n_pdset_ids)
+    ids = collect(keys(n_frames_per_pdset))
+    values = convert(Vector{Int}, map(i->n_frames_per_pdset[i], ids))
+
+    _subset_sum!(selected_for_test, values, subsetsum_capacity)
+
+    # now use that split
+
+    a_frame = zeros(Int, nframes)
+    a_seg = zeros(Int, npdsetsegments)
+
+    for (i,id) in enumerate(ids)
+        for (j,pdset) in enumerate(pdset_segments)
+            if pdset.pdset_id == id
+                label = selected_for_test[i] ? FOLD_TEST : FOLD_TRAIN
+                a_seg[j] = label
+
+                framestart = seg_to_framestart[j]
+                frameend = framestart + get_horizon(pdset_segments[j])
+                frameind = framestart
+                for _ in framestart : 5 : frameend
+                    @assert(a_frame[frameind] == 0)
+                    a_frame[frameind] = label
+                    frameind += 1
+                end
+            end
+        end
+    end
+
+    FoldAssignment(a_frame, a_seg, 2)
+end
 
 function load_pdsets(dset::ModelTrainingData)
     pdsets = Array(PrimaryDataset, length(dset.pdset_filepaths))
@@ -1227,6 +1302,63 @@ function load_streetnets(dset::ModelTrainingData)
         streetnets[i] = load(streetnet_filepath, "streetmap")
     end
     streetnets
+end
+
+function _subset_sum!(
+    selected::BitVector,    # whether the item is selected
+    w::AbstractVector{Int}, # vector of item weights (bigger is worse)
+    W::Int,                 # knapsack capacity (W ≤ ∑w)
+    )
+
+    #=
+    Solves the 0-1 Subset Sum Problem
+    https://en.wikipedia.org/wiki/Subset_sum_problem
+    Returns the assigment vector such that
+      the max weight ≤ W is obtained
+    =#
+
+    fill!(selected, false)
+
+    if W ≤ 0
+        return selected
+    end
+
+    n = length(w)
+    @assert(all(w .> 0))
+
+    ###########################################
+    # allocate DP memory
+
+    m = Array(Int, n+1, W+1)
+    for j in 0:W
+        m[1, j+1] = 0.0
+    end
+
+    ###########################################
+    # solve knapsack with DP
+
+    for i in 1:n
+        for j in 0:W
+            if w[i] ≤ j
+                m[i+1, j+1] = max(m[i, j+1], m[i, j-w[i]+1] + w[i])
+            else
+                m[i+1, j+1] = m[i, j+1]
+            end
+        end
+    end
+
+    ###########################################
+    # recover the value
+
+    line = W
+    for i in n : -1 : 1
+        if line - w[i] + 1 > 0 && m[i+1,line+1] - m[i, line - w[i] + 1] == w[i]
+            selected[i] = true
+            line -= w[i]
+        end
+    end
+
+    selected
 end
 
 
