@@ -71,7 +71,7 @@ train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION
 # LOAD ALL RAW CSV DATA FILES
 ##############################
 
-csvfilesets = JLD.load(joinpath(DATA_INPUT_DIR, "csvfilesets.jld"), "csvfilesets")
+csvfilesets = JLD.load(joinpath(DATA_INPUT_DIR, "csvfilesets.jld"), "csvfilesets")[1:10]
 
 trajdatas = Array(DataFrame, length(csvfilesets))
 for (i,csvfileset) in enumerate(csvfilesets)
@@ -199,6 +199,8 @@ for i in 1 : nrow(df_results)
     df_train = create_dataframe_with_feature_columns(features, 0)
     for j in 1 : length(trajdatas_for_sim)
 
+        println("j: ", j)
+
         trajdata = trajdatas[j]
         trajdata_for_sim = trajdatas_for_sim[j]
 
@@ -214,8 +216,13 @@ for i in 1 : nrow(df_results)
         sn = STREETNET_CACHE[csvfilesets[j].streetmapbasename]
         pdset = gen_primary_data_no_smoothing(trajdata_for_sim, sn, PDSET_EXTRACT_PARAMS)
         basics = FeatureExtractBasicsPdSet(pdset, sn)
-        for carid in get_carids(pdset)
-            append!(df_train, gen_featureset_from_validfinds(carid, basics, get_validfinds_containing_carid(Vector{Int}, pdset, carid), features))
+        carids = get_carids(pdset)
+        for (k, carid) in enumerate(carids)
+            println(k, " carid: ", carid)
+            pdset = gen_featureset_from_validfinds(carid, basics, get_validfinds_containing_carid(Vector{Int}, pdset, carid), features)
+            println("\twoo")
+            append!(df_train, pdset)
+            println("\tappended")
         end
     end
 
