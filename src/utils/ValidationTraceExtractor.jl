@@ -147,7 +147,6 @@ type ModelTrainingData
                                          # seg_to_framestart[i] -> j
                                          # where i is the pdsetsegment index
                                          # and j is the row in dataframe for the start (pdsetsegment.log[pdsetsegment.history,:])
-
 end
 function Base.append!(A::ModelTrainingData, B::ModelTrainingData)
 
@@ -719,6 +718,7 @@ function pull_pdset_segments_and_dataframe(
     # extract dataframe on those frames
 
     dataframe = gen_featureset_from_validfinds(csvfileset.carid, basics, validfinds_to_extract, features, filters)
+    dataframe[:pdset_id] = fill(pdset_id, nrow(dataframe)) # add a column for pdset_id
 
     ########################################################################################################
     # reconstruct startframes
@@ -841,6 +841,7 @@ function _pull_model_training_data_parallel(
     streetnet_filepaths = String[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
+    dataframe[:pdset_id] = Int[]
     startframes = Int[]
 
     pdset_index = 0
@@ -1239,17 +1240,12 @@ function get_train_test_fold_assignment(
     # count the number of frames and traces in each pdset
 
     n_frames_per_pdset = Dict{Int,Int}()
-    n_traces_per_pdset = Dict{Int,Int}()
-    for pdset in pdset_segments
+    for id in dataframe[:pdset_id]
 
-        id = pdset.pdset_id
         if !haskey(n_frames_per_pdset, id)
             n_frames_per_pdset[id] = 0
-            n_traces_per_pdset[id] = 0
         end
-
-        n_frames_per_pdset[id] = n_frames_per_pdset[id] + get_nsimframes(pdset)
-        n_traces_per_pdset[id] = n_traces_per_pdset[id] + 1
+        n_frames_per_pdset[id] = n_frames_per_pdset[id] + 1
     end
 
     # solve the subset-sum problem of picking your pdset_ids such that we don't
@@ -1269,19 +1265,16 @@ function get_train_test_fold_assignment(
     a_seg = zeros(Int, npdsetsegments)
 
     for (i,id) in enumerate(ids)
+        label = selected_for_test[i] ? FOLD_TEST : FOLD_TRAIN
+
+        for (j,pdset_id) in enumerate(dataframe[:pdset_id])
+            if id == pdset_id
+                a_frame[j] = label
+            end
+        end
         for (j,pdset) in enumerate(pdset_segments)
             if pdset.pdset_id == id
-                label = selected_for_test[i] ? FOLD_TEST : FOLD_TRAIN
                 a_seg[j] = label
-
-                framestart = seg_to_framestart[j]
-                frameend = framestart + get_horizon(pdset_segments[j])
-                frameind = framestart
-                for _ in framestart : 5 : frameend
-                    @assert(a_frame[frameind] == 0)
-                    a_frame[frameind] = label
-                    frameind += 1
-                end
             end
         end
     end
