@@ -47,7 +47,7 @@ for ticks in tick_list
 					continue
 				end
 
-				push!(vals, (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME))
+				push!(vals, (fut - cur)/(DEFAULT_SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME))
 			end
 
 			if length(vals) <= 2
