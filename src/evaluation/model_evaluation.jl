@@ -46,6 +46,14 @@ function train( behaviorset::BehaviorSet, training_frames::DataFrame )
     end
     retval
 end
+function train_special( behaviorset::BehaviorSet, training_frames::DataFrame )
+
+    retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
+    for i = 1 : length(retval)
+        retval[i] = train_special(behaviorset.behaviors[i], training_frames, args=behaviorset.additional_params[i])
+    end
+    retval
+end
 
 ####################################################
 

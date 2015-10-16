@@ -69,12 +69,12 @@ for dset_filepath_modifier in (
     #     [:indicators=>INDICATOR_SET,
     #      :ridge_regression_constant=>0.3157894736842105,
     #     ])
-    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
-        [:indicators=>INDICATOR_SET,
-         :ntrees=>1,
-         :max_depth=>0,
-         :partial_sampling=>1.0,
-        ])
+    # add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
+    #     [:indicators=>INDICATOR_SET,
+    #      :ntrees=>1,
+    #      :max_depth=>0,
+    #      :partial_sampling=>1.0,
+    #     ])
     add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
         [:indicators=>INDICATOR_SET,
          :ntrees=>1,
@@ -101,7 +101,6 @@ for dset_filepath_modifier in (
     #         )
 
     println(models)
-    continue
 
     # models = JLD.load(MODEL_OUTPUT_JLD_FILE, "models")
 
@@ -141,6 +140,14 @@ for dset_filepath_modifier in (
 
     metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models, dset, train_test_split, FOLD_TEST, true)
     metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
+
+    println("metrics_sets_test_frames")
+    println(metrics_sets_test_frames)
+
+    println("metrics_sets_test_frames_bagged")
+    println(metrics_sets_test_frames_bagged)
+
+    continue
 
     pdsets_original = load_pdsets(dset)
     streetnets = load_streetnets(dset)

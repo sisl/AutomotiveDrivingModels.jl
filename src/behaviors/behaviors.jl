@@ -10,6 +10,7 @@ export  AbstractVehicleBehavior,
         calc_action_loglikelihood,
 
         train,
+        train_special,
 
         VehicleBehaviorNone,
         VEHICLE_BEHAVIOR_NONE
@@ -31,6 +32,7 @@ function calc_action_loglikelihood(
 end
 
 train{B<:AbstractVehicleBehavior}(::Type{B}, ::DataFrame) = error("train not implemented for $B")
+train_special{B<:AbstractVehicleBehavior}(::Type{B}, ::DataFrame) = error("train_special not implemented for $B")
 
 ###############################################################
 

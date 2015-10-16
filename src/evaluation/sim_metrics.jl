@@ -81,7 +81,7 @@ type EmergentKLDivMetric{feature_symbol} <: BehaviorTraceMetric
     kldiv::Float64
 end
 
-const KLDIV_METRIC_NBINS = 20
+const KLDIV_METRIC_NBINS = 10
 const KLDIV_METRIC_DISC_DICT = [
         symbol(SPEED) => LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int),
         symbol(TIMEGAP_X_FRONT) => LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int),
@@ -106,35 +106,13 @@ function update_metric!{Fsym}(
 
     metric
 end
-function update_metric!{Fsym}(
-    metric::EmergentKLDivMetric{Fsym},
-    ::VehicleBehaviorNone,
-    pdset_orig::PrimaryDataset,
-    basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
-    seg::PdsetSegment
-    )
-
-    # the same thing but if we have ones() we need to remove it
-    if sum(metric.counts == length(metric.counts))
-        fill!(metric.counts, 0)
-    end
-
-    # the rest is the same
-    validfind_end = seg.validfind_end
-    carid = seg.carid
-    carind = carid2ind(basics.pdset, carid, validfind_end)
-    v = get(symbol2feature(Fsym), basics, carind, validfind_end)
-    metric.counts[encode(KLDIV_METRIC_DISC_DICT[Fsym], v)] += 1
-
-    metric
-end
 function complete_metric!{Fsym}(
     metric::EmergentKLDivMetric{Fsym},
     metric_realworld::EmergentKLDivMetric{Fsym},
     ::AbstractVehicleBehavior,
     )
 
-    metric.kldiv = calc_kl_div_categorical(metric_realworld.counts, metric.counts)
+    metric.kldiv = calc_kl_div_categorical(metric_realworld.counts .- 1.0, metric.counts .- 0.9)
     metric
 end
 get_score(metric::EmergentKLDivMetric) = metric.kldiv
@@ -247,7 +225,7 @@ get_score(metric::RootWeightedSquareError) = metric.rwse
 
 type LoglikelihoodMetric <: BehaviorFrameMetric
     # log likelihood of dataset frames on model
-    logl::Float64
+    logl::Float64 # (divided by number of frames)
 end
 function extract(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData,
@@ -258,12 +236,14 @@ function extract(::Type{LoglikelihoodMetric},
     )
 
     logl = 0.0
+    nframes = 0
     for frameind in 1 : nrow(dset.dataframe)
         if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
+            nframes += 1
             logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
         end
     end
-    LoglikelihoodMetric(logl)
+    LoglikelihoodMetric(logl/nframes)
 end
 function get_frame_score(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData,
@@ -327,7 +307,7 @@ function extract_bagged_metrics(
                 row_index = rand(bag_range)
                 bootstrap_scores[i] += frame_scores[row_index, j]
             end
-            bootstrap_scores[i]
+            bootstrap_scores[i] /= nvalid_frames
         end
 
         μ = mean(bootstrap_scores)
@@ -517,7 +497,7 @@ function calc_kl_div_gaussian(aggmetrics_original::Dict{Symbol,Any}, aggmetrics_
     calc_kl_div_gaussian(μ_orig, σ_orig, μ_target, σ_target)
 end
 
-function calc_kl_div_categorical{I<:Integer, J<:Integer}(counts_p::AbstractVector{I}, counts_q::AbstractVector{J})
+function calc_kl_div_categorical{I<:Real, J<:Real}(counts_p::AbstractVector{I}, counts_q::AbstractVector{J})
 
     #=
     Calculate the KL-divergence between two categorical distributions

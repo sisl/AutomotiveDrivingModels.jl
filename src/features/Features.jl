@@ -75,6 +75,7 @@ export Feature_IsClean
 
 export observe, observe!
 export description, units, isint, isbool, lowerbound, upperbound, symbol, lsymbol, couldna, get, symbol2feature
+# export replace_na
 export calc_occupancy_schedule_grid, put_occupancy_schedule_grid_in_meta!
 export allfeatures
 export NA_ALIAS
@@ -177,6 +178,16 @@ function get(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 	value
 end
+# function replace_na(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
+
+#     Called by behaviors that cannot handle NA values (Inf)
+#     This will replace the NA value with something reasonable
+#       - truncated values such as d_x_front will be replaced by a high threshold
+#       - missing values such as v_x_front will be replaced by the mean expected value
+
+
+#     error("replace_na not implemented for $(symbol(F))")
+# end
 
 # ----------------------------------
 
@@ -300,6 +311,7 @@ function get(::Feature_D_ML, basics::FeatureExtractBasicsPdSet, carind::Int, val
 	d_ml = get(basics.pdset, :d_ml, carind, validfind)
 	isa(d_ml, NAtype) ? NA_ALIAS : d_ml
 end
+# replace_na(F::Feature_D_ML, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = -1.0
 
 create_feature_basics( "D_MR", "m", false, false, Inf, 0.0, true, :d_mr, L"d_{mr}", "lateral distance (strictly positive) between center of car and the right lane marker")
 function get(::Feature_D_MR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
