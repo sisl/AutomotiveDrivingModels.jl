@@ -75,6 +75,7 @@ export Feature_IsClean
 
 export observe, observe!
 export description, units, isint, isbool, lowerbound, upperbound, symbol, lsymbol, couldna, get, symbol2feature
+export replace_na
 export calc_occupancy_schedule_grid, put_occupancy_schedule_grid_in_meta!
 export allfeatures
 export NA_ALIAS
@@ -177,6 +178,7 @@ function get(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int,
 
 	value
 end
+replace_na(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = error("replace_na not implemented for $(typeof(F))")
 
 # ----------------------------------
 
@@ -300,12 +302,14 @@ function get(::Feature_D_ML, basics::FeatureExtractBasicsPdSet, carind::Int, val
 	d_ml = get(basics.pdset, :d_ml, carind, validfind)
 	isa(d_ml, NAtype) ? NA_ALIAS : d_ml
 end
+replace_na(F::Feature_D_ML, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value
 
 create_feature_basics( "D_MR", "m", false, false, Inf, 0.0, true, :d_mr, L"d_{mr}", "lateral distance (strictly positive) between center of car and the right lane marker")
 function get(::Feature_D_MR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	d_mr = get(basics.pdset, :d_mr, carind, validfind)::Float64
 	return isa(d_mr, NAtype) ? NA_ALIAS : d_mr
 end
+replace_na(F::Feature_D_MR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value
 
 create_feature_basics( "TimeToCrossing_Right", "s", false, false, Inf, 0.0, true, :ttcr_mr, L"ttcr^{mr}_y", "time to cross the right marking of assigned lane")
 function get(::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -313,6 +317,7 @@ function get(::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, 
 	velFy = get(VELFY, basics, carind, validfind)
 	d_mr > 0.0 && velFy < 0.0 ? min(-d_mr / velFy, THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
 end
+replace_na(F::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel right)
 
 create_feature_basics( "TimeToCrossing_Left", "s", false, false, Inf, 0.0, true, :ttcr_ml, L"ttcr^{ml}_y", "time to cross the left marking of assigned lane")
 function get(::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -320,6 +325,7 @@ function get(::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, c
 	velFy = get(VELFY, basics, carind, validfind)
 	d_ml < 0.0 && velFy > 0.0 ? min(-d_ml / velFy,THRESHOLD_TIME_TO_CROSSING) : NA_ALIAS
 end
+replace_na(F::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel left)
 
 create_feature_basics( "EstimatedTimeToLaneCrossing", "s", false, false, Inf, 0.0, true, :est_ttcr, L"ttcr^\text{est}_y", "time to crossing the lane boundary in the direction of travel")
 function get(::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -329,6 +335,7 @@ function get(::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasics
 	end
 	get(TIMETOCROSSING_RIGHT, basics, carind, validfind)
 end
+replace_na(F::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel)
 
 create_feature_basics( "A_REQ_StayInLane", "m/s2", false, false, Inf, -Inf, true, :a_req_stayinlane, L"a^{req}_y", "acceleration required to stay in the current lane")
 function get(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -342,6 +349,7 @@ function get(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, cari
 		return d_ml < 0.0 ? min(-0.5velFy*velFy / d_ml, THRESHOLD_A_REQ) : NA_ALIAS
 	end
 end
+replace_na(F::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing at random; no action
 
 create_feature_basics( "N_LANE_L", "-", true, false, 10.0, 0.0, false, :n_lane_left, L"nlane_l", "number of lanes on the left side of this vehicle")
 get(::Feature_N_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(basics.pdset, :nll, carind, validfind))
@@ -1056,36 +1064,42 @@ function get( ::Feature_D_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::In
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_front)]
 end
+replace_na(F::Feature_D_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 100.0 # truncation value
 
 create_feature_basics( "D_Y_FRONT", "m", false, false, Inf, -Inf, true, :d_y_front, L"d_{y,fo}", "lateral distance to the closest vehicle in the same lane in front")
 function get( ::Feature_D_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_front)]
 end
+replace_na(F::Feature_D_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, average
 
 create_feature_basics( "V_X_FRONT", "m/s", false, false, Inf, -Inf, true, :v_x_front, L"v^{rel}_{x,fo}", "relative x velocity of the vehicle in front of you")
 function get( ::Feature_V_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_front)]
 end
+replace_na(F::Feature_V_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, average
 
 create_feature_basics( "V_Y_FRONT", "m/s", false, false, Inf, -Inf, true, :v_y_front, L"v^{rel}_{y,fo}", "relative y velocity of the vehicle in front of you")
 function get( ::Feature_V_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_front)]
 end
+replace_na(F::Feature_V_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, average
 
 create_feature_basics( "YAW_FRONT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_front, L"\psi_{fo}", "yaw of the vehicle in front of you")
 function get( ::Feature_YAW_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_front)]
 end
+replace_na(F::Feature_YAW_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, average
 
 create_feature_basics( "TURNRATE_FRONT", "rad/s", false, false, Inf, -Inf, true, :turnrate_front, L"\dot{\psi}_{fo}", "turnrate of the vehicle in front of you")
 function get( ::Feature_TURNRATE_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_front)]
 end
+replace_na(F::Feature_TURNRATE_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, average
 
 create_feature_basics( "A_REQ_FRONT", "m/s2", false, false, 0.0, -Inf, true, :a_req_front, L"a^{req}_{x,fo}", "const acceleration required to prevent collision with car in front assuming constant velocity")
 function get( ::Feature_A_REQ_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1104,6 +1118,7 @@ function get( ::Feature_A_REQ_FRONT, basics::FeatureExtractBasicsPdSet, carind::
 
 	-min(dv*dv / (2dx), THRESHOLD_A_REQ)
 end
+replace_na(F::Feature_A_REQ_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, but no action needed so set to 0.0
 
 create_feature_basics_boolean( "Gaining_On_Front", true, :gaining_on_front, L"1\{v_\text{ego} > v_\text{front}\}", "whether the car will collide with front if no action is taken and both const. vel")
 function get( ::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1111,6 +1126,7 @@ function get( ::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, car
 	ΔV = basics[(carind, validfind, :v_x_front)]
 	float64(ΔV < 0.0)
 end
+replace_na(F::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # default to false
 
 create_feature_basics( "TTC_X_FRONT", "s", false, false, Inf, 0.0, true, :ttc_x_front, L"ttc_{x,fo}", "time to collision with car in front assuming constant velocities")
 function get( ::Feature_TTC_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1129,6 +1145,7 @@ function get( ::Feature_TTC_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::
 
 	min(-dx / dv, THRESHOLD_TIME_TO_COLLISION)
 end
+replace_na(F::Feature_TTC_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # truncated
 
 create_feature_basics( "Timegap_X_FRONT", "s", false, false, Inf, 0.0, false, :timegap_x_front, L"\tau_{x,fo}", "timegap between cars")
 function get( ::Feature_Timegap_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1466,36 +1483,42 @@ function get( ::Feature_D_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_left)]
 end
+replace_na(F::Feature_D_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 100.0 # truncation value
 
 create_feature_basics( "D_Y_LEFT", "m", false, false, Inf, -Inf, true, :d_y_left, L"d_{y,lf}", "lateral distance to the closest vehicle in the left lane")
 function get( ::Feature_D_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_left)]
 end
+replace_na(F::Feature_D_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "V_X_LEFT", "m/s", false, false, Inf, -Inf, true, :v_x_left, L"v^{rel}_{x,lf}", "relative x velocity of the closest vehicle in left lane")
 function get( ::Feature_V_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_left)]
 end
+replace_na(F::Feature_V_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "V_Y_LEFT", "m/s", false, false, Inf, -Inf, true, :v_y_left, L"v^{rel}_{y,le}", "relative y velocity of the closest vehicle in left lane")
 function get( ::Feature_V_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_left)]
 end
+replace_na(F::Feature_V_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "YAW_LEFT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_left, L"\psi_{le}", "yaw of the closest vehicle in left lane")
 function get( ::Feature_YAW_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_left)]
 end
+replace_na(F::Feature_YAW_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "TURNRATE_LEFT", "rad/s", false, false, Inf, -Inf, true, :turnrate_left, L"\dot{\psi}_{le}", "turnrate of the closest vehicle in left lane")
 function get( ::Feature_TURNRATE_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_left)]
 end
+replace_na(F::Feature_TURNRATE_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "A_REQ_LEFT", "m/s2", false, false, 0.0, -Inf, true, :a_req_left, L"a^{req}_{x,le}", "const acceleration (+ to left) required to prevent collision with car to left assuming constant velocity")
 function get( ::Feature_A_REQ_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1518,6 +1541,7 @@ function get( ::Feature_A_REQ_LEFT, basics::FeatureExtractBasicsPdSet, carind::I
 		min(dv*dv / (2*abs(dx)), THRESHOLD_A_REQ)
 	end
 end
+replace_na(F::Feature_A_REQ_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, but no action needed so set to 0.0
 
 create_feature_basics( "TTC_X_LEFT", "s", false, false, Inf, 0.0, true, :ttc_x_left, L"ttc_{x,le}", "time to collision with left car assuming constant velocities")
 function get( ::Feature_TTC_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1536,6 +1560,7 @@ function get( ::Feature_TTC_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::I
 
 	min(abs(dx / dv), THRESHOLD_TIME_TO_COLLISION)
 end
+replace_na(F::Feature_TTC_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # truncated
 
 create_feature_basics( "Timegap_X_LEFT", "s", false, false, Inf, 0.0, true, :timegap_x_left, L"\tau_{x,le}", "timegap with left car")
 function get( ::Feature_Timegap_X_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1683,36 +1708,42 @@ function get( ::Feature_D_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::In
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :d_x_right)]
 end
+replace_na(F::Feature_D_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 100.0 # truncation value
 
 create_feature_basics( "D_Y_RIGHT", "m", false, false, Inf, -Inf, true, :d_y_right, L"d_{y,ri}", "lateral distance to the closest vehicle in the right lane")
 function get( ::Feature_D_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :d_y_right)]
 end
+replace_na(F::Feature_D_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "V_X_RIGHT", "m/s", false, false, Inf, -Inf, true, :v_x_right, L"v^{rel}_{x,ri}", "relative x velocity of the closest vehicle in right lane")
 function get( ::Feature_V_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :v_x_right)]
 end
+replace_na(F::Feature_V_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "V_Y_RIGHT", "m/s", false, false, Inf, -Inf, true, :v_y_right, L"v^{rel}_{y,ri}", "relative y velocity of the closest vehicle in right lane")
 function get( ::Feature_V_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :v_y_right)]
 end
+replace_na(F::Feature_V_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "YAW_RIGHT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_right, L"\psi_{ri}", "yaw of the closest vehicle in right lane")
 function get( ::Feature_YAW_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
     get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_right)]
 end
+replace_na(F::Feature_YAW_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "TURNRATE_RIGHT", "rad", false, false, Inf, -Inf, true, :turnrate_right, L"\dot{\psi}_{ri}", "turnrate of the closest vehicle in right lane")
 function get( ::Feature_TURNRATE_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :turnrate_right)]
 end
+replace_na(F::Feature_TURNRATE_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
 create_feature_basics( "A_REQ_RIGHT", "m/s2", false, false, Inf, 0.0, true, :a_req_right, L"a^{req}_{x,ri}", "const acceleration (+ to left) required to prevent collision with car to right assuming constant velocity")
 function get( ::Feature_A_REQ_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1735,6 +1766,7 @@ function get( ::Feature_A_REQ_RIGHT, basics::FeatureExtractBasicsPdSet, carind::
 		min(dv*dv / (2*abs(dx)), THRESHOLD_A_REQ)
 	end
 end
+replace_na(F::Feature_A_REQ_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, but no action needed so set to 0.0
 
 create_feature_basics( "TTC_X_RIGHT", "s", false, false, Inf, 0.0, true, :ttc_x_right, L"ttc_{x,ri}", "time to collision with right car assuming constant velocities")
 function get( ::Feature_TTC_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1753,6 +1785,7 @@ function get( ::Feature_TTC_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::
 
 	min(abs(dx / dv), THRESHOLD_TIME_TO_COLLISION)
 end
+replace_na(F::Feature_TTC_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # truncated
 
 create_feature_basics( "Timegap_X_RIGHT", "s", false, false, Inf, 0.0, true, :timegap_x_right, L"\tau_{x,ri}", "timegap with right car")
 function get( ::Feature_Timegap_X_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
