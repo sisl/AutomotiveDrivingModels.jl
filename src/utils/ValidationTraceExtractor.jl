@@ -1116,12 +1116,14 @@ function get_cross_validation_fold_assignment(
         end
     end
 
-    p = randperm(nremaining_frames)
-    for rem_frame_ind in 1 : nremaining_frames
-        fold = dequeue!(fold_priority)
-        frame_fold_assignment[remaining_frames[p[rem_frame_ind]]] = fold
-        frame_fold_sizes[fold] += 1
-        fold_priority[fold] = frame_fold_sizes[fold]
+    if nremaining_frames > 0
+        p = randperm(nremaining_frames)
+        for rem_frame_ind in 1 : nremaining_frames
+            fold = dequeue!(fold_priority)
+            frame_fold_assignment[remaining_frames[p[rem_frame_ind]]] = fold
+            frame_fold_sizes[fold] += 1
+            fold_priority[fold] = frame_fold_sizes[fold]
+        end
     end
 
     # println("frame_fold_sizes (after): ", frame_fold_sizes)

@@ -41,13 +41,13 @@ for ticks in tick_list
 					ind1 = carid2ind(pdset, carid, jvfind1)
 					ind2 = carid2ind(pdset, carid, jvfind2)
 					cur = getc(pdset, :velFx, ind1, jvfind1)
-					fut = getc(pdset, :velFx, ind2, jvfind2)	
+					fut = getc(pdset, :velFx, ind2, jvfind2)
 				else
 					continue
 				end
 
 				total += 1
-				val   += (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
+				val   += (fut - cur)/(DEFAULT_SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
 			end
 
 			if total == 0
@@ -95,7 +95,7 @@ for ticks in tick_list
 					ind1 = carid2ind(pdset, carid, jvfind1)
 					ind2 = carid2ind(pdset, carid, jvfind2)
 					cur = getc(pdset, :velFy, ind1, jvfind1)
-					fut = getc(pdset, :velFy, ind2, jvfind2)	
+					fut = getc(pdset, :velFy, ind2, jvfind2)
 				else
 					continue
 				end

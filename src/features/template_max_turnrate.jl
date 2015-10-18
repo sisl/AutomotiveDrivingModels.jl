@@ -41,13 +41,13 @@ for ticks in tick_list
 					ind1 = carid2ind(pdset, carid, jvfind1)
 					ind2 = carid2ind(pdset, carid, jvfind2)
 					cur = getc(pdset, :posFyaw, ind1, jvfind1)
-					fut = getc(pdset, :posFyaw, ind2, jvfind2)	
+					fut = getc(pdset, :posFyaw, ind2, jvfind2)
 				else
 					continue
 				end
 
 				total += 1
-				candidate = (fut - cur)/(SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
+				candidate = (fut - cur)/(DEFAULT_SEC_PER_FRAME*N_FRAMES_PER_SIM_FRAME)
 				val = abs(candidate) > abs(val) ? candidate : val
 			end
 

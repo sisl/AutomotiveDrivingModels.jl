@@ -275,7 +275,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
     #=
     \begin{tabular}{lcccccccc}
     \toprule
-                                  & Context     & \GF             & \SV             & \RF             & \DF              & \BN             \\
+                                  & Context     & \GF             & \LG             & \RF             & \DF              & \BN             \\
     \midrule
     log-likelihood                & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
                                   & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
