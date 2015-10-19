@@ -180,11 +180,12 @@ function get(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int,
 end
 function replace_na(F::AbstractFeature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
+    #=
     Called by behaviors that cannot handle NA values (Inf)
     This will replace the NA value with something reasonable
       - truncated values such as d_x_front will be replaced by a high threshold
       - missing values such as v_x_front will be replaced by the mean expected value
-
+    =#
 
     error("replace_na not implemented for $(symbol(F))")
 end
