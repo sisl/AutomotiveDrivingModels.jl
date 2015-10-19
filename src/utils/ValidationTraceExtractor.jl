@@ -191,6 +191,11 @@ function Base.append!(A::ModelTrainingData, B::ModelTrainingData)
 
     A
 end
+function Base.print(io::IO, dset::ModelTrainingData)
+    println(io, "ModelTrainingData:")
+    @printf(io, "\t%-30s  %10s\n", "n frames:", @sprintf("%d", nrow(dset.dataframe)))
+    @printf(io, "\t%-30s  %10s\n", "n traces:", @sprintf("%d", length(dset.startframes)))
+end
 
 
 ########################################
@@ -754,6 +759,7 @@ function _pull_model_training_data(
     pdset_filepaths = String[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
+    dataframe[:pdset_id] = Int[]
     startframes = Int[]
 
     for csvfileset in csvfilesets

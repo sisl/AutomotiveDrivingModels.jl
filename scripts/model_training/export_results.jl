@@ -129,7 +129,7 @@ function create_tikzpicture_model_compare_logl_test{S<:String}(io::IO,
 
         color_letter = string('A' + i - 1)
 
-        println(io, "\\addplot+[thick, mark=o, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
+        println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, Δ, Δ)
     end
 end
@@ -209,7 +209,7 @@ function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO, metrics_s
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
         @printf(io, "\t(0,0.0) ")
-        for horizon in [1.0,2.0,3.0,4.0]
+        for horizon in [4.0] #[1.0,2.0,3.0,4.0]
             rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i+1]))
             @printf(io, "(%.3f,%.4f) ", horizon, rwse)
         end
@@ -249,7 +249,7 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
         @printf(io, "\t(0,0.0) ")
-        for horizon in [1.0,2.0,3.0,4.0]
+        for horizon in [4.0] #[1.0,2.0,3.0,4.0]
             σ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]).σ
             @printf(io, "(%.3f,%.4f) ", horizon, σ)
         end
@@ -298,11 +298,11 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
 
     nmodels = length(model_names)
 
-    print(io, "\\begin{tabular}{ll", "c"^nmodels, "}\n")
+    print(io, "\\begin{tabular}{ll", "S"^nmodels, "}\n")
     print(io, "\\toprule\n")
     @printf(io, "%30s & %-11s ", "", "Context")
     for name in model_names
-        @printf(io, "& \\%-20s ", _convert_to_short_name(name))
+        @printf(io, "& {\\%-15s ", _convert_to_short_name(name) * "}")
     end
     print(io, "\\\\\n")
     print(io, "\\midrule\n")
@@ -320,7 +320,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         for i in 1 : nmodels
             logl_μ, logl_Δ = _grab_score_and_confidence(LoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
                                                         context_class["metrics_sets_test_frames_bagged"][i])
-            logl_string = @sprintf("\\num{%.1f+-%.1f}", logl_μ, logl_Δ)
+            logl_string = @sprintf("%.2f+-%.2f", logl_μ, logl_Δ)
             @printf(io, "& %-20s ", logl_string)
         end
         @printf(io, "\\\\\n")
@@ -339,7 +339,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         for i in 1 : nmodels
             μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i+1],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
-            logl_string = @sprintf("\\num{%.3f+-%.3f}", μ, Δ)
+            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
             @printf(io, "& %-20s ", logl_string)
         end
         @printf(io, "\\\\\n")
@@ -358,7 +358,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         for i in 1 : nmodels
             μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i+1],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
-            logl_string = @sprintf("\\num{%.3f+-%.3f}", μ, Δ)
+            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
             @printf(io, "& %-20s ", logl_string)
         end
         @printf(io, "\\\\\n")
@@ -377,7 +377,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         for i in 1 : nmodels
             μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i+1],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
-            logl_string = @sprintf("\\num{%.3f+-%.3f}", μ, Δ)
+            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
             @printf(io, "& %-20s ", logl_string)
         end
         @printf(io, "\\\\\n")
@@ -397,7 +397,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         for i in 1 : nmodels
             μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i+1]))
             Δ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces_bagged"][i]).σ
-            logl_string = @sprintf("\\num{%.2f+-%.2f}", μ, Δ)
+            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
             @printf(io, "& %-20s ", logl_string)
         end
         @printf(io, "\\\\\n")
@@ -405,7 +405,6 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
 
     print(io, "\\bottomrule\n")
     print(io, "\\end{tabular}\n")
-
 end
 
 behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")

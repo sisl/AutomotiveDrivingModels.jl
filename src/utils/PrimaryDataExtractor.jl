@@ -1154,7 +1154,6 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                 if percent_outliers > params.threshold_percent_outliers_toss
                     should_toss_due_to_outliers = true
                     print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
-                    toc()
                     break
                 end
 
@@ -1175,7 +1174,6 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
             if size(data_smoothed, 1) < params.threshold_other_segment_length
                 print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
-                toc()
                 continue
             end
 

@@ -4,17 +4,23 @@ using RandomForestBehaviors
 using DynamicBayesianNetworkBehaviors
 
 #=
-1 - load the full datasets for each scenario used
-2 - train a model using its optimal hyperparameter set on each dataset amount
-3 - compute the validation log likelihood
-4 - save results to a .csv file in results/
+We are testing how much model performance degrades as the amount of data decreases
+The way we are testing this is to:
+ - load the full datasets for each context class
+ - split them into train/test
+ - train a model for each reduced-quantity context class (based on cross-validated optimal hyperparams)
+ - evaluate the model on the withheld training set via the logl
+ - save results to csv file
 =#
 
 ##############################
 # PARAMETERS
 ##############################
 
-
+const TRAIN_TEST_SPLIT_TEST_FRACTION = 0.1
+const OPTIMAL_MODEL_PARAMS = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/model_training/opt_model_params.jld"
+const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 21)
+const METRIC_TYPES_TEST_FRAMES = [LoglikelihoodMetric]
 const SCENARIO_DATASETS = [
     # "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_1lane_freeflow/dataset.jld",
     # "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/dataset_small.jld",
@@ -22,23 +28,6 @@ const SCENARIO_DATASETS = [
     "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/dataset_subset_free_flow.jld",
     "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/dataset_subset_lane_crossing.jld",
 ]
-const OPTIMAL_MODEL_PARAMS = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/model_training/opt_model_params.jld"
-const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 21)
-
-# construct a mega dset
-dset = JLD.load(SCENARIO_DATASETS[1], "model_training_data")
-for i = 2 : length(SCENARIO_DATASETS)
-    append!(dset, JLD.load(SCENARIO_DATASETS[i], "model_training_data"))
-end
-
-# construct a train/test split
-srand(1)
-TRAIN_TEST_SPLIT_TEST_FRACTION = 0.1
-train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION, dset)
-
-df_train = dset.dataframe[train_test_split.frame_assignment .== FOLD_TRAIN,:]
-
-# TODO(tim): load optimal behavior set params from file
 const INDICATOR_SET = [
                     YAW, SPEED, VELFX, VELFY, #DELTA_SPEED_LIMIT,
                     D_CL, D_ML, D_MR, #D_MERGE, D_SPLIT,
@@ -75,73 +64,97 @@ const INDICATOR_SET = [
                      #  STDTURNRATE500MS,  STDTURNRATE750MS,  STDTURNRATE1S,  STDTURNRATE1500MS,  STDTURNRATE2S,  STDTURNRATE2500MS,  STDTURNRATE3S,  STDTURNRATE4S,
                 ]
 
-behaviorset = BehaviorSet()
-add_behavior!(behaviorset, VehicleBehaviorGaussian, "Gaussian Filter")
-add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Single Variable",
-    [:indicators=>INDICATOR_SET,
-     :ridge_regression_constant=>0.75,
-    ])
-add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
-    [:indicators=>INDICATOR_SET,
-     :ntrees=>6,
-     :max_depth=>18,
-     :min_samples_split=>30,
-     :min_samples_leaves=>2,
-     :min_split_improvement=>0.0,
-     :partial_sampling=>1.0,
-    ])
-add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
-    [:indicators=>INDICATOR_SET,
-     :ntrees=>36,
-     :max_depth=>10,
-     :min_samples_split=>20,
-     :min_samples_leaves=>2,
-     :min_split_improvement=>5.0,
-     :partial_sampling=>1.0,
-    ])
-add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
-    [:indicators=>INDICATOR_SET,
-     :preoptimize_target_bins=>true,
-     :preoptimize_parent_bins=>true,
-     :optimize_structure=>true,
-     :optimize_target_bins=>false,
-     :optimize_parent_bins=>false,
-     :ncandidate_bins=>20,
-     ])
+df_results = DataFrame()
+df_results[:dataset_percentage] = Float64[]
+df_results[:nframes] = Int[]
+df_results[:context_class] = String[]
+df_results[:logl_train] = Float64[]
+df_results[:logl_test] = Float64[]
+df_results[:model_name] = String[]
 
-##############################
-# TRAIN MODELS
-##############################
+for scenario_datasetpath in SCENARIO_DATASETS
 
-df_results = DataFrame(dataset_amount=DATASET_PERCENTAGES, nframes=Array(Int, length(DATASET_PERCENTAGES)))
-for name in behaviorset.names
-    df_results[symbol(name)] = Array(Float64, length(DATASET_PERCENTAGES))
-end
+    context_class = splitdir(scenario_datasetpath)[2]
+    println("context_class: ", context_class)
 
-metric_types_test_frames = [LoglikelihoodMetric]
+    dset = JLD.load(scenario_datasetpath, "model_training_data")
+    println(dset)
 
-nframes_train = nrow(df_train)
-println("max n training frames: ", nframes_train)
+    # construct a train/test split
+    srand(1)
+    train_test_split = get_train_test_fold_assignment(TRAIN_TEST_SPLIT_TEST_FRACTION, dset)
+    df_train = dset.dataframe[train_test_split.frame_assignment .== FOLD_TRAIN,:]
+    nframes_train = nrow(df_train)
 
-for i in 1 : nrow(df_results)
+    println("nframes train: ", nframes_train)
+    println("nframes test:  ", calc_fold_size(FOLD_TEST, train_test_split.frame_assignment, true))
 
-    dataset_percent = df_results[i, :dataset_amount]::Float64
+    # TODO(tim): determine optimal behavior set params using CV
 
-    nframes = int(nframes_train * dataset_percent)
-    @assert(nframes ≤ nframes_train)
+    behaviorset = BehaviorSet()
+    add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
+    add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian",
+        [:indicators=>INDICATOR_SET,
+         :ridge_regression_constant=>0.3157894736842105,
+        ])
+    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
+        [:indicators=>INDICATOR_SET,
+         :ntrees=>31,
+         :max_depth=>20,
+         :min_samples_split=>10,
+         :min_samples_leaves=>2,
+         :min_split_improvement=>0.0,
+         :partial_sampling=>1.0,
+         :n_split_tries=>1000,
+        ])
+    add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
+        [:indicators=>INDICATOR_SET,
+         :ntrees=>20,
+         :max_depth=>10,
+         :min_samples_split=>10,
+         :min_samples_leaves=>8,
+         :min_split_improvement=>0.0,
+         :partial_sampling=>0.8,
+         :n_split_tries=>1000,
+        ])
+    add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
+        [:indicators=>INDICATOR_SET,
+         :preoptimize_target_bins=>true,
+         :preoptimize_parent_bins=>true,
+         :optimize_structure=>true,
+         :optimize_target_bins=>false,
+         :optimize_parent_bins=>false,
+         :ncandidate_bins=>35,
+         :max_parents=>5,
+         # :nbins_lat=>5,
+         # :nbins_lon=>5,
+         ])
 
-    println(i, ")  ", dataset_percent, "% -> ", nframes, " frames")
+    ##############################
+    # TRAIN MODELS
+    ##############################
 
-    models = train(behaviorset, df_train[1:nframes, :])
-    metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models,
-                                               dset, train_test_split, FOLD_TEST, true)
+    for dset_percentage in DATASET_PERCENTAGES
 
-    df_results[i, :nframes] = nframes
-    for (metric_set, name) in zip(metrics_sets_test_frames, behaviorset.names)
-        df_results[i, symbol(name)] = (metric_set[1]::LoglikelihoodMetric).logl
+        nframes_train_reduced = int(nframes_train * dset_percentage)
+        @assert(nframes_train_reduced ≤ nframes_train)
+
+        println("\tdset_percentage: ", dset_percentage, "   nframes train reduced: ", nframes_train_reduced)
+
+        models = train(behaviorset, df_train[1:nframes_train_reduced, :])
+        metrics_sets_test_frames = extract_metrics(METRIC_TYPES_TEST_FRAMES, models,
+                                                   dset, train_test_split, FOLD_TEST, true)
+        metrics_sets_train_frames = extract_metrics(METRIC_TYPES_TEST_FRAMES, models,
+                                                   dset, train_test_split, FOLD_TEST, false)
+
+        for (i, model_name) in enumerate(behaviorset.names)
+            logl_train = (metrics_sets_train_frames[i][1]::LoglikelihoodMetric).logl
+            logl_test = (metrics_sets_test_frames[i][1]::LoglikelihoodMetric).logl
+            push!(df_results, [dset_percentage, nframes_train_reduced, context_class, logl_train, logl_test, model_name])
+        end
+
+        println(df_results)
     end
-
-    println(df_results)
 end
 
 writetable("results/data_vs_performance_metrics.csv", df_results)

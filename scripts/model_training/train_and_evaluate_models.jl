@@ -114,10 +114,10 @@ for dset_filepath_modifier in (
          ])
 
     models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])
-    # JLD.save(MODEL_OUTPUT_JLD_FILE,
-    #         "behaviorset", behaviorset,
-    #         "models", models,
-    #         )
+    JLD.save(MODEL_OUTPUT_JLD_FILE,
+            "behaviorset", behaviorset,
+            "models", models,
+            )
 
     # models = JLD.load(MODEL_OUTPUT_JLD_FILE, "models")
 
@@ -188,13 +188,13 @@ for dset_filepath_modifier in (
     # println("metrics_sets_test_traces")
     # println(metrics_sets_test_traces)
 
-    print("\textracting test traces bagged"); tic()
+    print("\textracting test traces bagged "); tic()
     metrics_sets_test_traces_bagged = extract_bagged_metrics_from_traces(metric_types_test_traces, models,
                                            pdsets_original, pdsets_for_simulation, streetnets,
                                            dset.pdset_segments, train_test_split, FOLD_TEST, true)
     toc()
 
-    print("\textracting cv metrics"); tic()
+    print("\textracting cv metrics "); tic()
     metrics_sets_cv = cross_validate(behaviorset, dset, cross_validation_split,
                                 metric_types_cv_train_frames, metric_types_cv_test_frames,
                                 metric_types_cv_train_traces, metric_types_cv_test_traces)

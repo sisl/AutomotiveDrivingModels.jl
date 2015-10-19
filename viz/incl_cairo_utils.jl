@@ -767,9 +767,25 @@ function plot_scene(
     ctx = creategc(s)
     clear_setup!(rendermodel)
 
+    basics = FeatureExtractBasicsPdSet(pdset, sn)
+
     frameind = validfind2frameind(pdset, validfind)
     render_streetnet_roads!(rendermodel, sn)
     render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
+
+    # velFy = get(pdset, :velFy, active_carid, validfind)
+    # timegap_front = get(TIMEGAP_X_FRONT, basics, active_carid, validfind)
+    # d_v_front = get(V_X_FRONT, basics, active_carid, validfind)
+
+    # r = colorant"red"
+    # b = colorant"blue"
+    # color_freeflow = (timegap_front > 3.0 || d_v_front > 0.5) ? r : b
+    # str_context = abs(velFy) > 0.1 ? "lanechange" : (timegap_front > 3.0 || d_v_front > 0.5) ? "freeflow" : "following"
+
+    # add_instruction!( rendermodel, render_text, (@sprintf("v_lat = %.4f", velFy), 10, 15, 15, abs(velFy) > 0.1 ? b : r), incameraframe=false)
+    # add_instruction!( rendermodel, render_text, (@sprintf("timegap_front = %.4f", timegap_front), 10, 35, 15, color_freeflow), incameraframe=false)
+    # add_instruction!( rendermodel, render_text, (@sprintf("d_v_front = %.4f", d_v_front), 10, 55, 15, color_freeflow), incameraframe=false)
+    # add_instruction!( rendermodel, render_text, (str_context, 10, 75, 15, COLOR_CAR_EGO), incameraframe=false)
 
     camera_setzoom!(rendermodel, camerazoom)
     set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
