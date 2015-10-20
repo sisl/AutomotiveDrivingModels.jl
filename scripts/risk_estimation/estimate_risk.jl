@@ -76,14 +76,61 @@ for scenario in scenarios
                 sec_per_frame = DEFAULT_SEC_PER_FRAME,
                 col_method = :OBB,
             )
+    candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
+    extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
+
+    #############################################################
+    # export scenario to tikz
+
+    # \draw          (0,0)   -- (7.5,0);
+    # \draw [dashed] (0,0.5) -- (7.5,0.5);
+    # \draw          (0,1)   -- (7.5,1);
+
+    # \draw [->,>=stealth,shorten >=1pt, thick, dotted] (1.25,0.25) -- (1.40,0.25) -- (1.60,0.30) -- (1.80,0.40) -- (2.00,0.50) -- (2.20,0.60) -- (2.40,0.63) -- (2.60,0.69) -- (2.80,0.73) -- (6.00,0.73);
+    # \draw [->,>=stealth,shorten >=1pt, thick] (2.00,0.25) -- (7.00,0.25);
+    # \draw [->,>=stealth,shorten >=1pt, thick, dashed] (0.50,0.75) -- (6.50,0.75);
+
+    for extract_trajdef in extract_trajdefs
+        print("\\draw [->,>=stealth,shorten >=1pt, thick] ")
+        validfind_start = scenario.history,
+        validfind_end = nvalidfinds(pdset)
+        for validfind in validfind_start : validfind_end-1
+            posGx = extract_trajdef.df[validfind, :posGx]
+            posGy = extract_trajdef.df[validfind, :posGy]
+            @printf("(%.3f,%.3f) -- ", posGx, posGy)
+        end
+        @printf("(%.3f,%.3f);\n")
+    end
+
+    # \node [] (ego) at (1.0,0.25) {\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};
+    # \node [] (ot1) at (2.0,0.25) {\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};
+    # \node [] (ot2) at (0.5,0.75) {\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};
+
+    for (extract_trajdef, nodename) in zip(extract_trajdefs, ["ego", "ot1", "ot2"])
+        posGx = extract_trajdef.df[scenario.history, :posGx]
+        posGy = extract_trajdef.df[scenario.history, :posGy]
+        @printf("\\node [] (%s) at (%.3f,%.3f) {\\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};\n",
+            nodename, posGx, posGy)
+    end
+
+    # \node [] at ($(ego.center) + (0,-1.2em)$) {\scriptsize Ego};
+    # \node [] at ($(ot1.center) + (0,-1.2em)$) {\scriptsize Other 1};
+    # \node [] at ($(ot2.center) + (0, 1.2em)$) {\scriptsize Other 2};
+
+    for (extract_trajdef, nodename, nodelabel) in zip(extract_trajdefs, ["ego", "ot1", "ot2"], ["Ego", "Other 1", "Other 1"])
+        posGx = extract_trajdef.df[scenario.history, :posGx]
+        posGy = extract_trajdef.df[scenario.history, :posGy]
+        @printf("\node [] at ($(%s.center) + (0,-1.2em)$) {\scriptsize %s};",
+            nodename, posGx, posGy, nodelabel)
+    end
+
+    #############################################################
 
     validfind = scenario.history
 
     for (behavior_name, human_behavior) in HUMAN_BEHAVIOR_MODELS
 
         policy.human_behavior = human_behavior
-        candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
-        extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
         sec_per_frame = calc_sec_per_frame(basics.pdset)
         collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories,
                                                           active_carid, validfind, sec_per_frame)
@@ -99,6 +146,3 @@ for scenario in scenarios
 end
 
 println(df_res)
-
-
-
