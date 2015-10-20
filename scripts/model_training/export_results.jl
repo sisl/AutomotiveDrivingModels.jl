@@ -273,27 +273,26 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
     model_names::Vector{T})
 
     #=
-    \begin{tabular}{lcccccccc}
+    \begin{tabular}{llSSSSS}
     \toprule
-                                  & Context     & \GF             & \LG             & \RF             & \DF              & \BN             \\
+                                   & Context     & {\SG}            & {\LG}            & {\RF}            & {\DF}            & {\BN}            \\
     \midrule
-    log-likelihood                & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-    KL divergence, timegap        & \freeflow   & \num{0.005+-0.002} & \num{0.006+-0.002} & \num{0.003+-0.002} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-    KL divergence, speed          & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-    KL divergence, lane offset    & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-    RWSE, \num{4}\si{s} horizon   & \freeflow   & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \following  & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
-                                  & \lanechange & \num{61.4+-4.1} & \num{68.9+-31.} & \num{98.5+-27.} & \num{106.4+-16.} &  \num{1.0+-0.1} \\
+    log-likelihood (test)          & \freeflow   & 2.69+-0.04           & \bfseries 3.90+-0.03 & 2.73+-0.12           & 2.58+-0.07           & 3.89+-0.04           \\
+                                   & \following  & 1.51+-0.10           & 2.99+-0.06           & 1.43+-0.30           & 1.77+-0.08           & \bfseries 3.02+-0.07 \\
+                                   & \lanechange & -0.43+-0.20          & \bfseries 1.70+-0.19 & -2.28+-0.61          & 0.57+-0.18           & 1.19+-0.18           \\
+    KL divergence (speed)          & \freeflow   & 0.25+-0.08           & \bfseries 0.13+-0.02 & 0.13+-0.05           & 0.17+-0.04           & 0.17+-0.08           \\
+                                   & \following  & 0.34+-0.13           & 0.47+-0.11           & \bfseries 0.34+-0.12 & \bfseries 0.34+-0.12 & 0.47+-0.13           \\
+                                   & \lanechange & 0.45+-0.18           & \bfseries 0.12+-0.09 & 0.45+-0.18           & 0.45+-0.18           & 0.45+-0.18           \\
+    KL divergence (timegap)        & \freeflow   & 0.40+-0.08           & \bfseries 0.26+-0.08 & 0.31+-0.08           & 0.26+-0.09           & 0.40+-0.09           \\
+                                   & \following  & \bfseries 0.39+-0.15 & 0.92+-0.21           & 0.57+-0.21           & 0.40+-0.21           & 1.32+-0.20           \\
+                                   & \lanechange & 1.23+-0.39           & 1.23+-0.39           & \bfseries 0.36+-0.20 & 2.66+-0.32           & 1.23+-0.38           \\
+    KL divergence (lane offset)    & \freeflow   & 0.63+-0.11           & 0.85+-0.17           & 0.93+-0.13           & 0.63+-0.15           & \bfseries 0.55+-0.17 \\
+                                   & \following  & 0.18+-0.08           & 0.35+-0.06           & 0.15+-0.05           & 0.16+-0.08           & \bfseries 0.06+-0.04 \\
+                                   & \lanechange & 2.54+-0.33           & 2.54+-0.40           & \bfseries 1.71+-0.35 & 1.71+-0.39           & 2.66+-0.37           \\
+    RWSE (\num{4}\si{s}) [\si{m}]  & \freeflow   & 3.12+-0.60           & \bfseries 2.46+-0.37 & 2.98+-0.49           & 3.21+-0.58           & 3.31+-0.59           \\
+                                   & \following  & 5.62+-1.44           & \bfseries 4.18+-1.01 & 5.19+-1.38           & 5.46+-1.37           & 5.69+-1.46           \\
+                                   & \lanechange & 4.52+-1.16           & \bfseries 1.73+-0.34 & 4.19+-1.08           & 4.20+-0.98           & 4.48+-1.15           \\
     \bottomrule
-    \end{tabular}
     =#
 
     nmodels = length(model_names)
@@ -316,12 +315,25 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
             @printf(io, "%-30s &", "")
         end
 
+        best_model_index = 0
+        best_model_score = -Inf
+        for i in 1 : nmodels
+            logl_μ, logl_Δ = _grab_score_and_confidence(LoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
+                                                        context_class["metrics_sets_test_frames_bagged"][i])
+            if logl_μ ≥ best_model_score
+                best_model_score, best_model_index = logl_μ, i
+            end
+        end
+
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
             logl_μ, logl_Δ = _grab_score_and_confidence(LoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
                                                         context_class["metrics_sets_test_frames_bagged"][i])
-            logl_string = @sprintf("%.2f+-%.2f", logl_μ, logl_Δ)
-            @printf(io, "& %-20s ", logl_string)
+            metric_string = @sprintf("%.2f+-%.2f", logl_μ, logl_Δ)
+            if i == best_model_index
+                metric_string = "\\bfseries " * metric_string
+            end
+            @printf(io, "& %-20s ", metric_string)
         end
         @printf(io, "\\\\\n")
     end
@@ -335,12 +347,25 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
             @printf(io, "%-30s &", "")
         end
 
+        best_model_index = 0
+        best_model_score = Inf
+        for i in 1 : nmodels
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i+1],
+                                                            context_class["metrics_sets_test_traces_bagged"][i])
+            if μ ≤ best_model_score
+                best_model_score, best_model_index = μ, i
+            end
+        end
+
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
             μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i+1],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
-            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
-            @printf(io, "& %-20s ", logl_string)
+            metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
+            if i == best_model_index
+                metric_string = "\\bfseries " * metric_string
+            end
+            @printf(io, "& %-20s ", metric_string)
         end
         @printf(io, "\\\\\n")
     end
@@ -354,12 +379,25 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
             @printf(io, "%-30s &", "")
         end
 
+        best_model_index = 0
+        best_model_score = Inf
+        for i in 1 : nmodels
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i+1],
+                                                            context_class["metrics_sets_test_traces_bagged"][i])
+            if μ ≤ best_model_score
+                best_model_score, best_model_index = μ, i
+            end
+        end
+
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
             μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i+1],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
-            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
-            @printf(io, "& %-20s ", logl_string)
+            metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
+            if i == best_model_index
+                metric_string = "\\bfseries " * metric_string
+            end
+            @printf(io, "& %-20s ", metric_string)
         end
         @printf(io, "\\\\\n")
     end
@@ -373,12 +411,25 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
             @printf(io, "%-30s &", "")
         end
 
+        best_model_index = 0
+        best_model_score = Inf
+        for i in 1 : nmodels
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i+1],
+                                                            context_class["metrics_sets_test_traces_bagged"][i])
+            if μ ≤ best_model_score
+                best_model_score, best_model_index = μ, i
+            end
+        end
+
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
             μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i+1],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
-            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
-            @printf(io, "& %-20s ", logl_string)
+            metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
+            if i == best_model_index
+                metric_string = "\\bfseries " * metric_string
+            end
+            @printf(io, "& %-20s ", metric_string)
         end
         @printf(io, "\\\\\n")
     end
@@ -393,12 +444,24 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
             @printf(io, "%-30s &", "")
         end
 
+        best_model_index = 0
+        best_model_score = Inf
+        for i in 1 : nmodels
+            μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i+1]))
+            if μ ≤ best_model_score
+                best_model_score, best_model_index = μ, i
+            end
+        end
+
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
             μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i+1]))
             Δ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces_bagged"][i]).σ
-            logl_string = @sprintf("%.2f+-%.2f", μ, Δ)
-            @printf(io, "& %-20s ", logl_string)
+            metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
+            if i == best_model_index
+                metric_string = "\\bfseries " * metric_string
+            end
+            @printf(io, "& %-20s ", metric_string)
         end
         @printf(io, "\\\\\n")
     end
