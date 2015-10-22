@@ -287,7 +287,7 @@ create_feature_basics("PosFy", "m", false, false, Inf, -Inf, false, :posFy, L"p^
 get(::Feature_PosFy, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :posFy, carind, validfind)::Float64
 
 create_feature_basics("Speed", "m/s", false, false, Inf, -Inf, false, :speed, L"\|v\|", "speed")
-_get(::Feature_Speed, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get_speed(basics.pdset, carind::Integer, validfind)
+_get(::Feature_Speed, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get_speed(basics.pdset, carind, validfind)
 
 create_feature_basics("Delta_Speed_Limit", "m/s", false, false, Inf, -Inf, false, :delta_speed_limit, L"Δv_{\text{limit}}", "difference between current speed and speed limit")
 function get(::Feature_Delta_Speed_Limit, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)

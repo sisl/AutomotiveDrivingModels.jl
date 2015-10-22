@@ -56,8 +56,53 @@ function _convert_to_short_name(name::String)
     retval
 end
 
-function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
-    metrics_sets_cv::CrossValidationResults,
+# function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
+#     metrics_sets_cv::CrossValidationResults,
+#     names::Vector{S},
+#     )
+
+
+#     For each model, add these options:
+#     (produces 95% confidence bounds)
+
+#     \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
+#     coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
+#     \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
+#     coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
+#     \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
+#     coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
+#     \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
+#     coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
+#     \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
+#     coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
+
+
+#     for (i,name) in enumerate(names)
+
+#         model_cv_res = metrics_sets_cv.models[i]
+
+#         likelihood_μ = 0.0
+#         likelihood_lo = Inf
+#         likelihood_hi = -Inf
+#         for cvfold_res in model_cv_res.results
+#             metrics = cvfold_res.metrics_test_frames
+#             j = findfirst(m->isa(m, LoglikelihoodMetric), metrics)
+#             logl = metrics[j].logl
+#             likelihood_μ += logl
+#             likelihood_lo = min(likelihood_lo, logl)
+#             likelihood_hi = max(likelihood_hi, logl)
+#         end
+#         likelihood_μ /= length(model_cv_res.results)
+
+#         color_letter = string('A' + i - 1)
+
+#         println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
+#         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", likelihood_μ, name, likelihood_hi-likelihood_μ, likelihood_μ-likelihood_lo)
+#     end
+# end
+function create_tikzpicture_model_compare_logl{S<:String, B<:BehaviorFrameMetric}(io::IO,
+    metrics_straight::Vector{Vector{B}},
+    metrics_bagged::Vector{Vector{BaggedMetricResult}},
     names::Vector{S},
     )
 
@@ -79,53 +124,8 @@ function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
 
     for (i,name) in enumerate(names)
 
-        model_cv_res = metrics_sets_cv.models[i]
-
-        likelihood_μ = 0.0
-        likelihood_lo = Inf
-        likelihood_hi = -Inf
-        for cvfold_res in model_cv_res.results
-            metrics = cvfold_res.metrics_test_frames
-            j = findfirst(m->isa(m, LoglikelihoodMetric), metrics)
-            logl = metrics[j].logl
-            likelihood_μ += logl
-            likelihood_lo = min(likelihood_lo, logl)
-            likelihood_hi = max(likelihood_hi, logl)
-        end
-        likelihood_μ /= length(model_cv_res.results)
-
-        color_letter = string('A' + i - 1)
-
-        println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
-        @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", likelihood_μ, name, likelihood_hi-likelihood_μ, likelihood_μ-likelihood_lo)
-    end
-end
-function create_tikzpicture_model_compare_logl_test{S<:String}(io::IO,
-    metrics_sets_test::Vector{Vector{BehaviorFrameMetric}},
-    metrics_sets_test_frames_bagged::Vector{Vector{BaggedMetricResult}},
-    names::Vector{S},
-    )
-
-    #=
-    For each model, add these options:
-    (produces 95% confidence bounds)
-
-    \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
-    \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
-    \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
-    \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
-    \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
-    =#
-
-    for (i,name) in enumerate(names)
-
-        μ, Δ = _grab_score_and_confidence(LoglikelihoodMetric, metrics_sets_test[i],
-                                          metrics_sets_test_frames_bagged[i])
+        μ, Δ = _grab_score_and_confidence(LoglikelihoodMetric, metrics_straight[i],
+                                          metrics_bagged[i])
 
         color_letter = string('A' + i - 1)
 
@@ -153,11 +153,11 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
 
     for i in 1 : length(names)
 
-        speed_μ, speed_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, metrics_sets_test_traces[i+1],
+        speed_μ, speed_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, metrics_sets_test_traces[i],
                                                             metrics_sets_test_traces_bagged[i])
-        timegap_μ, timegap_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, metrics_sets_test_traces[i+1],
+        timegap_μ, timegap_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, metrics_sets_test_traces[i],
                                                             metrics_sets_test_traces_bagged[i])
-        offset_μ, offset_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, metrics_sets_test_traces[i+1],
+        offset_μ, offset_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, metrics_sets_test_traces[i],
                                                             metrics_sets_test_traces_bagged[i])
 
         color = "color" * string('A' + i - 1)
@@ -203,14 +203,14 @@ function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO, metrics_s
 
     dash_types = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
 
-    for (i, metrics_set) in enumerate(metrics_sets[2:end])
+    for (i, metrics_set) in enumerate(metrics_sets[1:end])
 
         color = "color" * string('A' + i - 1)
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
         @printf(io, "\t(0,0.0) ")
-        for horizon in [4.0] #[1.0,2.0,3.0,4.0]
-            rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i+1]))
+        for horizon in [1.0,2.0,3.0,4.0]
+            rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]))
             @printf(io, "(%.3f,%.4f) ", horizon, rwse)
         end
         @printf(io, "};\n")
@@ -249,7 +249,7 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
         @printf(io, "\t(0,0.0) ")
-        for horizon in [4.0] #[1.0,2.0,3.0,4.0]
+        for horizon in [1.0,2.0,3.0,4.0]
             σ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]).σ
             @printf(io, "(%.3f,%.4f) ", horizon, σ)
         end
@@ -350,7 +350,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         best_model_index = 0
         best_model_score = Inf
         for i in 1 : nmodels
-            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i+1],
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
             if μ ≤ best_model_score
                 best_model_score, best_model_index = μ, i
@@ -359,7 +359,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
 
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
-            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i+1],
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
             metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
             if i == best_model_index
@@ -382,7 +382,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         best_model_index = 0
         best_model_score = Inf
         for i in 1 : nmodels
-            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i+1],
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
             if μ ≤ best_model_score
                 best_model_score, best_model_index = μ, i
@@ -391,7 +391,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
 
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
-            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i+1],
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
             metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
             if i == best_model_index
@@ -414,7 +414,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         best_model_index = 0
         best_model_score = Inf
         for i in 1 : nmodels
-            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i+1],
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
             if μ ≤ best_model_score
                 best_model_score, best_model_index = μ, i
@@ -423,7 +423,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
 
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
-            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i+1],
+            μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i],
                                                             context_class["metrics_sets_test_traces_bagged"][i])
             metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
             if i == best_model_index
@@ -447,7 +447,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
         best_model_index = 0
         best_model_score = Inf
         for i in 1 : nmodels
-            μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i+1]))
+            μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i]))
             if μ ≤ best_model_score
                 best_model_score, best_model_index = μ, i
             end
@@ -455,7 +455,7 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
 
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
-            μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i+1]))
+            μ = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces"][i]))
             Δ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, context_class["metrics_sets_test_traces_bagged"][i]).σ
             metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
             if i == best_model_index
@@ -472,22 +472,27 @@ end
 
 behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")
 
+# println(keys(JLD.load(METRICS_OUTPUT_FILE)))
 metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
-metrics_sets_test_traces = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces")
 metrics_sets_test_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames_bagged")
+metric_sets_train_frames = JLD.load(METRICS_OUTPUT_FILE, "metric_sets_train_frames")
+metric_sets_train_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metric_sets_train_frames_bagged")
+metrics_sets_test_traces = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces")
 metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces_bagged")
-metrics_sets_cv = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_cv")
+# metrics_sets_cv = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_cv")
 
 # all_names = String["Real World"]
 # append!(all_names, behaviorset.names)
 
+# fh = STDOUT
 write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    create_tikzpicture_model_compare_logl_train(fh, metrics_sets_cv, behaviorset.names)
+    create_tikzpicture_model_compare_logl(fh, metric_sets_train_frames,
+                                          metric_sets_train_frames_bagged, behaviorset.names)
 end
 
 write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
-    create_tikzpicture_model_compare_logl_test(fh, metrics_sets_test_frames,
-                                               metrics_sets_test_frames_bagged, behaviorset.names)
+    create_tikzpicture_model_compare_logl(fh, metrics_sets_test_frames,
+                                          metrics_sets_test_frames_bagged, behaviorset.names)
 end
 
 write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh

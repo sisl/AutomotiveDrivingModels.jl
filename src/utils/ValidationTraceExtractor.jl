@@ -35,6 +35,7 @@ export
         get_cross_validation_fold_assignment,
         get_train_test_fold_assignment,
         calc_fold_size,
+        calc_fold_inds!,
         is_in_fold,
 
 
@@ -241,6 +242,8 @@ end
 const FOLD_TRAIN = 1
 const FOLD_TEST = 2
 
+Base.deepcopy(a::FoldAssignment) = FoldAssignment(deepcopy(a.frame_assignment), deepcopy(a.pdsetseg_assignment), a.nfolds)
+
 function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
     fold_size = 0
     for a in fold_assignment
@@ -250,10 +253,22 @@ function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArra
     end
     fold_size
 end
+function calc_fold_inds!{I<:Integer}(fold_inds::Vector{Int}, fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
+    k = 0
+    for (i,a) in enumerate(fold_assignment)
+        if is_in_fold(fold, a, match_fold)
+            k += 1
+            fold_inds[k] = i
+        end
+    end
+    @assert(k == length(fold_inds))
+    fold_inds
+end
 function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
     (fold != 0) && # NOTE(tim): zero never matches
         ((match_fold && fold_assignment == fold) || (!match_fold && fold_assignment != fold))
 end
+
 
 ########################################
 #              FUNCTIONS               #

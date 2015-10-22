@@ -1,5 +1,7 @@
 export
     BehaviorSet,
+    BehaviorParameter,
+    BehaviorParameterSet,
 
     CVFoldResults,
     ModelCrossValidationResults,
@@ -20,6 +22,55 @@ type BehaviorSet
     additional_params::Vector{Dict}
 
     BehaviorSet() = new(Type{AbstractVehicleBehavior}[], String[], Dict[])
+end
+type BehaviorParameter
+    sym::Symbol
+    range::AbstractVector
+    index_of_default::Int
+
+    function BehaviorParameter(sym::Symbol, range::AbstractVector, index_of_default::Int=1)
+        @assert(!isempty(range))
+        @assert(index_of_default > 0)
+        @assert(index_of_default ≤ length(range))
+        new(sym, range, index_of_default)
+    end
+end
+type BehaviorParameterSet
+    default_params::Vector{(Symbol, Any)}
+    varying_params::Vector{BehaviorParameter}
+
+    BehaviorParameterSet() = new(BehaviorParameter[], (Symbol, Any)[])
+    function BehaviorParameterSet(
+        default_params::Vector{(Symbol, Any)},
+        varying_params::Vector{BehaviorParameter},
+        )
+
+        all_symbols = Set{Symbol}()
+        for (s,a) in default_params
+            @assert(!in(s, all_symbols))
+            push!(all_symbols, s)
+        end
+        for param in varying_params
+            @assert(!in(param.sym, all_symbols))
+            push!(all_symbols, param.sym)
+        end
+
+        new(default_params, varying_params)
+    end
+end
+
+function get_default_params(params::BehaviorParameterSet)
+
+    behavior_train_params = Dict{Symbol,Any}()
+
+    for (s,a) in params.default_params
+        behavior_train_params[s] = a
+    end
+    for p in params.varying_params
+        behavior_train_params[p.sym] = p.range[p.index_of_default]
+    end
+
+    behavior_train_params
 end
 
 function add_behavior!{B<:AbstractVehicleBehavior}(
@@ -53,6 +104,109 @@ function train_special( behaviorset::BehaviorSet, training_frames::DataFrame )
         retval[i] = train_special(behaviorset.behaviors[i], training_frames, args=behaviorset.additional_params[i])
     end
     retval
+end
+function train(
+    behaviorset::BehaviorSet,
+    dset::ModelTrainingData,
+    train_test_split::FoldAssignment,
+    cross_validation_split::FoldAssignment,
+    model_param_sets::Dict{String, BehaviorParameterSet}; # model name to params
+    max_cv_opt_time_per_model::Float64=60.0 # [sec]
+    )
+
+    training_frames = dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :]
+
+    retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
+    for i = 1 : length(retval)
+        behavior_type = behaviorset.behaviors[i]
+        behavior_name = behaviorset.names[i]
+        params = model_param_sets[behavior_name]
+        (behavior_train_params, param_indeces) = optimize_hyperparams_cyclic_coordinate_ascent(
+                                                    behavior_type, behavior_name, params,
+                                                    dset, cross_validation_split,
+                                                    max_time=max_cv_opt_time_per_model)
+
+        retval[i] = train(behavior_type, training_frames, args=behavior_train_params)
+    end
+    retval
+end
+
+function optimize_hyperparams_cyclic_coordinate_ascent{D<:AbstractVehicleBehavior}(
+    behavior_type::Type{D},
+    behavior_name::String,
+    params::BehaviorParameterSet,
+    dset::ModelTrainingData,
+    cross_validation_split::FoldAssignment;
+    max_iter::Int = 500,
+    max_time::Float64 = 60.0, # [sec]
+    )
+
+    # returns the optimal param set
+    behavior_train_params = get_default_params(params)
+
+    n_varying_params = length(params.varying_params)
+    if n_varying_params == 0
+        return (behavior_train_params, Int[])
+    end
+
+    param_indeces = Array(Int, n_varying_params)
+    for i in 1 : n_varying_params
+        param_indeces[i] = params.varying_params[i].index_of_default
+    end
+
+    best_param_score = -Inf
+    param_hash = Set{Uint}() # set of param hashes that have already been done
+    metric_types_train_frames = DataType[]
+    metric_types_test_frames = [LoglikelihoodMetric]
+    param_range = 1:n_varying_params
+
+    behaviorset = BehaviorSet()
+    add_behavior!(behaviorset, behavior_type, behavior_name, behavior_train_params)
+
+    t_start = time()
+    iteration_count = 0
+    while (time() - t_start < max_time) && (iteration_count < max_iter)
+        iteration_count += 1
+
+        # sample new params
+        param_index = rand(param_range)
+        prev_index = param_indeces[param_index]
+        param_indeces[param_index] = rand(1:length(params.varying_params[param_index].range))
+        while in(hash(param_indeces), param_hash) && (time() - t_start < max_time)
+            param_indeces[param_index] = prev_index
+            param_index = rand(param_range)
+            param_indeces[param_index] = rand(1:length(params.varying_params[param_index].range))
+        end
+        if in(hash(param_indeces), param_hash)
+            break # we timed out
+        end
+
+        push!(param_hash, hash(param_indeces))
+        sym = params.varying_params[param_index].sym
+        val = params.varying_params[param_index].range[param_indeces[param_index]]
+        prev_param = behavior_train_params[sym]
+        behavior_train_params[sym] = val
+        cv_res = cross_validate(behaviorset, dset, cross_validation_split,
+                                metric_types_train_frames, metric_types_test_frames)
+
+        μ = 0.0
+        n_samples = 0
+        for (fold,cvfold_results) in enumerate(cv_res.models[1].results)
+            m = cvfold_results.metrics_test_frames[1]::LoglikelihoodMetric
+            μ += m.logl
+            n_samples += 1
+        end
+        μ /= n_samples
+
+        if μ > best_param_score
+            best_param_score = μ
+        else # previous was better
+            behavior_train_params[sym] = prev_param
+            param_indeces[param_index] = prev_index
+        end
+    end
+
+    (behavior_train_params, param_indeces)
 end
 
 ####################################################

@@ -3,21 +3,11 @@ using AutomotiveDrivingModels
 using RandomForestBehaviors
 using DynamicBayesianNetworkBehaviors
 
-#=
-We are testing how much model performance degrades as the amount of data decreases
-The way we are testing this is to:
- - load the full datasets for each context class
- - split them into train/test
- - train a model for each reduced-quantity context class (based on cross-validated optimal hyperparams)
- - evaluate the model on the withheld training set via the logl
- - save results to csv file
-=#
-
 ##############################
 # PARAMETERS
 ##############################
 
-const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 20)
+const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 21)
 const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
 const NFOLDS = 5
 const METRIC_TYPES_TEST_FRAMES = [LoglikelihoodMetric]
@@ -64,8 +54,12 @@ const INDICATOR_SET = [
                 ]
 
 df_results = DataFrame()
-df_results[:dataset_percentage] = Float64[]
-df_results[:nframes] = Int[]
+df_results[:composition_freeflow] = Float64[]
+df_results[:composition_following] = Float64[]
+df_results[:composition_lanechange] = Float64[]
+df_results[:nframes_freeflow] = Int[]
+df_results[:nframes_following] = Int[]
+df_results[:nframes_lanechange] = Int[]
 df_results[:context_class] = String[]
 df_results[:logl_train] = Float64[]
 df_results[:logl_test] = Float64[]
@@ -135,8 +129,8 @@ for dset_filepath_modifier in SCENARIO_DATASETS
     add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
     add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
     add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
-    add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
-    add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
+    # add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
+    # add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 
     ##############################
     # TRAIN MODELS

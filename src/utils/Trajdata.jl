@@ -40,6 +40,7 @@ export
 
 	create_empty_pdset,                 # generate a new one
 	expand!,                            # increase the number of rows
+	extract_pdset_subset,               # pull a pdset seg as a new pdset
 
 	validfind_inbounds,                 # true if the given valid frame index is inbounds
 	frameind_inbounds,                  # true if the given frame index is inbounds
@@ -446,6 +447,62 @@ function Base.deepcopy(pdset::PrimaryDataset)
         deepcopy(pdset.ego_car_on_freeway)
     )
 end
+function Base.deepcopy(pdset::PrimaryDataset, validfind_start::Int, validfind_end::Int)
+
+	max_n_other_cars = 0
+	for validfind in validfind_start : validfind_end
+		max_n_other_cars = max(max_n_other_cars, get_maxcarind( pdset, validfind)+1)
+	end
+
+	nframes = validfind_end - validfind_start + 1
+	retval = create_empty_pdset(nframes, max_n_other_cars, sec_per_frame=calc_sec_per_frame(pdset))
+
+	retval.maxcarind = max_n_other_cars-1
+
+	ncol_df_ego = ncol(pdset.df_ego)
+	for (i,validfind) in enumerate(validfind_start : validfind_end)
+
+		retval.ego_car_on_freeway[i] = true
+		retval.validfind2frameind[i] = i
+		retval.frameind2validfind[i] = i
+
+		frameind = validfind2frameind(pdset, validfind)
+		for j in 1 : ncol_df_ego
+			retval.df_ego[i,j] = pdset.df_ego[frameind,j]
+		end
+
+		n_other_cars_in_frame = get_num_other_cars_in_frame( pdset, validfind )
+
+		# for carind = 0 : pdset.maxcarind
+		# 	if indinframe(pdset, carind, validfind)
+		# 		print(carind, "  ")
+		# 	end
+		# end
+		# println()
+
+		for carind in 0 : n_other_cars_in_frame-1
+			for sym in keys(pdset.df_other_column_map)
+				j = pdset.df_other_column_map[sym] + pdset.df_other_ncol_per_entry * carind
+				# print(sym, "  ", carind, "  ", n_other_cars_in_frame, "  ", i, "  ", j, "  ", size(retval.df_other), "  ", validfind, "  ", size(retval.df_other))
+				# print("  ", names(pdset.df_other)[j])
+				# println("  ", names(retval.df_other)[j])
+				retval.df_other[i,j] = pdset.df_other[validfind,j]
+			end
+			carid = carind2id(pdset, carind, validfind)
+			@assert(carid != CARID_EGO)
+
+			if !haskey(retval.dict_other_idmap, carid)
+				retval.dict_other_idmap[carid] = convert(Uint16, length(retval.dict_other_idmap) + 1)
+				retval.mat_other_indmap = hcat(retval.mat_other_indmap, fill(int16(-1), nframes, 1))
+			end
+
+			matind = retval.dict_other_idmap[carid]
+			retval.mat_other_indmap[i, matind] = carind
+		end
+	end
+
+	retval
+end
 
 nframeinds( trajdata::DataFrame ) = size(trajdata, 1)
 nframeinds(  pdset::PrimaryDataset ) = length(pdset.frameind2validfind)
@@ -735,6 +792,7 @@ end
 function get_speed(pdset::PrimaryDataset, carind::Integer, validfind::Integer)
 	if carind == CARIND_EGO
 		frameind = validfind2frameind(pdset, validfind)
+		@assert(frameind != 0)
 		get_speed_ego(pdset, frameind)
 	else
 		get_speed_other(pdset, carind, validfind)

@@ -38,6 +38,14 @@ cross_validation_split = JLD.load(TRAIN_VALIDATION_JLD_FILE, "cross_validation_s
 type Parameter
     sym::Symbol
     range::AbstractArray
+    index_of_default::Int
+
+    function Parameter(sym::Symbol, range::AbstractArray, index_of_default::Int=1)
+        @assert(!isempty(range))
+        @assert(index_of_default > 0)
+        @assert(index_of_default ≤ length(range))
+        new(sym, range, index_of_default)
+    end
 end
 
 params = [

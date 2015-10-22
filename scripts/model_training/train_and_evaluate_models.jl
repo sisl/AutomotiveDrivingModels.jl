@@ -18,6 +18,7 @@ using DynamicBayesianNetworkBehaviors
 # const INCLUDE_FILE_BASE = "vires_highway_2lane_sixcar"
 const INCLUDE_FILE_BASE = "realworld"
 
+const MAX_CV_OPT_TIME_PER_MODEL = 200.0 # [s]
 const AM_ON_TULA = gethostname() == "tula"
 const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
                                   joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
@@ -28,6 +29,44 @@ include(INCLUDE_FILE)
 ################################
 # LOAD TRAIN AND VALIDATION SETS
 ################################
+
+model_param_sets = Dict{String, BehaviorParameterSet}()
+model_param_sets["Static Gaussian"] = BehaviorParameterSet()
+model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
+    )
+model_param_sets["Random Forest"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    [BehaviorParameter(:ntrees, 1:5:51, 3),
+     BehaviorParameter(:max_depth, 1:20, 5),
+     BehaviorParameter(:min_samples_split, 10:10:50, 3),
+     BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
+     BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
+     BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+     BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
+    )
+model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    [BehaviorParameter(:ntrees, 1:5:51, 3),
+     BehaviorParameter(:max_depth, 1:20, 5),
+     BehaviorParameter(:min_samples_split, 10:10:50, 3),
+     BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
+     BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
+     BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+     BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
+    )
+model_param_sets["Bayesian Network"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
+                                   (:preoptimize_target_bins,true),
+                                   (:preoptimize_parent_bins,true),
+                                   (:optimize_structure,true),
+                                   (:optimize_target_bins,false),
+                                   (:optimize_parent_bins,false),
+        ]),
+    [BehaviorParameter(:ncandidate_bins, 1:5:51, 7),
+     BehaviorParameter(:max_parents, 1:20, 5)],
+    )
 
 for dset_filepath_modifier in (
     "_subset_car_following",
@@ -62,62 +101,23 @@ for dset_filepath_modifier in (
     # MODELS
     ##############################
 
-    # INDICATOR_SET_FOREST = [
-    #                         YAW, D_CL, ESTIMATEDTIMETOLANECROSSING,
-    #                         ACC,
-    #                         ACCFX, ACCFY,
-    #                         D_X_FRONT,
-    #                         PASTACC250MS,
-    #                         PASTACC500MS,
-    #                         PASTTURNRATE250MS, PASTTURNRATE500MS
-    #                        ]
-
-    # TODO(tim): load optimal behavior set params from file
     behaviorset = BehaviorSet()
-    # add_behavior!(behaviorset, VehicleBehaviorPerfect, "Perfect")
     add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
-    add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian",
-        [:indicators=>INDICATOR_SET,
-         :ridge_regression_constant=>0.3157894736842105,
-        ])
-    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest",
-        [:indicators=>INDICATOR_SET,
-         :ntrees=>31,
-         :max_depth=>20,
-         :min_samples_split=>10,
-         :min_samples_leaves=>2,
-         :min_split_improvement=>0.0,
-         :partial_sampling=>1.0,
-         :n_split_tries=>10,
-        ])
-    add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest",
-        [:indicators=>INDICATOR_SET,
-         :ntrees=>20,
-         :max_depth=>10,
-         :min_samples_split=>10,
-         :min_samples_leaves=>8,
-         :min_split_improvement=>0.0,
-         :partial_sampling=>0.8,
-         :n_split_tries=>1000,
-        ])
-    add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network",
-        [:indicators=>INDICATOR_SET,
-         :preoptimize_target_bins=>true,
-         :preoptimize_parent_bins=>true,
-         :optimize_structure=>true,
-         :optimize_target_bins=>false,
-         :optimize_parent_bins=>false,
-         :ncandidate_bins=>35,
-         :max_parents=>5,
-         # :nbins_lat=>5,
-         # :nbins_lon=>5,
-         ])
+    add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
+    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
+    add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
+    add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 
-    models = train(behaviorset, dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :])
+    print("training models    "); tic()
+    models = train(behaviorset, dset, train_test_split, cross_validation_split, model_param_sets, max_cv_opt_time_per_model=MAX_CV_OPT_TIME_PER_MODEL)
+    toc()
+
+    print("saving models    "); tic()
     JLD.save(MODEL_OUTPUT_JLD_FILE,
             "behaviorset", behaviorset,
             "models", models,
             )
+    toc()
 
     # models = JLD.load(MODEL_OUTPUT_JLD_FILE, "models")
 
@@ -128,26 +128,67 @@ for dset_filepath_modifier in (
     # evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
 
     metric_types_test_frames = [LoglikelihoodMetric]
+    metric_types_test_frames_bagged = [LoglikelihoodMetric]
+    metric_types_train_frames = [LoglikelihoodMetric]
+    metric_types_train_frames_bagged = [LoglikelihoodMetric]
+
     metric_types_test_traces = [
                                 EmergentKLDivMetric{symbol(SPEED)},
                                 EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                                 EmergentKLDivMetric{symbol(D_CL)},
-                                # RootWeightedSquareError{symbol(SPEED), 1.0},
-                                # RootWeightedSquareError{symbol(SPEED), 2.0},
-                                # RootWeightedSquareError{symbol(SPEED), 3.0},
+                                RootWeightedSquareError{symbol(SPEED), 0.5},
+                                RootWeightedSquareError{symbol(SPEED), 1.0},
+                                RootWeightedSquareError{symbol(SPEED), 1.5},
+                                RootWeightedSquareError{symbol(SPEED), 2.0},
+                                RootWeightedSquareError{symbol(SPEED), 2.5},
+                                RootWeightedSquareError{symbol(SPEED), 3.0},
+                                RootWeightedSquareError{symbol(SPEED), 3.5},
                                 RootWeightedSquareError{symbol(SPEED), 4.0},
-                                # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT)},
-                                # RootWeightedSquareError{symbol(D_CL)},
+                                RootWeightedSquareError{symbol(D_CL), 0.5},
+                                RootWeightedSquareError{symbol(D_CL), 1.0},
+                                RootWeightedSquareError{symbol(D_CL), 1.5},
+                                RootWeightedSquareError{symbol(D_CL), 2.0},
+                                RootWeightedSquareError{symbol(D_CL), 2.5},
+                                RootWeightedSquareError{symbol(D_CL), 3.0},
+                                RootWeightedSquareError{symbol(D_CL), 3.5},
+                                RootWeightedSquareError{symbol(D_CL), 4.0},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
+                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
                                ]
-    metric_types_test_frames_bagged = [LoglikelihoodMetric]
     metric_types_test_traces_bagged = [
                                        EmergentKLDivMetric{symbol(SPEED)},
                                        EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                                        EmergentKLDivMetric{symbol(D_CL)},
-                                       # RootWeightedSquareError{symbol(SPEED), 1.0},
-                                       # RootWeightedSquareError{symbol(SPEED), 2.0},
-                                       # RootWeightedSquareError{symbol(SPEED), 3.0},
+                                       RootWeightedSquareError{symbol(SPEED), 0.5},
+                                       RootWeightedSquareError{symbol(SPEED), 1.0},
+                                       RootWeightedSquareError{symbol(SPEED), 1.5},
+                                       RootWeightedSquareError{symbol(SPEED), 2.0},
+                                       RootWeightedSquareError{symbol(SPEED), 2.5},
+                                       RootWeightedSquareError{symbol(SPEED), 3.0},
+                                       RootWeightedSquareError{symbol(SPEED), 3.5},
                                        RootWeightedSquareError{symbol(SPEED), 4.0},
+                                       RootWeightedSquareError{symbol(D_CL), 0.5},
+                                       RootWeightedSquareError{symbol(D_CL), 1.0},
+                                       RootWeightedSquareError{symbol(D_CL), 1.5},
+                                       RootWeightedSquareError{symbol(D_CL), 2.0},
+                                       RootWeightedSquareError{symbol(D_CL), 2.5},
+                                       RootWeightedSquareError{symbol(D_CL), 3.0},
+                                       RootWeightedSquareError{symbol(D_CL), 3.5},
+                                       RootWeightedSquareError{symbol(D_CL), 4.0},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
+                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
                                       ]
 
     metric_types_cv_train_frames = DataType[]
@@ -155,12 +196,24 @@ for dset_filepath_modifier in (
     metric_types_cv_train_traces = DataType[]
     metric_types_cv_test_traces = DataType[]
 
+    # print("\textracting test frames  "); tic()
+    # metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models, dset, train_test_split, FOLD_TEST, true)
+    # toc()
+
+    # print("\textracting test frames bagged  "); tic()
+    # metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
+    # toc()
+
     print("\textracting test frames  "); tic()
-    metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models, dset, train_test_split, FOLD_TEST, true)
+    metrics_sets_test_frames, metrics_sets_test_frames_bagged = extract_frame_metrics(
+            metric_types_test_frames, metric_types_test_frames_bagged,
+            models, dset, train_test_split, FOLD_TEST, true)
     toc()
 
-    print("\textracting test frames bagged  "); tic()
-    metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
+    print("\textracting train frames  "); tic()
+    metrics_sets_train_frames, metrics_sets_train_frames_bagged = extract_frame_metrics(
+            metric_types_train_frames, metric_types_train_frames_bagged,
+            models, dset, train_test_split, FOLD_TRAIN, true)
     toc()
 
     # println("\nmetrics_sets_test_frames")
@@ -176,38 +229,53 @@ for dset_filepath_modifier in (
     print("\tloading sim resources "); tic()
     pdsets_original = load_pdsets(dset)
     streetnets = load_streetnets(dset)
-    pdsets_for_simulation = deepcopy(pdsets_original)
     toc()
 
-    print("\textracting test traces "); tic()
-    metrics_sets_test_traces = extract_metrics_from_traces(metric_types_test_traces, models,
-                                    pdsets_original, pdsets_for_simulation, streetnets,
-                                    dset.pdset_segments, train_test_split, FOLD_TEST, true) # NOTE(tim): includes realworld entry
+    print("\textracting trace metrics  "); tic()
+    metrics_sets_test_traces, metrics_sets_test_traces_bagged = extract_trace_metrics(
+            metric_types_test_traces, metric_types_test_traces_bagged,
+            models, dset, train_test_split, FOLD_TEST, true,
+            pdsets_original, streetnets,
+            )
     toc()
+
+    # println("metrics_sets_test_traces: ")
+    # println(metrics_sets_test_traces)
+    # println("metrics_sets_test_traces_bagged: ")
+    # println(metrics_sets_test_traces_bagged)
+
+    # print("\textracting test traces "); tic()
+    # metrics_sets_test_traces = extract_metrics_from_traces(metric_types_test_traces, models,
+    #                                 pdsets_original, pdsets_for_simulation, streetnets,
+    #                                 dset.pdset_segments, train_test_split, FOLD_TEST, true) # NOTE(tim): includes realworld entry
+    # toc()
 
     # println("metrics_sets_test_traces")
     # println(metrics_sets_test_traces)
 
-    print("\textracting test traces bagged "); tic()
-    metrics_sets_test_traces_bagged = extract_bagged_metrics_from_traces(metric_types_test_traces, models,
-                                           pdsets_original, pdsets_for_simulation, streetnets,
-                                           dset.pdset_segments, train_test_split, FOLD_TEST, true)
-    toc()
+    # print("\textracting test traces bagged "); tic()
+    # metrics_sets_test_traces_bagged = extract_bagged_metrics_from_traces(metric_types_test_traces, models,
+    #                                        pdsets_original, pdsets_for_simulation, streetnets,
+    #                                        dset.pdset_segments, train_test_split, FOLD_TEST, true)
+    # toc()
 
-    print("\textracting cv metrics "); tic()
-    metrics_sets_cv = cross_validate(behaviorset, dset, cross_validation_split,
-                                metric_types_cv_train_frames, metric_types_cv_test_frames,
-                                metric_types_cv_train_traces, metric_types_cv_test_traces)
-    toc()
+    # print("\textracting cv metrics "); tic()
+    # metrics_sets_cv = cross_validate(behaviorset, dset, cross_validation_split,
+    #                             metric_types_cv_train_frames, metric_types_cv_test_frames,
+    #                             metric_types_cv_train_traces, metric_types_cv_test_traces)
+    # toc()
 
     JLD.save(METRICS_OUTPUT_FILE,
-             "metrics_sets_test_frames", metrics_sets_test_frames,
-             "metrics_sets_test_frames_bagged", metrics_sets_test_frames_bagged,
-             "metrics_sets_test_traces", metrics_sets_test_traces,
-             "metrics_sets_test_traces_bagged", metrics_sets_test_traces_bagged,
-             "metrics_sets_cv", metrics_sets_cv,
+             "metrics_sets_test_frames",         metrics_sets_test_frames,
+             "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
+             "metrics_sets_train_frames",        metrics_sets_train_frames,
+             "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
+             "metrics_sets_test_traces",         metrics_sets_test_traces,
+             "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
+             # "metrics_sets_cv", metrics_sets_cv,
             )
 end
 
 # println("DONE")
 println("DONE")
+exit()
