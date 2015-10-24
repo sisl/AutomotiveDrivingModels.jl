@@ -144,6 +144,7 @@ type ModelTrainingData
     streetnet_filepaths::Vector{String}  # list of streetnet full filepaths
     pdset_segments::Vector{PdsetSegment} # set of PdsetSegments, all should be of the same length
     dataframe::DataFrame                 # dataframe of features used in training. A bunch of vcat'ed pdset data
+    dataframe_nona::DataFrame            # dataframe of features in which na has been replaced (otherwise exactly equal)
     startframes::Vector{Int}             # dataframe[startframes[i], :] is data row for pdset_segments[i].validfind_start
                                          # seg_to_framestart[i] -> j
                                          # where i is the pdsetsegment index
@@ -154,7 +155,7 @@ function Base.append!(A::ModelTrainingData, B::ModelTrainingData)
     # assume that the dataframe is non-overlapping (no way to tell)
     nrow_df_A = nrow(A.dataframe)
     append!(A.dataframe, B.dataframe)
-
+    append!(A.dataframe_nona, B.dataframe_nona)
 
     B_pdset_filepath_id_map = Array(Int, length(B.pdset_filepaths))
     for (i,pdset_filepath) in enumerate(B.pdset_filepaths)
@@ -741,6 +742,22 @@ function pull_pdset_segments_and_dataframe(
     dataframe[:pdset_id] = fill(pdset_id, nrow(dataframe)) # add a column for pdset_id
 
     ########################################################################################################
+    # build dataframe_nona
+
+    dataframe_nona = deepcopy(dataframe)
+    for sym in names(dataframe_nona)
+        F = symbol2feature(sym)
+        for (i,v) in enumerate(dataframe_nona[sym])
+            @assert(!isnan(v))
+            if isinf(v)
+                validfind = validfinds[i]
+                carind = carid2ind(pdset, csvfileset.carid, validfind)
+                dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
+            end
+        end
+    end
+
+    ########################################################################################################
     # reconstruct startframes
 
 
@@ -758,7 +775,7 @@ function pull_pdset_segments_and_dataframe(
     # println("startframes: ", startframes)
     # println("dataframe:", dataframe)
 
-    (pdset_segments, dataframe, startframes)
+    (pdset_segments, dataframe, dataframe_nona, startframes)
 end
 function _pull_model_training_data(
     extract_params::OrigHistobinExtractParameters,
@@ -775,6 +792,7 @@ function _pull_model_training_data(
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
     dataframe[:pdset_id] = Int[]
+    dataframe_nona = deepcopy(dataframe)
     startframes = Int[]
 
     for csvfileset in csvfilesets
@@ -804,15 +822,16 @@ function _pull_model_training_data(
 
         # println(csvfile)
 
-        more_pdset_segments, more_dataframe, more_startframes = pull_pdset_segments_and_dataframe(
-                                                                    extract_params, csvfileset, pdset, sn,
-                                                                    pdset_id, streetnet_id,
-                                                                    features, filters)
+        more_pdset_segments, more_dataframe, more_dataframe_nona, more_startframes = pull_pdset_segments_and_dataframe(
+                                                                                        extract_params, csvfileset, pdset, sn,
+                                                                                        pdset_id, streetnet_id,
+                                                                                        features, filters)
 
         more_startframes .+= nrow(dataframe)
 
         append!(pdset_segments, more_pdset_segments)
         append!(dataframe, more_dataframe)
+        append!(dataframe_nona, more_dataframe_nona)
         append!(startframes, more_startframes)
 
         # toc()
@@ -823,7 +842,7 @@ function _pull_model_training_data(
         streetnet_filepaths[streetnet_id] = streetmap_base*"streetmap_"*streetnet_cache[streetnet_id][1]*".jld"
     end
 
-    ModelTrainingData(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes)
+    ModelTrainingData(pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, dataframe_nona, startframes)
 end
 function _pull_model_training_data_parallel(
     extract_params::OrigHistobinExtractParameters,
