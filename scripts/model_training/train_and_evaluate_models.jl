@@ -30,12 +30,16 @@ include(INCLUDE_FILE)
 # LOAD TRAIN AND VALIDATION SETS
 ################################
 
+behaviorset = BehaviorSet()
 model_param_sets = Dict{String, BehaviorParameterSet}()
+add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
 model_param_sets["Static Gaussian"] = BehaviorParameterSet()
+add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
 model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
     )
+add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
 model_param_sets["Random Forest"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ntrees, 1:5:51, 3),
@@ -46,6 +50,7 @@ model_param_sets["Random Forest"] = BehaviorParameterSet(
      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
     )
+add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
 model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ntrees, 1:5:51, 3),
@@ -56,6 +61,15 @@ model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
     )
+add_behavior!(behaviorset, GMRBehavior, "Gaussian Mixture Regression")
+model_param_sets["Gaussian Mixture Regression"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
+    [BehaviorParameter(:n_components, 2:10, 3),
+     BehaviorParameter(:max_n_indicators, 2:8, 1),
+     #BehaviorParameter(:Σ_type, [:full, :diag], 1),
+     ]
+    )
+add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 model_param_sets["Bayesian Network"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
                                    (:preoptimize_target_bins,true),
@@ -100,13 +114,6 @@ for dset_filepath_modifier in (
     ##############################
     # MODELS
     ##############################
-
-    behaviorset = BehaviorSet()
-    add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
-    add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
-    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
-    add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
-    add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 
     print("training models    "); tic()
     models = train(behaviorset, dset, train_test_split, cross_validation_split, model_param_sets, max_cv_opt_time_per_model=MAX_CV_OPT_TIME_PER_MODEL)
@@ -196,19 +203,16 @@ for dset_filepath_modifier in (
     metric_types_cv_train_traces = DataType[]
     metric_types_cv_test_traces = DataType[]
 
-    # print("\textracting test frames  "); tic()
-    # metrics_sets_test_frames = extract_metrics(metric_types_test_frames, models, dset, train_test_split, FOLD_TEST, true)
-    # toc()
-
-    # print("\textracting test frames bagged  "); tic()
-    # metrics_sets_test_frames_bagged = extract_bagged_metrics(metric_types_test_frames_bagged, models, dset, train_test_split, FOLD_TEST, true)
-    # toc()
-
     print("\textracting test frames  "); tic()
     metrics_sets_test_frames, metrics_sets_test_frames_bagged = extract_frame_metrics(
             metric_types_test_frames, metric_types_test_frames_bagged,
             models, dset, train_test_split, FOLD_TEST, true)
     toc()
+
+    println("metrics_sets_test_frames")
+    println(metrics_sets_test_frames)
+    println("metrics_sets_test_frames_bagged")
+    println(metrics_sets_test_frames_bagged)
 
     print("\textracting train frames  "); tic()
     metrics_sets_train_frames, metrics_sets_train_frames_bagged = extract_frame_metrics(
@@ -216,15 +220,10 @@ for dset_filepath_modifier in (
             models, dset, train_test_split, FOLD_TRAIN, true)
     toc()
 
-    # println("\nmetrics_sets_test_frames")
-    # for (name,thing) in zip(behaviorset.names, metrics_sets_test_frames)
-    #     println("\t", name, ":  ", thing[1].logl)
-    # end
-
-    # println("\nmetrics_sets_test_frames_bagged")
-    # for (name,thing) in zip(behaviorset.names, metrics_sets_test_frames_bagged)
-    #     println("\t", name, ":  ", thing[1].μ, " ± ", thing[1].σ)
-    # end
+    println("metrics_sets_train_frames")
+    println(metrics_sets_train_frames)
+    println("metrics_sets_train_frames_bagged")
+    println(metrics_sets_train_frames_bagged)
 
     print("\tloading sim resources "); tic()
     pdsets_original = load_pdsets(dset)
@@ -244,27 +243,6 @@ for dset_filepath_modifier in (
     # println("metrics_sets_test_traces_bagged: ")
     # println(metrics_sets_test_traces_bagged)
 
-    # print("\textracting test traces "); tic()
-    # metrics_sets_test_traces = extract_metrics_from_traces(metric_types_test_traces, models,
-    #                                 pdsets_original, pdsets_for_simulation, streetnets,
-    #                                 dset.pdset_segments, train_test_split, FOLD_TEST, true) # NOTE(tim): includes realworld entry
-    # toc()
-
-    # println("metrics_sets_test_traces")
-    # println(metrics_sets_test_traces)
-
-    # print("\textracting test traces bagged "); tic()
-    # metrics_sets_test_traces_bagged = extract_bagged_metrics_from_traces(metric_types_test_traces, models,
-    #                                        pdsets_original, pdsets_for_simulation, streetnets,
-    #                                        dset.pdset_segments, train_test_split, FOLD_TEST, true)
-    # toc()
-
-    # print("\textracting cv metrics "); tic()
-    # metrics_sets_cv = cross_validate(behaviorset, dset, cross_validation_split,
-    #                             metric_types_cv_train_frames, metric_types_cv_test_frames,
-    #                             metric_types_cv_train_traces, metric_types_cv_test_traces)
-    # toc()
-
     JLD.save(METRICS_OUTPUT_FILE,
              "metrics_sets_test_frames",         metrics_sets_test_frames,
              "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
@@ -272,7 +250,6 @@ for dset_filepath_modifier in (
              "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
              "metrics_sets_test_traces",         metrics_sets_test_traces,
              "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
-             # "metrics_sets_cv", metrics_sets_cv,
             )
 end
 

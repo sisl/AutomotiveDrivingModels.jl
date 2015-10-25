@@ -116,7 +116,7 @@ end
 
 df_exp1 = readtable(RESULTS_DF_EXPERIMENT_1)
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Bayesian Network"]
+modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Gaussian Mixture Regression", "Bayesian Network"]
 
 write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
     create_tikzpicture_experiment_1(fh, df_exp1, modelnames)

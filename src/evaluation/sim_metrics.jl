@@ -237,7 +237,7 @@ get_score(metric::LoglikelihoodMetric) = metric.logl
 # Bagging
 
 const DEFAULT_CONFIDENCE_LEVEL = 0.95
-const DEFAULT_N_BAGGING_SAMPLES = 20
+const DEFAULT_N_BAGGING_SAMPLES = 10
 
 function _bagged_mean_sample(v::AbstractVector{Float64}, m::Int=length(v), bag_range::UnitRange{Int}=1:m)
 

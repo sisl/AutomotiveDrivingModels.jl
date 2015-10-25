@@ -18,7 +18,7 @@ The way we are testing this is to:
 ##############################
 
 const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 20)
-const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
+const MAX_CV_OPT_TIME_PER_MODEL = 10.0 # [s]
 const NFOLDS = 5
 const METRIC_TYPES_TEST_FRAMES = [LoglikelihoodMetric]
 const SCENARIO_DATASETS = [
@@ -71,12 +71,16 @@ df_results[:logl_train] = Float64[]
 df_results[:logl_test] = Float64[]
 df_results[:model_name] = String[]
 
+behaviorset = BehaviorSet()
 model_param_sets = Dict{String, BehaviorParameterSet}()
+add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
 model_param_sets["Static Gaussian"] = BehaviorParameterSet()
+add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
 model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
     )
+add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
 model_param_sets["Random Forest"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ntrees, 1:5:51, 3),
@@ -87,6 +91,7 @@ model_param_sets["Random Forest"] = BehaviorParameterSet(
      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
     )
+add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
 model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ntrees, 1:5:51, 3),
@@ -97,6 +102,15 @@ model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
     )
+add_behavior!(behaviorset, GMRBehavior, "Gaussian Mixture Regression")
+model_param_sets["Gaussian Mixture Regression"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
+    [BehaviorParameter(:n_components, 2:10, 3),
+     BehaviorParameter(:max_n_indicators, 2:8, 1),
+     #BehaviorParameter(:Σ_type, [:full, :diag], 1),
+     ]
+    )
+add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 model_param_sets["Bayesian Network"] = BehaviorParameterSet(
     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
                                    (:preoptimize_target_bins,true),
@@ -108,7 +122,6 @@ model_param_sets["Bayesian Network"] = BehaviorParameterSet(
     [BehaviorParameter(:ncandidate_bins, 1:5:51, 7),
      BehaviorParameter(:max_parents, 1:20, 5)],
     )
-
 for dset_filepath_modifier in SCENARIO_DATASETS
 
     context_class = dset_filepath_modifier
@@ -128,15 +141,6 @@ for dset_filepath_modifier in SCENARIO_DATASETS
 
     println("nframes train: ", nframes_train)
     println("nframes test:  ", calc_fold_size(FOLD_TEST, train_test_split.frame_assignment, true))
-
-    # TODO(tim): determine optimal behavior set params using CV
-
-    behaviorset = BehaviorSet()
-    add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
-    add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
-    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
-    add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
-    add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 
     ##############################
     # TRAIN MODELS

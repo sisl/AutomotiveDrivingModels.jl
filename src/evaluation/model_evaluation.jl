@@ -167,6 +167,7 @@ function optimize_hyperparams_cyclic_coordinate_ascent{D<:AbstractVehicleBehavio
     iteration_count = 0
     while (time() - t_start < max_time) && (iteration_count < max_iter)
         iteration_count += 1
+        println("iteration_count: ", iteration_count)
 
         # sample new params
         param_index = rand(param_range)
@@ -176,8 +177,10 @@ function optimize_hyperparams_cyclic_coordinate_ascent{D<:AbstractVehicleBehavio
             param_indeces[param_index] = prev_index
             param_index = rand(param_range)
             param_indeces[param_index] = rand(1:length(params.varying_params[param_index].range))
+            sleep(0.5)
         end
         if in(hash(param_indeces), param_hash)
+            println("timed out")
             break # we timed out
         end
 

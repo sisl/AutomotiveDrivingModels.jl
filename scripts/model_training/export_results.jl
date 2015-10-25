@@ -209,7 +209,7 @@ function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO, metrics_s
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
         @printf(io, "\t(0,0.0) ")
-        for horizon in [1.0,2.0,3.0,4.0]
+        for horizon in [0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0]
             rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]))
             @printf(io, "(%.3f,%.4f) ", horizon, rwse)
         end
@@ -249,7 +249,7 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
         @printf(io, "\t(0,0.0) ")
-        for horizon in [1.0,2.0,3.0,4.0]
+        for horizon in [0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0]
             σ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]).σ
             @printf(io, "(%.3f,%.4f) ", horizon, σ)
         end
@@ -473,10 +473,14 @@ end
 behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")
 
 # println(keys(JLD.load(METRICS_OUTPUT_FILE)))
+
+
+
+
 metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
 metrics_sets_test_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames_bagged")
-metric_sets_train_frames = JLD.load(METRICS_OUTPUT_FILE, "metric_sets_train_frames")
-metric_sets_train_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metric_sets_train_frames_bagged")
+metrics_sets_train_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_train_frames")
+metrics_sets_train_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_train_frames_bagged")
 metrics_sets_test_traces = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces")
 metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces_bagged")
 # metrics_sets_cv = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_cv")
@@ -486,8 +490,8 @@ metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_te
 
 # fh = STDOUT
 write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    create_tikzpicture_model_compare_logl(fh, metric_sets_train_frames,
-                                          metric_sets_train_frames_bagged, behaviorset.names)
+    create_tikzpicture_model_compare_logl(fh, metrics_sets_train_frames,
+                                          metrics_sets_train_frames_bagged, behaviorset.names)
 end
 
 write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
