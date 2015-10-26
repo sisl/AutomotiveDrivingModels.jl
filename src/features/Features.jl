@@ -241,11 +241,15 @@ function observe!{F<:AbstractFeature}(
     basics::FeatureExtractBasicsPdSet,
     carind::Int,
     validfind::Int,
-    features::Vector{F}
+    features::Vector{F};
+    replace_na::Bool=false,
     )
 
     for f in features
         val = get(f, basics, carind, validfind)::Float64
+        if replace_na && isinf(val)
+            val = replace_na(f, basics, carind, validfind)
+        end
         observations[symbol(f)] = val
     end
     observations
@@ -255,11 +259,16 @@ function observe!{F<:AbstractFeature}(
     basics::FeatureExtractBasicsPdSet,
     carind::Int,
     validfind::Int,
-    features::Vector{F}
+    features::Vector{F};
+    replace_na::Bool=false,
     )
 
     for (i,f) in enumerate(features)
-        observations[i] = get(f, basics, carind, validfind)::Float64
+        val = get(f, basics, carind, validfind)::Float64
+        if replace_na && isinf(val)
+            val = replace_na(f, basics, carind, validfind)
+        end
+        observations[i] = val
     end
     observations
 end
@@ -267,11 +276,12 @@ function observe{F<:AbstractFeature}(
     basics::FeatureExtractBasicsPdSet,
     carind::Int,
     validfind::Int,
-    features::Vector{F}
+    features::Vector{F};
+    replace_na::Bool=false,
     )
 
     observations = Dict{Symbol,Float64}()
-    observe!(observations, basics, carind, validfind, features)
+    observe!(observations, basics, carind, validfind, features, replace_na=replace_na)
 end
 
 # ----------------------------------
