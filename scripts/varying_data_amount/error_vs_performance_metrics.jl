@@ -223,6 +223,7 @@ for dset_filepath_modifier in SCENARIO_DATASETS
             basics = FeatureExtractBasicsPdSet(pdset, sn)
             carids = get_carids(pdset)
             for (k, carid) in enumerate(carids)
+                # TODO(tim): dfset could be preallocated
                 dfset = gen_featureset_from_validfinds(carid, basics, get_validfinds_containing_carid(Vector{Int}, pdset, carid), features)
                 append!(df_train, dfset)
             end
