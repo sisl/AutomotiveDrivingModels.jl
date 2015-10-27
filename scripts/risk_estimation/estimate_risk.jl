@@ -12,6 +12,9 @@ B              N             30   70   20    -     -     -
 ------------------------------------------------------------
 =#
 
+# TODO: train models on FULL dataset
+# TODO: select appropriate model based on context
+
 using AutomotiveDrivingModels
 
 using RandomForestBehaviors
@@ -90,31 +93,31 @@ for scenario in scenarios
     # \draw [->,>=stealth,shorten >=1pt, thick] (2.00,0.25) -- (7.00,0.25);
     # \draw [->,>=stealth,shorten >=1pt, thick, dashed] (0.50,0.75) -- (6.50,0.75);
 
-    for carind in -1 : 1
-        print("\\draw [->,>=stealth,shorten >=1pt, thick] ")
-        validfind_start = scenario.history
-        validfind_end = validfind_start + policy.horizon
-        for validfind in validfind_start : validfind_end
-            posGx = get(pdset, :posGx, carind, validfind)
-            posGy = get(pdset, :posGy, carind, validfind)
-            @printf("(%.3f,%.3f)", posGx, posGy)
-            if validfind != validfind_end
-                print(" -- ")
-            end
-        end
-        print(";\n")
-    end
+    # for carind in -1 : 1
+    #     print("\\draw [->,>=stealth,shorten >=1pt, thick] ")
+    #     validfind_start = scenario.history
+    #     validfind_end = validfind_start + policy.horizon
+    #     for validfind in validfind_start : validfind_end
+    #         posGx = get(pdset, :posGx, carind, validfind)
+    #         posGy = get(pdset, :posGy, carind, validfind)
+    #         @printf("(%.3f,%.3f)", posGx, posGy)
+    #         if validfind != validfind_end
+    #             print(" -- ")
+    #         end
+    #     end
+    #     print(";\n")
+    # end
 
     # \node [] (ego) at (1.0,0.25) {\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};
     # \node [] (ot1) at (2.0,0.25) {\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};
     # \node [] (ot2) at (0.5,0.75) {\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};
 
-    for (extract_trajdef, nodename) in zip(extracted_trajdefs, ["ego", "ot1", "ot2"])
-        posGx = extract_trajdef.df[scenario.history, :posGx]
-        posGy = extract_trajdef.df[scenario.history, :posGy]
-        @printf("\\node [] (%s) at (%.3f,%.3f) {\\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};\n",
-            nodename, posGx, posGy)
-    end
+    # for (extract_trajdef, nodename) in zip(extracted_trajdefs, ["ego", "ot1", "ot2"])
+    #     posGx = extract_trajdef.df[scenario.history, :posGx]
+    #     posGy = extract_trajdef.df[scenario.history, :posGy]
+    #     @printf("\\node [] (%s) at (%.3f,%.3f) {\\includegraphics[width=7mm]{Car_Top_View_Sedan.eps}};\n",
+    #         nodename, posGx, posGy)
+    # end
 
     # \node [] at ($(ego.center) + (0,-1.2em)$) {\scriptsize Ego};
     # \node [] at ($(ot1.center) + (0,-1.2em)$) {\scriptsize Other 1};
