@@ -8,7 +8,7 @@ using DynamicBayesianNetworkBehaviors
 ##############################
 
 const STREETNET_CACHE = Dict{String, StreetNetwork}()
-const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
+const MAX_CV_OPT_TIME_PER_MODEL = 10.0 # [s]
 const NFOLDS = 5
 const ERROR_AMOUNTS = linspace(0.0, 0.5, 3) # gaussian error
 const METRIC_TYPES_TEST_FRAMES = [LoglikelihoodMetric]
@@ -55,6 +55,7 @@ const INDICATOR_SET = [
                      #     STDACCFY500MS,     STDACCFY750MS,     STDACCFY1S,     STDACCFY1500MS,     STDACCFY2S,     STDACCFY2500MS,     STDACCFY3S,     STDACCFY4S,
                      #  STDTURNRATE500MS,  STDTURNRATE750MS,  STDTURNRATE1S,  STDTURNRATE1500MS,  STDTURNRATE2S,  STDTURNRATE2500MS,  STDTURNRATE3S,  STDTURNRATE4S,
                      ]
+const FEATURES = [INDICATOR_SET, FUTUREACCELERATION_250MS, FUTUREDESIREDANGLE_250MS]
 
 function add_gaussian_error_to_sample!(dest::DataFrame, source::DataFrame, σ::Float64, carind::Integer, frameind::Integer)
 
@@ -113,45 +114,57 @@ df_results[:logl_train] = Float64[]
 df_results[:logl_test] = Float64[]
 df_results[:model_name] = String[]
 
+behaviorset = BehaviorSet()
 model_param_sets = Dict{String, BehaviorParameterSet}()
+add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
 model_param_sets["Static Gaussian"] = BehaviorParameterSet()
-model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
-    [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
-    )
-model_param_sets["Random Forest"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
-    [BehaviorParameter(:ntrees, 1:5:51, 3),
-     BehaviorParameter(:max_depth, 1:20, 5),
-     BehaviorParameter(:min_samples_split, 10:10:50, 3),
-     BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
-     BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
-     BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
-     BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
-    )
-model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
-    [BehaviorParameter(:ntrees, 1:5:51, 3),
-     BehaviorParameter(:max_depth, 1:20, 5),
-     BehaviorParameter(:min_samples_split, 10:10:50, 3),
-     BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
-     BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
-     BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
-     BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
-    )
-model_param_sets["Bayesian Network"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
-                                   (:preoptimize_target_bins,true),
-                                   (:preoptimize_parent_bins,true),
-                                   (:optimize_structure,true),
-                                   (:optimize_target_bins,false),
-                                   (:optimize_parent_bins,false),
-        ]),
-    [BehaviorParameter(:ncandidate_bins, 1:5:51, 7),
-     BehaviorParameter(:max_parents, 1:20, 5)],
-    )
-
-features = [INDICATOR_SET, FUTUREACCELERATION_250MS, FUTUREDESIREDANGLE_250MS]
+# add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
+# model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+#     [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
+#     )
+# add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
+# model_param_sets["Random Forest"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+#     [BehaviorParameter(:ntrees, 1:5:51, 3),
+#      BehaviorParameter(:max_depth, 1:20, 5),
+#      BehaviorParameter(:min_samples_split, 10:10:50, 3),
+#      BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
+#      BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
+#      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+#      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
+#     )
+# add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
+# model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+#     [BehaviorParameter(:ntrees, 1:5:51, 3),
+#      BehaviorParameter(:max_depth, 1:20, 5),
+#      BehaviorParameter(:min_samples_split, 10:10:50, 3),
+#      BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
+#      BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
+#      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+#      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
+#     )
+# add_behavior!(behaviorset, GMRBehavior, "Gaussian Mixture Regression")
+# model_param_sets["Gaussian Mixture Regression"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
+#     [BehaviorParameter(:n_components, 2:10, 3),
+#      BehaviorParameter(:max_n_indicators, 2:8, 1),
+#      #BehaviorParameter(:Σ_type, [:full, :diag], 1),
+#      ]
+#     )
+# add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
+# model_param_sets["Bayesian Network"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
+#                                    (:preoptimize_target_bins,true),
+#                                    (:preoptimize_parent_bins,true),
+#                                    (:optimize_structure,true),
+#                                    (:optimize_target_bins,false),
+#                                    (:optimize_parent_bins,false),
+#         ]),
+#     [BehaviorParameter(:ncandidate_bins, 1:5:51, 7),
+#      BehaviorParameter(:max_parents, 1:20, 5)],
+#     )
 
 for dset_filepath_modifier in SCENARIO_DATASETS
     context_class = dset_filepath_modifier
@@ -174,6 +187,7 @@ for dset_filepath_modifier in SCENARIO_DATASETS
 
     csvfilesets = JLD.load(CSVFILESET_DIR, "csvfilesets")[1:2] # TODO(tim): remove this
 
+    println("extracting trajdatas "); tic()
     trajdatas = Array(DataFrame, length(csvfilesets))
     for (i,csvfileset) in enumerate(csvfilesets)
         csvfile = csvfileset.csvfile
@@ -186,24 +200,23 @@ for dset_filepath_modifier in SCENARIO_DATASETS
 
         trajdatas[i] = load_trajdata(csvfile)
     end
-
     trajdatas_for_sim = deepcopy(trajdatas)
+    toc()
 
     ##############################
     # TRAIN MODELS
     ##############################
 
-    behaviorset = BehaviorSet()
-    add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
-    add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
-    add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
-    # add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
-    # add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
+    carids = nothing
 
     for ϵ in ERROR_AMOUNTS
 
-        tic()
-        df_train = create_dataframe_with_feature_columns(features, 0)
+        println("\tϵ = ", ϵ)
+
+        println("\tadding error"); tic()
+
+        df_train = create_dataframe_with_feature_columns(FEATURES, 0)
+        df_train_nona = deepcopy(df_train)
         for j in 1 : length(trajdatas_for_sim)
 
             trajdata = trajdatas[j]
@@ -219,31 +232,57 @@ for dset_filepath_modifier in SCENARIO_DATASETS
 
             # extract the dataset
             sn = STREETNET_CACHE[csvfilesets[j].streetmapbasename]
-            pdset = gen_primary_data_no_smoothing(trajdata_for_sim, sn, PDSET_EXTRACT_PARAMS)
+
+            print("\t\tgen primary data no smoothing  "); tic()
+            pdset = gen_primary_data_no_smoothing(trajdata_for_sim, sn, PDSET_EXTRACT_PARAMS, carids=carids)
+            toc()
+
+            print("\t\tgen featureset from validfinds "); tic()
             basics = FeatureExtractBasicsPdSet(pdset, sn)
             carids = get_carids(pdset)
             for (k, carid) in enumerate(carids)
-                dfset = gen_featureset_from_validfinds(carid, basics, get_validfinds_containing_carid(Vector{Int}, pdset, carid), features)
+                print(k, "  /  ", length(carids)); tic()
+                validfinds = get_validfinds_containing_carid(Vector{Int}, pdset, carid)
+                dfset = gen_featureset_from_validfinds(carid, basics, validfinds, FEATURES)
                 append!(df_train, dfset)
-            end
-        end
-        toc()
 
-        println("done with extraction")
+                df_nona = deepcopy(dfset)
+                for sym in names(df_nona)
+                    if is_symbol_a_feature(sym)
+                        F = symbol2feature(sym)
+                        for (i,v) in enumerate(df_nona[sym])
+                            @assert(!isnan(v))
+                            if isinf(v)
+                                validfind = validfinds[i]
+                                carind = carid2ind(pdset, carid, validfind)
+                                df_nona[i,sym] = replace_na(F, basics, carind, validfind)
+                            end
+                        end
+                    end
+                end
+                append!(df_train_nona, dfset)
+                toc()
+            end
+            toc()
+        end
+
+        toc()
 
         # train the models on the training set
         dset_train.dataframe = df_train
-        models = train(behaviorset, dset_train, train_test_split, cross_validation_split, model_param_sets, max_cv_opt_time_per_model=MAX_CV_OPT_TIME_PER_MODEL)
+        dset_train.dataframe_nona = df_train_nona
 
-        println("done training")
+        println("\ttraining "); tic()
+        models = train(behaviorset, dset_train, train_test_split, cross_validation_split, model_param_sets, max_cv_opt_time_per_model=MAX_CV_OPT_TIME_PER_MODEL)
+        toc()
 
         # validate the models on the validation set
+        println("\textracting metrics "); tic()
         metrics_sets_test_frames = extract_metrics(METRIC_TYPES_TEST_FRAMES, models,
                                                    dset, train_test_split, FOLD_TEST, true)
         metrics_sets_train_frames = extract_metrics(METRIC_TYPES_TEST_FRAMES, models,
                                                    dset, train_test_split, FOLD_TEST, false)
-
-        println("done metric extraction")
+        toc()
 
         for (i, model_name) in enumerate(behaviorset.names)
             logl_train = (metrics_sets_train_frames[i][1]::LoglikelihoodMetric).logl

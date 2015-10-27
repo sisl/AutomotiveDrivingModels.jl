@@ -122,6 +122,7 @@ model_param_sets["Bayesian Network"] = BehaviorParameterSet(
     [BehaviorParameter(:ncandidate_bins, 1:5:51, 7),
      BehaviorParameter(:max_parents, 1:20, 5)],
     )
+
 for dset_filepath_modifier in SCENARIO_DATASETS
 
     context_class = dset_filepath_modifier
