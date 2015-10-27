@@ -11,6 +11,16 @@ using DynamicBayesianNetworkBehaviors
 5 - save results to a .csv
 =#
 
+# For LOOCV:
+#=
+- load full dataset
+- run CV to get the best model inputs
+- for each trace:
+   - train a model on the other traces
+   - compute the train and test metrics (logl, emergent kldiv counts, rwse) on the withheld set
+- aggregate the resuts
+=#
+
 ##############################
 # PARAMETERS
 ##############################
