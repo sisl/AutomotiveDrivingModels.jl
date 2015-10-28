@@ -60,25 +60,24 @@ model_param_sets = Dict{String, BehaviorParameterSet}()
 #      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
 #      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
 #     )
-# add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
-# model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
-#     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
-#     [BehaviorParameter(:ntrees, 1:5:51, 3),
-#      BehaviorParameter(:max_depth, 1:20, 5),
-#      BehaviorParameter(:min_samples_split, 10:10:50, 3),
-#      BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
-#      BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
-#      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
-#      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
-#     )
-add_behavior!(behaviorset, GMRBehavior, "Gaussian Mixture Regression")
-model_param_sets["Gaussian Mixture Regression"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
-    [BehaviorParameter(:n_components, 2:10, 3),
-     BehaviorParameter(:max_n_indicators, 2:8, 1),
-     #BehaviorParameter(:Σ_type, [:full, :diag], 1),
-     ]
+add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
+model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
+    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    [BehaviorParameter(:ntrees, 1:5:51, 3),
+     BehaviorParameter(:max_depth, 1:20, 5),
+     BehaviorParameter(:min_samples_split, 10:10:50, 3),
+     BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
+     BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
+     BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+     BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
     )
+# add_behavior!(behaviorset, GMRBehavior, "Gaussian Mixture Regression")
+# model_param_sets["Gaussian Mixture Regression"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
+#     [BehaviorParameter(:n_components, 2:2, 1),
+#      BehaviorParameter(:max_n_indicators, 2:2, 1),
+#      ]
+#     )
 # add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 # model_param_sets["Bayesian Network"] = BehaviorParameterSet(
 #     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
@@ -129,14 +128,12 @@ for dset_filepath_modifier in (
     models = train(behaviorset, dset, train_test_split, cross_validation_split, model_param_sets, max_cv_opt_time_per_model=MAX_CV_OPT_TIME_PER_MODEL)
     toc()
 
-    # print("saving models    "); tic()
-    # JLD.save(MODEL_OUTPUT_JLD_FILE,
-    #         "behaviorset", behaviorset,
-    #         "models", models,
-    #         )
-    # toc()
-
-    GaussianMixtureRegressors.dont_do_it()
+    print("saving models    "); tic()
+    JLD.save(MODEL_OUTPUT_JLD_FILE,
+            "behaviorset", behaviorset,
+            "models", models,
+            )
+    toc()
 
     # models = JLD.load(MODEL_OUTPUT_JLD_FILE, "models")
 

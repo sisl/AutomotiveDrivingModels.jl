@@ -217,7 +217,11 @@ function extract(::Type{LoglikelihoodMetric},
     for frameind in 1 : nrow(dset.dataframe)
         if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
             nframes += 1
-            logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+            if trains_with_nona(behavior)
+                logl += calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+            else
+                logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+            end
         end
     end
     LoglikelihoodMetric(logl/nframes)

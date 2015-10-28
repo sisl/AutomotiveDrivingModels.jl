@@ -89,19 +89,15 @@ function add_behavior!{B<:AbstractVehicleBehavior}(
     behaviorset
 end
 
-function train( behaviorset::BehaviorSet, training_frames::DataFrame )
+function train( behaviorset::BehaviorSet, training_frames::DataFrame, training_frames_nona::DataFrame )
 
     retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
-    for i = 1 : length(retval)
-        retval[i] = train(behaviorset.behaviors[i], training_frames, args=behaviorset.additional_params[i])
-    end
-    retval
-end
-function train_special( behaviorset::BehaviorSet, training_frames::DataFrame )
-
-    retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
-    for i = 1 : length(retval)
-        retval[i] = train_special(behaviorset.behaviors[i], training_frames, args=behaviorset.additional_params[i])
+    for (i,b) in enumerate(behaviorset.behaviors)
+        if trains_with_nona(b)
+            retval[i] = train(behaviorset.behaviors[i], training_frames_nona, args=behaviorset.additional_params[i])
+        else
+            retval[i] = train(behaviorset.behaviors[i], training_frames,      args=behaviorset.additional_params[i])
+        end
     end
     retval
 end
@@ -115,6 +111,7 @@ function train(
     )
 
     training_frames = dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :]
+    training_frames_nona = dset.dataframe_nona[train_test_split.frame_assignment.==FOLD_TRAIN, :]
 
     retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
     for i = 1 : length(retval)
@@ -126,7 +123,11 @@ function train(
                                                     dset, cross_validation_split,
                                                     max_time=max_cv_opt_time_per_model)
 
-        retval[i] = train(behavior_type, training_frames, args=behavior_train_params)
+        if trains_with_nona(behavior_type)
+            retval[i] = train(behavior_type, training_frames_nona, args=behavior_train_params)
+        else
+            retval[i] = train(behavior_type, training_frames,      args=behavior_train_params)
+        end
     end
     retval
 end
@@ -266,11 +267,13 @@ function cross_validate(
 
     max_dataframe_training_frames = length(assignment.frame_assignment) - _min_count_of_unique_value(assignment.frame_assignment)
     dataframe_for_training = similar(dset.dataframe, max_dataframe_training_frames)
+    dataframe_for_training_nona = deepcopy(dataframe_for_training)
 
     for fold = 1 : nfolds
 
         _copy_in_fold_frames!(dataframe_for_training, dset.dataframe, assignment, fold, false)
-        behaviors = train(behaviorset, dataframe_for_training)
+        _copy_in_fold_frames!(dataframe_for_training_nona, dset.dataframe_nona, assignment, fold, false)
+        behaviors = train(behaviorset, dataframe_for_training, dataframe_for_training_nona)
 
         for i in 1 : nmodels
             retval_models[i].results[fold] = CVFoldResults(

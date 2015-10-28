@@ -1271,7 +1271,9 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     dict_trajmat = Dict{Uint32,DataFrame}()
     pdset = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
-function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, params::PrimaryDataExtractionParams)
+function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, params::PrimaryDataExtractionParams;
+    carids::Union(Nothing, AbstractVector{Int}) = nothing, # set of carids to pull
+    )
 
     _assert_valid_primarydata_extraction_params(params)
 
@@ -1404,8 +1406,10 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
 
     # --------------------------------------------------
 
-    carids = get_carids(trajdata) # a Set{Int} of carids
-    delete!(carids, CARID_EGO)
+    if isa(carids, Nothing)
+        carids = get_carids(trajdata) # a Set{Int} of carids
+        delete!(carids, CARID_EGO)
+    end
 
     dict_other_idmap = Dict{Uint32,Uint16}() # dict carid -> matind,  index for mat_other_indmap
     mat_other_indmap = fill(int16(-1), nframes, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
@@ -1419,8 +1423,8 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
 
     for (matind, carid) in enumerate(carids)
 
-        tic()
-        print(carid, ": ", matind, " / ", length(carids), "  ")
+        # tic()
+        # print(carid, ": ", matind, " / ", length(carids), "  ")
 
         # assign a matind to this carid
         dict_other_idmap[carid] = matind
@@ -1428,7 +1432,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
         # all freeway_frameinds where the car exists
         car_frameinds_raw = filter(frame->carid_exists(trajdata, carid, frame), 1:nframes)
         if isempty(car_frameinds_raw)
-            toc()
+            # toc()
             continue
         end
         # println("car_frameinds_raw: ", extrema(car_frameinds_raw))
@@ -1449,7 +1453,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
             # ------------------------------------------
             # enforce minimum segment length
             if n_frames_in_seg < params.threshold_other_segment_length
-                print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                # print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
                 continue
             end
 
@@ -1575,13 +1579,15 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
             end
         end
 
-        toc()
+        # toc()
     end
 
-    println("PrimaryDataExtractor: ASBDFASDASFD")
+    println("PrimaryDataset: 1")
 
     dict_trajmat = Dict{Uint32,DataFrame}()
-    PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+    retval = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
+    println("PrimaryDataset: 2")
+    retval
 end
 
 end # module

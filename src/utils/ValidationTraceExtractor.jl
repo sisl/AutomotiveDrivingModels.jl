@@ -746,13 +746,15 @@ function pull_pdset_segments_and_dataframe(
 
     dataframe_nona = deepcopy(dataframe)
     for sym in names(dataframe_nona)
-        F = symbol2feature(sym)
-        for (i,v) in enumerate(dataframe_nona[sym])
-            @assert(!isnan(v))
-            if isinf(v)
-                validfind = validfinds[i]
-                carind = carid2ind(pdset, csvfileset.carid, validfind)
-                dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
+        if is_symbol_a_feature(sym)
+            F = symbol2feature(sym)
+            for (i,v) in enumerate(dataframe_nona[sym])
+                @assert(!isnan(v))
+                if isinf(v)
+                    validfind = validfinds[i]
+                    carind = carid2ind(pdset, csvfileset.carid, validfind)
+                    dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
+                end
             end
         end
     end

@@ -89,27 +89,3 @@ function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args:
 
     VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
 end
-function train_special(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
-
-    for (k,v) in args
-        warn("Train VehicleBehaviorGaussian: ignoring $k")
-    end
-
-    nframes = size(trainingframes, 1)
-
-    total = 0
-    trainingmatrix = Array(Float64, 2, nframes)
-    for i = 1 : nframes
-
-        action_lat = trainingframes[i, :f_des_angle_250ms]
-        action_lon = trainingframes[i, :f_accel_250ms]
-
-        @assert( !isnan(action_lat) && !isnan(action_lon) &&
-                 !isinf(action_lat) && !isinf(action_lon) )
-
-        trainingmatrix[1, i] = action_lat
-        trainingmatrix[2, i] = action_lon
-    end
-
-    VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
-end
