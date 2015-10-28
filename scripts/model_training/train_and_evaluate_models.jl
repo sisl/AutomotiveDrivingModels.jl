@@ -28,7 +28,7 @@ using DynamicBayesianNetworkBehaviors
 # const INCLUDE_FILE_BASE = "vires_highway_2lane_sixcar"
 const INCLUDE_FILE_BASE = "realworld"
 
-const MAX_CV_OPT_TIME_PER_MODEL = 10.0 # [s]
+const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
 const AM_ON_TULA = gethostname() == "tula"
 const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
                                   joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
@@ -37,11 +37,86 @@ const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 include(INCLUDE_FILE)
 
 ################################
+# METRICS
+################################
+
+metric_types_test_frames = [LoglikelihoodMetric]
+metric_types_test_frames_bagged = [LoglikelihoodMetric]
+metric_types_train_frames = [LoglikelihoodMetric]
+metric_types_train_frames_bagged = [LoglikelihoodMetric]
+
+metric_types_test_traces = [
+                            EmergentKLDivMetric{symbol(SPEED)},
+                            EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
+                            EmergentKLDivMetric{symbol(D_CL)},
+                            RootWeightedSquareError{symbol(SPEED), 0.5},
+                            RootWeightedSquareError{symbol(SPEED), 1.0},
+                            RootWeightedSquareError{symbol(SPEED), 1.5},
+                            RootWeightedSquareError{symbol(SPEED), 2.0},
+                            RootWeightedSquareError{symbol(SPEED), 2.5},
+                            RootWeightedSquareError{symbol(SPEED), 3.0},
+                            RootWeightedSquareError{symbol(SPEED), 3.5},
+                            RootWeightedSquareError{symbol(SPEED), 4.0},
+                            RootWeightedSquareError{symbol(D_CL), 0.5},
+                            RootWeightedSquareError{symbol(D_CL), 1.0},
+                            RootWeightedSquareError{symbol(D_CL), 1.5},
+                            RootWeightedSquareError{symbol(D_CL), 2.0},
+                            RootWeightedSquareError{symbol(D_CL), 2.5},
+                            RootWeightedSquareError{symbol(D_CL), 3.0},
+                            RootWeightedSquareError{symbol(D_CL), 3.5},
+                            RootWeightedSquareError{symbol(D_CL), 4.0},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
+                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
+                           ]
+metric_types_test_traces_bagged = [
+                                   EmergentKLDivMetric{symbol(SPEED)},
+                                   EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
+                                   EmergentKLDivMetric{symbol(D_CL)},
+                                   RootWeightedSquareError{symbol(SPEED), 0.5},
+                                   RootWeightedSquareError{symbol(SPEED), 1.0},
+                                   RootWeightedSquareError{symbol(SPEED), 1.5},
+                                   RootWeightedSquareError{symbol(SPEED), 2.0},
+                                   RootWeightedSquareError{symbol(SPEED), 2.5},
+                                   RootWeightedSquareError{symbol(SPEED), 3.0},
+                                   RootWeightedSquareError{symbol(SPEED), 3.5},
+                                   RootWeightedSquareError{symbol(SPEED), 4.0},
+                                   RootWeightedSquareError{symbol(D_CL), 0.5},
+                                   RootWeightedSquareError{symbol(D_CL), 1.0},
+                                   RootWeightedSquareError{symbol(D_CL), 1.5},
+                                   RootWeightedSquareError{symbol(D_CL), 2.0},
+                                   RootWeightedSquareError{symbol(D_CL), 2.5},
+                                   RootWeightedSquareError{symbol(D_CL), 3.0},
+                                   RootWeightedSquareError{symbol(D_CL), 3.5},
+                                   RootWeightedSquareError{symbol(D_CL), 4.0},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
+                                   RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
+                                  ]
+
+metric_types_cv_train_frames = DataType[]
+metric_types_cv_test_frames = [LoglikelihoodMetric]
+metric_types_cv_train_traces = DataType[]
+metric_types_cv_test_traces = DataType[]
+
+################################
 # LOAD TRAIN AND VALIDATION SETS
 ################################
 
-behaviorset = BehaviorSet()
-model_param_sets = Dict{String, BehaviorParameterSet}()
+include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
+
+# behaviorset = BehaviorSet()
+# model_param_sets = Dict{String, BehaviorParameterSet}()
 # add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
 # model_param_sets["Static Gaussian"] = BehaviorParameterSet()
 # add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
@@ -60,22 +135,22 @@ model_param_sets = Dict{String, BehaviorParameterSet}()
 #      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
 #      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
 #     )
-add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
-model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
-    [BehaviorParameter(:ntrees, 1:5:51, 3),
-     BehaviorParameter(:max_depth, 1:20, 5),
-     BehaviorParameter(:min_samples_split, 10:10:50, 3),
-     BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
-     BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
-     BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
-     BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
-    )
+# add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
+# model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
+#     convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+#     [BehaviorParameter(:ntrees, 1:5:51, 3),
+#      BehaviorParameter(:max_depth, 1:20, 5),
+#      BehaviorParameter(:min_samples_split, 10:10:50, 3),
+#      BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
+#      BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
+#      BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+#      BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),]
+#     )
 # add_behavior!(behaviorset, GMRBehavior, "Gaussian Mixture Regression")
 # model_param_sets["Gaussian Mixture Regression"] = BehaviorParameterSet(
 #     convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
-#     [BehaviorParameter(:n_components, 2:2, 1),
-#      BehaviorParameter(:max_n_indicators, 2:2, 1),
+#     [BehaviorParameter(:n_components, 2:5, 1),
+#      BehaviorParameter(:max_n_indicators, 2:5, 1),
 #      ]
 #     )
 # add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
@@ -140,77 +215,6 @@ for dset_filepath_modifier in (
     ##############################
     # COMPUTE VALIDATION METRICS
     ##############################
-
-    # evalparams = EvaluationParams(SIM_HISTORY_IN_FRAMES, SIMPARAMS, HISTOBIN_PARAMS)
-
-    metric_types_test_frames = [LoglikelihoodMetric]
-    metric_types_test_frames_bagged = [LoglikelihoodMetric]
-    metric_types_train_frames = [LoglikelihoodMetric]
-    metric_types_train_frames_bagged = [LoglikelihoodMetric]
-
-    metric_types_test_traces = [
-                                EmergentKLDivMetric{symbol(SPEED)},
-                                EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
-                                EmergentKLDivMetric{symbol(D_CL)},
-                                RootWeightedSquareError{symbol(SPEED), 0.5},
-                                RootWeightedSquareError{symbol(SPEED), 1.0},
-                                RootWeightedSquareError{symbol(SPEED), 1.5},
-                                RootWeightedSquareError{symbol(SPEED), 2.0},
-                                RootWeightedSquareError{symbol(SPEED), 2.5},
-                                RootWeightedSquareError{symbol(SPEED), 3.0},
-                                RootWeightedSquareError{symbol(SPEED), 3.5},
-                                RootWeightedSquareError{symbol(SPEED), 4.0},
-                                RootWeightedSquareError{symbol(D_CL), 0.5},
-                                RootWeightedSquareError{symbol(D_CL), 1.0},
-                                RootWeightedSquareError{symbol(D_CL), 1.5},
-                                RootWeightedSquareError{symbol(D_CL), 2.0},
-                                RootWeightedSquareError{symbol(D_CL), 2.5},
-                                RootWeightedSquareError{symbol(D_CL), 3.0},
-                                RootWeightedSquareError{symbol(D_CL), 3.5},
-                                RootWeightedSquareError{symbol(D_CL), 4.0},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
-                                RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
-                               ]
-    metric_types_test_traces_bagged = [
-                                       EmergentKLDivMetric{symbol(SPEED)},
-                                       EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
-                                       EmergentKLDivMetric{symbol(D_CL)},
-                                       RootWeightedSquareError{symbol(SPEED), 0.5},
-                                       RootWeightedSquareError{symbol(SPEED), 1.0},
-                                       RootWeightedSquareError{symbol(SPEED), 1.5},
-                                       RootWeightedSquareError{symbol(SPEED), 2.0},
-                                       RootWeightedSquareError{symbol(SPEED), 2.5},
-                                       RootWeightedSquareError{symbol(SPEED), 3.0},
-                                       RootWeightedSquareError{symbol(SPEED), 3.5},
-                                       RootWeightedSquareError{symbol(SPEED), 4.0},
-                                       RootWeightedSquareError{symbol(D_CL), 0.5},
-                                       RootWeightedSquareError{symbol(D_CL), 1.0},
-                                       RootWeightedSquareError{symbol(D_CL), 1.5},
-                                       RootWeightedSquareError{symbol(D_CL), 2.0},
-                                       RootWeightedSquareError{symbol(D_CL), 2.5},
-                                       RootWeightedSquareError{symbol(D_CL), 3.0},
-                                       RootWeightedSquareError{symbol(D_CL), 3.5},
-                                       RootWeightedSquareError{symbol(D_CL), 4.0},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
-                                       RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
-                                      ]
-
-    metric_types_cv_train_frames = DataType[]
-    metric_types_cv_test_frames = [LoglikelihoodMetric]
-    metric_types_cv_train_traces = DataType[]
-    metric_types_cv_test_traces = DataType[]
 
     print("\textracting test frames  "); tic()
     metrics_sets_test_frames, metrics_sets_test_frames_bagged = extract_frame_metrics(

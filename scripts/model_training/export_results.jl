@@ -11,6 +11,7 @@ const TEXDIR = splitdir(TEXFILE)[1]
 
 const INCLUDE_FILE_BASE = "realworld"
 
+const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
 const SAVE_FILE_MODIFIER = "_subset_car_following"
 const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/" * INCLUDE_FILE_BASE* "/"
 const METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * ".jld")
@@ -56,50 +57,6 @@ function _convert_to_short_name(name::String)
     retval
 end
 
-# function create_tikzpicture_model_compare_logl_train{S<:String}(io::IO,
-#     metrics_sets_cv::CrossValidationResults,
-#     names::Vector{S},
-#     )
-
-
-#     For each model, add these options:
-#     (produces 95% confidence bounds)
-
-#     \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
-#     coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
-#     \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
-#     coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
-#     \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
-#     coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
-#     \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
-#     coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
-#     \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
-#     coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
-
-
-#     for (i,name) in enumerate(names)
-
-#         model_cv_res = metrics_sets_cv.models[i]
-
-#         likelihood_μ = 0.0
-#         likelihood_lo = Inf
-#         likelihood_hi = -Inf
-#         for cvfold_res in model_cv_res.results
-#             metrics = cvfold_res.metrics_test_frames
-#             j = findfirst(m->isa(m, LoglikelihoodMetric), metrics)
-#             logl = metrics[j].logl
-#             likelihood_μ += logl
-#             likelihood_lo = min(likelihood_lo, logl)
-#             likelihood_hi = max(likelihood_hi, logl)
-#         end
-#         likelihood_μ /= length(model_cv_res.results)
-
-#         color_letter = string('A' + i - 1)
-
-#         println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
-#         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", likelihood_μ, name, likelihood_hi-likelihood_μ, likelihood_μ-likelihood_lo)
-#     end
-# end
 function create_tikzpicture_model_compare_logl{S<:String, B<:BehaviorFrameMetric}(io::IO,
     metrics_straight::Vector{Vector{B}},
     metrics_bagged::Vector{Vector{BaggedMetricResult}},
@@ -178,7 +135,11 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
     end
     print(io, "}\n")
 end
-function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO, metrics_sets::Vector{Vector{BehaviorTraceMetric}}, names::Vector{S})
+function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO,
+    metrics_sets::Vector{Vector{BehaviorTraceMetric}},
+    names::Vector{S},
+    F::AbstractFeature,
+    )
 
     #=
     This outputs, for each model by order of names:
@@ -201,16 +162,14 @@ function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO, metrics_s
 
     nmodels = length(names)
 
-    dash_types = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
-
     for (i, metrics_set) in enumerate(metrics_sets[1:end])
 
         color = "color" * string('A' + i - 1)
 
-        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
+        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
         @printf(io, "\t(0,0.0) ")
         for horizon in [0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0]
-            rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]))
+            rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(F), horizon}, metrics_sets[i]))
             @printf(io, "(%.3f,%.4f) ", horizon, rwse)
         end
         @printf(io, "};\n")
@@ -241,13 +200,13 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
 
     nmodels = length(names)
 
-    dash_types = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
+
 
     for (i,metrics_set) in enumerate(metrics_sets)
 
         color = "color" * string('A' + i - 1)
 
-        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, dash_types[i])
+        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
         @printf(io, "\t(0,0.0) ")
         for horizon in [0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0]
             σ = _grab_metric(RootWeightedSquareError{symbol(SPEED), horizon}, metrics_sets[i]).σ
@@ -255,15 +214,6 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
         end
         @printf(io, "};\n")
     end
-
-    print(io, "\\legend{")
-    for (i,name) in enumerate(names)
-        print(io, name)
-        if i != length(names)
-            print(io, ", ")
-        end
-    end
-    print(io, "}\n")
 end
 
 function create_table_validation_across_context_classes{S<:String, T<:String}(
@@ -489,28 +439,36 @@ metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_te
 # append!(all_names, behaviorset.names)
 
 # fh = STDOUT
-write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    create_tikzpicture_model_compare_logl(fh, metrics_sets_train_frames,
-                                          metrics_sets_train_frames_bagged, behaviorset.names)
-end
+# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+#     create_tikzpicture_model_compare_logl(fh, metrics_sets_train_frames,
+#                                           metrics_sets_train_frames_bagged, behaviorset.names)
+# end
 
-write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
-    create_tikzpicture_model_compare_logl(fh, metrics_sets_test_frames,
-                                          metrics_sets_test_frames_bagged, behaviorset.names)
-end
+# write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+#     create_tikzpicture_model_compare_logl(fh, metrics_sets_test_frames,
+#                                           metrics_sets_test_frames_bagged, behaviorset.names)
+# end
 
-write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh
-    create_tikzpicture_model_compare_kldiv_barplot(fh, metrics_sets_test_traces,
-                                                   metrics_sets_test_traces_bagged, behaviorset.names)
-end
+# write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh
+#     create_tikzpicture_model_compare_kldiv_barplot(fh, metrics_sets_test_traces,
+#                                                    metrics_sets_test_traces_bagged, behaviorset.names)
+# end
 
-write_to_texthook(TEXFILE, "model-compare-rmse-mean") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names)
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names, SPEED)
 end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names, TIMEGAP_X_FRONT)
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names, D_CL)
+end
+println("done")
+exit()
 
-write_to_texthook(TEXFILE, "model-compare-rmse-stdev") do fh
-    create_tikzpicture_model_compare_rwse_variance(fh, metrics_sets_test_traces_bagged, behaviorset.names)
-end
+# write_to_texthook(TEXFILE, "model-compare-rmse-stdev") do fh
+#     create_tikzpicture_model_compare_rwse_variance(fh, metrics_sets_test_traces_bagged, behaviorset.names)
+# end
 
 context_class_data = Dict[]
 context_class_names = ["freeflow", "following", "lanechange"]
