@@ -67,16 +67,8 @@ function create_tikzpicture_model_compare_logl{S<:String, B<:BehaviorFrameMetric
     For each model, add these options:
     (produces 95% confidence bounds)
 
-    \addplot+[thick, mark=*, mark options={colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit]
+    \addplot[thick, mark=*, mark options={thick, colorA}, error bars/error bar style={colorA}, error bars/.cd,x dir=both,x explicit, error bar style={line width=1.5pt}, error mark options={rotate=90, mark size=4pt, line width=1pt}]
     coordinates{(1.000,Gaussian Filter)+=(0.664,0)-=(0.664,0)};
-    \addplot+[thick, mark=*, mark options={colorB}, error bars/error bar style={colorB}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Single Variable)+=(0.664,0)-=(0.164,0)};
-    \addplot+[thick, mark=*, mark options={colorC}, error bars/error bar style={colorC}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Random Forest)+=(0.664,0)-=(0.264,0)};
-    \addplot+[thick, mark=*, mark options={colorD}, error bars/error bar style={colorD}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Dynamic Forest)+=(0.664,0)-=(0.364,0)};
-    \addplot+[thick, mark=*, mark options={colorE}, error bars/error bar style={colorE}, error bars/.cd,x dir=both,x explicit]
-    coordinates{(1.400,Bayesian Network)+=(0.664,0)-=(0.664,0)};
     =#
 
     for (i,name) in enumerate(names)
@@ -86,7 +78,7 @@ function create_tikzpicture_model_compare_logl{S<:String, B<:BehaviorFrameMetric
 
         color_letter = string('A' + i - 1)
 
-        println(io, "\\addplot+[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit]")
+        println(io, "\\addplot[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit, error bar style={line width=1.5pt}, error mark options={rotate=90, mark size=4pt, line width=1pt}]")
         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, Δ, Δ)
     end
 end

@@ -28,7 +28,7 @@ using DynamicBayesianNetworkBehaviors
 # const INCLUDE_FILE_BASE = "vires_highway_2lane_sixcar"
 const INCLUDE_FILE_BASE = "realworld"
 
-const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
+const MAX_CV_OPT_TIME_PER_MODEL = 120.0 # [s]
 const AM_ON_TULA = gethostname() == "tula"
 const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
                                   joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
