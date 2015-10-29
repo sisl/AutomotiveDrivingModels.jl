@@ -233,7 +233,11 @@ function get_frame_score(::Type{LoglikelihoodMetric},
     frameind::Int,
     )
 
-    calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+    if trains_with_nona(behavior)
+        calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+    else
+        calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+    end
 end
 get_score(metric::LoglikelihoodMetric) = metric.logl
 

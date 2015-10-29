@@ -6,7 +6,7 @@ using LaTeXeXport
 const TEXFILE = "/home/tim/Documents/wheelerworkspace/Papers/2015_ITS_RiskEstimation/2015_IEEE_ITS_riskest.tex"
 const TEXDIR = splitdir(TEXFILE)[1]
 const RESULTS_DF_EXPERIMENT_1 = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/varying_data_amount/results/data_vs_performance_metrics.csv"
-const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "dotted"]
+const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
 
 function _convert_to_short_name(name::String)
     retval = ""
@@ -118,8 +118,9 @@ df_exp1 = readtable(RESULTS_DF_EXPERIMENT_1)
 
 modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Gaussian Mixture Regression", "Bayesian Network"]
 
-write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
+fh = STDOUT
+# write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
     create_tikzpicture_experiment_1(fh, df_exp1, modelnames)
-end
+# end
 
 println("DONE EXPORTING RESULTS")

@@ -269,7 +269,7 @@ function observe!{F<:AbstractFeature}(
     for (i,f) in enumerate(features)
         val = get(f, basics, carind, validfind)::Float64
         if replace_na && isinf(val)
-            val = replace_na(f, basics, carind, validfind)
+            val = Features.replace_na(f, basics, carind, validfind)::Float64
         end
         observations[i] = val
     end
