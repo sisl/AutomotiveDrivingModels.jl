@@ -75,6 +75,13 @@ function proj(a::VecE3, b::VecE3, ::Type{VecE3})
     VecE3(s*b.x, s*b.y, s*b.z)
 end
 
+function Base.cross(a::VecE3, b::VecE3)
+    x = a.y*b.z - a.z*b.y
+    y = a.x*b.z - a.z*b.x
+    z = a.x*b.y - a.y*b.x
+    VecE3(x,y,z)
+end
+
 lerp(a::VecE3, b::VecE3, t::Real) = VecE3(a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t, a.z + (b.z-a.z)*t)
 
 function rot(a::VecE3, axis::VecE3, θ::Real)

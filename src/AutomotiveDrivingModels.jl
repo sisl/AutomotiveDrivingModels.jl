@@ -40,7 +40,6 @@ include("utils/ValidationTraceExtractor.jl")
 import Base: get, ==
 
 include("utils/polynomials.jl")
-include("utils/common.jl")
 include("utils/collision.jl")
 
 include("behaviors/behaviors.jl")
