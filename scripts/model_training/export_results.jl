@@ -106,14 +106,14 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
                                                             metrics_sets_test_traces_bagged[i])
         timegap_μ, timegap_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, metrics_sets_test_traces[i],
                                                             metrics_sets_test_traces_bagged[i])
-        offset_μ, offset_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, metrics_sets_test_traces[i],
-                                                            metrics_sets_test_traces_bagged[i])
+        # offset_μ, offset_Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, metrics_sets_test_traces[i],
+        #                                                     metrics_sets_test_traces_bagged[i])
 
         color = "color" * string('A' + i - 1)
         print(io, "\\addplot [", color, ",fill=", color, "!60,error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
         @printf(io, "\t\t\(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "speed,",      speed_μ,   speed_Δ, speed_Δ)
         @printf(io, "\t\t\(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "timegap,",    timegap_μ, timegap_Δ, timegap_Δ)
-        @printf(io, "\t\t\(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "laneoffset,", offset_μ,  offset_Δ, offset_Δ)
+        # @printf(io, "\t\t\(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "laneoffset,", offset_μ,  offset_Δ, offset_Δ)
         @printf(io, "\t};\n")
     end
 
@@ -412,12 +412,12 @@ function create_table_validation_across_context_classes{S<:String, T<:String}(
     print(io, "\\end{tabular}\n")
 end
 
-behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")
+# behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")
 
 # println(keys(JLD.load(METRICS_OUTPUT_FILE)))
 
 
-
+names = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Mixture Regression", "Bayesian Network"]
 
 metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
 metrics_sets_test_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames_bagged")
@@ -430,37 +430,37 @@ metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_te
 # all_names = String["Real World"]
 # append!(all_names, behaviorset.names)
 
-# fh = STDOUT
-# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+fh = STDOUT
+# # write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
 #     create_tikzpicture_model_compare_logl(fh, metrics_sets_train_frames,
-#                                           metrics_sets_train_frames_bagged, behaviorset.names)
-# end
+#                                           metrics_sets_train_frames_bagged, names)
+# # end
 
-# write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+# # write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
 #     create_tikzpicture_model_compare_logl(fh, metrics_sets_test_frames,
-#                                           metrics_sets_test_frames_bagged, behaviorset.names)
-# end
+#                                           metrics_sets_test_frames_bagged, names)
+# # end
+# println("done")
+# exit()
 
-# write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh
+# # write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh
 #     create_tikzpicture_model_compare_kldiv_barplot(fh, metrics_sets_test_traces,
-#                                                    metrics_sets_test_traces_bagged, behaviorset.names)
-# end
+#                                                    metrics_sets_test_traces_bagged, names)
+# # end
+# println("done")
+# exit()
 
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names, SPEED)
-end
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names, TIMEGAP_X_FRONT)
-end
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, behaviorset.names, D_CL)
-end
+# # write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
+# # end
+# # write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
+# # end
+# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
+# end
 println("done")
 exit()
-
-# write_to_texthook(TEXFILE, "model-compare-rmse-stdev") do fh
-#     create_tikzpicture_model_compare_rwse_variance(fh, metrics_sets_test_traces_bagged, behaviorset.names)
-# end
 
 context_class_data = Dict[]
 context_class_names = ["freeflow", "following", "lanechange"]
@@ -475,7 +475,7 @@ for dset_filepath_modifier in (
 end
 
 write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
-    create_table_validation_across_context_classes(fh, context_class_data, context_class_names, behaviorset.names)
+    create_table_validation_across_context_classes(fh, context_class_data, context_class_names, names)
 end
 
 println("DONE EXPORTING RESULTS TO TEX")

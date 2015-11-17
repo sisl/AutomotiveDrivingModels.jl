@@ -5,6 +5,7 @@
 # define behavior for a given vehicle in the scene
 
 export  AbstractVehicleBehavior,
+        ModelTargets,
 
         select_action,
         calc_action_loglikelihood,
@@ -17,6 +18,11 @@ export  AbstractVehicleBehavior,
 
 
 abstract AbstractVehicleBehavior
+
+type ModelTargets
+    lat :: AbstractFeature
+    lon :: AbstractFeature
+end
 
 function calc_action_loglikelihood(
     basics::FeatureExtractBasicsPdSet,

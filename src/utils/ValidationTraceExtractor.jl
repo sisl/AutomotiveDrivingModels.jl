@@ -34,6 +34,8 @@ export
 
         get_cross_validation_fold_assignment,
         get_train_test_fold_assignment,
+        get_fold_assignment_across_drives,
+        get_fold_assignment_across_traces,
         calc_fold_size,
         calc_fold_inds!,
         is_in_fold,
@@ -987,7 +989,7 @@ function get_cross_validation_fold_assignment(
             frameend = framestart + get_horizon(pdset_segments[pdsetsegmentind])
             # println(framestart,  "  ", frameend)
             frameind = framestart
-            for _ in framestart : 5 : frameend
+            for _ in framestart : N_FRAMES_PER_SIM_FRAME : frameend
                 @assert(frame_fold_assignment[frameind] == 0)
                 frame_fold_assignment[frameind] = f
                 frameind += 1
@@ -1124,7 +1126,7 @@ function get_cross_validation_fold_assignment(
             frameend = framestart + get_horizon(pdset_segments[pdsetsegmentind])
             frameind = framestart
 
-            for _ in framestart : 5 : frameend
+            for _ in framestart : N_FRAMES_PER_SIM_FRAME : frameend
                 @assert(frame_fold_assignment[frameind] == 0)
                 frame_fold_assignment[frameind] = f
                 frameind += 1
@@ -1172,93 +1174,6 @@ function get_cross_validation_fold_assignment(
 
     FoldAssignment(frame_fold_assignment, pdsetsegment_fold_assignment, nfolds)
 end
-function get_train_test_fold_assignment_old(
-    fraction_test::Float64,
-    dset::ModelTrainingData,
-    )
-
-    #=
-    returns a FoldAssignment with two folds: 1 for train, 2 for test
-    =#
-
-    pdset_segments = dset.pdset_segments
-    dataframe = dset.dataframe
-    seg_to_framestart = dset.startframes
-
-    @assert(fraction_test ≥ 0.0)
-    fraction_train = 1.0 - fraction_test
-
-    nframes = nrow(dataframe)
-    npdsetsegments = length(pdset_segments)
-    @assert(length(seg_to_framestart) ≥ npdsetsegments)
-
-    frame_tv_assignment = zeros(Int, nframes) # train = 1, validation = 2
-    pdsetseg_tv_assignment = zeros(Int, npdsetsegments) # train = 1, validation = 2
-
-    nframes_to_assign_to_training = ifloor(nframes * fraction_train)
-    npdsetsegments_to_assign_to_training = ifloor(npdsetsegments * fraction_train)
-
-    p = randperm(npdsetsegments)
-    for i = 1 : npdsetsegments_to_assign_to_training
-        pdsetsegmentind = p[i]
-        pdsetseg_tv_assignment[pdsetsegmentind] = FOLD_TRAIN
-
-        framestart = seg_to_framestart[pdsetsegmentind]
-        frameend = framestart + get_horizon(pdset_segments[pdsetsegmentind])
-        frameind = framestart
-        for _ in framestart : 5 : frameend
-            @assert(frame_tv_assignment[frameind] == 0)
-            frame_tv_assignment[frameind] = FOLD_TRAIN
-            frameind += 1
-        end
-    end
-
-     # = sum(frame_tv_assignment)
-    nremaining_frames_unassigned = 0
-    for frameind in 1 : nframes
-        if frame_tv_assignment[frameind] == 0
-            nremaining_frames_unassigned += 1
-        end
-    end
-
-    nframes_assigned_to_training = nframes - nremaining_frames_unassigned
-    nremaining_frames_to_assign = nframes_to_assign_to_training - nframes_assigned_to_training
-
-    # println("nframes:                      ", nframes)
-    # println("nframes_assigned_to_training: ", nframes_assigned_to_training)
-    # println("nremaining_frames_to_assign:  ", nremaining_frames_to_assign)
-    # println("nremaining_frames_unassigned: ", nremaining_frames_unassigned)
-
-    remaining_frames = Array(Int, nremaining_frames_unassigned)
-    rem_frame_count = 0
-    for frameind in 1 : nframes
-        if frame_tv_assignment[frameind] == 0
-            remaining_frames[rem_frame_count+=1] = frameind
-        end
-    end
-    @assert(rem_frame_count == nremaining_frames_unassigned)
-
-    p = randperm(nremaining_frames_unassigned)
-    for rem_frame_ind in 1 : nremaining_frames_to_assign
-        i = p[rem_frame_ind]
-        j = remaining_frames[i]
-        k = frame_tv_assignment[remaining_frames[p[rem_frame_ind]]]
-        frame_tv_assignment[remaining_frames[p[rem_frame_ind]]] = FOLD_TRAIN
-    end
-
-    for (i,v) in enumerate(frame_tv_assignment)
-        if v != FOLD_TRAIN
-          frame_tv_assignment[i] = FOLD_TEST
-        end
-    end
-    for (i,v) in enumerate(pdsetseg_tv_assignment)
-        if v != FOLD_TRAIN
-          pdsetseg_tv_assignment[i] = FOLD_TEST
-        end
-    end
-
-    FoldAssignment(frame_tv_assignment, pdsetseg_tv_assignment, 2)
-end
 function get_train_test_fold_assignment(
     fraction_test::Float64,
     dset::ModelTrainingData,
@@ -1275,11 +1190,9 @@ function get_train_test_fold_assignment(
 
     pdset_segments = dset.pdset_segments
     dataframe = dset.dataframe
-    seg_to_framestart = dset.startframes
 
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
-    @assert(length(seg_to_framestart) ≥ npdsetsegments)
 
     # count the number of frames and traces in each pdset
 
@@ -1324,6 +1237,106 @@ function get_train_test_fold_assignment(
     end
 
     FoldAssignment(a_frame, a_seg, 2)
+end
+function get_fold_assignment_across_drives(dset::ModelTrainingData)
+
+    #=
+    returns a FoldAssignment with one fold for each drive
+    Works by splitting over pdset_id's
+    =#
+
+    pdset_segments = dset.pdset_segments
+    dataframe = dset.dataframe
+
+    nframes = nrow(dataframe)
+    npdsetsegments = length(pdset_segments)
+    
+    a_frame = zeros(Int, nframes)
+    a_seg = zeros(Int, npdsetsegments)
+
+    pdset_id_to_fold = Dict{Int,Int}()
+    for (i, id) in enumerate(dataframe[:pdset_id])
+        if !haskey(pdset_id_to_fold, id)
+            pdset_id_to_fold[id] = length(pdset_id_to_fold) + 1
+        end
+
+        a_frame[i] = pdset_id_to_fold[id]
+    end
+    for (i, pdset) in enumerate(pdset_segments)
+        a_seg[i] = pdset_id_to_fold[pdset.pdset_id]
+    end
+
+    FoldAssignment(a_frame, a_seg, length(pdset_id_to_fold))
+end
+function get_fold_assignment_across_traces(dset::ModelTrainingData)
+
+    #=
+    returns a FoldAssignment with one fold for each pdsetsetseg
+    Works by splitting over pdset_id's
+    =#
+
+    pdset_segments = dset.pdset_segments
+    dataframe = dset.dataframe
+    seg_to_framestart = dset.startframes
+
+    nframes = nrow(dataframe)
+    nfolds = npdsetsegments = length(pdset_segments)
+    
+    a_frame = zeros(Int, nframes)
+    a_seg = zeros(Int, npdsetsegments)
+
+    for (i, pdset) in enumerate(pdset_segments)
+        a_seg[i] = i
+
+        framestart = seg_to_framestart[i]
+        frameend = framestart + get_horizon(pdset)
+        frameind = framestart
+
+        for _ in framestart : N_FRAMES_PER_SIM_FRAME : frameend
+            @assert(a_frame[frameind] == 0) # not yet assigned
+            a_frame[frameind] = i
+            frameind += 1
+        end
+    end
+    
+    # determine how many frames must still be assigned
+    # and how many each fold already has
+    nremaining_frames = 0
+    frame_fold_sizes = zeros(Int, nfolds)
+    for i in 1 : nframes
+        if a_frame[i] == 0
+            nremaining_frames += 1
+        else
+            frame_fold_sizes[a_frame[i]] += 1
+        end
+    end
+
+    # create a priority queue based on frame count
+    fold_priority = PriorityQueue{Int, Int}() # (fold, foldsize), min-ordered
+    for (fold,foldsize) in enumerate(frame_fold_sizes)
+        fold_priority[fold] = foldsize
+    end
+
+    # determine what frames are remaining
+    remaining_frames = Array(Int, nremaining_frames)
+    rem_frame_count = 0
+    for i in 1 : nframes
+        if a_frame[i] == 0
+            remaining_frames[rem_frame_count+=1] = i
+        end
+    end
+
+    # assign the remaining frames to even out counts as best we can
+    if nremaining_frames > 0
+        for i in remaining_frames[randperm(nremaining_frames)]
+            fold = dequeue!(fold_priority)
+            a_frame[i] = fold
+            frame_fold_sizes[fold] += 1
+            fold_priority[fold] = frame_fold_sizes[fold]
+        end
+    end
+
+    FoldAssignment(a_frame, a_seg, nfolds)
 end
 
 function load_pdsets(dset::ModelTrainingData)

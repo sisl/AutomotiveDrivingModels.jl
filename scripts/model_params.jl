@@ -36,7 +36,7 @@ model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
 
 add_behavior!(behaviorset, GMRBehavior, "Mixture Regression")
 model_param_sets["Mixture Regression"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE])]),
+    convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, ACC, TIME_CONSECUTIVE_THROTTLE])]), # [YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE]
     [BehaviorParameter(:n_components, 2:5, 1),
      BehaviorParameter(:max_n_indicators, 2:5, 1),
      ]

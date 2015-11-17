@@ -50,33 +50,6 @@ const KLDIV_METRIC_DISC_DICT = [
     ]
 
 
-# init{Fsym}(::Type{EmergentKLDivMetric{Fsym}}) = EmergentKLDivMetric{Fsym}(ones(Int, KLDIV_METRIC_NBINS), NaN)
-# function update_metric!{Fsym}(
-#     metric::EmergentKLDivMetric{Fsym},
-#     ::AbstractVehicleBehavior,
-#     pdset_orig::PrimaryDataset,
-#     basics::FeatureExtractBasicsPdSet, # NOTE(tim): the pdset here is what we use
-#     seg::PdsetSegment
-#     )
-
-#     validfind_end = seg.validfind_end
-#     carid = seg.carid
-#     carind = carid2ind(basics.pdset, carid, validfind_end)
-#     v = get(symbol2feature(Fsym), basics, carind, validfind_end)
-#     metric.counts[encode(KLDIV_METRIC_DISC_DICT[Fsym], v)] += 1
-
-#     metric
-# end
-# function complete_metric!{Fsym}(
-#     metric::EmergentKLDivMetric{Fsym},
-#     metric_realworld::EmergentKLDivMetric{Fsym},
-#     ::AbstractVehicleBehavior,
-#     )
-
-#     metric.kldiv = calc_kl_div_categorical(metric_realworld.counts .- 1.0, metric.counts .- 0.9)
-#     metric
-# end
-
 get_score(metric::EmergentKLDivMetric) = metric.kldiv
 
 function extract{Fsym}(::Type{EmergentKLDivMetric{Fsym}},
@@ -127,8 +100,6 @@ function extract{Fsym}(::Type{EmergentKLDivMetric{Fsym}},
 
     EmergentKLDivMetric{Fsym}(calc_kl_div_categorical(counts_orig, counts_sim))
 end
-
-# function combine(::AbstractVector{EmergentKLDivMetric}, realworld::AbstractVector{EmergentMetric}) -> kldiv between our distr and real-world distr
 
 #########################################################################################################
 # RootWeightedSquareError
@@ -289,7 +260,7 @@ immutable BaggedMetricResult
 
     function BaggedMetricResult{B<:BehaviorFrameMetric}(
         ::Type{B},
-        frame_scores::Vector{Float64}, # preallocated memory, of dimension nvalid_frames
+        frame_scores::Vector{Float64}, # already extracted, of dimension nvalid_frames
         n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES,
         confidence_level::Float64=DEFAULT_CONFIDENCE_LEVEL,
         )
