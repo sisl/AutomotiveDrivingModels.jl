@@ -5,6 +5,7 @@
 # define behavior for a given vehicle in the scene
 
 export  AbstractVehicleBehavior,
+        VehicleBehaviorPreallocatedData,
         ModelTargets,
 
         select_action,
@@ -18,6 +19,7 @@ export  AbstractVehicleBehavior,
 
 
 abstract AbstractVehicleBehavior
+abstract VehicleBehaviorPreallocatedData
 
 type ModelTargets
     lat :: AbstractFeature
