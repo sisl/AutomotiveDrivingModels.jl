@@ -6,7 +6,7 @@ using DynamicBayesianNetworkBehaviors
 push!(LOAD_PATH, "/home/tim/Documents/wheelerworkspace/UtilityCode/")
 using LaTeXeXport
 
-const TEXFILE = "/home/tim/Documents/wheelerworkspace/Papers/2015_ITS_RiskEstimation/2015_IEEE_ITS_riskest.tex"
+const TEXFILE = "/home/tim/Documents/papers/2016_ITS_car_behaviors_wheeler/its_car_behaviors.tex"
 const TEXDIR = splitdir(TEXFILE)[1]
 
 const INCLUDE_FILE_BASE = "realworld"
@@ -430,18 +430,16 @@ metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_te
 # all_names = String["Real World"]
 # append!(all_names, behaviorset.names)
 
-fh = STDOUT
-# # write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-#     create_tikzpicture_model_compare_logl(fh, metrics_sets_train_frames,
-#                                           metrics_sets_train_frames_bagged, names)
-# # end
+# fh = STDOUT
+write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+    create_tikzpicture_model_compare_logl(fh, metrics_sets_train_frames,
+                                          metrics_sets_train_frames_bagged, names)
+end
 
-# # write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
-#     create_tikzpicture_model_compare_logl(fh, metrics_sets_test_frames,
-#                                           metrics_sets_test_frames_bagged, names)
-# # end
-# println("done")
-# exit()
+write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+    create_tikzpicture_model_compare_logl(fh, metrics_sets_test_frames,
+                                          metrics_sets_test_frames_bagged, names)
+end
 
 # # write_to_texthook(TEXFILE, "model-compare-kldiv-testing") do fh
 #     create_tikzpicture_model_compare_kldiv_barplot(fh, metrics_sets_test_traces,
@@ -450,15 +448,15 @@ fh = STDOUT
 # println("done")
 # exit()
 
-# # write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
-# # end
-# # write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
-# # end
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
-# end
+end
 println("done")
 exit()
 

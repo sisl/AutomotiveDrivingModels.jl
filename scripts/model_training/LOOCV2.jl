@@ -259,34 +259,24 @@ for dset_filepath_modifier in (
     metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, nmodels)
 
     let
-        arr_logl_test = Array(Float64, nframes)
-        arr_logl_train = Array(Float64, nframes*(ntraces - 1))
-
         for k in 1:nmodels
             print("\tmodel: ", k, "  "); tic()
 
-            logl_test = StreamStats.Var()
-            logl_train = StreamStats.Var()
+            arr_logl_test = Float64[]
+            arr_logl_train = Float64[]
 
-            arr_logl_test_ind = 0
-            arr_logl_train_ind = 0
-
-            for j in 1 : ntraces
+            for j in 1 : split_drives.nfolds
                 for i in 1 : nframes
                     if split_drives.frame_assignment[i] == j
-                        update!(logl_test, frame_logls[i,j,k])
-                        arr_logl_test_ind += 1
-                        arr_logl_test[arr_logl_test_ind] = frame_logls[i,j,k]
-                    else
-                        update!(logl_train, frame_logls[i,j,k])
-                        arr_logl_train_ind += 1
-                        arr_logl_train[arr_logl_train_ind] = frame_logls[i,j,k]
+                        push!(arr_logl_test, frame_logls[i,j,k])
+                    elseif split_drives.frame_assignment[i] != 0
+                        push!(arr_logl_train, frame_logls[i,j,k])
                     end
                 end
             end
 
-            metrics_sets_test_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(logl_test))]
-            metrics_sets_train_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(logl_train))]
+            metrics_sets_test_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_test))]
+            metrics_sets_train_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_train))]
             metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
             metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
 
