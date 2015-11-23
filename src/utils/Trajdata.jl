@@ -131,8 +131,6 @@ const CONTROL_STATUS_VIRES_AUTO         = 99
 const CARIND_EGO                        = -1
 const CARID_EGO                         = -1
 
-const NUMBER_REGEX = r"(-)?(0|[1-9]([\d]*))(\.[\d]*)?((e|E)(\+|-)?[\d]*)?"
-
 type PrimaryDataset
 
 	#=
@@ -164,8 +162,8 @@ type PrimaryDataset
 
 	df_ego     :: DataFrame              # [frameind,  :feature] -> value
 	df_other   :: DataFrame              # [validfind, :feature] -> value, missing features are NA
-	dict_trajmat       :: Dict{Uint32,DataFrame} # [carid] -> trajmat (DEPRECATED)
-	dict_other_idmap   :: Dict{Uint32,Uint16}    # [carid] -> matind
+	dict_trajmat       :: Dict{UInt32,DataFrame} # [carid] -> trajmat (DEPRECATED)
+	dict_other_idmap   :: Dict{UInt32,UInt16}    # [carid] -> matind
 	mat_other_indmap   :: Matrix{Int16}          # [validfind, matind] -> carind, -1 if not present
 	ego_car_on_freeway :: BitVector              # [frameind] -> bool
 	validfind2frameind :: Vector{Int32}          # [validfind] -> frameind
@@ -178,8 +176,8 @@ type PrimaryDataset
 	function PrimaryDataset(
 		df_ego     :: DataFrame,
 		df_other   :: DataFrame,
-		dict_trajmat       :: Dict{Uint32,DataFrame},
-		dict_other_idmap   :: Dict{Uint32,Uint16},
+		dict_trajmat       :: Dict{UInt32,DataFrame},
+		dict_other_idmap   :: Dict{UInt32,UInt16},
 		mat_other_indmap   :: Matrix{Int16},
 		ego_car_on_freeway :: BitVector
 		)
@@ -288,17 +286,17 @@ function create_empty_pdset(nframes::Integer=0, n_other_vehicles::Integer=1; sec
                                 add_symbol!("d_ml",      cind, Float64)
                                 add_symbol!("d_merge",   cind, Float64)
                                 add_symbol!("d_split",   cind, Float64)
-                                add_symbol!("id",        cind, Uint32)
+                                add_symbol!("id",        cind, UInt32)
                                 add_symbol!("t_inview",  cind, Float64)
-                                add_symbol!("trajind",   cind, Uint32)
+                                add_symbol!("trajind",   cind, UInt32)
                               end
     for cind = 0 : n_other_vehicles-1 # NOTE: indexing starts from 0, like in Trajdata
         add_slot!(cind)
     end
 
-    dict_trajmat = Dict{Uint32,DataFrame}()
-    dict_other_idmap = Dict{Uint32,Uint16}()
-    mat_other_indmap = fill(int16(-1), nframes, 0)
+    dict_trajmat = Dict{UInt32,DataFrame}()
+    dict_other_idmap = Dict{UInt32,UInt16}()
+    mat_other_indmap = fill(Int16(-1), nframes, 0)
     ego_car_on_freeway = trues(nframes)
 
     for frame = 1 : nframes
@@ -318,7 +316,7 @@ function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float
 	append!(pdset.df_ego, similar(pdset.df_ego, nframes))
 	append!(pdset.df_other, similar(pdset.df_other, nframes))
 
-    pdset.mat_other_indmap = vcat(pdset.mat_other_indmap, fill(int16(-1), nframes, size(pdset.mat_other_indmap,2)))
+    pdset.mat_other_indmap = vcat(pdset.mat_other_indmap, fill(Int16(-1), nframes, size(pdset.mat_other_indmap,2)))
     append!(pdset.ego_car_on_freeway, trues(nframes))
 
     nframes_before = length(pdset.frameind2validfind)
@@ -327,8 +325,8 @@ function expand!(pdset::PrimaryDataset, nframes::Integer=1; sec_per_frame::Float
     append!(pdset.frameind2validfind, ones(Int32, nframes))
 
     for i = 1: nframes
-    	frameind = int32(nframes_before + i)
-    	validfind = int32(nvalidfinds_before + i)
+    	frameind = Int32(nframes_before + i)
+    	validfind = Int32(nvalidfinds_before + i)
 
     	pdset.validfind2frameind[validfind] = frameind
     	pdset.frameind2validfind[frameind] = validfind
@@ -388,7 +386,6 @@ end
 Base.next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
 
 # TrajData Data Definition:
-
 	# id::Integer         # car identification number
 	# posEx::Real         # position in the ego frame relative to the ego car
 	# posEy::Real
@@ -407,32 +404,32 @@ Base.next(::IterAllCarindsInFrame, carind::Int) = (carind, carind+1)
 	# velLd::Real         # velocity of the car projected perpendicularly to the lane
 	# posRLs::Real        # position of the car along the rightmost lane
 	# posRLd::Real        # position of the car from the rightmost lane
-
+  #
 	# frame::Integer
 	# time::Real
 	# control_status::Integer # the state of the car's control system (autonomous, etc.)
-
+  #
 	# # global position [m](UTM)
 	# posGx::Real
 	# posGy::Real
 	# posGz::Real
-
+  #
 	# # orientation [rad]
 	# rollG::Real
 	# pitchG::Real
 	# yawG::Real
-
+  #
 	# # odom velocity [m/s](ego)
 	# velEx::Real
 	# velEy::Real
 	# velEz::Real
-
+  #
 	# # lane, 0=our lane, -1 = left, 1 = right, etc.
 	# lane::Integer
-
+  #
 	# # offset with resect to center line [m]
 	# lane_offset::Real
-
+  #
 	# #  closest centerline point
 	# centerline_closest_x::Real
 	# centerline_closest_y::Real
@@ -492,8 +489,8 @@ function Base.deepcopy(pdset::PrimaryDataset, validfind_start::Int, validfind_en
 			@assert(carid != CARID_EGO)
 
 			if !haskey(retval.dict_other_idmap, carid)
-				retval.dict_other_idmap[carid] = convert(Uint16, length(retval.dict_other_idmap) + 1)
-				retval.mat_other_indmap = hcat(retval.mat_other_indmap, fill(int16(-1), nframes, 1))
+				retval.dict_other_idmap[carid] = convert(UInt16, length(retval.dict_other_idmap) + 1)
+				retval.mat_other_indmap = hcat(retval.mat_other_indmap, fill(Int16(-1), nframes, 1))
 			end
 
 			matind = retval.dict_other_idmap[carid]
@@ -504,7 +501,7 @@ function Base.deepcopy(pdset::PrimaryDataset, validfind_start::Int, validfind_en
 	retval
 end
 
-nframeinds( trajdata::DataFrame ) = size(trajdata, 1)
+# nframeinds( trajdata::DataFrame ) = size(trajdata, 1)
 nframeinds(  pdset::PrimaryDataset ) = length(pdset.frameind2validfind)
 nvalidfinds( pdset::PrimaryDataset ) = length(pdset.validfind2frameind)
 
@@ -545,9 +542,9 @@ function carid2ind( trajdata::DataFrame, carid::Integer, frameind::Integer)
 		return CARIND_EGO
 	end
 	@assert(haskey(trajdata, symbol(@sprintf("has_%d", carid))))
-	carind = int(frameind, trajdata[symbol(@sprintf("has_%d", carid))])
+	carind = convert(Int, frameind, trajdata[symbol(@sprintf("has_%d", carid))])
 	@assert(carind != -1)
-	int(carind)
+	carind
 end
 function carid2ind( pdset::PrimaryDataset, carid::Integer, validfind::Integer )
 	if carid == CARID_EGO
@@ -555,9 +552,9 @@ function carid2ind( pdset::PrimaryDataset, carid::Integer, validfind::Integer )
 	end
 	# @assert(haskey(pdset.dict_other_idmap, carid))
 	matind = pdset.dict_other_idmap[carid]
-	carind = pdset.mat_other_indmap[validfind, matind]
+	carind = convert(Int, pdset.mat_other_indmap[validfind, matind])
 	@assert(carind != -1)
-	int(carind)
+	carind
 end
 function carid2ind_or_negative_one_otherwise(trajdata::DataFrame, carid::Integer, frameind::Integer)
 
@@ -565,9 +562,7 @@ function carid2ind_or_negative_one_otherwise(trajdata::DataFrame, carid::Integer
 		return CARIND_EGO
 	end
 	@assert(haskey(trajdata, symbol(@sprintf("has_%d", carid))))
-	carind = int(trajdata[symbol(@sprintf("has_%d", carid))][frameind])
-	# -1 if no exist
-	int(carind)
+	convert(Int, trajdata[symbol(@sprintf("has_%d", carid))][frameind]) # -1 if no exist
 end
 function carid2ind_or_negative_two_otherwise(pdset::PrimaryDataset, carid::Integer, validfind::Integer)
 	# -2 if no exist
@@ -580,31 +575,25 @@ function carid2ind_or_negative_two_otherwise(pdset::PrimaryDataset, carid::Integ
 	end
 
 	matind = pdset.dict_other_idmap[carid]
-	carind = pdset.mat_other_indmap[validfind, matind]
-
-	if carind == -1
-		return -2
-	end
-
-	int(carind)
+	carind = convert(Int, pdset.mat_other_indmap[validfind, matind])
+	(carind == -1) ? -2 : carind
 end
 function carind2id( trajdata::DataFrame, carind::Integer, frameind::Integer)
 	if carind == CARIND_EGO
 		return CARID_EGO
 	end
 	@assert(haskey(trajdata, symbol(@sprintf("id_%d", carind))))
-	carid = trajdata[frameind, symbol(@sprintf("id_%d", carind))]
+	carid = convert(Int, trajdata[frameind, symbol(@sprintf("id_%d", carind))])
 	@assert(carid != -1)
-	int(carid)
+	carid
 end
 function carind2id( pdset::PrimaryDataset, carind::Integer, validfind::Integer )
 	if carind == CARIND_EGO
 		return CARID_EGO
 	end
 	col = pdset.df_other_column_map[:id] + pdset.df_other_ncol_per_entry * carind
-	carid = pdset.df_other[validfind, col]::Uint32
+	carid = convert(Int, pdset.df_other[validfind, col])
 	@assert(carid != -1)
-	int(carid)
 end
 
 validfind_inbounds( pdset::PrimaryDataset, validfind::Integer ) = 1 <= validfind <= length(pdset.validfind2frameind)
@@ -614,14 +603,14 @@ function frameind2validfind( pdset::PrimaryDataset, frameind::Integer )
 	if !frameind_inbounds(pdset, frameind)
 		return 0
 	end
-	int(pdset.frameind2validfind[frameind])
+	convert(Int, pdset.frameind2validfind[frameind])
 end
 function validfind2frameind( pdset::PrimaryDataset, validfind::Integer )
 	# returns 0 if it does not exist
 	if !validfind_inbounds(pdset, validfind)
 		return 0
 	end
-	int(pdset.validfind2frameind[validfind])
+	convert(Int, pdset.validfind2frameind[validfind])
 end
 function jumpframe( pdset::PrimaryDataset, validfind::Integer, delta::Integer )
 	# get the validfind that has a frameind of + delta
@@ -653,7 +642,7 @@ function closest_frameind( pdset::PrimaryDataset, time::Float64 )
 
 	Δt = calc_sec_per_frame(pdset)
 	t0 = gete(pdset, :time, 1)::Float64
-	frameind = clamp(int((time - t0) / Δt + 1), 1, N)
+	frameind = clamp(round(Int, (time - t0) / Δt + 1, RoundNearestTiesAway), 1, N)
 	t  = gete(pdset, :time, frameind)::Float64
 
 	tp = frameind < N ? gete(pdset, :time, frameind + 1)::Float64 : t
@@ -737,8 +726,8 @@ end
 gete( pdset::PrimaryDataset, sym::Symbol, frameind::Integer ) = pdset.df_ego[frameind, sym]
 gete_validfind( pdset::PrimaryDataset, sym::Symbol, validfind::Integer ) = pdset.df_ego[validfind2frameind(pdset, validfind), sym]
 
-getc_symb( str::String, carind::Integer ) = symbol(@sprintf("%s_%d", str, carind))
-function getc( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer )
+getc_symb( str::AbstractString, carind::Integer ) = symbol(@sprintf("%s_%d", str, carind))
+function getc( trajdata::DataFrame, str::AbstractString, carind::Integer, frameind::Integer )
 	# @assert(haskey(trajdata, symbol(@sprintf("id_%d", carind))))
 	trajdata[frameind, symbol(@sprintf("%s_%d", str, carind))]
 end
@@ -758,7 +747,7 @@ function get(pdset::PrimaryDataset, sym::Symbol, carind::Integer, frameind::Inte
 	carind == CARIND_EGO ? gete(pdset, sym, frameind) : getc(pdset, sym, carind, validfind)
 end
 
-function setc!( trajdata::DataFrame, str::String, carind::Integer, frameind::Integer, val::Any )
+function setc!( trajdata::DataFrame, str::AbstractString, carind::Integer, frameind::Integer, val::Any )
 	@assert(haskey(trajdata, symbol(@sprintf("id_%d", carind))))
 	trajdata[symbol(@sprintf("%s_%d", str, carind))][frameind] = val
 end
@@ -842,11 +831,11 @@ end
 
 function getc_has( trajdata::DataFrame, carid::Integer, frameind::Integer )
 	@assert(haskey(trajdata, symbol(@sprintf("has_%d", carid))))
-	return int(trajdata[symbol(@sprintf("has_%d", carid))][frameind])
+	return convert(Int, trajdata[symbol(@sprintf("has_%d", carid))][frameind])
 end
 function getc_has( trajdata::DataFrame, carid::Integer )
 	@assert(haskey(trajdata, symbol(@sprintf("has_%d", carid))))
-	return int(trajdata[symbol(@sprintf("has_%d", carid))])
+	return convert(Int, trajdata[symbol(@sprintf("has_%d", carid))])
 end
 function setc_has!( trajdata::DataFrame, carid::Integer, frameind::Integer, carind::Integer )
 	@assert(haskey(trajdata, symbol(@sprintf("has_%d", carid))))
@@ -886,7 +875,7 @@ function get_carids( trajdata::DataFrame )
 		str = string(name)
 		if ismatch(r"^has_(\d)+$", str)
 			m = match(r"(\d)+", str)
-			id = int(m.match)
+			id = convert(Int, m.match)
 			push!(carids, id)
 		end
 	end
@@ -907,7 +896,7 @@ function carind_exists( trajdata::DataFrame, carind::Integer, frameind::Integer 
 	@assert( haskey(trajdata, symbol(@sprintf("id_%d", carind))) )
 	!isa(trajdata[frameind, symbol(@sprintf("id_%d", carind))], NAtype)
 end
-carid_exists( pdset::PrimaryDataset, carid::Integer ) = (carid == CARID_EGO) || haskey(pdset.dict_other_idmap, uint32(carid))
+carid_exists( pdset::PrimaryDataset, carid::Integer ) = (carid == CARID_EGO) || haskey(pdset.dict_other_idmap, UInt32(carid))
 function carid_exists( trajdata::DataFrame, carid::Integer, frameind::Integer)
 
 	return (carid == CARID_EGO) || getc_has( trajdata, carid, frameind ) != -1
@@ -940,12 +929,12 @@ get_num_cars_in_frame( pdset::PrimaryDataset, validfind::Integer ) = get_num_oth
 
 function get_valid_frameinds( pdset::PrimaryDataset )
 
-	all_inds = [1:size(pdset.df_ego,1)]
+	all_inds = collect(1:size(pdset.df_ego,1))
 	all_inds[pdset.ego_car_on_freeway]
 end
 frame2frameind( trajdata::DataFrame, frame::Integer ) = findfirst(x->x == frame, array(trajdata[:frame], -999))
 
-function load_trajdata( input_path::String )
+function load_trajdata( input_path::AbstractString )
 	@assert(isfile(input_path))
 
 	# clean the csv file to add necessary commas
@@ -1073,7 +1062,7 @@ function load_trajdata( input_path::String )
 			elseif df[symb][i] == "None"
 				posRLd[i] = -999
 			else
-				posRLd[i] = float32(df[symb][i])
+				posRLd[i] = Float32(df[symb][i])
 			end
 		end
 		df[symbol(@sprintf("posRLd_%d", carind))] = posRLd
@@ -1082,7 +1071,7 @@ function load_trajdata( input_path::String )
 
 	return df
 end
-function export_trajdata( filename::String, trajdata::DataFrame )
+function export_trajdata( filename::AbstractString, trajdata::DataFrame )
 
 	fout = open(filename, "w")
 
@@ -1209,10 +1198,10 @@ end
 
 function add_carid!(pdset::PrimaryDataset, carid::Integer)
 
-	carid_32 = uint32(carid)
+	carid_32 = UInt32(carid)
 	if !haskey(pdset.dict_other_idmap, carid_32)
 		pdset.dict_other_idmap[carid_32] = length(pdset.dict_other_idmap)+1
-		pdset.mat_other_indmap = hcat(pdset.mat_other_indmap, fill(int16(-1), size(pdset.mat_other_indmap,1), 1))
+		pdset.mat_other_indmap = hcat(pdset.mat_other_indmap, fill(Int16(-1), size(pdset.mat_other_indmap,1), 1))
 	end
 
 	pdset
@@ -1226,10 +1215,10 @@ function add_car_to_validfind!(pdset::PrimaryDataset, carid::Integer, validfind:
 
 	assert(validfind2frameind(pdset, validfind) != 0)
 
-	carid_32 = uint32(carid)
+	carid_32 = UInt32(carid)
 	add_carid!(pdset, carid_32)
 	carind = find_slot_for_car!(pdset, validfind)
-	matind = pdset.dict_other_idmap[uint32(carid_32)]
+	matind = pdset.dict_other_idmap[UInt32(carid_32)]
 
 	pdset.mat_other_indmap[validfind, matind] = carind
 
@@ -1768,59 +1757,61 @@ function euler2quat( roll::Real, pitch::Real, yaw::Real )
 end
 
 # TODO(tim): use geomE2 instead
-function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real )
+# function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real )
+#
+# 	# pt = [posGx, posGy]
+# 	# eo = [egocarGx, egocarGy]
+#
+# 	# # translate to be relative to ego car
+# 	# pt -= eo
+#
+# 	# # rotate to be in ego car frame
+# 	# R = [ cos(egocarYaw) sin(egocarYaw);
+# 	#      -sin(egocarYaw) cos(egocarYaw)]
+# 	# pt = R*pt
+#
+# 	# return (pt[1], pt[2]) # posEx, posEy
+#
+# 	s, c = sin(egocarYaw), cos(egocarYaw)
+# 	Δx = posGx - egocarGx
+# 	Δy = posGy - egocarGy
+# 	(c*Δx + s*Δy, c*Δy - s*Δx)
+# end
+# function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real, yawG::Real )
+#
+# 	posEx, posEy = global2ego( egocarGx, egocarGy, egocarYaw, posGx, posGy)
+# 	yawE = mod2pi(yawG - egocarYaw)
+#
+# 	return (posEx, posEy, yawE)
+# end
+# function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real )
+#
+# 	# pt = [posEx, posEy]
+# 	# eo = [egocarGx, egocarGy]
+#
+# 	# # rotate
+# 	# c, s = cos(egocarYaw), sin(egocarYaw)
+# 	# R = [ c -s;
+# 	#       s  c]
+# 	# pt = R*pt
+#
+# 	# # translate
+# 	# pt += eo
+#
+# 	# return (pt[1], pt[2]) # posGx, posGy
+#
+# 	c, s = cos(egocarYaw), sin(egocarYaw)
+# 	(c*posEx -s*posEy + egocarGx, s*posEx +c*posEy + egocarGy)
+# end
+# function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real, yawE::Real )
+#
+# 	posGx, posGy = ego2global( egocarGx, egocarGy, egocarYaw, posEx, posEy)
+# 	yawG = mod2pi(yawE + egocarYaw)
+#
+# 	return (posGx, posGy, yawG)
+# end
 
-	# pt = [posGx, posGy]
-	# eo = [egocarGx, egocarGy]
-
-	# # translate to be relative to ego car
-	# pt -= eo
-
-	# # rotate to be in ego car frame
-	# R = [ cos(egocarYaw) sin(egocarYaw);
-	#      -sin(egocarYaw) cos(egocarYaw)]
-	# pt = R*pt
-
-	# return (pt[1], pt[2]) # posEx, posEy
-
-	s, c = sin(egocarYaw), cos(egocarYaw)
-	Δx = posGx - egocarGx
-	Δy = posGy - egocarGy
-	(c*Δx + s*Δy, c*Δy - s*Δx)
-end
-function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real, yawG::Real )
-
-	posEx, posEy = global2ego( egocarGx, egocarGy, egocarYaw, posGx, posGy)
-	yawE = mod2pi(yawG - egocarYaw)
-
-	return (posEx, posEy, yawE)
-end
-function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real )
-
-	# pt = [posEx, posEy]
-	# eo = [egocarGx, egocarGy]
-
-	# # rotate
-	# c, s = cos(egocarYaw), sin(egocarYaw)
-	# R = [ c -s;
-	#       s  c]
-	# pt = R*pt
-
-	# # translate
-	# pt += eo
-
-	# return (pt[1], pt[2]) # posGx, posGy
-
-	c, s = cos(egocarYaw), sin(egocarYaw)
-	(c*posEx -s*posEy + egocarGx, s*posEx +c*posEy + egocarGy)
-end
-function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real, yawE::Real )
-
-	posGx, posGy = ego2global( egocarGx, egocarGy, egocarYaw, posEx, posEy)
-	yawG = mod2pi(yawE + egocarYaw)
-
-	return (posGx, posGy, yawG)
-end
-isnum(s::String) = ismatch(NUMBER_REGEX, s) || s == "Inf" || s == "inf" || s == "-Inf" || s == "-inf" || s == "+Inf" || s == "+inf"
+const NUMBER_REGEX = r"(-)?(0|[1-9]([\d]*))(\.[\d]*)?((e|E)(\+|-)?[\d]*)?"
+isnum(s::AbstractString) = ismatch(NUMBER_REGEX, s) || s == "Inf" || s == "inf" || s == "-Inf" || s == "-inf" || s == "+Inf" || s == "+inf"
 
 end # end module

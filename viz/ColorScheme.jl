@@ -3,7 +3,7 @@ module ColorScheme
 using Reexport
 @reexport using Colors
 
-export 
+export
 	COLOR_ASPHALT,
 	COLOR_LANE_MARKINGS,
 	COLOR_CAR_EGO,
@@ -13,9 +13,9 @@ export
 	hexcolor,
 	lerp_color
 
-hexcolor(r::Uint8, g::Uint8, b::Uint8) = RGB(r/255.0, g/255.0, b/255.0)
-hexcolor(r::Uint8, g::Uint8, b::Uint8, a::Uint8) = RGBA(r/255.0, g/255.0, b/255.0, a/255.0)
-function hexcolor(html::Uint32)
+hexcolor(r::UInt8, g::UInt8, b::UInt8) = RGB(r/255.0, g/255.0, b/255.0)
+hexcolor(r::UInt8, g::UInt8, b::UInt8, a::UInt8) = RGBA(r/255.0, g/255.0, b/255.0, a/255.0)
+function hexcolor(html::UInt32)
 	r = uint8(html >> 24)
 	g = uint8(html >> 16)
 	b = uint8(html >>  8)
@@ -62,7 +62,7 @@ const COLOR_SCHEMES = [
 		],
 	]
 
-function getcolorscheme(name::String)
+function getcolorscheme(name::AbstractString)
 	global COLOR_SCHEMES
 	if !haskey(COLOR_SCHEMES, name)
 		warn("Color Scheme " * name * " does not exist!")

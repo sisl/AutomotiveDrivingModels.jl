@@ -16,7 +16,7 @@ type VehicleBehaviorLinearGaussian <: AbstractVehicleBehavior
 
 
     function VehicleBehaviorLinearGaussian(
-        F::Union(AbstractFeature,Int),
+        F::Union{AbstractFeature,Int},
         A::Vector{Float64},
         μ∞::Vector{Float64},
         N::MvNormal,

@@ -174,7 +174,7 @@ function distace_to_polynomial(x::Float64, y::Float64, coeffs::AbstractVector{Fl
 end
 
 immutable RANSAC_Result
-    coefficients :: (Float64,Float64,Float64)
+    coefficients :: Tuple{Float64,Float64,Float64}
     n_iterations :: Int
     n_inliers    :: Int
     n_total_data :: Int
@@ -576,7 +576,7 @@ function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{
     retval
 end
 
-function load_trajdata(csvfile::String)
+function load_trajdata(csvfile::AbstractString)
 
     file = open(csvfile, "r")
     lines = readlines(file)
@@ -997,9 +997,9 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                                 add_symbol!("d_ml",      cind, Float64)
                                 add_symbol!("d_merge",   cind, Float64)
                                 add_symbol!("d_split",   cind, Float64)
-                                add_symbol!("id",        cind, Uint32)
+                                add_symbol!("id",        cind, UInt32)
                                 add_symbol!("t_inview",  cind, Float64)
-                                add_symbol!("trajind",   cind, Uint32)
+                                add_symbol!("trajind",   cind, UInt32)
                               end
     for cind = 0 : maxncars # NOTE: indexing starts from 0, like in Trajdata
         add_slot!(cind)
@@ -1010,7 +1010,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     carids = get_carids(trajdata) # a Set{Int} of carids
     delete!(carids, CARID_EGO)
 
-    dict_other_idmap = Dict{Uint32,Uint16}() # dict carid -> matind,  index for mat_other_indmap
+    dict_other_idmap = Dict{UInt32,UInt16}() # dict carid -> matind,  index for mat_other_indmap
     mat_other_indmap = fill(int16(-1), n_frames_on_freeway, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
 
     local_setc! = (str,carind,vind,value) -> df_other[vind, symbol(@sprintf("%s_%d", str, carind))] = value
@@ -1268,11 +1268,11 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFx]))))
     # println("velFy: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFy]))))
 
-    dict_trajmat = Dict{Uint32,DataFrame}()
+    dict_trajmat = Dict{UInt32,DataFrame}()
     pdset = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
 end
 function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, params::PrimaryDataExtractionParams;
-    carids::Union(Nothing, AbstractVector{Int}) = nothing, # set of carids to pull
+    carids::Union{Void, AbstractVector{Int}} = nothing, # set of carids to pull
     )
 
     _assert_valid_primarydata_extraction_params(params)
@@ -1396,9 +1396,9 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                                 add_symbol!("d_ml",      cind, Float64)
                                 add_symbol!("d_merge",   cind, Float64)
                                 add_symbol!("d_split",   cind, Float64)
-                                add_symbol!("id",        cind, Uint32)
+                                add_symbol!("id",        cind, UInt32)
                                 add_symbol!("t_inview",  cind, Float64)
-                                add_symbol!("trajind",   cind, Uint32)
+                                add_symbol!("trajind",   cind, UInt32)
                               end
     for cind = 0 : maxncars # NOTE: indexing starts from 0, like in Trajdata
         add_slot!(cind)
@@ -1406,15 +1406,15 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
 
     # --------------------------------------------------
 
-    if isa(carids, Nothing)
+    if isa(carids, Void)
         carids = get_carids(trajdata) # a Set{Int} of carids
         delete!(carids, CARID_EGO)
     end
 
-    dict_other_idmap = Dict{Uint32,Uint16}() # dict carid -> matind,  index for mat_other_indmap
+    dict_other_idmap = Dict{UInt32,UInt16}() # dict carid -> matind,  index for mat_other_indmap
     mat_other_indmap = fill(int16(-1), nframes, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
 
-    function local_setc!(str::String, carind::Integer, validfind::Integer, value::Any)
+    function local_setc!(str::AbstractString, carind::Integer, validfind::Integer, value::Any)
         df_other[validfind, symbol(@sprintf("%s_%d", str, carind))] = value
     end
     next_available_carind = fill(int32(-1), nframes)
@@ -1584,7 +1584,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
 
     println("PrimaryDataset: 1")
 
-    dict_trajmat = Dict{Uint32,DataFrame}()
+    dict_trajmat = Dict{UInt32,DataFrame}()
     retval = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
     println("PrimaryDataset: 2")
     retval

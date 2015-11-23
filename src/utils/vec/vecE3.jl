@@ -31,7 +31,7 @@ Base.(:(*))(a::VecE3, b::Real) = VecE3(a.x*b, a.y*b, a.z*b)
 Base.(:(/))(a::VecE3, b::Real) = VecE3(a.x/b, a.y/b, a.z/b)
 
 Base.(:(^))(a::VecE3, b::Integer) = VecE3(a.x^b, a.y^b, a.z^b)
-Base.(:(^))(a::VecE3, b::FloatingPoint) = VecE3(a.x^b, a.y^b, a.z^b)
+Base.(:(^))(a::VecE3, b::AbstractFloat) = VecE3(a.x^b, a.y^b, a.z^b)
 
 # %(a::VecE3, b::Real) = VecE3(a.x%b, a.y%b, a.z%b)
 
@@ -71,7 +71,7 @@ Base.dot(a::VecE3, b::VecE3) = a.x*b.x + a.y*b.y + a.z*b.z
 proj(a::VecE3, b::VecE3, ::Type{Float64}) = (a.x*b.x + a.y*b.y + a.z*b.z) / sqrt(b.x*b.x + b.y*b.y + b.z*b.z) # dot(a,b) / |b|
 function proj(a::VecE3, b::VecE3, ::Type{VecE3})
     # dot(a,b) / dot(b,b) ⋅ b
-    s = (a.x*b.x + a.y*b.y + a.z*b.z) / (b.x*b.x + b.y*b.y + b.z*b.z) 
+    s = (a.x*b.x + a.y*b.y + a.z*b.z) / (b.x*b.x + b.y*b.y + b.z*b.z)
     VecE3(s*b.x, s*b.y, s*b.z)
 end
 

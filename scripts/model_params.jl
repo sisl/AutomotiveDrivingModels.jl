@@ -6,13 +6,13 @@ model_param_sets["Static Gaussian"] = BehaviorParameterSet()
 
 add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
 model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    convert(Vector{Tuple{Symbol,Any}}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
     )
 
 add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
 model_param_sets["Random Forest"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    convert(Vector{Tuple{Symbol,Any}}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ntrees, 1:5:51, 3),
      BehaviorParameter(:max_depth, 1:20, 5),
      BehaviorParameter(:min_samples_split, 10:10:50, 3),
@@ -24,7 +24,7 @@ model_param_sets["Random Forest"] = BehaviorParameterSet(
 
 add_behavior!(behaviorset, DynamicForestBehavior, "Dynamic Forest")
 model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET)]),
+    convert(Vector{Tuple{Symbol,Any}}, [(:indicators,INDICATOR_SET)]),
     [BehaviorParameter(:ntrees, 1:5:51, 3),
      BehaviorParameter(:max_depth, 1:20, 5),
      BehaviorParameter(:min_samples_split, 10:10:50, 3),
@@ -36,7 +36,7 @@ model_param_sets["Dynamic Forest"] = BehaviorParameterSet(
 
 add_behavior!(behaviorset, GMRBehavior, "Mixture Regression")
 model_param_sets["Mixture Regression"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,[YAW, ACC, TIME_CONSECUTIVE_THROTTLE])]), # [YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE]
+    convert(Vector{Tuple{Symbol,Any}}, [(:indicators,[YAW, ACC, TIME_CONSECUTIVE_THROTTLE])]), # [YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE]
     [BehaviorParameter(:n_components, 2:5, 1),
      BehaviorParameter(:max_n_indicators, 2:5, 1),
      ]
@@ -44,7 +44,7 @@ model_param_sets["Mixture Regression"] = BehaviorParameterSet(
 
 add_behavior!(behaviorset, DynamicBayesianNetworkBehavior, "Bayesian Network")
 model_param_sets["Bayesian Network"] = BehaviorParameterSet(
-    convert(Vector{(Symbol,Any)}, [(:indicators,INDICATOR_SET),
+    convert(Vector{Tuple{Symbol,Any}}, [(:indicators,INDICATOR_SET),
                                    (:preoptimize_target_bins,true),
                                    (:preoptimize_parent_bins,true),
                                    (:optimize_structure,true),

@@ -64,7 +64,7 @@ param_indeces = ones(Int, nparams)
 ##############################
 
 best_param_score = -Inf
-param_hash = Set{Uint}()
+param_hash = Set{UInt}()
 
 # prev_best = readtable(BEST_MODEL_CSV_FILE)
 # if prev_best[1,:logl_mean] < logl_mean

@@ -83,7 +83,7 @@ const THRESHOLD_TO_NOT_BOTHER_INTERPOLATING = 1e-4
 
 include("splines.jl")
 
-function load(filename::String)
+function load(filename::AbstractString)
 	# LOAD: loads a curve file, returning an array of curves index by their curve id's + 1
 
 	@assert( splitext(basename(filename))[2] == ".csv" )
@@ -387,7 +387,7 @@ function pt_to_frenet_xy( curvept::CurvePt, x::Real, y::Real)
 
 	return (s,d)
 end
-function pt_to_frenet_xy( curve::Curve, x::Real, y::Real, ::Nothing=nothing )
+function pt_to_frenet_xy( curve::Curve, x::Real, y::Real, ::Void=nothing )
 
 	extind = closest_point_extind_to_curve(curve, x, y)
 
@@ -443,7 +443,7 @@ function pt_to_frenet_xyy( curvept::CurvePt, x::Real, y::Real, yaw::Real )
 
 	return (s,d,yaw)
 end
-function pt_to_frenet_xyy( curve::Curve, x::Real, y::Real, yaw::Real, ::Nothing=nothing )
+function pt_to_frenet_xyy( curve::Curve, x::Real, y::Real, yaw::Real, ::Void=nothing )
 
 	extind = closest_point_extind_to_curve(curve, x, y)
 
@@ -710,14 +710,14 @@ function arcdist_to_extind(curve::Curve, s::Real; clamp::Bool = true, isapprox_t
     if s < arr[lo]
         return clamp ? 1.0 : -1.0
     elseif s > arr[hi]
-        return clamp ? float64(hi) : -1.0
+        return clamp ? Float64(hi) : -1.0
     end
 
     while lo < hi-1
         mid::Int = div(lo + hi, 2)
         v = arr[mid]
         if abs(v - s) < isapprox_threshold
-            return float64(mid)
+            return Float64(mid)
         elseif v < s
             lo = mid
         elseif s < v

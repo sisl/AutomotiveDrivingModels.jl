@@ -8,7 +8,7 @@ const TEXDIR = splitdir(TEXFILE)[1]
 const RESULTS_DF_EXPERIMENT_1 = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/varying_data_amount/results/data_vs_performance_metrics.csv"
 const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
 
-function _convert_to_short_name(name::String)
+function _convert_to_short_name(name::AbstractString)
     retval = ""
     for word in split(name)
         retval *= string(uppercase(word[1]))

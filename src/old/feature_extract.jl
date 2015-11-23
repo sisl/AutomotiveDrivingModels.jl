@@ -1,4 +1,4 @@
-export 
+export
 		ExtractedFeatureCache,
 		FeatureExtractBasics,
 
@@ -12,10 +12,10 @@ type ExtractedFeatureCache
 	# where runid is an Int associated with a particular run
     ExtractedFeatureCache() = new(Dict{(Int, Int, Symbol), (Float64, Int)}())
 end
-function Base.setindex!(cache::ExtractedFeatureCache, val::(Float64, Int), key::(Int, Int, Symbol)) 
+function Base.setindex!(cache::ExtractedFeatureCache, val::(Float64, Int), key::(Int, Int, Symbol))
 	cache.dict[key] = val
 end
-function Base.getindex(cache::ExtractedFeatureCache, key::(Int, Int, Symbol)) 
+function Base.getindex(cache::ExtractedFeatureCache, key::(Int, Int, Symbol))
 	cache.dict[key]
 end
 
@@ -26,7 +26,7 @@ type FeatureExtractBasics
 	cache :: ExtractedFeatureCache
 	runid :: Int
 end
-function Base.setindex!(basics::FeatureExtractBasics, val::Float64, key::(Int, Int, Symbol)) 
+function Base.setindex!(basics::FeatureExtractBasics, val::Float64, key::(Int, Int, Symbol))
 	basics.cache[key] = (val, basics.runid)
 end
 function Base.getindex(basics::FeatureExtractBasics, key::(Int, Int, Symbol))
@@ -39,7 +39,7 @@ unimplemented = false
 clear_unimp() = global unimplemented = false
 
 function get(F::AbstractFeature, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	cache = basics.cache
 
 	key = (carind, frameind, symbol(F))
@@ -77,11 +77,11 @@ end
 # NOTE(tim):  get() is used for fast lookups
 #            _get() is used for caching calculations
 function get(::Features.Feature_PosFx, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	basics.simlog[frameind, calc_logindexbase(carind) + LOG_COL_X]
 end
 function get(::Features.Feature_PosFy, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	basics.simlog[frameind, calc_logindexbase(carind) + LOG_COL_Y]
 end
 function get(::Features.Feature_Yaw, basics::FeatureExtractBasics, carind::Int, frameind::Int)
@@ -133,7 +133,7 @@ end
 # 	nlanes = basics.road.nlanes
 # 	lanewidth = basics.road.lanewidth
 # 	lane_centers = [0:(nlanes-1)].*lanewidth # [0,lw,2lw,...]
-# 	float64(indmin(abs(lane_centers .- posFy)))
+# 	Float64(indmin(abs(lane_centers .- posFy)))
 # end
 function _get(::Features.Feature_D_CL, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	# y - cl_y
@@ -160,7 +160,7 @@ function  get(::Features.Feature_TimeToCrossing_Left, basics::FeatureExtractBasi
 	velFy = get(VELFY, basics, carind, frameind)
 	if d_ml > 0.0 && velFy > 0.0
 		min(d_ml / velFy, Features.THRESHOLD_TIME_TO_CROSSING)
-	else 
+	else
 		NA_ALIAS
 	end
 end
@@ -169,7 +169,7 @@ function  get(::Features.Feature_TimeToCrossing_Right, basics::FeatureExtractBas
 	velFy = get(VELFY, basics, carind, frameind)
 	if d_mr > 0.0 && velFy < 0.0
 		min(-d_mr / velFy, Features.THRESHOLD_TIME_TO_CROSSING)
-	else 
+	else
 		NA_ALIAS
 	end
 end
@@ -181,7 +181,7 @@ function _get(::Features.Feature_EstimatedTimeToLaneCrossing, basics::FeatureExt
 	get(TIMETOCROSSING_RIGHT, basics, carind, frameind)
 end
 function get(::Features.Feature_TimeSinceLaneCrossing, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	lane_start = get(CL, basics, carind, frameind)
 
 	cur_frameind = frameind
@@ -200,29 +200,29 @@ function get(::Features.Feature_TimeSinceLaneCrossing, basics::FeatureExtractBas
 	return Features.THRESHOLD_TIMESINCELANECROSSING
 end
 function get(::Features.Feature_D_Merge, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	100.0 # NOTE(tim): make this less arbitrary - saturation point for StreetMap d_merge
 end
 function get(::Features.Feature_D_Split, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	100.0 # NOTE(tim): make this less arbitrary - saturation point for StreetMap d_split
 end
 
 function _get(::Features.Feature_N_LANE_L, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	lane = get(CL, basics, carind, frameind)
-	float64(basics.road.nlanes - lane)
+	Float64(basics.road.nlanes - lane)
 end
 function _get(::Features.Feature_HAS_LANE_L, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
-	float64(_get(N_LANE_L, basics, carind, frameind) > 0.0)
+
+	Float64(_get(N_LANE_L, basics, carind, frameind) > 0.0)
 end
 function _get(::Features.Feature_N_LANE_R, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 	get(CL, basics, carind, frameind) - 1.0
 end
 function _get(::Features.Feature_HAS_LANE_R, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
-	float64(_get(N_LANE_R, basics, carind, frameind) > 0.0)
+
+	Float64(_get(N_LANE_R, basics, carind, frameind) > 0.0)
 end
 function _get(::Features.Feature_Acc, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 	if frameind <= 1
@@ -264,7 +264,7 @@ end
 
 # FRONT
 	function _get(::Features.Feature_IndFront, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-		
+
 		baseind = calc_logindexbase(carind)
 		mylane = get(CL, basics, carind, frameind)
 		myFx = basics.simlog[frameind, baseind+LOG_COL_X]
@@ -309,7 +309,7 @@ end
 			basics[(carind, frameind, :d_y_front)] = othFy - myFy
 			basics[(carind, frameind, :v_x_front)] = othVx - myVx
 			basics[(carind, frameind, :v_y_front)] = othVy - myVy
-			return float64(frontcar_ind)
+			return Float64(frontcar_ind)
 		end
 
 		basics[(carind, frameind, :has_front)] = 0.0
@@ -340,7 +340,7 @@ end
 		basics[(carind, frameind, :v_y_front)]
 	end
 	function _get(::Features.Feature_TTC_X_FRONT, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 		ind_front = get(INDFRONT, basics, carind, frameind)
 		if ind_front == NA_ALIAS
 			return NA_ALIAS
@@ -356,7 +356,7 @@ end
 		min(-dx / dv, Features.THRESHOLD_TIME_TO_COLLISION)
 	end
 	function _get(::Features.Feature_A_REQ_FRONT, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 		ind_front = get(INDFRONT, basics, carind, frameind)
 		if ind_front == NA_ALIAS
 			return NA_ALIAS
@@ -372,7 +372,7 @@ end
 		-min(dv*dv / (2dx), Features.THRESHOLD_A_REQ)
 	end
 	function _get(::Features.Feature_TimeGap_X_FRONT, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 		ind_front = get(INDFRONT, basics, carind, frameind)
 		if ind_front == NA_ALIAS
 			return Features.THRESHOLD_TIMEGAP
@@ -390,7 +390,7 @@ end
 
 # REAR
 	function _get(::Features.Feature_IndRear, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-		
+
 		baseind = calc_logindexbase(carind)
 		mylane = get(CL, basics, carind, frameind)
 		myFx = basics.simlog[frameind, baseind+LOG_COL_X]
@@ -435,7 +435,7 @@ end
 			basics[(carind, frameind, :d_y_rear)] = othFy - myFy
 			basics[(carind, frameind, :v_x_rear)] = othVx - myVx
 			basics[(carind, frameind, :v_y_rear)] = othVy - myVy
-			return float64(rearcar_ind)
+			return Float64(rearcar_ind)
 		end
 
 		basics[(carind, frameind, :has_rear)] = 0.0
@@ -466,7 +466,7 @@ end
 		basics[(carind, frameind, :v_y_rear)]
 	end
 	function _get(::Features.Feature_TTC_X_REAR, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 		ind_rear = get(INDREAR, basics, carind, frameind)
 		if ind_rear == NA_ALIAS
 			return NA_ALIAS
@@ -486,7 +486,7 @@ end
 		min(dx / dv, THRESHOLD_TIME_TO_COLLISION)
 	end
 	function _get( ::Features.Feature_A_REQ_REAR, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-		
+
 		ind_rear = get(INDREAR, basics, carind, frameind)
 		if ind_rear == NA_ALIAS
 			return NA_ALIAS
@@ -502,7 +502,7 @@ end
 		min(dv*dv / (2dx), Features.THRESHOLD_A_REQ)
 	end
 	function _get(::Features.Feature_Timegap_X_REAR, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-	
+
 		ind_rear = get(INDREAR, basics, carind, frameind)
 		if ind_rear == NA_ALIAS
 			return Features.THRESHOLD_TIMEGAP
@@ -520,7 +520,7 @@ end
 
 # LEFT
 	function _get(::Features.Feature_IndLeft, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-		
+
 		baseind = calc_logindexbase(carind)
 		mylane = get(CL, basics, carind, frameind)
 		myFx = basics.simlog[frameind, baseind+LOG_COL_X]
@@ -567,7 +567,7 @@ end
 			basics[(carind, frameind, :v_x_left)] = v_x_left
 			basics[(carind, frameind, :v_y_left)] = v_y_left
 			basics[(carind, frameind, :yaw_left)] = yaw_left
-			return float64(leftcar_ind)
+			return Float64(leftcar_ind)
 		end
 
 		basics[(carind, frameind, :d_x_left)] = Features.NA_ALIAS
@@ -600,7 +600,7 @@ end
 
 # RIGHT
 	function _get(::Features.Feature_IndRight, basics::FeatureExtractBasics, carind::Int, frameind::Int)
-		
+
 		baseind = calc_logindexbase(carind)
 		mylane = get(CL, basics, carind, frameind)
 		myFx = basics.simlog[frameind, baseind+LOG_COL_X]
@@ -647,7 +647,7 @@ end
 			basics[(carind, frameind, :v_x_right)] = v_x_right
 			basics[(carind, frameind, :v_y_right)] = v_y_right
 			basics[(carind, frameind, :yaw_right)] = yaw_right
-			return float64(rightcar_ind)
+			return Float64(rightcar_ind)
 		end
 
 		basics[(carind, frameind, :d_x_right)] = Features.NA_ALIAS
@@ -680,7 +680,7 @@ end
 	function _get(::Features.Feature_A_REQ_RIGHT, basics::FeatureExtractBasics, carind::Int, frameind::Int)
 		get(INDRIGHT, basics, carind, frameind)
 		basics[(carind, frameind, :yaw_right)]
-		
+
 		ind_right = get(INDRIGHT, basics, carind, frameind)
 		if ind_right == NA_ALIAS
 			return NA_ALIAS
@@ -834,7 +834,7 @@ function get_max_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 
 	if frameind <= frames_back
 		frames_back = frameind-1
-	end	
+	end
 
 	retval = 0.0
 	val = get(VELFX, basics, carind, frameind)
@@ -846,7 +846,7 @@ function get_max_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 		end
 		val = val2
 	end
-	
+
 	retval
 end
 get(::Features.Feature_MaxAccFx500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -872,7 +872,7 @@ function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 
 	if frameind <= frames_back
 		frames_back = frameind - 1
-	end	
+	end
 
 	retval = 0.0
 	val = get(VELFY, basics, carind, frameind)
@@ -884,7 +884,7 @@ function get_max_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 		end
 		val = val2
 	end
-	
+
 	retval
 end
 get(::Features.Feature_MaxAccFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -911,7 +911,7 @@ function get_max_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 
 	if frameind <= frames_back
 		frames_back = frameind - 1
-	end	
+	end
 
 	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
@@ -924,7 +924,7 @@ function get_max_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 		end
 		val = val2
 	end
-	
+
 	retval
 end
 get(::Features.Feature_MaxTurnRate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -950,7 +950,7 @@ function get_mean_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int
 
 	if frameind < frames_back
 		frames_back = frameind-1
-	end	
+	end
 
 	retval = 0.0
 	val = get(VELFX, basics, carind, frameind)
@@ -959,7 +959,7 @@ function get_mean_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int
 		retval += (val2 - val) / basics.sec_per_frame
 		val = val2
 	end
-	
+
 	retval / frames_back
 end
 get(::Features.Feature_MeanAccFx500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -985,7 +985,7 @@ function get_mean_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int
 
 	if frameind < frames_back
 		frames_back = frameind-1
-	end	
+	end
 
 	retval = 0.0
 	val = get(VELFY, basics, carind, frameind)
@@ -994,7 +994,7 @@ function get_mean_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int
 		retval += (val2 - val) / basics.sec_per_frame
 		val = val2
 	end
-	
+
 	retval / frames_back
 end
 get(::Features.Feature_MeanAccFy500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1020,7 +1020,7 @@ function get_mean_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::
 
 	if frameind < frames_back
 		frames_back = frameind-1
-	end	
+	end
 
 	indϕ = calc_logindexbase(carind) + LOG_COL_ϕ
 	retval = 0.0
@@ -1030,7 +1030,7 @@ function get_mean_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::
 		retval += Features.deltaangle(val, val2) / basics.sec_per_frame
 		val = val2
 	end
-	
+
 	retval / frames_back
 end
 get(::Features.Feature_MeanTurnRate500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1077,7 +1077,7 @@ function get_std_accFx(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 		arr[i] = (val2 - val) / basics.sec_per_frame
 		val = val2
 	end
-	
+
 	_get_std_feature(arr)
 end
 get(::Features.Feature_StdAccFx500ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1098,12 +1098,12 @@ get(::Features.Feature_StdAccFx4s,    basics::FeatureExtractBasics, carind::Int,
 	get_std_accFx(basics, carind, frameind, 4.0)
 
 function get_std_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int, sec_past::Float64)
-	
+
 	frames_back = int(ceil(sec_past / basics.sec_per_frame))
 
 	if frameind+1 <= frames_back
 		frames_back = frameind-1
-	end	
+	end
 
 	if frames_back < 2
 		return 0.0
@@ -1117,7 +1117,7 @@ function get_std_accFy(basics::FeatureExtractBasics, carind::Int, frameind::Int,
 		arr[i] = (val2 - val) / basics.sec_per_frame
 		val = val2
 	end
-	
+
 	_get_std_feature(arr)
 end
 get(::Features.Feature_StdAccFy250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =
@@ -1161,7 +1161,7 @@ function get_std_turnrate(basics::FeatureExtractBasics, carind::Int, frameind::I
 		arr[i] = (val2 - val) / basics.sec_per_frame
 		val = val2
 	end
-	
+
 	_get_std_feature(arr)
 end
 get(::Features.Feature_StdTurnRate250ms, basics::FeatureExtractBasics, carind::Int, frameind::Int) =

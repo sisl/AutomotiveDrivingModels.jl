@@ -2,7 +2,7 @@ export
     Scenario
 
 type Scenario
-    name::String
+    name::AbstractString
     sn::StreetNetwork
     history::Int
     sec_per_frame::Float64

@@ -55,7 +55,7 @@ type Dataset
     startframes::Vector{Int}
     extract_params::OrigHistobinExtractParameters
 
-    function Dataset(filename::String)
+    function Dataset(filename::AbstractString)
         pdset_filepaths, streetnet_filepaths, pdset_segments, dataframe, startframes, extract_params_loaded =
             load_pdsets_streetnets_segements_and_dataframe(filename)
 
@@ -63,8 +63,8 @@ type Dataset
     end
 end
 type RunAndMap
-    csvfilename::String
-    streetmapbasename::String
+    csvfilename::AbstractString
+    streetmapbasename::AbstractString
 end
 
 ##############################

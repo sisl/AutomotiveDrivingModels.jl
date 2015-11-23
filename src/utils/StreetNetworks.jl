@@ -120,20 +120,20 @@ type NetworkTile
 end
 type StreetNetwork
 	nodes::Vector{StreetNode}
-	tile_dict::Dict{(Int,Int),NetworkTile} # (index_n, index_e)
+	tile_dict::Dict{Tuple{Int,Int},NetworkTile} # (index_n, index_e)
 	graph::DiGraph # vertices in the graph are indeces in the nodes vector
 
 	function StreetNetwork()
 
 		nodes = StreetNode[]
-		tile_dict = Dict{(Int,Int),NetworkTile}()
+		tile_dict = Dict{Tuple{Int,Int},NetworkTile}()
 		graph = DiGraph()
 
 		new(nodes, tile_dict, graph)
 	end
 	function StreetNetwork(
 		nodes::Vector{StreetNode},
-		tile_dict::Dict{(Int,Int),NetworkTile},
+		tile_dict::Dict{Tuple{Int,Int},NetworkTile},
 		graph::DiGraph
 		)
 
@@ -1866,7 +1866,7 @@ function create_straight_nlane_curves(
 	n::Int;
     lane_spacing::Real=3.0, # distance between lanes [m]
     section_length::Real=3000.0, # [m]
-    origin::(Real,Real,Real)=(0.0,-lane_spacing*(n-0.5),0.0), # (x,y,θ) origin of lane 1
+    origin::Tuple{Real,Real,Real}=Tuple(0.0,-lane_spacing*(n-0.5),0.0), # (x,y,θ) origin of lane 1
     point_spacing::Real=2.0 # distance between points [m]
     )
 
@@ -1913,7 +1913,7 @@ function generate_straight_nlane_streetmap(
 	nlanes::Integer;
 	lane_spacing::Real=3.0, # distance between lanes [m]
     section_length::Real=5000.0, # [m]
-    origin::(Real,Real,Real)=(0.0,-lane_spacing*(nlanes-0.5),0.0), # (x,y,θ) origin of lane 1
+    origin::Tuple{Real,Real,Real} = Tuple(0.0,-lane_spacing*(nlanes-0.5),0.0), # (x,y,θ) origin of lane 1
     point_spacing::Real=2.0 # distance between points [m]
 	)
 

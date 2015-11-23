@@ -49,7 +49,7 @@ function simulate!(
 end
 function simulate!(
     basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
     pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
@@ -72,7 +72,7 @@ end
 
 function simulate_but_terminate_if_collision!(
     basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
 

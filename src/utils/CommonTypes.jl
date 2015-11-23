@@ -76,7 +76,7 @@ immutable PdsetSegment
     validfind_start :: Int # the starting validfind (does not count any sort of history)
     validfind_end   :: Int # the ending validfind
 end
-function ==(a::PdsetSegment, b::PdsetSegment)
+function Base.(:(==))(a::PdsetSegment, b::PdsetSegment)
     a.pdset_id == b.pdset_id &&
     a.streetnet_id == b.streetnet_id &&
     a.carid == b.carid &&

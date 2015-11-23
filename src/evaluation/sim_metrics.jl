@@ -43,11 +43,11 @@ type EmergentKLDivMetric{feature_symbol} <: BehaviorTraceMetric
 end
 
 const KLDIV_METRIC_NBINS = 10
-const KLDIV_METRIC_DISC_DICT = [
-        symbol(SPEED) => LinearDiscretizer(linspace(0.0,35.0,KLDIV_METRIC_NBINS), Int),
-        symbol(TIMEGAP_X_FRONT) => LinearDiscretizer(linspace(0.0,10.0,KLDIV_METRIC_NBINS), Int),
-        symbol(D_CL) => LinearDiscretizer(linspace(-3.0,3.0,KLDIV_METRIC_NBINS), Int),
-    ]
+const KLDIV_METRIC_DISC_DICT = Dict(
+        symbol(SPEED) => LinearDiscretizer(collect(linspace(0.0,35.0,KLDIV_METRIC_NBINS)), Int),
+        symbol(TIMEGAP_X_FRONT) => LinearDiscretizer(collect(linspace(0.0,10.0,KLDIV_METRIC_NBINS)), Int),
+        symbol(D_CL) => LinearDiscretizer(collect(linspace(-3.0,3.0,KLDIV_METRIC_NBINS)), Int),
+    )
 
 
 get_score(metric::EmergentKLDivMetric) = metric.kldiv
@@ -1014,7 +1014,7 @@ function extract_metrics_from_traces{B<:AbstractVehicleBehavior}(
 end
 
 function calc_mean_cross_validation_metrics(aggmetric_set::Vector{Dict{Symbol,Any}})
-    retval = (Symbol=>Any)[]
+    retval = Dict{Symbol, Any}[]
 
     n = length(aggmetric_set)
     temparr = Array(Float64, n)
@@ -1022,7 +1022,7 @@ function calc_mean_cross_validation_metrics(aggmetric_set::Vector{Dict{Symbol,An
     keyset = keys(aggmetric_set[1])
     for key in keyset
         for (i,aggmetrics) in enumerate(aggmetric_set)
-            temparr[i] = float64(get(aggmetrics, key, NaN))
+            temparr[i] = Float64(get(aggmetrics, key, NaN))
         end
         μ = mean(temparr)
         σ = stdm(temparr, μ)

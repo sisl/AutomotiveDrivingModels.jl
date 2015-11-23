@@ -18,10 +18,10 @@ export
 
 type BehaviorSet
     behaviors::Vector{Type}
-    names::Vector{String}
+    names::Vector{AbstractString}
     additional_params::Vector{Dict}
 
-    BehaviorSet() = new(Type{AbstractVehicleBehavior}[], String[], Dict[])
+    BehaviorSet() = new(Type{AbstractVehicleBehavior}[], AbstractString[], Dict[])
 end
 type BehaviorParameter
     sym::Symbol
@@ -36,12 +36,12 @@ type BehaviorParameter
     end
 end
 type BehaviorParameterSet
-    default_params::Vector{(Symbol, Any)}
+    default_params::Vector{Tuple{Symbol, Any}}
     varying_params::Vector{BehaviorParameter}
 
-    BehaviorParameterSet() = new(BehaviorParameter[], (Symbol, Any)[])
+    BehaviorParameterSet() = new(BehaviorParameter[], Tuple{Symbol, Any}[])
     function BehaviorParameterSet(
-        default_params::Vector{(Symbol, Any)},
+        default_params::Vector{Tuple{Symbol, Any}},
         varying_params::Vector{BehaviorParameter},
         )
 
@@ -78,7 +78,7 @@ end
 function add_behavior!{B<:AbstractVehicleBehavior}(
     behaviorset::BehaviorSet,
     behavior::Type{B},
-    name::String,
+    name::AbstractString,
     additional_params::Dict = Dict{Symbol,Any}()
     )
 
@@ -108,7 +108,7 @@ function train(
     dset::ModelTrainingData,
     train_test_split::FoldAssignment,
     cross_validation_split::FoldAssignment,
-    model_param_sets::Dict{String, BehaviorParameterSet}; # model name to params
+    model_param_sets::Dict{AbstractString, BehaviorParameterSet}; # model name to params
     max_cv_opt_time_per_model::Float64=60.0 # [sec]
     )
 
@@ -136,7 +136,7 @@ end
 
 function optimize_hyperparams_cyclic_coordinate_ascent{D<:AbstractVehicleBehavior}(
     behavior_type::Type{D},
-    behavior_name::String,
+    behavior_name::AbstractString,
     params::BehaviorParameterSet,
     dset::ModelTrainingData,
     cross_validation_split::FoldAssignment;
@@ -158,7 +158,7 @@ function optimize_hyperparams_cyclic_coordinate_ascent{D<:AbstractVehicleBehavio
     end
 
     best_param_score = -Inf
-    param_hash = Set{Uint}() # set of param hashes that have already been done
+    param_hash = Set{UInt}() # set of param hashes that have already been done
     metric_types_train_frames = DataType[]
     metric_types_test_frames = [LoglikelihoodMetric]
     param_range = 1:n_varying_params

@@ -10,7 +10,7 @@ b = VecSE2(0.0,0.0,0.0)
 @test b.y == 0.0
 @test b.θ == 0.0
 
-c = VecSE2(VecE2(0.0,0).0,0.0)
+c = VecSE2(VecE2(0.0,0.0),0.0)
 @test c.x == 0.0
 @test c.y == 0.0
 @test c.θ == 0.0

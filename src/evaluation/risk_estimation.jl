@@ -10,7 +10,7 @@ export
 
 function calc_start_points(
     pdset::PrimaryDataset,
-    behavior_pairs::Vector{(AbstractVehicleBehavior,Int)},
+    behavior_pairs::Vector{Tuple{AbstractVehicleBehavior,Int}},
     validfind_start::Integer,
     start_points::Vector{VecE2}=Array(VecE2, length(behavior_pairs)),
     )
@@ -30,7 +30,7 @@ end
 
 function calc_collision_risk_monte_carlo!(
     basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
 
@@ -41,11 +41,11 @@ function calc_collision_risk_monte_carlo!(
 
     # NOTE(tim): Vehicles with deterministic trajectories should have those trajectories in basics.pdset
     #            Those vehicles should be using VEHICLE_BEHAVIOR_NONE
-    
+
     basics.runid = rand(Int)
     ncollisions = 0
     for i = 1 : nsimulations
-        
+
         basics.runid += 1
         ncollisions += simulate_but_terminate_if_collision!(basics, behavior_pairs, validfind_start, validfind_end,
                                 pdset_frames_per_sim_frame=pdset_frames_per_sim_frame,
@@ -59,7 +59,7 @@ function calc_future_grid_counts!(
     histobin_params :: ParamsHistobin,
     basics          :: FeatureExtractBasicsPdSet,
     carid           :: Integer,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
 
@@ -82,7 +82,7 @@ function calc_future_grid_counts!(
 
     basics.runid = rand(Int)
     for i = 1 : nsimulations
-        
+
         basics.runid += 1
         simulate!(basics, behavior_pairs, validfind_start, validfind_end,
                     pdset_frames_per_sim_frame=pdset_frames_per_sim_frame,
@@ -112,7 +112,7 @@ function calc_future_grid_counts!(
     gridcounts      :: Vector{Vector{Matrix{Float64}}},
     histobin_params :: ParamsHistobin,
     basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
 
@@ -132,10 +132,10 @@ function calc_future_grid_counts!(
             fill!(gridcount, 0.0)
         end
     end
-    
+
     basics.runid = rand(Int)
     for i = 1 : nsimulations
-        
+
         basics.runid += 1
         simulate!(basics, behavior_pairs, validfind_start, validfind_end,
                   pdset_frames_per_sim_frame=pdset_frames_per_sim_frame,
@@ -172,7 +172,7 @@ function calc_collision_risk_and_future_grid_counts!(
     histobin_params :: ParamsHistobin,
     basics          :: FeatureExtractBasicsPdSet,
     carid           :: Integer,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
 
@@ -196,7 +196,7 @@ function calc_collision_risk_and_future_grid_counts!(
     basics.runid = rand(Int)
     ncollisions = 0
     for i = 1 : nsimulations
-        
+
         basics.runid += 1
         simulate!(basics, behavior_pairs, validfind_start, validfind_end,
                     pdset_frames_per_sim_frame=pdset_frames_per_sim_frame,
@@ -228,7 +228,7 @@ function calc_collision_risk_and_future_grid_counts!(
     gridcounts      :: Vector{Vector{Matrix{Float64}}},
     histobin_params :: ParamsHistobin,
     basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{(AbstractVehicleBehavior,Int)}, # (behavior, carid)
+    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
     validfind_start :: Int,
     validfind_end   :: Int;
 
@@ -253,11 +253,11 @@ function calc_collision_risk_and_future_grid_counts!(
             fill!(gridcount, 0.0)
         end
     end
-    
+
     basics.runid = rand(Int)
     ncollisions = 0
     for i = 1 : nsimulations
-        
+
         basics.runid += 1
         simulate!(basics, behavior_pairs, validfind_start, validfind_end,
                   pdset_frames_per_sim_frame=pdset_frames_per_sim_frame,

@@ -20,7 +20,7 @@ export
 
 type RiskEstimationPolicy <: AbstractVehicleBehavior
 
-    trajectory_durations       :: Vector{Uint}    # various trajectory framecounts
+    trajectory_durations       :: Vector{UInt}    # various trajectory framecounts
     speed_deltas               :: Vector{Float64} # various speed deltas that we will check
     generate_follow_trajectory :: Bool            # wether to generate a policy to follow lead vehicle
                                                   # if there is one
@@ -28,9 +28,9 @@ type RiskEstimationPolicy <: AbstractVehicleBehavior
     k_relative_speed  :: Float64      # scalar affecting trailing distance [-], > 0
 
 
-    nsimulations   :: Uint            # number of simulations per risk estimation
-    history        :: Uint            # number of pdset frames in the past to record
-    horizon        :: Uint            # number of pdset frames to predict forward
+    nsimulations   :: UInt            # number of simulations per risk estimation
+    history        :: UInt            # number of pdset frames in the past to record
+    horizon        :: UInt            # number of pdset frames to predict forward
     desired_speed  :: Float64         # desired speed [m/s]
     col_method     :: Symbol          # collision check method ∈ [:OBB, :AABB, :Circle]
     sec_per_frame  :: Float64         # number of seconds per frame to use in prediction simulation
@@ -64,7 +64,7 @@ type RiskEstimationPolicy <: AbstractVehicleBehavior
         )
 
         retval = new()
-        retval.trajectory_durations = convert(Vector{Uint}, trajectory_durations)
+        retval.trajectory_durations = convert(Vector{UInt}, trajectory_durations)
         retval.speed_deltas   = convert(Vector{Float64}, speed_deltas)
         retval.generate_follow_trajectory = generate_follow_trajectory
 
@@ -400,7 +400,7 @@ function calc_collision_risk!(
     collision_risks
 end
 
-function calc_collision_risk_monte_carlo_parallel_eval(tup::(PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64))
+function calc_collision_risk_monte_carlo_parallel_eval(tup::Tuple{PrimaryDataset, StreetNetwork, Vector{TrajDefLink}, Int, Int, Int, AbstractVehicleBehavior, Float64})
 
     pdset_for_sim  = tup[1]
     sn             = tup[2]
@@ -411,7 +411,7 @@ function calc_collision_risk_monte_carlo_parallel_eval(tup::(PrimaryDataset, Str
     human_behavior = tup[7]
     sec_per_frame  = tup[8]
 
-    behavior_pairs = (AbstractVehicleBehavior, Int)[]
+    behavior_pairs = Tuple{AbstractVehicleBehavior, Int}[]
     for carid in get_carids(pdset_for_sim)
         if carid != active_carid
             push!(behavior_pairs, (human_behavior,carid))

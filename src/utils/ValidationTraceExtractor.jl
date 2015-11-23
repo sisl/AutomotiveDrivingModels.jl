@@ -50,7 +50,7 @@ export
 ########################################
 
 type OrigHistobinExtractParameters
-    behavior        :: String
+    behavior        :: AbstractString
     subsets         :: Vector{AbstractFeature} # Features that must be true (eg: SUBSET_FREE_FLOW)
     tol_d_cl        :: Float64 # [m]
     tol_yaw         :: Float64 # [rad]
@@ -69,7 +69,7 @@ type OrigHistobinExtractParameters
     frameskip_between_extracted_scenes :: Int
 
     function OrigHistobinExtractParameters(
-        behavior::String="",
+        behavior::AbstractString="",
         subsets::Vector{AbstractFeature}=AbstractFeature[],
         tol_d_cl::Float64=NaN,
         tol_yaw::Float64=NaN,
@@ -142,8 +142,8 @@ end
 ########################################
 
 type ModelTrainingData
-    pdset_filepaths::Vector{String}      # list of pdset full filepaths
-    streetnet_filepaths::Vector{String}  # list of streetnet full filepaths
+    pdset_filepaths::Vector{AbstractString}      # list of pdset full filepaths
+    streetnet_filepaths::Vector{AbstractString}  # list of streetnet full filepaths
     pdset_segments::Vector{PdsetSegment} # set of PdsetSegments, all should be of the same length
     dataframe::DataFrame                 # dataframe of features used in training. A bunch of vcat'ed pdset data
     dataframe_nona::DataFrame            # dataframe of features in which na has been replaced (otherwise exactly equal)
@@ -277,11 +277,11 @@ end
 #              FUNCTIONS               #
 ########################################
 
-function _get_pdsetfile(csvfile::String, pdset_dir::String=PRIMARYDATA_DIR)
+function _get_pdsetfile(csvfile::AbstractString, pdset_dir::AbstractString=PRIMARYDATA_DIR)
     csvfilebase = basename(csvfile)
     joinpath(pdset_dir, toext("primarydata_" * csvfilebase, "jld"))
 end
-function _load_pdset(csvfile::String, pdset_dir::String=PRIMARYDATA_DIR)
+function _load_pdset(csvfile::AbstractString, pdset_dir::AbstractString=PRIMARYDATA_DIR)
     pdsetfile = _get_pdsetfile(csvfile, pdset_dir)
     pdset = load(pdsetfile, "pdset")
 end
@@ -786,13 +786,13 @@ function _pull_model_training_data(
     csvfilesets::Vector{CSVFileSet},
     features::Vector{AbstractFeature},
     filters::Vector{AbstractFeature},
-    pdset_dir::String,
-    streetmap_base::String,
+    pdset_dir::AbstractString,
+    streetmap_base::AbstractString,
     )
 
-    streetnet_cache = (String, StreetNetwork)[]
+    streetnet_cache = Tuple{AbstractString, StreetNetwork}[]
 
-    pdset_filepaths = String[]
+    pdset_filepaths = AbstractString[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
     dataframe[:pdset_id] = Int[]
@@ -841,7 +841,7 @@ function _pull_model_training_data(
         # toc()
     end
 
-    streetnet_filepaths = Array(String, length(streetnet_cache))
+    streetnet_filepaths = Array(AbstractString, length(streetnet_cache))
     for streetnet_id = 1 : length(streetnet_cache)
         streetnet_filepaths[streetnet_id] = streetmap_base*"streetmap_"*streetnet_cache[streetnet_id][1]*".jld"
     end
@@ -853,8 +853,8 @@ function _pull_model_training_data_parallel(
     csvfilesets::Vector{CSVFileSet},
     features::Vector{AbstractFeature},
     filters::Vector{AbstractFeature},
-    pdset_dir::String,
-    streetmap_base::String,
+    pdset_dir::AbstractString,
+    streetmap_base::AbstractString,
     )
 
     num_csvfilesets = length(csvfilesets)
@@ -881,8 +881,8 @@ function _pull_model_training_data_parallel(
                                                 features, filters, pdset_dir, streetmap_base
                                             ), csvfileset_assignment)
 
-    pdset_filepaths = Array(String, num_csvfilesets)
-    streetnet_filepaths = String[]
+    pdset_filepaths = Array(AbstractString, num_csvfilesets)
+    streetnet_filepaths = AbstractString[]
     pdset_segments = PdsetSegment[]
     dataframe = create_dataframe_with_feature_columns(features, 0)
     dataframe[:pdset_id] = Int[]
@@ -922,8 +922,8 @@ function pull_model_training_data(
     csvfilesets::Vector{CSVFileSet};
     features::Vector{AbstractFeature}=FEATURES,
     filters::Vector{AbstractFeature}=AbstractFeature[],
-    pdset_dir::String=PRIMARYDATA_DIR,
-    streetmap_base::String="/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
+    pdset_dir::AbstractString=PRIMARYDATA_DIR,
+    streetmap_base::AbstractString="/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
     )
 
     if nworkers() > 1
@@ -1250,7 +1250,7 @@ function get_fold_assignment_across_drives(dset::ModelTrainingData)
 
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
-    
+
     a_frame = zeros(Int, nframes)
     a_seg = zeros(Int, npdsetsegments)
 
@@ -1281,7 +1281,7 @@ function get_fold_assignment_across_traces(dset::ModelTrainingData)
 
     nframes = nrow(dataframe)
     nfolds = npdsetsegments = length(pdset_segments)
-    
+
     a_frame = zeros(Int, nframes)
     a_seg = zeros(Int, npdsetsegments)
 
@@ -1298,7 +1298,7 @@ function get_fold_assignment_across_traces(dset::ModelTrainingData)
             frameind += 1
         end
     end
-    
+
     # determine how many frames must still be assigned
     # and how many each fold already has
     nremaining_frames = 0

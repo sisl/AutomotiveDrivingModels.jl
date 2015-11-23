@@ -109,12 +109,12 @@ type ExtractedFeatureCache
 
 	# (carid, frameind, feature symbol) -> (value, runid)
 	# where runid is an Int associated with a particular run
-	dict::Dict{(Int, Int, Symbol), (Float64, Int)}
+	dict::Dict{Tuple{Int, Int, Symbol}, Tuple{Float64, Int}}
 
-    ExtractedFeatureCache() = new(Dict{(Int, Int, Symbol), (Float64, Int)}())
+    ExtractedFeatureCache() = new(Dict{Tuple{Int, Int, Symbol}, Tuple{Float64, Int}}())
 end
-Base.setindex!(cache::ExtractedFeatureCache, val::(Float64, Int), key::(Int, Int, Symbol)) = cache.dict[key] = val
-Base.getindex(cache::ExtractedFeatureCache, key::(Int, Int, Symbol)) = cache.dict[key]
+Base.setindex!(cache::ExtractedFeatureCache, val::Tuple{Float64, Int}, key::Tuple{Int, Int, Symbol}) = cache.dict[key] = val
+Base.getindex(cache::ExtractedFeatureCache, key::Tuple{Int, Int, Symbol}) = cache.dict[key]
 
 type FeatureExtractBasicsPdSet
 	pdset :: PrimaryDataset
@@ -141,8 +141,8 @@ function Base.deepcopy(basics::FeatureExtractBasicsPdSet)
 end
 
 # key :: (carind, validfind, feature_symbol)
-Base.setindex!(basics::FeatureExtractBasicsPdSet, feature_value::Float64, key::(Int, Int, Symbol)) = basics.cache[key] = (feature_value, basics.runid)
-Base.getindex(basics::FeatureExtractBasicsPdSet, key::(Int, Int, Symbol)) = basics.cache[key][1]
+Base.setindex!(basics::FeatureExtractBasicsPdSet, feature_value::Float64, key::Tuple{Int, Int, Symbol}) = basics.cache[key] = (feature_value, basics.runid)
+Base.getindex(basics::FeatureExtractBasicsPdSet, key::Tuple{Int, Int, Symbol}) = basics.cache[key][1]
 
 # ----------------------------------
 # globals
@@ -196,8 +196,8 @@ end
 # ----------------------------------
 
 function create_feature_basics(
-	name         :: String,
-	unit         :: String,
+	name         :: AbstractString,
+	unit         :: AbstractString,
 	isint        :: Bool,
 	isbool       :: Bool,
 	ub           :: Float64,
@@ -205,7 +205,7 @@ function create_feature_basics(
 	could_be_na  :: Bool,
 	sym          :: Symbol,
 	lstr         :: LaTeXString,
-	desc         :: String
+	desc         :: AbstractString
 	)
 
 	for feature in values(sym2ftr)
@@ -234,7 +234,7 @@ function create_feature_basics(
 		sym2ftr[symbol(  $const_name)] = $const_name
 	end
 end
-function create_feature_basics_boolean( name::String, could_be_na::Bool, sym::Symbol, lstr::LaTeXString, desc::String )
+function create_feature_basics_boolean( name::AbstractString, could_be_na::Bool, sym::Symbol, lstr::LaTeXString, desc::AbstractString )
 
 	create_feature_basics(name, "-", true, true, 1.0, 0.0, could_be_na, sym, lstr, desc)
 end
@@ -375,16 +375,16 @@ end
 replace_na(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing at random; no action
 
 create_feature_basics( "N_LANE_L", "-", true, false, 10.0, 0.0, false, :n_lane_left, L"nlane_l", "number of lanes on the left side of this vehicle")
-get(::Feature_N_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(basics.pdset, :nll, carind, validfind))
+get(::Feature_N_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(get(basics.pdset, :nll, carind, validfind))
 
 create_feature_basics( "N_LANE_R", "-", true, false, 10.0, 0.0, false, :n_lane_right, L"nlane_r", "number of lanes on the right side of this vehicle")
-get(::Feature_N_LANE_R, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(basics.pdset, :nlr, carind, validfind))
+get(::Feature_N_LANE_R, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(get(basics.pdset, :nlr, carind, validfind))
 
 create_feature_basics_boolean( "HAS_LANE_R", false, :has_lane_right, L"\exists_{\text{lane}}^\text{r}", "whether at least one lane exists to right")
-get(::Feature_HAS_LANE_R, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(N_LANE_R, basics, carind, validfind) > 0.0)
+get(::Feature_HAS_LANE_R, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(get(N_LANE_R, basics, carind, validfind) > 0.0)
 
 create_feature_basics_boolean( "HAS_LANE_L", false, :has_lane_left, L"\exists_{\text{lane}}^\text{l}", "whether at least one lane exists to the left")
-get(::Feature_HAS_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(N_LANE_L, basics, carind, validfind) > 0.0)
+get(::Feature_HAS_LANE_L, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(get(N_LANE_L, basics, carind, validfind) > 0.0)
 
 ###########################
 # OCCUPANCY SCHEDULE GRID #
@@ -1067,7 +1067,7 @@ function _get(::Feature_IndFront, basics::FeatureExtractBasicsPdSet, carind::Int
 		basics[(carind, validfind, :v_y_front)] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
 		basics[(carind, validfind, :yaw_front)] = get(pdset, :posFyaw, best_carind, frameind, validfind)
 		basics[(carind, validfind, :turnrate_front)] = get(TURNRATE, basics, best_carind, validfind)
-		return float64(best_carind)
+		return Float64(best_carind)
 	else
 		basics[(carind, validfind, :d_x_front)] = NA_ALIAS
 		basics[(carind, validfind, :d_y_front)] = NA_ALIAS
@@ -1080,7 +1080,7 @@ function _get(::Feature_IndFront, basics::FeatureExtractBasicsPdSet, carind::Int
 end
 
 create_feature_basics_boolean( "HAS_FRONT", false, :has_front, L"\exists_{fo}", "whether there is a car in front")
-get( ::Feature_HAS_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(INDFRONT, basics, carind, validfind) != NA_ALIAS)
+get( ::Feature_HAS_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(get(INDFRONT, basics, carind, validfind) != NA_ALIAS)
 
 create_feature_basics( "D_X_FRONT", "m", false, false, Inf, 0.0, true, :d_x_front, L"d_{x,fo}", "longitudinal distance to the closest vehicle in the same lane in front")
 function get( ::Feature_D_X_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1110,7 +1110,7 @@ function get( ::Feature_V_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::In
 end
 replace_na(::Feature_V_Y_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing, average
 
-create_feature_basics( "YAW_FRONT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_front, L"\psi_{fo}", "yaw of the vehicle in front of you")
+create_feature_basics( "YAW_FRONT", "rad", false, false, Float64(pi), Float64(-pi), true, :yaw_front, L"\psi_{fo}", "yaw of the vehicle in front of you")
 function get( ::Feature_YAW_FRONT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_front)]
@@ -1147,7 +1147,7 @@ create_feature_basics_boolean( "Gaining_On_Front", true, :gaining_on_front, L"1\
 function get( ::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDFRONT, basics, carind, validfind)
 	ΔV = basics[(carind, validfind, :v_x_front)]
-	float64(ΔV < 0.0)
+	Float64(ΔV < 0.0)
 end
 replace_na(::Feature_Gaining_On_Front, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # default to false
 
@@ -1266,7 +1266,7 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 		basics[(carind, validfind, :v_y_rear)] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
 		basics[(carind, validfind, :yaw_rear)] = get(pdset, :posFyaw, best_carind, frameind, validfind)
 		basics[(carind, validfind, :turnrate_rear)] = get(TURNRATE, basics, best_carind, validfind)
-		return float64(best_carind)
+		return Float64(best_carind)
 	else
 		basics[(carind, validfind, :d_x_rear)] = NA_ALIAS
 		basics[(carind, validfind, :d_y_rear)] = NA_ALIAS
@@ -1279,7 +1279,7 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 end
 
 create_feature_basics_boolean( "HAS_REAR", false, :has_rear, L"\exists_{re}", "whether there is a car behind")
-get( ::Feature_HAS_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(get(INDREAR, basics, carind, validfind) != NA_ALIAS)
+get( ::Feature_HAS_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(get(INDREAR, basics, carind, validfind) != NA_ALIAS)
 
 create_feature_basics( "D_X_REAR", "m", false, false, Inf, 0.0, true, :d_x_rear, L"d_{x,re}", "longitudinal distance to the closest vehicle in the same lane in rear")
 function get( ::Feature_D_X_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
@@ -1309,7 +1309,7 @@ function get( ::Feature_V_Y_REAR, basics::FeatureExtractBasicsPdSet, carind::Int
 end
 replace_na(::Feature_V_Y_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0
 
-create_feature_basics( "YAW_REAR", "rad", false, false, float64(pi), float64(-pi), true, :yaw_rear, L"\psi^{rel}_{re}", "yaw of the vehicle behind you")
+create_feature_basics( "YAW_REAR", "rad", false, false, Float64(pi), Float64(-pi), true, :yaw_rear, L"\psi^{rel}_{re}", "yaw of the vehicle behind you")
 function get( ::Feature_YAW_REAR, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDREAR, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_rear)]
@@ -1498,7 +1498,7 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 		basics[(carind, validfind, :v_y_left)] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
 		basics[(carind, validfind, :yaw_left)] = get(pdset, :posFyaw, best_carind, frameind, validfind)
 		basics[(carind, validfind, :turnrate_left)] = get(TURNRATE, basics, best_carind, validfind)
-		return float64(best_carind)
+		return Float64(best_carind)
 	else
 		basics[(carind, validfind, :d_x_left)] = NA_ALIAS
 		basics[(carind, validfind, :d_y_left)] = NA_ALIAS
@@ -1538,7 +1538,7 @@ function get( ::Feature_V_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int
 end
 replace_na(::Feature_V_Y_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
-create_feature_basics( "YAW_LEFT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_left, L"\psi_{le}", "yaw of the closest vehicle in left lane")
+create_feature_basics( "YAW_LEFT", "rad", false, false, Float64(pi), Float64(-pi), true, :yaw_left, L"\psi_{le}", "yaw of the closest vehicle in left lane")
 function get( ::Feature_YAW_LEFT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 	get(INDLEFT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_left)]
@@ -1723,7 +1723,7 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 		basics[(carind, validfind, :v_y_right)] = get(pdset, :velFy,   best_carind, frameind, validfind) - get(pdset, :velFy, carind, frameind, validfind)
 		basics[(carind, validfind, :yaw_right)] = get(pdset, :posFyaw, best_carind, frameind, validfind)
 		basics[(carind, validfind, :turnrate_right)] = get(TURNRATE, basics, best_carind, validfind)
-		return float64(best_carind)
+		return Float64(best_carind)
 	else
 		basics[(carind, validfind, :d_x_right)] = NA_ALIAS
 		basics[(carind, validfind, :d_y_right)] = NA_ALIAS
@@ -1763,7 +1763,7 @@ function get( ::Feature_V_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::In
 end
 replace_na(::Feature_V_Y_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing value
 
-create_feature_basics( "YAW_RIGHT", "rad", false, false, float64(pi), float64(-pi), true, :yaw_right, L"\psi_{ri}", "yaw of the closest vehicle in right lane")
+create_feature_basics( "YAW_RIGHT", "rad", false, false, Float64(pi), Float64(-pi), true, :yaw_right, L"\psi_{ri}", "yaw of the closest vehicle in right lane")
 function get( ::Feature_YAW_RIGHT, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
     get(INDRIGHT, basics, carind, validfind)
 	basics[(carind, validfind, :yaw_right)]
@@ -2152,7 +2152,7 @@ function _get(::Feature_FutureAcceleration_500ms, basics::FeatureExtractBasicsPd
 	NA_ALIAS
 end
 
-create_feature_basics( "FutureDesiredAngle_250ms", "rad", false, false, float64(π), -float64(π), true, :f_des_angle_250ms, L"\phi^{\text{des}}_{250ms}", "the inferred desired heading angle over the next quarter second")
+create_feature_basics( "FutureDesiredAngle_250ms", "rad", false, false, Float64(π), -Float64(π), true, :f_des_angle_250ms, L"\phi^{\text{des}}_{250ms}", "the inferred desired heading angle over the next quarter second")
 function _get(::Feature_FutureDesiredAngle_250ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	const lookahead = 5
@@ -2186,7 +2186,7 @@ function _get(::Feature_FutureDesiredAngle_250ms, basics::FeatureExtractBasicsPd
 	(futϕ - curϕ*ex) / (1.0 - ex)
 end
 
-create_feature_basics( "FutureDesiredAngle_500ms", "rad", false, false, float64(π), -float64(π), true, :f_des_angle_500ms, L"\phi^{\text{des}}_{500ms}", "the inferred desired heading angle over the next half second")
+create_feature_basics( "FutureDesiredAngle_500ms", "rad", false, false, Float64(π), -Float64(π), true, :f_des_angle_500ms, L"\phi^{\text{des}}_{500ms}", "the inferred desired heading angle over the next half second")
 function _get(::Feature_FutureDesiredAngle_500ms, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	const lookahead = 10
@@ -2314,7 +2314,7 @@ _get(::Feature_FutureAccelControl_500ms, pdset::PrimaryDataset, ::StreetNetwork,
 	_get_futureaccel_control(pdset, carind, validfind, 10)
 
 create_feature_basics( "ID", "-", true, false, Inf, -1.0, false, :id, L"\text{id}", "the corresponding carid, -1 for the ego car")
-get(::Feature_ID, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = float64(carind2id(basics.pdset, carind, validfind))
+get(::Feature_ID, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = Float64(carind2id(basics.pdset, carind, validfind))
 
 create_feature_basics( "LaneCurvature", "1/m", false, false, Inf, -Inf, false, :curvature, L"\kappa", "the local lane curvature")
 get(::Feature_LaneCurvature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :curvature, carind, validfind)::Float64
@@ -2544,7 +2544,7 @@ function _get(::Feature_Subset_Emergency, basics::FeatureExtractBasicsPdSet, car
 	retval = abs(a) > threshold_acc ||
 	         abs(ω) < threshold_turnrate
 
-	float64(retval)
+	Float64(retval)
 end
 
 create_feature_basics_boolean( "Subset_Free_Flow", false, :subset_free_flow, L"\mathcal{D}_\text{free}", "subset of data for free flow")
@@ -2559,7 +2559,7 @@ function _get(::Feature_Subset_Free_Flow, basics::FeatureExtractBasicsPdSet, car
 	retval =     ΔT > threshold_timegap_front ||
 	             dv > threshold_d_v_front
 
-	float64(retval)
+	Float64(retval)
 end
 
 create_feature_basics_boolean( "Subset_Car_Following", false, :subset_car_following, L"\mathcal{D}_\text{follow}", "subset of data for car following")
@@ -2587,7 +2587,7 @@ function _get(::Feature_Subset_Car_Following, basics::FeatureExtractBasicsPdSet,
 	retval =    !(ΔT > threshold_timegap_front ||
 	              dv > threshold_d_v_front)
 
-	float64(retval)
+	Float64(retval)
 end
 
 create_feature_basics_boolean( "Subset_Lane_Crossing", false, :subset_lane_crossing, L"\mathcal{D}_\text{crossing}", "subset of data near lane crossing")
@@ -2609,7 +2609,7 @@ function _get(::Feature_Subset_Lane_Crossing, basics::FeatureExtractBasicsPdSet,
 	retval = time_to_lane_change    < max_time_to_lane_change ||
 	         time_since_lane_change < max_time_since_lane_change
 
-	float64(retval)
+	Float64(retval)
 end
 
 create_feature_basics_boolean( "Subset_Sustained_Crossing", false, :subset_sustained_crossing, L"\mathcal{D}_\text{sustained}", "subset of data with a sustained lane crossing")
@@ -2625,7 +2625,7 @@ function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsP
 							max_time_since_lane_change = max_time_since_lane_change)
 
 	if isapprox(had_lane_crossing, 0.0)
-		return float64(false)
+		return Float64(false)
 	end
 
 	pdset = basics.pdset
@@ -2656,7 +2656,7 @@ function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsP
 	while dt < req_time_d_cl_threshold_met && carind_fut != -2
 		d_cl = get(pdset, :d_cl, carind_fut, frameind, vind)::Float64
 		if abs(d_cl) > min_abs_d_cl_at_extrema
-			return float64(false)
+			return Float64(false)
 		end
 
 		frameind += dir
@@ -2670,7 +2670,7 @@ function _get(::Feature_Subset_Sustained_Crossing, basics::FeatureExtractBasicsP
 		dt = abs(gete(pdset, :time, frameind)::Float64 - t)
 	end
 
-	float64(true)
+	Float64(true)
 end
 
 create_feature_basics_boolean( "Subset_At_SixtyFive", false, :subset_at_sixtyfive, L"\mathcal{D}_{v=65\text{mph}}", "subset of data where the car is close to 65 mph")
@@ -2679,18 +2679,18 @@ function _get(::Feature_Subset_At_SixtyFive, basics::FeatureExtractBasicsPdSet, 
 	)
 
 	V = get(SPEED, basics, carind, validfind)
-	float64(abs(V - SPEED_LIMIT) < speed_tolerance)
+	Float64(abs(V - SPEED_LIMIT) < speed_tolerance)
 end
 
 create_feature_basics_boolean( "Subset_Auto", false, :subset_auto, L"s_\text{auto}", "subset of data where the car is in autonomous mode")
 function _get(::Feature_Subset_Auto, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
 
 	if carind != CARIND_EGO
-		return float64(false)
+		return Float64(false)
 	end
 
 	status = gete_validfind(basics.pdset, :control_status, validfind)::Int
-	return float64(status == Trajdata.CONTROL_STATUS_AUTO)
+	return Float64(status == Trajdata.CONTROL_STATUS_AUTO)
 end
 
 immutable Feature_IsClean{target_symbol} <: AbstractFeature end
@@ -2730,7 +2730,7 @@ function is_pt_left_of_ray(x::Float64, y::Float64, rX::Float64, rY::Float64, rθ
 	is_pt_left_of_ray(x, y, rX, rY, rX + cos(rθ), rY + sin(rθ))
 end
 
-function replace_featuresymbols_in_string_with_latex(str::String)
+function replace_featuresymbols_in_string_with_latex(str::AbstractString)
 
 	strs = map(k->string(k), keys(sym2ftr))
 	lstr = map(f->lsymbol(f), values(sym2ftr))

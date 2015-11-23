@@ -10,28 +10,28 @@ using AutomotiveDrivingModels.Features
 include("../io/filesystem_utils.jl")
 
 export
-        CSVFileSet,
+    CSVFileSet,
 
-        FEATURES,
-        BEHAVIORS,
+    FEATURES,
+    BEHAVIORS,
 
-        get_validfind_regions,
-        merge_region_segments,
+    get_validfind_regions,
+    merge_region_segments,
 
-        gen_featureset_from_regions,
-        gen_featureset_from_validfinds,
-        extract_csvfile_set,
-        extract_csvfile_sets,
+    gen_featureset_from_regions,
+    gen_featureset_from_validfinds,
+    extract_csvfile_set,
+    extract_csvfile_sets,
 
-        does_violate_filter,
+    does_violate_filter,
 
-        create_dataframe_with_feature_columns
+    create_dataframe_with_feature_columns
 
 
 type CSVFileSet
     carid::Int
-    csvfile :: String
-    streetmapbasename :: String
+    csvfile :: AbstractString
+    streetmapbasename :: AbstractString
 
     lanechanges_normal    :: Vector{Int}
     lanechanges_postpass  :: Vector{Int}
@@ -241,8 +241,8 @@ end
 
 function extract_csvfile_set(
     carid::Integer,
-    csvfile::String,
-    streetmapbasename::String,
+    csvfile::AbstractString,
+    streetmapbasename::AbstractString,
     pdset::PrimaryDataset,
     sn::StreetNetwork,
     validfind_contains_carid::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
@@ -277,8 +277,8 @@ function extract_csvfile_set(
                              carfollow, freeflow)
 end
 function extract_csvfile_sets(
-    csvfile::String,
-    streetmapbasename::String,
+    csvfile::AbstractString,
+    streetmapbasename::AbstractString,
     pdset::PrimaryDataset,
     sn::StreetNetwork,
     )
@@ -311,8 +311,8 @@ function extract_csvfile_sets(
     retval
 end
 function extract_csvfile_sets(
-    csvfile::String,
-    streetmapbasename::String,
+    csvfile::AbstractString,
+    streetmapbasename::AbstractString,
     )
 
     pdset = load(joinpath(PRIMARYDATA_DIR, toext("primarydata_" * csvfile, "jld")))["pdset"]
@@ -320,7 +320,7 @@ function extract_csvfile_sets(
     extract_csvfile_sets(csvfile, streetmapbasename, pdset, sn)
 end
 
-function get_validfind_regions(behavior::String, csvfileset::CSVFileSet)
+function get_validfind_regions(behavior::AbstractString, csvfileset::CSVFileSet)
 
     # in(behavior, BEHAVIORS) || error("unknown behavior $behavior")
 
@@ -510,14 +510,14 @@ function gen_featureset_from_validfinds{F <: AbstractFeature, G <: AbstractFeatu
                 value = get(f, basics, carind, validfind)::Float64
                 df[row_index, symbol(f)] = value
             end
-            df[row_index, :validfind] = float64(validfind)
+            df[row_index, :validfind] = Float64(validfind)
         end
     end
 
     # NOTE(tim): drop any extra rows
     df[1:row_index,:]
 end
-# function replace_behavior_features_with_hand_labels!(df::DataFrame, behavior::String)
+# function replace_behavior_features_with_hand_labels!(df::DataFrame, behavior::AbstractString)
 #
 #     value_emergency      = 0.0
 #     value_freeflow       = 0.0
@@ -544,7 +544,7 @@ end
 #     df
 # end
 
-# function _get_streetnetwork(streetmapbasename::String, streetnet_cache::Dict{String, StreetNetwork})
+# function _get_streetnetwork(streetmapbasename::AbstractString, streetnet_cache::Dict{String, StreetNetwork})
 #     if !haskey(streetnet_cache, streetmapbasename)
 #         streetnet_cache[streetmapbasename] = load(STREETMAP_BASE*streetmapbasename*".jld")["streetmap"]
 #     end
@@ -576,7 +576,7 @@ end
 # end
 
 # function extract(
-#     behavior::String,
+#     behavior::AbstractString,
 #     validfinds::Vector{Int},
 #     pdset::PrimaryDataset,
 #     sn::StreetNetwork,
@@ -593,7 +593,7 @@ end
 # end
 # function extract(
 #     csvfileset::CSVFileSet,
-#     behavior::String,
+#     behavior::AbstractString,
 #     validfinds::Vector{Int},
 #     features::Vector{AbstractFeature}=FEATURES,
 #     streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
@@ -608,7 +608,7 @@ end
 #     extract(behavior, validfinds, pdset, sn, features, filters)
 # end
 # function extract(
-#     behavior::String,
+#     behavior::AbstractString,
 #     features::Vector{AbstractFeature}=FEATURES,
 #     streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
 #     filters::Vector{AbstractFeature}=AbstractFeature[],
@@ -661,9 +661,9 @@ end
 # end
 
 # function extract_and_save(
-#     output_name::String,
+#     output_name::AbstractString,
 #     csvfileset::CSVFileSet,
-#     featureset_name::String,
+#     featureset_name::AbstractString,
 #     validfinds::Vector{Int},
 #     features::Vector{AbstractFeature}=FEATURES,
 #     streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();
@@ -683,8 +683,8 @@ end
 #     featureset
 # end
 # function extract_and_save(
-#     output_name::String,
-#     featureset_name::String,
+#     output_name::AbstractString,
+#     featureset_name::AbstractString,
 #     f_regions::Function,
 #     features::Vector{AbstractFeature}=FEATURES,
 #     streetnet_cache::Dict{String, StreetNetwork}= Dict{String, StreetNetwork}();

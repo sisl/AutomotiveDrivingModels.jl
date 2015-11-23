@@ -55,14 +55,14 @@ end
 # ===================================================
 
 # primitives
-function render_text( 
-    ctx          :: CairoContext, 
-    text         :: String, 
-    x            :: Real, 
-    y            :: Real, 
-    fontsize     :: Real, 
-    color        :: Colorant, 
-    align_center :: Bool        = false, 
+function render_text(
+    ctx          :: CairoContext,
+    text         :: String,
+    x            :: Real,
+    y            :: Real,
+    fontsize     :: Real,
+    color        :: Colorant,
+    align_center :: Bool        = false,
     fontfamily   :: String      = "Sans" # ∈ "serif", "sans-serif", "cursive", "fantasy", "monospace"
     )
 
@@ -81,13 +81,13 @@ function render_text(
     show_text(ctx, text)
     restore(ctx)
 end
-function render_circle( 
-    ctx          :: CairoContext, 
-    x            :: Real, 
-    y            :: Real, 
-    radius       :: Real, 
-    color_fill   :: Colorant, 
-    color_stroke :: Colorant = color_fill, 
+function render_circle(
+    ctx          :: CairoContext,
+    x            :: Real,
+    y            :: Real,
+    radius       :: Real,
+    color_fill   :: Colorant,
+    color_stroke :: Colorant = color_fill,
     line_width   :: Real = 1.0
     )
 
@@ -105,15 +105,15 @@ function render_circle(
 
     restore(ctx)
 end
-function render_arc( 
-    ctx          :: CairoContext, 
+function render_arc(
+    ctx          :: CairoContext,
     x            :: Real,
-    y            :: Real, 
-    radius       :: Real, 
-    start_ang    :: Real, 
-    end_ang      :: Real, 
-    color_fill   :: Colorant, 
-    color_stroke :: Colorant = color_fill, 
+    y            :: Real,
+    radius       :: Real,
+    start_ang    :: Real,
+    end_ang      :: Real,
+    color_fill   :: Colorant,
+    color_stroke :: Colorant = color_fill,
     line_width   :: Real = 1.0
     )
 
@@ -133,18 +133,18 @@ function render_arc(
 
     restore(ctx)
 end
-function render_round_rect( 
-    ctx           :: CairoContext, 
-    x             :: Real, 
-    y             :: Real, 
-    width         :: Real, 
-    height        :: Real, 
-    aspect        :: Real, 
-    corner_radius :: Real, 
-    color_fill    :: Colorant, 
-    ffill         :: Bool        = false, 
-    fstroke       :: Bool        = true, 
-    color_stroke  :: Colorant    = color_fill, 
+function render_round_rect(
+    ctx           :: CairoContext,
+    x             :: Real,
+    y             :: Real,
+    width         :: Real,
+    height        :: Real,
+    aspect        :: Real,
+    corner_radius :: Real,
+    color_fill    :: Colorant,
+    ffill         :: Bool        = false,
+    fstroke       :: Bool        = true,
+    color_stroke  :: Colorant    = color_fill,
     line_width    :: Real        = 2.0
     )
     # (x,y) are the center of the rectangle
@@ -175,8 +175,8 @@ function render_round_rect(
 
     restore(ctx)
 end
-function render_car( 
-    ctx           :: CairoContext, 
+function render_car(
+    ctx           :: CairoContext,
     x             :: Real, # center of vehicle [m]
     y             :: Real, # center of vehicle [m]
     yaw           :: Real, # counterclockwise [rad]
@@ -223,11 +223,11 @@ function render_car(
 
     restore(ctx)
 end
-function render_vehicle( 
-    ctx           :: CairoContext, 
-    x             :: Real, 
-    y             :: Real, 
-    yaw           :: Real, 
+function render_vehicle(
+    ctx           :: CairoContext,
+    x             :: Real,
+    y             :: Real,
+    yaw           :: Real,
     length        :: Real,
     width         :: Real,
     color_fill    :: Colorant,
@@ -274,10 +274,10 @@ function render_vehicle(
 end
 
 # aggregate
-function render_point_trail{T<:Real}( 
-    ctx           :: CairoContext, 
+function render_point_trail{T<:Real}(
+    ctx           :: CairoContext,
     pts           :: Matrix{T}, # 2×n
-    color         :: Colorant, 
+    color         :: Colorant,
     circle_radius :: Real = 0.25 )
 
     save(ctx)
@@ -291,11 +291,11 @@ function render_point_trail{T<:Real}(
 
     restore(ctx)
 end
-function render_line{T<:Real}( 
+function render_line{T<:Real}(
     ctx        :: CairoContext,
     pts        :: Matrix{T}, # 2×n
-    color      :: Colorant, 
-    line_width :: Real = 1.0 
+    color      :: Colorant,
+    line_width :: Real = 1.0
     )
 
     line_width = user_to_device_distance!(ctx, [line_width,0])[1]
@@ -312,10 +312,10 @@ function render_line{T<:Real}(
     stroke(ctx)
     restore(ctx)
 end
-function render_dashed_line{T<:Real}( 
-    ctx          :: CairoContext, 
+function render_dashed_line{T<:Real}(
+    ctx          :: CairoContext,
     pts          :: Matrix{T}, # 2×n
-    color        :: Colorant, 
+    color        :: Colorant,
     line_width_in   :: Real = 1.0,
     dash_length_in  :: Real = 1.0,
     dash_spacing_in :: Real = 1.0,
@@ -341,15 +341,15 @@ function render_dashed_line{T<:Real}(
     stroke(ctx)
     restore(ctx)
 end
-function render_dashed_arc( 
-    ctx          :: CairoContext, 
+function render_dashed_arc(
+    ctx          :: CairoContext,
     x            :: Real,
-    y            :: Real, 
-    radius       :: Real, 
-    start_ang    :: Real, 
-    end_ang      :: Real, 
-    color_fill   :: Colorant, 
-    color_stroke :: Colorant   = color_fill, 
+    y            :: Real,
+    radius       :: Real,
+    start_ang    :: Real,
+    end_ang      :: Real,
+    color_fill   :: Colorant,
+    color_stroke :: Colorant   = color_fill,
     line_width_in   :: Real = 1.0,
     dash_length_in  :: Real = 1.0,
     dash_spacing_in :: Real = 1.0,
@@ -378,15 +378,15 @@ function render_dashed_arc(
 
     restore(ctx)
 end
-function render_arrow{T<:Real}( 
-    ctx               :: CairoContext, 
+function render_arrow{T<:Real}(
+    ctx               :: CairoContext,
     pts               :: Matrix{T}, # 2×n
     color             :: Colorant,
     line_width        :: Real,
     arrowhead_len     :: Real;
-    ARROW_WIDTH_RATIO :: FloatingPoint = 0.8,
-    ARROW_ALPHA       :: FloatingPoint = 0.1pi,
-    ARROW_BETA        :: FloatingPoint = 0.8pi
+    ARROW_WIDTH_RATIO :: AbstractFloat = 0.8,
+    ARROW_ALPHA       :: AbstractFloat = 0.1pi,
+    ARROW_BETA        :: AbstractFloat = 0.8pi
     )
 
     @assert(size(pts,2) > 1)
@@ -405,7 +405,7 @@ function render_arrow{T<:Real}(
     stroke(ctx)
 
     # orientation of the arrowhead
-    theta = atan2(pts[2,end]-pts[2,end-1], pts[1,end]-pts[1,end-1]) 
+    theta = atan2(pts[2,end]-pts[2,end-1], pts[1,end]-pts[1,end-1])
 
     arrowhead_width = arrowhead_len * ARROW_WIDTH_RATIO
     whatev =    pi - ARROW_BETA
@@ -418,7 +418,7 @@ function render_arrow{T<:Real}(
 
     # render the arrowhead
     O = pts[:,end] # origin, center of the arrowhead
-    A = O + R * [ arrowhead_len/2 0]' 
+    A = O + R * [ arrowhead_len/2 0]'
     B = O + R * [-arrowhead_len/2 0]'
     C = O + R * [-arrowhead_len/2-len_prime  arrowhead_width/2]'
     D = O + R * [-arrowhead_len/2-len_prime -arrowhead_width/2]'
@@ -475,7 +475,7 @@ function render_colormesh{T<:Real, S<:Real, U<:Real}(
     C::Matrix{T}, # n×m matrix of 0->1 values
     X::Vector{S}, # n+1 vector of x bin boundaries
     Y::Vector{U}, # m+1 vector of y bin boundaries
-    color₀::Colorant, # color for c = 0 
+    color₀::Colorant, # color for c = 0
     color₁::Colorant, # color for c = 1
     )
 
@@ -514,12 +514,12 @@ function add_instruction!(rm::RenderModel, f::Function, arr::Tuple; incamerafram
 
     #=
     Add an instruction to the rendermodel
-    
+
     INPUT:
         rendermodel   - the RenderModel we are adding the instruction to
         f             - the function to be called, the first argument must be a CairoContext
         arr           - tuple of input arguments to f, skipping the CairoContext
-        incameraframe - we render in the camera frame by default. 
+        incameraframe - we render in the camera frame by default.
                         To render in the canvas frame (common with text) set this to false
 
     ex: add_instruction!(rendermodel, render_text, ("hello world", 10, 20, 15, [1.0,1.0,1.0]))
@@ -565,9 +565,9 @@ function clear_setup!(rm::RenderModel)
     camera_reset!(rm)
     rm
 end
-function camera_fit_to_content!( 
+function camera_fit_to_content!(
     rendermodel    :: RenderModel,
-    canvas_width   :: Integer, 
+    canvas_width   :: Integer,
     canvas_height  :: Integer;
     percent_border :: Real = 0.1 # amount of extra border we add
     )
@@ -642,7 +642,7 @@ function camera_fit_to_content!(
         half_diff =  (world_width * canvas_aspect - world_height) / 2
         world_height = world_width * canvas_aspect # [m]
         ymax += half_diff
-        ymin -= half_diff 
+        ymin -= half_diff
     else
         # expand width to fit
         half_diff = (canvas_aspect * world_height - world_width) / 2
@@ -684,7 +684,7 @@ function render(rendermodel::RenderModel, ctx::CairoContext, canvas_width::Integ
         func = tup[1]
         content = tup[2]
         incameraframe = tup[3]
-        
+
         if !incameraframe
             save(ctx)
             reset_transform(ctx)
@@ -732,7 +732,7 @@ function set_source_rgba(ctx::CairoContext, color::TransparentColor)
     set_source_rgba(ctx, r, g, b, a)
 end
 function set_source_rgba(ctx::CairoContext, color₀::Colorant, color₁::Colorant, t::Real)
-    
+
     r₀ = convert(Float64, red(color₀))
     g₀ = convert(Float64, green(color₀))
     b₀ = convert(Float64, blue(color₀))

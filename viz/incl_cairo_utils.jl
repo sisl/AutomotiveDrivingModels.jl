@@ -236,7 +236,7 @@ function render_streetnet_segments!(
     rm::RenderModel,
     sn::StreetNetwork;
     line_width::Real = 0.1,
-    seed::Uint=zero(Uint)
+    seed::UInt=zero(UInt)
     )
 
     srand(seed)
@@ -256,7 +256,7 @@ function render_streetnet_lanes!(
     rm::RenderModel,
     sn::StreetNetwork;
     line_width :: Real = 0.1,
-    seed::Uint=zero(Uint)
+    seed::UInt=zero(UInt)
     )
 
     srand(seed)
@@ -512,7 +512,7 @@ function render_streetnet_curve_headings!(
     sn::StreetNetwork;
     color :: Colorant = RGB(0xCC, 0x44, 0x44),
     dist::Real=0.1,
-    seed::Uint=zero(Uint)
+    seed::UInt=zero(UInt)
     )
 
     color2 = RGB(0xCC, 0x88, 0x88)

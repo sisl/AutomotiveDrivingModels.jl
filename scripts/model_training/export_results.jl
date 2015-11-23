@@ -49,7 +49,7 @@ function _grab_score_and_confidence{B<:BehaviorMetric}(
 
     (μ, Δ)
 end
-function _convert_to_short_name(name::String)
+function _convert_to_short_name(name::AbstractString)
     retval = ""
     for word in split(name)
         retval *= string(uppercase(word[1]))

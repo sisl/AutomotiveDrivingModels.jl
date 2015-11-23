@@ -33,7 +33,7 @@ Base.(:(*))(b::Real, a::VecE2) = VecE2(a.x*b, a.y*b)
 Base.(:(/))(a::VecE2, b::Real) = VecE2(a.x/b, a.y/b)
 
 Base.(:(^))(a::VecE2, b::Integer) = VecE2(a.x^b, a.y^b)
-Base.(:(^))(a::VecE2, b::FloatingPoint) = VecE2(a.x^b, a.y^b)
+Base.(:(^))(a::VecE2, b::AbstractFloat) = VecE2(a.x^b, a.y^b)
 
 Base.(:(%))(a::VecE2, b::Real) = VecE2(a.x%b, a.y%b)
 
@@ -68,7 +68,7 @@ Base.dot(a::VecE2, b::VecE2) = a.x*b.x + a.y*b.y
 proj(a::VecE2, b::VecE2, ::Type{Float64}) = (a.x*b.x + a.y*b.y) / hypot(b.x, b.y) # dot(a,b) / |b|
 function proj(a::VecE2, b::VecE2, ::Type{VecE2})
     # dot(a,b) / dot(b,b) ⋅ b
-    s = (a.x*b.x + a.y*b.y) / (b.x*b.x + b.y*b.y) 
+    s = (a.x*b.x + a.y*b.y) / (b.x*b.x + b.y*b.y)
     VecE2(s*b.x, s*b.y)
 end
 
