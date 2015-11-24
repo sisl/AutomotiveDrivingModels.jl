@@ -53,6 +53,7 @@ type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
         new(indicators, ridge_regression_constant)
     end
 end
+
 type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     
     # TODO(tim): use this
@@ -62,7 +63,6 @@ type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     end
 end
 function preallocate_learning_data(
-    ::Type{VehicleBehaviorLinearGaussian},
     dset::ModelTrainingData,
     params::LG_TrainParams)
     
@@ -288,7 +288,6 @@ function train(::Type{VehicleBehaviorLinearGaussian}, trainingframes::DataFrame;
     VehicleBehaviorLinearGaussian(indicators[best_predictor_index], best_A, best_μ∞, N)
 end
 function train(
-    ::Type{VehicleBehaviorLinearGaussian},
     training_data::ModelTrainingData,
     preallocated_data::LG_PreallocatedData,
     params::LG_TrainParams,

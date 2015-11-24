@@ -21,6 +21,7 @@ end
 type SG_TrainParams <: AbstractVehicleBehaviorTrainParams
     SG_TrainParams() = new()
 end
+
 type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     
     # TODO(tim): use this
@@ -28,7 +29,6 @@ type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     SG_PreallocatedData(dset::ModelTrainingData, params::SG_TrainParams) = new()
 end
 function preallocate_learning_data(
-    ::Type{VehicleBehaviorGaussian},
     dset::ModelTrainingData,
     params::SG_TrainParams)
     
@@ -109,7 +109,6 @@ function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args:
     VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
 end
 function train(
-    ::Type{VehicleBehaviorGaussian},
     training_data::ModelTrainingData,
     preallocated_data::SG_PreallocatedData,
     params::SG_TrainParams,

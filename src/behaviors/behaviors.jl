@@ -5,9 +5,11 @@
 # define behavior for a given vehicle in the scene
 
 export  AbstractVehicleBehavior,
-        VehicleBehaviorPreallocatedData,
-        VehicleBehaviorTrainParams,
+        AbstractVehicleBehaviorTrainParams,
+        AbstractVehicleBehaviorPreallocatedData,
         ModelTargets,
+        BehaviorParameter,
+        BehaviorParameterSet,
 
         select_action,
         calc_action_loglikelihood,
@@ -15,6 +17,7 @@ export  AbstractVehicleBehavior,
         train,
         trains_with_nona,
 
+        create_train_params,
         preallocate_learning_data,
 
         VehicleBehaviorNone,
@@ -22,7 +25,30 @@ export  AbstractVehicleBehavior,
 
 
 abstract AbstractVehicleBehavior
-abstract AbstractVehicleBehaviorTrainParams # paramters defined for training the model
+
+###############################################################
+
+type BehaviorParameter
+    sym::Symbol # symbol of the associated field
+    range::AbstractVector # set of values that the param can take on
+    index_of_default::Int # index of the default value
+
+    function BehaviorParameter(sym::Symbol, range::AbstractVector, index_of_default::Int=1)
+        @assert(!isempty(range))
+        @assert(index_of_default > 0)
+        @assert(index_of_default ≤ length(range))
+        new(sym, range, index_of_default)
+    end
+end
+
+###############################################################
+#=
+    VehicleBehaviorTrainParams
+
+    Structure containing the training params for the model
+=#
+
+abstract AbstractVehicleBehaviorTrainParams # parameters defined for training the model
 
 ###############################################################
 #=
@@ -33,8 +59,7 @@ abstract AbstractVehicleBehaviorTrainParams # paramters defined for training the
 =#
 
 abstract AbstractVehicleBehaviorPreallocatedData
-
-preallocate_learning_data{B<:AbstractVehicleBehavior}(::Type{B}, dset::ModelTrainingData, params::AbstractVehicleBehaviorTrainParams) = error("preallocate_learning_data not implemented for $B")
+preallocate_learning_data(dset::ModelTrainingData, params::AbstractVehicleBehaviorTrainParams) = error("preallocate_learning_data not implemented for ")
 
 ###############################################################
 
@@ -59,15 +84,14 @@ end
 trains_with_nona(::AbstractVehicleBehavior) = true
 trains_with_nona{B<:AbstractVehicleBehavior}(::Type{B}) = true
 train{B<:AbstractVehicleBehavior}(::Type{B}, ::DataFrame) = error("train not implemented for $B")
-train{B<:AbstractVehicleBehavior}(
-    ::Type{B},
+train(
     ::ModelTrainingData,
-    ::AbstractVehicleBehaviorPreallocatedData,
-    ::AbstractVehicleBehaviorTrainParams,
+    a::AbstractVehicleBehaviorPreallocatedData,
+    b::AbstractVehicleBehaviorTrainParams,
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool,
-    ) =  error("train not implemented for $B")
+    ) =  error("train not implemented for $(typeof(a)) and $(typeof(b))")
 
 ###############################################################
 

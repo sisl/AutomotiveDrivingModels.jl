@@ -127,17 +127,17 @@ dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
 
 split_drives = get_fold_assignment_across_drives(dset)
 
-model_type = DynamicBayesianNetworkBehavior
-params = BN_TrainParams(
-  indicators = INDICATOR_SET,
-  preoptimize_target_bins = true,
-  preoptimize_indicator_bins = true,
-  optimize_structure = true,
-  optimize_target_bins = false,
-  optimize_parent_bins = false,
-  ncandidate_bins = 7,
-  max_parents = 5
-)
+# model_type = DynamicBayesianNetworkBehavior
+# params = BN_TrainParams(
+#   indicators = INDICATOR_SET,
+#   preoptimize_target_bins = true,
+#   preoptimize_indicator_bins = true,
+#   optimize_structure = true,
+#   optimize_target_bins = false,
+#   optimize_parent_bins = false,
+#   ncandidate_bins = 7,
+#   max_parents = 5
+# )
 
 # model_type = GindeleRandomForestBehavior
 # params = GRF_TrainParams(indicators=INDICATOR_SET)
@@ -145,8 +145,8 @@ params = BN_TrainParams(
 # model_type = DynamicForestBehavior
 # params = DF_TrainParams(indicators=INDICATOR_SET)
 
-model_type = GMRBehavior
-params = GMR_TrainParams(indicators=INDICATOR_SET)
+# model_type = GMRBehavior
+# params = GMR_TrainParams(indicators=INDICATOR_SET)
 
 # model_type = VehicleBehaviorLinearGaussian
 # params = LG_TrainParams(indicators=INDICATOR_SET)
@@ -154,9 +154,31 @@ params = GMR_TrainParams(indicators=INDICATOR_SET)
 # model_type = VehicleBehaviorGaussian
 # params = SG_TrainParams()
 
+# model_name = "Static Gaussian"
+# model_name = "Linear Gaussian"
+# model_name = "Random Forest"
+model_name = "Dynamic Forest"
+# model_name = "Mixture Regression"
+# model_name = "Bayesian Network"
+trainparams = model_trainparams[model_name]
+hyperparams = model_hyperparams[model_name]
+
 
 fold = 1
-preallocated_data = preallocate_learning_data(model_type, dset, params)
+preallocated_data = preallocate_learning_data(dset, trainparams)
+
+tic()
+AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent(
+                                dset,
+                                preallocated_data,
+                                trainparams,
+                                split_drives,
+                                hyperparams
+                                )
+toc()
+
+println("woo")
+exit()
 
 tic()
 train(model_type, dset, preallocated_data, params, fold, split_drives, false)
