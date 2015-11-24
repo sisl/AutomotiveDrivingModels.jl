@@ -6,6 +6,7 @@
 
 export  AbstractVehicleBehavior,
         VehicleBehaviorPreallocatedData,
+        VehicleBehaviorTrainParams,
         ModelTargets,
 
         select_action,
@@ -19,7 +20,8 @@ export  AbstractVehicleBehavior,
 
 
 abstract AbstractVehicleBehavior
-abstract VehicleBehaviorPreallocatedData
+abstract AbstractVehicleBehaviorPreallocatedData # preallocated learning data for the model
+abstract AbstractVehicleBehaviorTrainParams # paramters defined for training the model
 
 type ModelTargets
     lat :: AbstractFeature
@@ -42,6 +44,15 @@ end
 trains_with_nona(::AbstractVehicleBehavior) = true
 trains_with_nona{B<:AbstractVehicleBehavior}(::Type{B}) = true
 train{B<:AbstractVehicleBehavior}(::Type{B}, ::DataFrame) = error("train not implemented for $B")
+train{B<:AbstractVehicleBehavior}(
+    ::Type{B},
+    ::ModelTrainingData,
+    ::AbstractVehicleBehaviorPreallocatedData,
+    ::AbstractVehicleBehaviorTrainParams,
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    match_fold::Bool,
+    ) =  error("train not implemented for $B")
 
 ###############################################################
 

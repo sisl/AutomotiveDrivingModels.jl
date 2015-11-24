@@ -1,5 +1,5 @@
 behaviorset = BehaviorSet()
-model_param_sets = Dict{String, BehaviorParameterSet}()
+model_param_sets = Dict{AbstractString, BehaviorParameterSet}()
 
 add_behavior!(behaviorset, VehicleBehaviorGaussian, "Static Gaussian")
 model_param_sets["Static Gaussian"] = BehaviorParameterSet()
@@ -7,7 +7,7 @@ model_param_sets["Static Gaussian"] = BehaviorParameterSet()
 add_behavior!(behaviorset, VehicleBehaviorLinearGaussian, "Linear Gaussian")
 model_param_sets["Linear Gaussian"] = BehaviorParameterSet(
     convert(Vector{Tuple{Symbol,Any}}, [(:indicators,INDICATOR_SET)]),
-    [BehaviorParameter(:ridge_regression_constant, linspace(0.0,1.0,20), 5)]
+    [BehaviorParameter(:ridge_regression_constant, collect(linspace(0.0,1.0,20)), 5)]
     )
 
 add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")

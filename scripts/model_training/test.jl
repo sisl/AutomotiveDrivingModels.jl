@@ -127,20 +127,21 @@ dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
 
 split_drives = get_fold_assignment_across_drives(dset)
 
-args = Dict{Symbol,Any}()
-args[:indicators] = INDICATOR_SET
-args[:preoptimize_target_bins] = true
-args[:preoptimize_parent_bins] = true
-args[:optimize_structure] = true
-args[:optimize_target_bins] = false
-args[:optimize_parent_bins] = false
-args[:ncandidate_bins] = 7
-args[:max_parents] = 5
+params = BN_TrainParams(
+  indicators = INDICATOR_SET,
+  preoptimize_target_bins = true,
+  preoptimize_indicator_bins = true,
+  optimize_structure = true,
+  optimize_target_bins = false,
+  optimize_parent_bins = false,
+  ncandidate_bins = 7,
+  max_parents = 5
+)
 
-preallocated_data = ModelPreallocatedData(dset, args)
 fold = 1
+preallocated_data = BN_PreallocatedData(dset, params)
 tic()
-train(DynamicBayesianNetworkBehavior, dset, fold, split_drives, false, preallocated_data, args=args)
+train(DynamicBayesianNetworkBehavior, dset, preallocated_data, params, fold, split_drives, false)
 toc()
 
 # println("DONE")
