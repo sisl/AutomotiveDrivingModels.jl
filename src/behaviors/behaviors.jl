@@ -15,13 +15,28 @@ export  AbstractVehicleBehavior,
         train,
         trains_with_nona,
 
+        preallocate_learning_data,
+
         VehicleBehaviorNone,
         VEHICLE_BEHAVIOR_NONE
 
 
 abstract AbstractVehicleBehavior
-abstract AbstractVehicleBehaviorPreallocatedData # preallocated learning data for the model
 abstract AbstractVehicleBehaviorTrainParams # paramters defined for training the model
+
+###############################################################
+#=
+    AbstractVehicleBehaviorPreallocatedData
+    
+    Preallocated learning data for the model
+    Each behavior model should implement preallocate_learning_data()
+=#
+
+abstract AbstractVehicleBehaviorPreallocatedData
+
+preallocate_learning_data{B<:AbstractVehicleBehavior}(::Type{B}, dset::ModelTrainingData, params::AbstractVehicleBehaviorTrainParams) = error("preallocate_learning_data not implemented for $B")
+
+###############################################################
 
 type ModelTargets
     lat :: AbstractFeature

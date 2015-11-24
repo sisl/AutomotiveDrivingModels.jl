@@ -127,6 +127,7 @@ dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
 
 split_drives = get_fold_assignment_across_drives(dset)
 
+model_type = DynamicBayesianNetworkBehavior
 params = BN_TrainParams(
   indicators = INDICATOR_SET,
   preoptimize_target_bins = true,
@@ -138,12 +139,28 @@ params = BN_TrainParams(
   max_parents = 5
 )
 
+# model_type = GindeleRandomForestBehavior
+# params = GRF_TrainParams(indicators=INDICATOR_SET)
+
+# model_type = DynamicForestBehavior
+# params = DF_TrainParams(indicators=INDICATOR_SET)
+
+model_type = GMRBehavior
+params = GMR_TrainParams(indicators=INDICATOR_SET)
+
+# model_type = VehicleBehaviorLinearGaussian
+# params = LG_TrainParams(indicators=INDICATOR_SET)
+
+# model_type = VehicleBehaviorGaussian
+# params = SG_TrainParams()
+
+
 fold = 1
-preallocated_data = BN_PreallocatedData(dset, params)
+preallocated_data = preallocate_learning_data(model_type, dset, params)
+
 tic()
-train(DynamicBayesianNetworkBehavior, dset, preallocated_data, params, fold, split_drives, false)
+train(model_type, dset, preallocated_data, params, fold, split_drives, false)
 toc()
 
-# println("DONE")
 println("DONE")
 exit()
