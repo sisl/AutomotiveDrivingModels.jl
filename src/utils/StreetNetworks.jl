@@ -161,7 +161,7 @@ Base.convert(::Type{LaneID}, tag::LaneTag) = LaneID(tag.segment, tag.lane)
 
 immutable TilePoint2DProjectionResult
 	successful :: Bool       # whether the projection was successful
-	footpoint    :: CurvePt  # the closest point on the curve
+	footpoint  :: CurvePt  # the closest point on the curve
 	extind     :: Float64    # the extind on the curve
 	lane       :: StreetLane # the corresponding lane
 	sqdist     :: Float64    # square distance to the curve
@@ -257,7 +257,7 @@ function ll2utm( lat::Real, lon::Real, zone::Integer=-1; map_datum::Symbol=:WGS_
 
 	const ko = 0.9996   # central scale factor
 
-	zone_centers = -177.0*pi/180 + 6.0*pi/180*[0:59] # longitudes of the zone centers
+	zone_centers = -177.0*pi/180 + 6.0*pi/180*collect(0:59) # longitudes of the zone centers
 	if zone == -1
 		zone = indmin(map(x->abs(lon - x), zone_centers)) # index of min zone center
 	end
@@ -303,8 +303,8 @@ end
 # TODO(tim): move to a utility file
 _signed_dist_btw_angles(a::Real, b::Real) = atan2(sin(b-a), cos(b-a))
 
-utm2tileindex_east(utm_easting::Real) = int(round((utm_easting  - EASTING_BASE)  / TILE_WIDTH))
-utm2tileindex_north(utm_northing::Real) = int(round((utm_northing - NORTHING_BASE) / TILE_HEIGHT))
+utm2tileindex_east(utm_easting::Real) = round(Int, (utm_easting  - EASTING_BASE)  / TILE_WIDTH, RoundNearestTiesUp)
+utm2tileindex_north(utm_northing::Real) = round(Int, (utm_northing - NORTHING_BASE) / TILE_HEIGHT, RoundNearestTiesUp)
 utm2tileindex(utm_easting::Real, utm_northing::Real) = (utm2tileindex_east(utm_easting), utm2tileindex_north(utm_northing))
 
 tile_center_north(index_n::Integer)     =  index_n      * TILE_HEIGHT + NORTHING_BASE
@@ -1266,7 +1266,7 @@ function rndf2streetnetwork(
 			# to build the path
 			root_bot = 1 # [index in ids]
 			root_top = 1 # [index in ids]
-			ids_yet_to_take = Set([2:length(ids)])
+			ids_yet_to_take = Set(collect(2:length(ids)))
 			new_order = Int[1]
 			while !isempty(ids_yet_to_take)
 				closest_node_to_bot = -1 # index in ids
@@ -1377,7 +1377,7 @@ function rndf2streetnetwork(
 													node_e, node_n = utm2tileindex(node.pos.x, node.pos.y)
 													return (index_e != node_e) || (index_n != node_n)
 												end,
-											[(first_node_laneindex+1) : n_pts_in_lane])
+											(first_node_laneindex+1) : n_pts_in_lane)
 
 				if final_node_laneindex == 0
 					final_node_laneindex = n_pts_in_lane
@@ -1402,7 +1402,7 @@ function rndf2streetnetwork(
 					if dist(nodes[end], sn.nodes[streetlane.node_indeces[1]]) < dist(sn.nodes[streetlane.node_indeces[end]], nodes[1])
 						streetlane.node_indeces = [node_indeces, streetlane.node_indeces]
 					else
-						streetlane.node_indeces = [streetlane.node_indeces, node_indeces]
+						streetlane.node_indeces = [streetlane.node_indeces; node_indeces]
 					end
 				else
 					width = isnan(lane.width) ? DEFAULT_LANE_WIDTH : lane.width*METERS_PER_FOOT
@@ -1726,8 +1726,8 @@ function _calc_num_lanes_on_side(sn::StreetNetwork, center_tile::NetworkTile, no
 	const DIST_DISCRETIZATION = linspace(LANE_SEP_MIN/2, LANE_SEP_MAX/2, N_DIST_DISCRETIZATIONS)
 
 	node = sn.nodes[node_index]
-	seg_id = int(node.id.segment)
-	lane_id = int(node.id.lane)
+	seg_id = convert(Int, node.id.segment)
+	lane_id = convert(Int, node.id.lane)
 	current_lanetag = LaneTag(center_tile.index_e, center_tile.index_n, seg_id, lane_id)
 
 	x, y = node.pos.x, node.pos.y
@@ -1848,7 +1848,7 @@ function curves2rndf(curves::CurveSet; node_separation::Real=5.0)
 		s_last = curve.s[1]
 		waypoint_count = 1
 
-		for j = 2 : int(length(curve))
+		for j = 2 : length(curve)::Int
 			if (curve.s[j] - s_last > node_separation) || j == length(curve)
 				waypoint_count += 1
 				lane.waypoints[waypoint_count] = RoadNetwork.LatLonAlt(curve.x[j], curve.y[j])

@@ -101,7 +101,7 @@ function load(filename::AbstractString)
 	lanes = unique(lane_arr)
 
 	# ensure lanes 0 -> max all exist
-	@assert( isempty(setdiff(lanes, [0:maximum(lanes)])) )
+	@assert( isempty(setdiff(lanes, collect(0:maximum(lanes)))) )
 
 	retval = Array(Curve, maximum(lanes+1))
 	for laneid = 0 : maximum(lanes)
@@ -130,11 +130,11 @@ function fit_curve(
 	spline_coeffs = fit_cubic_spline(pts)
 
 	L = calc_curve_length(spline_coeffs[1], spline_coeffs[2], n_intervals_per_segment=n_intervals_in_arclen)
-	n = int(round(L/desired_distance_between_samples))+1
+	n = round(Int, L/desired_distance_between_samples, RoundNearestTiesUp)+1
 
 	# println(spline_coeffs)
 
-	s_arr = linspace(0.0,L,n)
+	s_arr = collect(linspace(0.0,L,n))
 	t_arr = calc_curve_param_given_arclen(spline_coeffs[1], spline_coeffs[2], s_arr,
 		curve_length=L, max_iterations=max_iterations, epsilon=epsilon, n_intervals_in_arclen=n_intervals_in_arclen)
 
@@ -168,7 +168,7 @@ function curve_at( curve::Curve, extind::Float64 )
 
 	@assert( extind >= 1.0 && extind <= length(curve) )
 
-	ind_lo = ifloor(extind)
+	ind_lo = floor(Int, extind)
 	t      = extind - ind_lo
 	p_lo   = curve_at(curve, ind_lo)
 
@@ -288,7 +288,7 @@ function closest_point_extind_to_curve( curve::Curve, x::Real, y::Real )
 end
 function closest_point_extind_to_curve_guess( curve::Curve, x::Real, y::Real, extind_guess::Real )
 
-	ind = closest_point_ind_to_curve_guess(curve, x, y, int(extind_guess))
+	ind = closest_point_ind_to_curve_guess(curve, x, y, convert(Int, extind_guess))
 
 	pt = VecE2(x, y)
 

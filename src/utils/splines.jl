@@ -172,7 +172,7 @@ function sample_spline(spline_coeffs::AbstractMatrix{Float64}, t::Float64)
 	# for t ∈ [1,2] we use spline_coeffs[:,2]
 	# etc.
 	@assert(size(spline_coeffs, 1) == 4)
-	col_ind = clamp(ceil(t), 1, size(spline_coeffs,2))
+	col_ind = clamp(ceil(Int, t), 1, size(spline_coeffs,2))
 	sample_spline(spline_coeffs[:,col_ind], t-col_ind+1)
 end
 function sample_spline(spline_coeffs::AbstractVector{Float64}, t_arr::AbstractVector{Float64})
@@ -196,7 +196,7 @@ function sample_spline(spline_coeffs::AbstractMatrix{Float64}, t_arr::AbstractVe
 	@assert(size(spline_coeffs, 1) == 4)
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, size(spline_coeffs,2))
+		col_ind = clamp(ceil(Int, t), 1, size(spline_coeffs,2))
 		retval[i] = sample_spline(spline_coeffs[:,col_ind], t-col_ind+1)
 	end
 	retval
@@ -211,7 +211,7 @@ function sample_spline_derivative(spline_coeffs::AbstractMatrix{Float64}, t::Flo
 	# for t ∈ [1,2] we use spline_coeffs[:,2]
 	# etc.
 	@assert(size(spline_coeffs, 1) == 4)
-	col_ind = clamp(ceil(t), 1, size(spline_coeffs,2))
+	col_ind = clamp(ceil(Int, t), 1, size(spline_coeffs,2))
 	sample_spline_derivative(spline_coeffs[:,col_ind], t-col_ind+1)
 end
 function sample_spline_derivative(spline_coeffs::AbstractVector{Float64}, t_arr::AbstractVector{Float64})
@@ -234,7 +234,7 @@ function sample_spline_derivative(spline_coeffs::AbstractMatrix{Float64}, t_arr:
 	@assert(size(spline_coeffs, 1) == 4)
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, size(spline_coeffs,2))
+		col_ind = clamp(ceil(Int, t), 1, size(spline_coeffs,2))
 		retval[i] = sample_spline_derivative(spline_coeffs[:,col_ind], t-col_ind+1)
 	end
 	retval
@@ -249,7 +249,7 @@ function sample_spline_derivative2(spline_coeffs::AbstractMatrix{Float64}, t::Fl
 	# for t ∈ [1,2] we use spline_coeffs[:,2]
 	# etc.
 	@assert(size(spline_coeffs, 1) == 4)
-	col_ind = clamp(ceil(t), 1, size(spline_coeffs,2))
+	col_ind = clamp(ceil(Int, t), 1, size(spline_coeffs,2))
 	sample_spline_derivative2(spline_coeffs[:,col_ind], t-col_ind+1)
 end
 function sample_spline_derivative2(spline_coeffs::AbstractVector{Float64}, t_arr::AbstractVector{Float64})
@@ -272,7 +272,7 @@ function sample_spline_derivative2(spline_coeffs::AbstractMatrix{Float64}, t_arr
 	@assert(size(spline_coeffs, 1) == 4)
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, size(spline_coeffs,2))
+		col_ind = clamp(ceil(Int, t), 1, size(spline_coeffs,2))
 		retval[i] = sample_spline_derivative2(spline_coeffs[:,col_ind], t-col_ind+1)
 	end
 	retval
@@ -291,7 +291,7 @@ function sample_spline_speed(spline_coeffs_x::AbstractMatrix{Float64}, spline_co
 	@assert(size(spline_coeffs_x, 1) == 4)
 	@assert(size(spline_coeffs_y, 1) == 4)
 	@assert(n == size(spline_coeffs_y, 2))
-	col_ind = clamp(ceil(t), 1, n)
+	col_ind = clamp(ceil(Int, t), 1, n)::Int
 	sample_spline_speed(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1)
 end
 function sample_spline_speed(spline_coeffs_x::AbstractVector{Float64}, spline_coeffs_y::AbstractVector{Float64}, t_arr::AbstractVector{Float64})
@@ -324,7 +324,7 @@ function sample_spline_speed(spline_coeffs_x::AbstractMatrix{Float64}, spline_co
 	@assert(n == size(spline_coeffs_y, 2))
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, n)
+		col_ind = clamp(ceil(Int, t), 1, n)
 		retval[i] = sample_spline_speed(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1)
 	end
 	retval
@@ -361,7 +361,7 @@ function sample_spline_theta(spline_coeffs_x::AbstractMatrix{Float64}, spline_co
 	@assert(size(spline_coeffs_x, 1) == 4)
 	@assert(size(spline_coeffs_y, 1) == 4)
 	@assert(n == size(spline_coeffs_y, 2))
-	col_ind = clamp(ceil(t), 1, n)
+	col_ind = clamp(ceil(Int, t), 1, n)
 	sample_spline_theta(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1)
 end
 function sample_spline_theta(spline_coeffs_x::AbstractVector{Float64}, spline_coeffs_y::AbstractVector{Float64}, t_arr::AbstractVector{Float64})
@@ -384,7 +384,7 @@ function sample_spline_theta(spline_coeffs_x::AbstractMatrix{Float64}, spline_co
 	@assert(n == size(spline_coeffs_y, 2))
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, n)
+		col_ind = clamp(ceil(Int, t), 1, n)
 		retval[i] = sample_spline_theta(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1)
 	end
 	retval
@@ -408,7 +408,7 @@ function sample_spline_curvature(spline_coeffs_x::AbstractMatrix{Float64}, splin
 	@assert(size(spline_coeffs_x, 1) == 4)
 	@assert(size(spline_coeffs_y, 1) == 4)
 	@assert(n == size(spline_coeffs_y, 2))
-	col_ind = clamp(ceil(t), 1, n)
+	col_ind = clamp(ceil(Int, t), 1, n)
 	sample_spline_curvature(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1)
 end
 function sample_spline_curvature(spline_coeffs_x::AbstractVector{Float64}, spline_coeffs_y::AbstractVector{Float64}, t_arr::AbstractVector{Float64})
@@ -431,7 +431,7 @@ function sample_spline_curvature(spline_coeffs_x::AbstractMatrix{Float64}, splin
 	@assert(n == size(spline_coeffs_y, 2))
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, n)
+		col_ind = clamp(ceil(Int, t), 1, n)
 		retval[i] = sample_spline_curvature(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1)
 	end
 	retval
@@ -464,7 +464,7 @@ function sample_spline_derivative_of_curvature(spline_coeffs_x::AbstractMatrix{F
 	@assert(size(spline_coeffs_x, 1) == 4)
 	@assert(size(spline_coeffs_y, 1) == 4)
 	@assert(n == size(spline_coeffs_y, 2))
-	col_ind = clamp(ceil(t), 1, n)
+	col_ind = clamp(ceil(Int, t), 1, n)
 	sample_spline_derivative_of_curvature(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1, stepsize=stepsize)
 end
 function sample_spline_derivative_of_curvature(spline_coeffs_x::AbstractVector{Float64}, spline_coeffs_y::AbstractVector{Float64}, t_arr::AbstractVector{Float64};
@@ -493,7 +493,7 @@ function sample_spline_derivative_of_curvature(spline_coeffs_x::AbstractMatrix{F
 	@assert(n == size(spline_coeffs_y, 2))
 	retval = Array(Float64, length(t_arr))
 	for (i,t) in enumerate(t_arr)
-		col_ind = clamp(ceil(t), 1, n)
+		col_ind = clamp(ceil(Int, t), 1, n)
 		retval[i] = sample_spline_derivative_of_curvature(spline_coeffs_x[:,col_ind], spline_coeffs_y[:,col_ind], t-col_ind+1, stepsize=stepsize)
 	end
 	retval
@@ -582,7 +582,7 @@ function arclength(
 	# println("tmin/tmax: $t_min / $t_max")
 
 	len = 0.0
-	for i = int(floor(t_min)) : min(int(floor(t_max)), n-1)
+	for i = floor(Int, t_min) : min(floor(Int, t_max), n-1)
 		t_lo, t_hi = float(i), i+1.0
 
 		spline_ind = i+1
