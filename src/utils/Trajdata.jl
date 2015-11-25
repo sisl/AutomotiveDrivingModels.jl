@@ -875,7 +875,7 @@ function get_carids( trajdata::DataFrame )
 		str = string(name)
 		if ismatch(r"^has_(\d)+$", str)
 			m = match(r"(\d)+", str)
-			id = convert(Int, m.match)
+			id = parse(Int, m.match)
 			push!(carids, id)
 		end
 	end

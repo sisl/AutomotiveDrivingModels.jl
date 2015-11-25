@@ -1,7 +1,7 @@
 using AutomotiveDrivingModels
 using AutomotiveDrivingModels.StreetNetworks.RoadNetwork
 
-const STREETNET_CACHE = Dict{String, StreetNetwork}()
+const STREETNET_CACHE = Dict{AbstractString, StreetNetwork}()
 const PRIMARYDATA_DIR = "/media/tim/DATAPART1/Data/Bosch/processed/primarydata/"
 const STREETMAP_BASE = "/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
 const OUTPUT_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/"
@@ -322,7 +322,7 @@ for csvfileset in CSVFILESETS
 
     println(csvfilename)
 
-    trajdata = load_trajdata(csvfilename)
+    trajdata = PrimaryDataExtractor.load_trajdata(csvfilename)
     pdset = gen_primary_data(trajdata, sn, pdset_extract_params)
 
     if isa(pdset, PrimaryDataset)

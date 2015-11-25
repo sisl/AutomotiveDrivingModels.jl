@@ -13,8 +13,7 @@ include("../io/filesystem_utils.jl")
 export
     PrimaryDataExtractionParams,
     gen_primary_data,
-    gen_primary_data_no_smoothing,
-    load_trajdata
+    gen_primary_data_no_smoothing
 
 type PrimaryDataExtractionParams
 
@@ -200,7 +199,7 @@ function RANSAC_polynomial(
     m = length(x_arr)
     @assert(m == length(y_arr))
     maybeinliers = Array(Int, 3)
-    all_pts = [1:m]
+    all_pts = collect(1:m)
 
     while iterations < n_iter
         pull_samples_from_set!(maybeinliers, all_pts)
@@ -231,7 +230,7 @@ function RANSAC_polynomial(
     n_iterations = iterations
     n_total_data = m
     fiterror = besterr
-    outliers = Set(filter(index->distace_to_polynomial(x_arr[index], y_arr[index], bestfit) > datum_fit_threshold, [1:m]))
+    outliers = Set(filter(index->distace_to_polynomial(x_arr[index], y_arr[index], bestfit) > datum_fit_threshold, 1:m))
     n_inliers = m - length(outliers)
     RANSAC_Result(coefficients, n_iterations, n_inliers, n_total_data, fiterror, outliers)
 end
@@ -473,7 +472,7 @@ function continuous_segments(arr::AbstractVector{Bool})
 
     ind = 1
     N = length(arr)
-    segmentset = (Int,Int)[] # (frameind_lo, frameind_hi)
+    segmentset = Tuple{Int,Int}[] # (frameind_lo, frameind_hi)
     while ind <= N
         curseg_1 = findnext(arr, true, ind)
         if curseg_1 == 0
@@ -505,7 +504,7 @@ function near_continuous_segments(arr::Vector{Int}, tol::Int)
     #   tol = 2
     #   output: [(1,4),(5,7)]
 
-    segmentset = (Int,Int)[] # (lo,hi)
+    segmentset = Tuple{Int,Int}[] # (lo,hi)
     prev_val, prev_ind = arr[1], 1
     curseg_1 = 1
     for (ind,val) in enumerate(arr)
@@ -701,8 +700,8 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
     arr_time  = convert(Array{Float64}, trajdata[:time]) .- trajdata[1, :time]::Float64
 
-    n_resamples = int(floor((arr_time[end] - arr_time[1]) / params.resample_rate))
-    arr_time_resampled = [0:n_resamples-1]*params.resample_rate + arr_time[1]
+    n_resamples = floor(Int, (arr_time[end] - arr_time[1]) / params.resample_rate)
+    arr_time_resampled = collect(0:n_resamples-1)*params.resample_rate + arr_time[1]
     arr_time_padded = pad_linear(arr_time, params.padding_size)
     arr_time_resampled_padded = pad_linear(arr_time_resampled, params.padding_size)
 
@@ -962,7 +961,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     const N = size(df_ego, 1)
 
     const maxncars = get_max_num_cars(trajdata)
-    const frameinds = [1:N]
+    const frameinds = collect(1:N)
     const freeway_frameinds = frameinds[ego_car_on_freeway]
     const freeway_frameinds_raw = encompasing_indeces(freeway_frameinds, arr_time_resampled, arr_time)
     const frameind2validfind_arr = begin
@@ -1011,10 +1010,10 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     delete!(carids, CARID_EGO)
 
     dict_other_idmap = Dict{UInt32,UInt16}() # dict carid -> matind,  index for mat_other_indmap
-    mat_other_indmap = fill(int16(-1), n_frames_on_freeway, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
+    mat_other_indmap = fill(Int16(-1), n_frames_on_freeway, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
 
     local_setc! = (str,carind,vind,value) -> df_other[vind, symbol(@sprintf("%s_%d", str, carind))] = value
-    next_available_carind = fill(int32(-1), n_frames_on_freeway)
+    next_available_carind = fill(Int32(-1), n_frames_on_freeway)
 
     # --------------------------------------------------
 
@@ -1412,12 +1411,12 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     end
 
     dict_other_idmap = Dict{UInt32,UInt16}() # dict carid -> matind,  index for mat_other_indmap
-    mat_other_indmap = fill(int16(-1), nframes, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
+    mat_other_indmap = fill(Int16(-1), nframes, length(carids)) # [validfind,matind] -> carind, -1 if does not exist
 
     function local_setc!(str::AbstractString, carind::Integer, validfind::Integer, value::Any)
         df_other[validfind, symbol(@sprintf("%s_%d", str, carind))] = value
     end
-    next_available_carind = fill(int32(-1), nframes)
+    next_available_carind = fill(Int32(-1), nframes)
 
     # --------------------------------------------------
 

@@ -1209,7 +1209,7 @@ function get_train_test_fold_assignment(
     # go over fraction_test
 
     n_pdset_ids = length(n_frames_per_pdset)
-    subsetsum_capacity = ifloor(sum(Base.values(n_frames_per_pdset)) * fraction_test)
+    subsetsum_capacity = floor(Int, sum(Base.values(n_frames_per_pdset)) * fraction_test)
     selected_for_test = falses(n_pdset_ids)
     ids = collect(keys(n_frames_per_pdset))
     values = convert(Vector{Int}, map(i->n_frames_per_pdset[i], ids))

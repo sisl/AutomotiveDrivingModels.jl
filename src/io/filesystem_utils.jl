@@ -1,6 +1,3 @@
-
-export toext, cleanext
-
 # change the path to have the given extension
 toext(path::AbstractString, ext::AbstractString) = splitext(path)[1] * cleanext(ext)
 

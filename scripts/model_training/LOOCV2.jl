@@ -131,8 +131,6 @@ for dset_filepath_modifier in (
 
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
 
-    split_drives = get_fold_assignment_across_drives(dset)
-
     if AM_ON_TULA
         # replace foldernames
         for (i,str) in enumerate(dset.pdset_filepaths)
@@ -144,18 +142,22 @@ for dset_filepath_modifier in (
         end
     end
 
+    split_drives = get_fold_assignment_across_drives(dset)
+
+    preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
+    for (behavior_name, train_def) in behaviorset
+        preallocated_data_dict[behavior_name] = preallocate_learning_data(dset, train_def.trainparams)
+    end
+
     ###################################
     # DETERMINE OPTIMAL PARAMS FROM CV
     ###################################
 
     print("optimizing hyperparameters  "); tic()
-    for (i,behavior) in enumerate(behaviorset.behaviors)
-        behavior_name = behaviorset.names[i]
-        behavior_train_params, param_indeces = AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent(
-                                behavior, behavior_name, model_param_sets[behavior_name],
-                                dset, split_drives, max_time=MAX_CV_OPT_TIME_PER_MODEL
-                                )
-        behaviorset.additional_params[i] = behavior_train_params
+    for (behavior_name, train_def) in behaviorset
+        preallocated_data = preallocated_data_dict[behavior_name]
+        AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
+                train_def, dset, preallocated_data, split_drives)
     end
     toc()
 

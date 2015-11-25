@@ -8,8 +8,6 @@ export  AbstractVehicleBehavior,
         AbstractVehicleBehaviorTrainParams,
         AbstractVehicleBehaviorPreallocatedData,
         ModelTargets,
-        BehaviorParameter,
-        BehaviorParameterSet,
 
         select_action,
         calc_action_loglikelihood,
@@ -27,21 +25,6 @@ export  AbstractVehicleBehavior,
 abstract AbstractVehicleBehavior
 
 ###############################################################
-
-type BehaviorParameter
-    sym::Symbol # symbol of the associated field
-    range::AbstractVector # set of values that the param can take on
-    index_of_default::Int # index of the default value
-
-    function BehaviorParameter(sym::Symbol, range::AbstractVector, index_of_default::Int=1)
-        @assert(!isempty(range))
-        @assert(index_of_default > 0)
-        @assert(index_of_default ≤ length(range))
-        new(sym, range, index_of_default)
-    end
-end
-
-###############################################################
 #=
     VehicleBehaviorTrainParams
 
@@ -53,7 +36,7 @@ abstract AbstractVehicleBehaviorTrainParams # parameters defined for training th
 ###############################################################
 #=
     AbstractVehicleBehaviorPreallocatedData
-    
+
     Preallocated learning data for the model
     Each behavior model should implement preallocate_learning_data()
 =#

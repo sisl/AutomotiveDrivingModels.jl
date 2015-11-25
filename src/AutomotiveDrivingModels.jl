@@ -53,7 +53,7 @@ include("simulation/simulation.jl")
 include("evaluation/sim_param_calibration.jl")
 include("evaluation/sim_metrics.jl")
 include("evaluation/risk_estimation.jl")
-include("evaluation/model_evaluation.jl")
+include("evaluation/training.jl")
 
 include("behaviors/drive_straight.jl")
 include("behaviors/behavior_perfect.jl")
