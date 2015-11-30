@@ -1,6 +1,8 @@
 using AutomotiveDrivingModels
 using AutomotiveDrivingModels.StreetNetworks.RoadNetwork
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
+
 const STREETNET_CACHE = Dict{AbstractString, StreetNetwork}()
 const PRIMARYDATA_DIR = "/media/tim/DATAPART1/Data/Bosch/processed/primarydata/"
 const STREETMAP_BASE = "/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
