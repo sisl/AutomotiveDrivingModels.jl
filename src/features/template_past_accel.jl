@@ -20,8 +20,8 @@ for ticks in tick_list_short
 			carid = carind == CARIND_EGO ? CARID_EGO : carind2id(pdset, carind, validfind)
 
 
-			validfind_past1 = int(jumpframe(pdset, validfind, jump))
-			validfind_past2 = int(jumpframe(pdset, validfind, jump-N_FRAMES_PER_SIM_FRAME))
+			validfind_past1 = convert(Int, jumpframe(pdset, validfind, jump))
+			validfind_past2 = convert(Int, jumpframe(pdset, validfind, jump-N_FRAMES_PER_SIM_FRAME))
 			if validfind_past1 == 0 || validfind_past2 == 0 # Does not exist
 				return NA_ALIAS
 			end

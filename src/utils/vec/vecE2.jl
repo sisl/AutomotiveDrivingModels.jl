@@ -57,6 +57,8 @@ function Base.norm(a::VecE2)
     VecE2(a.x/m, a.y/m)
 end
 
+Base.atan2(a::VecE2) = atan2(a.y, a.x)
+
 dist(a::VecE2, b::VecE2) = hypot(a.x-b.x, a.y-b.y)
 function dist2(a::VecE2, b::VecE2)
     Δx = a.x-b.x

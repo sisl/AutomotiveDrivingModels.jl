@@ -1,11 +1,13 @@
 export
     BehaviorParameter,
-    BehaviorTrainDefinition
+    BehaviorTrainDefinition,
 
     # CVFoldResults,
     # ModelCrossValidationResults,
     # CrossValidationResults,
 
+    optimize_hyperparams_cyclic_coordinate_ascent!,
+    pull_design_and_target_matrices!
     # cross_validate
 
     # add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
@@ -52,129 +54,22 @@ end
 
 ###############################################################
 
-# function train( behaviorset::BehaviorSet, training_frames::DataFrame, training_frames_nona::DataFrame )
-#
-#     retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
-#     for (i,b) in enumerate(behaviorset.behaviors)
-#         if trains_with_nona(b)
-#             retval[i] = train(behaviorset.behaviors[i], training_frames_nona, args=behaviorset.additional_params[i])
-#         else
-#             retval[i] = train(behaviorset.behaviors[i], training_frames,      args=behaviorset.additional_params[i])
-#         end
-#     end
-#     retval
-# end
-# function train(
-#     behaviorset::BehaviorSet,
-#     dset::ModelTrainingData,
-#     train_test_split::FoldAssignment,
-#     cross_validation_split::FoldAssignment,
-#     model_param_sets::Dict{AbstractString, BehaviorParameterSet}; # model name to params
-#     max_cv_opt_time_per_model::Float64=60.0 # [sec]
-#     )
+function train(
+    behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
+    dset::ModelTrainingData,
+    preallocated_data_dict::Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData},
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    )
 
-#     training_frames = dset.dataframe[train_test_split.frame_assignment.==FOLD_TRAIN, :]
-#     training_frames_nona = dset.dataframe_nona[train_test_split.frame_assignment.==FOLD_TRAIN, :]
+    retval = Dict{AbstractString,AbstractVehicleBehavior}()
+    for (behavior_name, train_def) in behaviorset
+        preallocated_data = preallocated_data_dict[behavior_name]
+        retval[behavior_name] = train(dset, preallocated_data, train_def.trainparams, fold, fold_assignment, false)
+    end
+    retval
+end
 
-#     retval = Array(AbstractVehicleBehavior, length(behaviorset.behaviors))
-#     for i = 1 : length(retval)
-#         behavior_type = behaviorset.behaviors[i]
-#         behavior_name = behaviorset.names[i]
-#         params = model_param_sets[behavior_name]
-#         (behavior_train_params, param_indeces) = optimize_hyperparams_cyclic_coordinate_ascent(
-#                                                     behavior_type, behavior_name, params,
-#                                                     dset, cross_validation_split,
-#                                                     max_time=max_cv_opt_time_per_model)
-
-#         if trains_with_nona(behavior_type)
-#             retval[i] = train(behavior_type, training_frames_nona, args=behavior_train_params)
-#         else
-#             retval[i] = train(behavior_type, training_frames,      args=behavior_train_params)
-#         end
-#     end
-#     retval
-# end
-
-# function optimize_hyperparams_cyclic_coordinate_ascent{D<:AbstractVehicleBehavior}(
-#     behavior_type::Type{D},
-#     behavior_name::AbstractString,
-#     params::BehaviorParameterSet,
-#     dset::ModelTrainingData,
-#     cross_validation_split::FoldAssignment;
-#     max_iter::Int = 500,
-#     max_time::Float64 = 60.0, # [sec]
-#     )
-
-#     # returns the optimal param set
-#     behavior_train_params = get_default_params(params)
-
-#     n_varying_params = length(params.varying_params)
-#     if n_varying_params == 0
-#         return (behavior_train_params, Int[])
-#     end
-
-#     param_indeces = Array(Int, n_varying_params)
-#     for i in 1 : n_varying_params
-#         param_indeces[i] = params.varying_params[i].index_of_default
-#     end
-
-#     best_param_score = -Inf
-#     param_hash = Set{UInt}() # set of param hashes that have already been done
-#     metric_types_train_frames = DataType[]
-#     metric_types_test_frames = [LoglikelihoodMetric]
-#     param_range = 1:n_varying_params
-
-#     behaviorset = BehaviorSet()
-#     add_behavior!(behaviorset, behavior_type, behavior_name, behavior_train_params)
-
-#     t_start = time()
-#     iteration_count = 0
-#     while (time() - t_start < max_time) && (iteration_count < max_iter)
-#         iteration_count += 1
-#         println("iteration_count: ", iteration_count)
-
-#         # sample new params
-#         param_index = rand(param_range)
-#         prev_index = param_indeces[param_index]
-#         param_indeces[param_index] = rand(1:length(params.varying_params[param_index].range))
-#         while in(hash(param_indeces), param_hash) && (time() - t_start < max_time)
-#             param_indeces[param_index] = prev_index
-#             param_index = rand(param_range)
-#             param_indeces[param_index] = rand(1:length(params.varying_params[param_index].range))
-#             sleep(0.5)
-#         end
-#         if in(hash(param_indeces), param_hash)
-#             println("timed out")
-#             break # we timed out
-#         end
-
-#         push!(param_hash, hash(param_indeces))
-#         sym = params.varying_params[param_index].sym
-#         val = params.varying_params[param_index].range[param_indeces[param_index]]
-#         prev_param = behavior_train_params[sym]
-#         behavior_train_params[sym] = val
-#         cv_res = cross_validate(behaviorset, dset, cross_validation_split,
-#                                 metric_types_train_frames, metric_types_test_frames)
-
-#         μ = 0.0
-#         n_samples = 0
-#         for (fold,cvfold_results) in enumerate(cv_res.models[1].results)
-#             m = cvfold_results.metrics_test_frames[1]::LoglikelihoodMetric
-#             μ += m.logl
-#             n_samples += 1
-#         end
-#         μ /= n_samples
-
-#         if μ > best_param_score
-#             best_param_score = μ
-#         else # previous was better
-#             behavior_train_params[sym] = prev_param
-#             param_indeces[param_index] = prev_index
-#         end
-#     end
-
-#     (behavior_train_params, param_indeces)
-# end
 function optimize_hyperparams_cyclic_coordinate_ascent!(
     traindef::BehaviorTrainDefinition,
     dset::ModelTrainingData,
@@ -254,6 +149,75 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
 end
 
 ####################################################
+
+function pull_design_and_target_matrices!(
+    X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
+    Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
+    trainingframes::DataFrame,
+    targets::ModelTargets,
+    indicators::Vector{AbstractFeature},
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    match_fold::Bool;
+    first_feature_is_bias::Bool = true # if true, the first feature is a bias feature and X is [p+1×n]
+    )
+
+    #=
+    Pulls the data for X and Y, filling the first m frames that match the fold
+    The remaining allocated frames are zeroed
+    Returns the number of frames that match the fold, m
+    =#
+
+    sym_lat = symbol(targets.lat)
+    sym_lon = symbol(targets.lon)
+
+    n = size(trainingframes, 1)
+
+    @assert(length(fold_assignment.frame_assignment) == n)
+    @assert(size(X,2) == n)
+    @assert(size(Y,1) == 2)
+    @assert(size(Y,2) == n)
+
+    m = 0
+    for row = 1 : n
+        if is_in_fold(fold, fold_assignment.frame_assignment[row], match_fold)
+
+            m += 1
+            action_lat = trainingframes[row, sym_lat]
+            action_lon = trainingframes[row, sym_lon]
+
+            Y[1, m] = action_lat
+            Y[2, m] = action_lon
+
+            @assert(!isinf(action_lat))
+            @assert(!isinf(action_lon))
+
+            j = 0
+            if first_feature_is_bias
+                j += 1
+                X[1, m] = 1.0
+            end
+            for feature in indicators
+                j += 1
+                v = trainingframes[row, symbol(feature)]
+                @assert(!isnan(v))
+                X[j, m] = v
+            end
+        end
+    end
+
+    # zero out the rest
+    for row = m+1 : n
+        Y[1,row] = 0.0
+        Y[2,row] = 0.0
+        for j in 1 : size(X, 1)
+            println(size(X, 1), "  ", row)
+            X[j,row] = 0.0
+        end
+    end
+
+    return m
+end
 
 # type CVFoldResults
 #     metrics_train_frames::Vector{BehaviorFrameMetric}

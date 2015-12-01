@@ -23,7 +23,7 @@ type SG_TrainParams <: AbstractVehicleBehaviorTrainParams
 end
 
 type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
-    
+
     # TODO(tim): use this
 
     SG_PreallocatedData(dset::ModelTrainingData, params::SG_TrainParams) = new()
@@ -31,7 +31,7 @@ end
 function preallocate_learning_data(
     dset::ModelTrainingData,
     params::SG_TrainParams)
-    
+
     SG_PreallocatedData(dset, params)
 end
 
@@ -81,33 +81,6 @@ function calc_action_loglikelihood(
     logpdf(behavior.Σ, behavior.action)
 end
 
-function train(::Type{VehicleBehaviorGaussian}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
-
-    for (k,v) in args
-        warn("Train VehicleBehaviorGaussian: ignoring $k")
-    end
-
-    nframes = size(trainingframes, 1)
-
-    total = 0
-    trainingmatrix = Array(Float64, 2, nframes)
-    for i = 1 : nframes
-
-        action_lat = trainingframes[i, :f_des_angle_250ms]
-        action_lon = trainingframes[i, :f_accel_250ms]
-
-        if !isnan(action_lat) && !isnan(action_lon) &&
-           !isinf(action_lat) && !isinf(action_lon)
-
-            total += 1
-            trainingmatrix[1, total] = action_lat
-            trainingmatrix[2, total] = action_lon
-        end
-    end
-    trainingmatrix = trainingmatrix[:, 1:total]
-
-    VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
-end
 function train(
     training_data::ModelTrainingData,
     preallocated_data::SG_PreallocatedData,

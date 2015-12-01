@@ -1,5 +1,7 @@
 module ValidationTraceExtractor
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
+
 using DataFrames
 using Discretizers
 using JLD

@@ -1,5 +1,7 @@
 using AutomotiveDrivingModels
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
+
 ##############################
 # PARAMETERS
 ##############################

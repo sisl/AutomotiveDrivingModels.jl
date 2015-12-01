@@ -44,7 +44,7 @@ function Base.isapprox(x::VecE, y::VecE;
     rtol::Real=cbrt(_maxeps),
     atol::Real=sqrt(_maxeps)
     )
-    
+
     dist2(x, y) <= atol + rtol*max(_absx, _absy)
 end
 

@@ -4,25 +4,6 @@ using RandomForestBehaviors
 using DynamicBayesianNetworkBehaviors
 using StreamStats
 
-#=
-1 - load the best inputs for every model
-2 - train a final model on the test dataset
-3 - save them
-4 - compute validation metrics on the validation dataset
-5 - save results to a .csv
-=#
-
-# For LOOCV2:
-#=
-- load full dataset
-- construct split over drives
-- run CV split get the best hyperparams for each model based on likelihood
-- for each drive:
-   - train a model on the other drives
-   - compute train and test metrics (logl, emergent kldiv counts, rwse) on the withheld set
-- aggregate the resuts
-=#
-
 ##############################
 # PARAMETERS
 ##############################
@@ -204,11 +185,15 @@ for dset_filepath_modifier in (
         for (i,v) in enumerate(cv_split_inner.frame_assignment)
             if v == fold
                 cv_split_inner.frame_assignment[i] = 0
+            elseif v > fold
+                cv_split_inner.frame_assignment[i] -= 1
             end
         end
         for (i,v) in enumerate(cv_split_inner.pdsetseg_assignment)
             if v == fold
                 cv_split_inner.pdsetseg_assignment[i] = 0
+            elseif v > fold
+                cv_split_inner.pdsetseg_assignment[i] -= 1
             end
         end
         cv_split_inner.nfolds -= 1
@@ -220,7 +205,7 @@ for dset_filepath_modifier in (
         for (behavior_name, train_def) in behaviorset
             preallocated_data = preallocated_data_dict[behavior_name]
             AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
-                    train_def, dset, preallocated_data, cv_split_outer) # inner
+                    train_def, dset, preallocated_data, cv_split_inner)
         end
         toc()
 
@@ -345,6 +330,8 @@ for dset_filepath_modifier in (
     println(metrics_sets_test_traces)
     println("metrics_sets_test_traces_bagged: ")
     println(metrics_sets_test_traces_bagged)
+
+    exit()
 
     JLD.save(METRICS_OUTPUT_FILE,
              "metrics_sets_test_frames",         metrics_sets_test_frames,

@@ -1203,7 +1203,7 @@ function _get(::Feature_IndRear, basics::FeatureExtractBasicsPdSet, carind::Int,
 	frameind = validfind2frameind(pdset, validfind)
 
 	ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-	cars_to_check = Set([-1 : (ncarsinframe-1)])
+	cars_to_check = Set(collect(-1 : (ncarsinframe-1)))
 
 	lanetags = Array(LaneTag, ncarsinframe+1)
 	for cind in cars_to_check
@@ -1402,7 +1402,7 @@ function _get(::Feature_IndLeft, basics::FeatureExtractBasicsPdSet, carind::Int,
 	if get(pdset, :nll, carind, frameind, validfind)::Int8 > 0
 
 		ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-		cars_to_check = Set([-1 : (ncarsinframe-1)])
+		cars_to_check = Set(collect(-1 : (ncarsinframe-1)))
 
 		lanetags = Array(LaneTag, ncarsinframe+1)
 		for cind in cars_to_check
@@ -1632,7 +1632,7 @@ function _get(::Feature_IndRight, basics::FeatureExtractBasicsPdSet, carind::Int
 	if get(pdset, :nlr, carind, frameind, validfind)::Int8 > 0
 
 		ncarsinframe = get_num_other_cars_in_frame(pdset, validfind)
-		cars_to_check = Set([-1 : (ncarsinframe-1)])
+		cars_to_check = Set(collect(-1 : (ncarsinframe-1)))
 
 		lanetags = Array(LaneTag, ncarsinframe+1)
 		for cind in cars_to_check
