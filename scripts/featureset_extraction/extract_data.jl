@@ -6,7 +6,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
 # PARAMETERS
 ##############################
 
-const INCLUDE_FILE = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/extract_params.jl"
+const INCLUDE_FILE = Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl")
 
 include(INCLUDE_FILE)
 
@@ -35,6 +35,7 @@ features = [
                     ACC,
                     ACCFX, ACCFY, A_REQ_STAYINLANE,
                     TURNRATE_GLOBAL, LANECURVATURE,
+                    IDM, SUMO,
 
                     HAS_FRONT, D_X_FRONT, D_Y_FRONT, V_X_FRONT, V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT,
                     HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,

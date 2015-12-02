@@ -5,16 +5,7 @@ using RandomForestBehaviors
 # LOAD PARAMETERS
 ################################
 
-const INCLUDE_FILE = let
-    hostname = gethostname()
-    if hostname == "Cupertino"
-        "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/extract_params.jl"
-    elseif hostname == "tula"
-        "/home/wheelert/PublicationData/2015_TrafficEvolutionModels/vires_highway_2lane_sixcar/extract_params.jl"
-    else
-        error("unknown hostname")
-    end
-end
+const INCLUDE_FILE = Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl")
 const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
 include(INCLUDE_FILE)

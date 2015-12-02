@@ -265,49 +265,47 @@ for dset_filepath_modifier in (
     metrics_sets_test_traces = Array(Vector{BehaviorTraceMetric}, nmodels)
     metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, nmodels)
 
-    let
-        for k in 1:nmodels
-            print("\tmodel: ", k, "  "); tic()
+    for k in 1:nmodels
+        print("\tmodel: ", k, "  "); tic()
 
-            arr_logl_test = Float64[]
-            arr_logl_train = Float64[]
+        arr_logl_test = Float64[]
+        arr_logl_train = Float64[]
 
-            for j in 1 : cv_split_outer.nfolds
-                for i in 1 : nframes
-                    if cv_split_outer.frame_assignment[i] == j
-                        push!(arr_logl_test, frame_logls[i,j,k])
-                    elseif cv_split_outer.frame_assignment[i] != 0
-                        push!(arr_logl_train, frame_logls[i,j,k])
-                    end
+        for j in 1 : cv_split_outer.nfolds
+            for i in 1 : nframes
+                if cv_split_outer.frame_assignment[i] == j
+                    push!(arr_logl_test, frame_logls[i,j,k])
+                elseif cv_split_outer.frame_assignment[i] != 0
+                    push!(arr_logl_train, frame_logls[i,j,k])
                 end
             end
-
-            metrics_sets_test_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_test))]
-            metrics_sets_train_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_train))]
-            metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
-            metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
-
-            # TRACES
-
-            retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
-            retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
-            for (i,M) in enumerate(metric_types_test_traces)
-                retval_straight[i] = extract(M, dset.pdset_segments,
-                                             pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
-                                             streetnets, foldinds, basics, bagged_selection)
-                if i ≤ length(retval_bagged)
-                    retval_bagged[i] = BaggedMetricResult(M, dset.pdset_segments,
-                                                 pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
-                                                 streetnets, foldinds, basics,
-                                                 bagged_selection, N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
-                end
-            end
-
-            metrics_sets_test_traces[k] = retval_straight
-            metrics_sets_test_traces_bagged[k] = retval_bagged
-
-            toc()
         end
+
+        metrics_sets_test_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_test))]
+        metrics_sets_train_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_train))]
+        metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
+        metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
+
+        # TRACES
+
+        retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
+        retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
+        for (i,M) in enumerate(metric_types_test_traces)
+            retval_straight[i] = extract(M, dset.pdset_segments,
+                                         pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
+                                         streetnets, foldinds, basics, bagged_selection)
+            if i ≤ length(retval_bagged)
+                retval_bagged[i] = BaggedMetricResult(M, dset.pdset_segments,
+                                             pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
+                                             streetnets, foldinds, basics,
+                                             bagged_selection, N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
+            end
+        end
+
+        metrics_sets_test_traces[k] = retval_straight
+        metrics_sets_test_traces_bagged[k] = retval_bagged
+
+        toc()
     end
     toc()
 
