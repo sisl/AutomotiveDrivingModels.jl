@@ -33,6 +33,7 @@ export D_CL, D_ML, D_MR, SCENEVELFX
 export TIMETOCROSSING_RIGHT, TIMETOCROSSING_LEFT, ESTIMATEDTIMETOLANECROSSING
 export D_MERGE, D_SPLIT, ID
 export A_REQ_STAYINLANE, N_LANE_R, N_LANE_L, HAS_LANE_R, HAS_LANE_L, LANECURVATURE
+export SUMO, IDM,
 export INDFRONT, HAS_FRONT, D_X_FRONT, D_Y_FRONT, V_X_FRONT, V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, A_REQ_FRONT, TTC_X_FRONT, TIMEGAP_X_FRONT
 export INDREAR,  HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  A_REQ_REAR,  TTC_X_REAR,  TIMEGAP_X_REAR
 export INDLEFT,             D_X_LEFT,  D_Y_LEFT,  V_X_LEFT,  V_Y_LEFT,  YAW_LEFT,  TURNRATE_LEFT,  A_REQ_LEFT,  TTC_X_LEFT,  TIMEGAP_X_LEFT
@@ -2318,6 +2319,74 @@ get(::Feature_ID, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int
 
 create_feature_basics( "LaneCurvature", "1/m", false, false, Inf, -Inf, false, :curvature, L"\kappa", "the local lane curvature")
 get(::Feature_LaneCurvature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :curvature, carind, validfind)::Float64
+
+const ACCEL_MAX =  3.0 # m/s²
+const ACCEL_MIN = -3.0 # m/s²
+const VEL_MAX = 33.0 # m/s # TODO - validate this
+const RESPONSE_TIME_AVERAGE = -1.2 # typical driver reaction time according to Lefevre [s]
+
+create_feature_basics( "SUMO", "m/s2", false, false, ACCEL_MAX, ACCEL_MIN, true, :sumo, L"a_\text{SUMO}", "SUMO accel prediction")
+function _get(::Feature_SUMO, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
+    # SUMO accel prediction
+    # returns NA if no vehicle in front
+
+    ind_front_float = get(INDFRONT, basics, carind, validfind)::Float64
+    if ind_front_float == NA_ALIAS
+        return NA_ALIAS
+    end
+
+    pdset = basics.pdset
+
+    frameind = validfind2frameind(pdset, validfind)
+    v_front = get(pdset, :velFx, convert(Int, ind_front_float), frameind, validfind)::Float64
+    d_front = get(D_X_FRONT, basics, carind, validfind)::Float64
+    v = get(pdset, :velFx, carind, validfind)::Float64
+
+    τ = RESPONSE_TIME_AVERAGE
+    amx = ACCEL_MAX
+    bmx = -ACCEL_MIN
+    vmx = VEL_MAX
+
+    v_safe = -τ*bmx + sqrt((τ*bmx)^2 + v_front^2 + 2*bmx*d_front)
+    v_des = min(min(v_safe, v + amx*(1 - v/vmx)*DEFAULT_SEC_PER_FRAME), vmx)
+    a_sumo = (max(0.0, v_des) - v_safe) / DEFAULT_SEC_PER_FRAME
+
+    return a_sumo
+end
+
+const MIN_HEADWAY = 1.5 # [m] (even if stopped)
+const DECEL_COMFORTABLE = 1.0 # [m/s²]
+
+
+create_feature_basics( "IDM", "m/s2", false, false, ACCEL_MAX, ACCEL_MIN, true, :idm, L"a_\text{SUMO}", "Intelligent driver model prediction")
+function _get(::Feature_IDM, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
+    # Intelligent Driver Model accel prediction
+    # returns NA if no vehicle in front
+
+    ind_front_float = get(INDFRONT, basics, carind, validfind)::Float64
+    if ind_front_float == NA_ALIAS
+        return NA_ALIAS
+    end
+
+    pdset = basics.pdset
+
+    frameind = validfind2frameind(pdset, validfind)
+    Δv_front = get(V_X_FRONT, basics, carind, validfind)::Float64
+    d_front = get(D_X_FRONT, basics, carind, validfind)::Float64
+    v = get(pdset, :velFx, carind, validfind)::Float64
+
+    amx = ACCEL_MAX
+    vmx = VEL_MAX
+    bcmf = DECEL_COMFORTABLE
+
+    dmn = MIN_HEADWAY
+    T = get(TIMEGAP_X_FRONT, basics, carind, validfind)::Float64
+
+    d_des = dmn + T*v - (v*Δv_front) / (2*sqrt(amx*DECEL_COMFORTABLE))
+    a_idm = amx * (1.0 - (v/vmx)^4 - (d_des/d_front)^2)
+
+    return a_idm
+end
 
 create_feature_basics( "TimeToLaneCrossing", "s", false, false, THRESHOLD_TIMETOLANECROSSING, 0.0, false, :timetolanecrossing, L"t_{\text{crossing}}^{+}", "the time until the next lane crossing")
 function _get(::Feature_TimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
