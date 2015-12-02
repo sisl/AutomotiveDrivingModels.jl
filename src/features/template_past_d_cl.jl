@@ -19,7 +19,7 @@ for ticks in tick_list_short
 			jump = -$ticks
 			carid = carind == CARIND_EGO ? CARID_EGO : carind2id(pdset, carind, validfind)
 
-			jvfind1 = int(jumpframe(pdset, validfind, jump))
+			jvfind1 = convert(Int, jumpframe(pdset, validfind, jump))
 			if jvfind1 == 0 # Does not exist
 				return NA_ALIAS
 			end

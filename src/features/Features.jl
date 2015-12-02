@@ -1979,7 +1979,7 @@ function _get(::Feature_Acc, basics::FeatureExtractBasicsPdSet, carind::Int, val
 	pdset = basics.pdset
 	lookback = DEFAULT_FRAME_PER_SEC
 
-	validfind_past = int(jumpframe(pdset, validfind, -lookback))
+	validfind_past = convert(Int, jumpframe(pdset, validfind, -lookback))
 	if validfind_past == 0 # Does not exist
 		return 0.0
 	end
@@ -1992,7 +1992,7 @@ function _get(::Feature_Acc, basics::FeatureExtractBasicsPdSet, carind::Int, val
 
 	carid = carind2id(pdset, carind, validfind)
 	if idinframe(pdset, carid, validfind_past)
-		farind = int(carid2ind(pdset, carid, validfind_past))
+		farind = convert(Int, carid2ind(pdset, carid, validfind_past))
 		curr = get(SPEED, basics, carind, validfind)
 		past = get(SPEED, basics, farind, validfind_past)
 		return (curr - past) / (DEFAULT_SEC_PER_FRAME*lookback)
@@ -2224,7 +2224,7 @@ function _get_futuredesired_speed(basics::FeatureExtractBasicsPdSet, carind::Int
 
 	pdset = basics.pdset
 
-	futrvfind = int(jumpframe(pdset, validfind, lookahead))
+	futrvfind = convert(Int, jumpframe(pdset, validfind, lookahead))
 	if futrvfind == 0 # Does not exist
 		return NA_ALIAS
 	end
@@ -2256,7 +2256,7 @@ _get(::Feature_FutureDesiredSpeed_500ms, pdset::PrimaryDataset, ::StreetNetwork,
 
 function _get_futureaccel_control(pdset::PrimaryDataset, carind::Int, validfind::Int, lookahead::Int)
 
-	futrvfind = int(jumpframe(pdset, validfind, lookahead))
+	futrvfind = convert(Int, jumpframe(pdset, validfind, lookahead))
 	if futrvfind == 0 # Does not exist
 		return NA_ALIAS
 	end
@@ -2283,7 +2283,7 @@ function _get_futureaccel_control(basics::FeatureExtractBasicsPdSet, carind::Int
 
 	pdset = basics.pdset
 
-	futrvfind = int(jumpframe(pdset, validfind, lookahead))
+	futrvfind = convert(Int, jumpframe(pdset, validfind, lookahead))
 	if futrvfind == 0 # Does not exist
 		return NA_ALIAS
 	end
@@ -2421,7 +2421,7 @@ function _get(::Feature_Time_Consecutive_Brake, basics::FeatureExtractBasicsPdSe
 	frameind = validfind2frameind(pdset, validfind)
 	t_orig = gete(pdset, :time, frameind)::Float64
 
-	past_validfind = int(jumpframe(pdset, validfind, -1))
+	past_validfind = convert(Int, jumpframe(pdset, validfind, -1))
 	if past_validfind == 0
 		basics[(carind, validfind, :time_consecutive_accel)] = 0.0
 		return 0.0 # default
@@ -2438,7 +2438,7 @@ function _get(::Feature_Time_Consecutive_Brake, basics::FeatureExtractBasicsPdSe
 	finished = false
 	while !finished
 		past_frameind -= 1
-		past_validfind = int(jumpframe(pdset, past_validfind, -1))
+		past_validfind = convert(Int, jumpframe(pdset, past_validfind, -1))
 		if past_validfind != 0
 			past_accel = _get(ACC, basics, carind, past_validfind)
 			if past_accel > THRESHOLD_BRAKING
@@ -2470,7 +2470,7 @@ function _get(::Feature_Time_Consecutive_Accel, basics::FeatureExtractBasicsPdSe
 	frameind = validfind2frameind(pdset, validfind)
 	t_orig = gete(pdset, :time, frameind)::Float64
 
-	past_validfind = int(jumpframe(pdset, validfind, -1))
+	past_validfind = convert(Int, jumpframe(pdset, validfind, -1))
 	if past_validfind == 0
 		basics[(carind, validfind, :time_consecutive_brake)] = 0.0
 		return 0.0 # default
@@ -2487,7 +2487,7 @@ function _get(::Feature_Time_Consecutive_Accel, basics::FeatureExtractBasicsPdSe
 	finished = false
 	while !finished
 		past_frameind -= 1
-		past_validfind = int(jumpframe(pdset, past_validfind, -1))
+		past_validfind = convert(Int, jumpframe(pdset, past_validfind, -1))
 		if past_validfind != 0
 
 			past_accel = _get(ACC, basics, carind, past_validfind)
@@ -2581,11 +2581,10 @@ function _get(::Feature_Subset_Car_Following, basics::FeatureExtractBasicsPdSet,
 	#   - timegap_front < threshold
 	#   - d_v_front < threshold
 
-	ΔT = get(TIMEGAP_X_FRONT, basics, carind, validfind)
-	dv = get(      V_X_FRONT, basics, carind, validfind)
+	ΔT = get(TIMEGAP_X_FRONT, basics, carind, validfind)::Float64
+	dv = get(      V_X_FRONT, basics, carind, validfind)::Float64
 
-	retval =    !(ΔT > threshold_timegap_front ||
-	              dv > threshold_d_v_front)
+	retval = (ΔT < threshold_timegap_front && dv < threshold_d_v_front)
 
 	Float64(retval)
 end

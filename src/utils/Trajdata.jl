@@ -594,6 +594,7 @@ function carind2id( pdset::PrimaryDataset, carind::Integer, validfind::Integer )
 	col = pdset.df_other_column_map[:id] + pdset.df_other_ncol_per_entry * carind
 	carid = convert(Int, pdset.df_other[validfind, col])
 	@assert(carid != -1)
+	carid
 end
 
 validfind_inbounds( pdset::PrimaryDataset, validfind::Integer ) = 1 <= validfind <= length(pdset.validfind2frameind)
@@ -1757,59 +1758,59 @@ function euler2quat( roll::Real, pitch::Real, yaw::Real )
 end
 
 # TODO(tim): use geomE2 instead
-# function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real )
-#
-# 	# pt = [posGx, posGy]
-# 	# eo = [egocarGx, egocarGy]
-#
-# 	# # translate to be relative to ego car
-# 	# pt -= eo
-#
-# 	# # rotate to be in ego car frame
-# 	# R = [ cos(egocarYaw) sin(egocarYaw);
-# 	#      -sin(egocarYaw) cos(egocarYaw)]
-# 	# pt = R*pt
-#
-# 	# return (pt[1], pt[2]) # posEx, posEy
-#
-# 	s, c = sin(egocarYaw), cos(egocarYaw)
-# 	Δx = posGx - egocarGx
-# 	Δy = posGy - egocarGy
-# 	(c*Δx + s*Δy, c*Δy - s*Δx)
-# end
-# function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real, yawG::Real )
-#
-# 	posEx, posEy = global2ego( egocarGx, egocarGy, egocarYaw, posGx, posGy)
-# 	yawE = mod2pi(yawG - egocarYaw)
-#
-# 	return (posEx, posEy, yawE)
-# end
-# function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real )
-#
-# 	# pt = [posEx, posEy]
-# 	# eo = [egocarGx, egocarGy]
-#
-# 	# # rotate
-# 	# c, s = cos(egocarYaw), sin(egocarYaw)
-# 	# R = [ c -s;
-# 	#       s  c]
-# 	# pt = R*pt
-#
-# 	# # translate
-# 	# pt += eo
-#
-# 	# return (pt[1], pt[2]) # posGx, posGy
-#
-# 	c, s = cos(egocarYaw), sin(egocarYaw)
-# 	(c*posEx -s*posEy + egocarGx, s*posEx +c*posEy + egocarGy)
-# end
-# function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real, yawE::Real )
-#
-# 	posGx, posGy = ego2global( egocarGx, egocarGy, egocarYaw, posEx, posEy)
-# 	yawG = mod2pi(yawE + egocarYaw)
-#
-# 	return (posGx, posGy, yawG)
-# end
+function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real )
+
+	# pt = [posGx, posGy]
+	# eo = [egocarGx, egocarGy]
+
+	# # translate to be relative to ego car
+	# pt -= eo
+
+	# # rotate to be in ego car frame
+	# R = [ cos(egocarYaw) sin(egocarYaw);
+	#      -sin(egocarYaw) cos(egocarYaw)]
+	# pt = R*pt
+
+	# return (pt[1], pt[2]) # posEx, posEy
+
+	s, c = sin(egocarYaw), cos(egocarYaw)
+	Δx = posGx - egocarGx
+	Δy = posGy - egocarGy
+	(c*Δx + s*Δy, c*Δy - s*Δx)
+end
+function global2ego( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posGx::Real, posGy::Real, yawG::Real )
+
+	posEx, posEy = global2ego( egocarGx, egocarGy, egocarYaw, posGx, posGy)
+	yawE = mod2pi(yawG - egocarYaw)
+
+	return (posEx, posEy, yawE)
+end
+function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real )
+
+	# pt = [posEx, posEy]
+	# eo = [egocarGx, egocarGy]
+
+	# # rotate
+	# c, s = cos(egocarYaw), sin(egocarYaw)
+	# R = [ c -s;
+	#       s  c]
+	# pt = R*pt
+
+	# # translate
+	# pt += eo
+
+	# return (pt[1], pt[2]) # posGx, posGy
+
+	c, s = cos(egocarYaw), sin(egocarYaw)
+	(c*posEx -s*posEy + egocarGx, s*posEx +c*posEy + egocarGy)
+end
+function ego2global( egocarGx::Real, egocarGy::Real, egocarYaw::Real, posEx::Real, posEy::Real, yawE::Real )
+
+	posGx, posGy = ego2global( egocarGx, egocarGy, egocarYaw, posEx, posEy)
+	yawG = mod2pi(yawE + egocarYaw)
+
+	return (posGx, posGy, yawG)
+end
 
 const NUMBER_REGEX = r"(-)?(0|[1-9]([\d]*))(\.[\d]*)?((e|E)(\+|-)?[\d]*)?"
 isnum(s::AbstractString) = ismatch(NUMBER_REGEX, s) || s == "Inf" || s == "inf" || s == "-Inf" || s == "-inf" || s == "+Inf" || s == "+inf"

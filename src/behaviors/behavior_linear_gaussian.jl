@@ -10,20 +10,21 @@ using PDMats
 type VehicleBehaviorLinearGaussian <: AbstractVehicleBehavior
 
     F::AbstractFeature # the predictor
-    A::Vector{Float64} # the autoregression matrix (here use vector of len 2), μ = A⋅ϕ
-    μ∞::Vector{Float64} # used for Inf values (also length 2)
+    A::Matrix{Float64} # the autoregression matrix (2×2), μ = A⋅ϕ
+    μ∞::Vector{Float64} # used for Inf values (length 2)
     N::MvNormal # with action vector (accel, turnrate) (Σ is const)
 
     action::Vector{Float64} # the action, preallocated
 
     function VehicleBehaviorLinearGaussian(
-        F::Union{AbstractFeature,Int},
-        A::Vector{Float64},
+        F::AbstractFeature,
+        A::Matrix{Float64},
         μ∞::Vector{Float64},
         N::MvNormal,
         )
 
-        @assert(length(A) == 2)
+        @assert(size(A, 1) == 2)
+        @assert(size(A, 2) == 2)
         @assert(length(μ∞) == 2)
 
         new(F, A, μ∞, N, [0.0,0.0])
@@ -58,8 +59,7 @@ end
 
 type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
 
-    X::Matrix{Float64} # column-wise concatenation of predictor (features) [p+1×n]
-                        # the first is the bias feature, always 1.0. Setting bias to 0 means sample does not exist
+    X::Matrix{Float64} # column-wise concatenation of predictor (features) [p×n]
     Y::Matrix{Float64} # column-wise concatenation of output (actions) [o×n]
     Φ::Matrix{Float64} # single-column of features and the singleton feature [2×n]
     μ∞::Vector{Float64} # mean values for when features are infinite (missing)
@@ -71,7 +71,7 @@ type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
 
         nframes = size(dset.dataframe, 1)
         p = length(params.indicators)
-        X = Array(Float64, p+1, nframes)
+        X = Array(Float64, p, nframes)
         Y = Array(Float64, 2, nframes)
         Φ = Array(Float64, 2, nframes)
         μ∞ = Array(Float64, 2)
@@ -89,6 +89,34 @@ function preallocate_learning_data(
     LG_PreallocatedData(dset, params)
 end
 
+function _diagonal_shrinkage!{T<:Real}(
+    Σ::Matrix{T}, # 2×2 matrix with upper diagonal filled in
+                  # this method ONLY affect the upper diagonal
+    ε::T = convert(T, 1e-6),
+    )
+
+    # now we want to use Shrinkage Estimation - https://en.wikipedia.org/wiki/Estimation_of_covariance_matrices#Shrinkage_estimation
+    # Since with a small number of samples we might get a Σ that isn't positive semidefinite
+    # A matrix is pos. semidefinite it all of its eigenvalues are > 0
+    # We choose γ such that A = γΣ + (1-γI) with all of eigenvalues are > ε
+    # This method will work in general, but what is coded below assumes Σ is 2×2
+    #      Σ = [a b; b d]
+    @assert(size(Σ,1)==2 && size(Σ,2)==2)
+
+    a, b, d = Σ[1,1], Σ[1,2], Σ[2,2]
+
+    γ = 2.0*(1.0-ε) / (2.0 - a - d + sqrt(a*a -2*a*d + 4*b*b + d*d))
+
+    if 0.0 < γ < 1.0
+        # @assert(γ ≥ 0.0)
+
+        Σ[1,1] = γ*a + (1.0-γ)
+        Σ[1,2] = γ*b
+        Σ[2,2] = γ*d + (1.0-γ)
+    end
+
+    Σ
+end
 function _regress_on_feature!(behavior::VehicleBehaviorLinearGaussian, ϕ::Float64)
     if isinf(ϕ)
         behavior.N.μ[1] = behavior.μ∞[1]
@@ -179,8 +207,7 @@ function train(
 
     ntrainframes = pull_design_and_target_matrices!(
         X, Y, training_data.dataframe, params.targets, params.indicators,
-        fold, fold_assignment, match_fold,
-        first_feature_is_bias=true)
+        fold, fold_assignment, match_fold)
 
     # A = (ΦΦᵀ + γI)⁻¹ ΦUᵀ
     # rₜ = yₜ - A⋅ϕ
@@ -209,7 +236,7 @@ function train(
         n_inf = 0
         n_noninf = 0
 
-        for j = 1 : ntrainframes
+        for j in 1 : ntrainframes
             if !isinf(X[i, j])
                 n_noninf += 1
 
@@ -222,13 +249,17 @@ function train(
             end
         end
 
-        for j = n_noninf : size(Φ, 2)
+        for j in n_noninf + 1 : size(Φ, 2)
             Φ[1,j] = 0.0
             Φ[2,j] = 0.0
         end
 
         # solve the regression problem
-        A = (Φ*Y)/(Φ*Φ' + Γ)
+        den = Φ*Φ' + Γ
+        _diagonal_shrinkage!(den)
+        den[2,1] = den[1,2] # copy over symmetric component
+
+        A = (Φ*Y')/den
 
         if n_inf > 0
             μ∞ ./= n_inf
@@ -261,12 +292,12 @@ function train(
         if loss < best_predictor_loss
             # store the model results
             best_predictor_loss = loss
-            best_predictor_index = predictor_index
+            best_predictor_index = i
             copy!(best_μ∞, μ∞)
             copy!(best_A, A)
             copy!(best_Σ, Σ)
         end
     end
 
-    VehicleBehaviorLinearGaussian(indicators[best_predictor_index], best_A, best_μ∞, MvNormal([0.0,0.0], PDMat(best_Σ)))
+    VehicleBehaviorLinearGaussian(params.indicators[best_predictor_index], best_A, best_μ∞, MvNormal([0.0,0.0], PDMat(best_Σ)))
 end

@@ -203,6 +203,7 @@ for dset_filepath_modifier in (
 
         print("\toptimizing hyperparameters\n"); tic()
         for (behavior_name, train_def) in behaviorset
+            println(behavior_name)
             preallocated_data = preallocated_data_dict[behavior_name]
             AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
                     train_def, dset, preallocated_data, cv_split_inner)
@@ -331,9 +332,8 @@ for dset_filepath_modifier in (
     println("metrics_sets_test_traces_bagged: ")
     println(metrics_sets_test_traces_bagged)
 
-    exit()
-
     JLD.save(METRICS_OUTPUT_FILE,
+             "model_names",                      model_names,
              "metrics_sets_test_frames",         metrics_sets_test_frames,
              "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
              "metrics_sets_train_frames",        metrics_sets_train_frames,

@@ -415,8 +415,8 @@ function _calc_subsets_based_on_csvfileset(csvfileset::CSVFileSet, nframes::Int)
     df = DataFrame()
     df[symbol(SUBSET_FREE_FLOW)]     = _calc_subset_vector(csvfileset.freeflow, nframes)
     df[symbol(SUBSET_CAR_FOLLOWING)] = _calc_subset_vector(csvfileset.carfollow, nframes)
-    df[symbol(SUBSET_LANE_CROSSING)] = _calc_subset_vector([csvfileset.lanechanges_normal,
-                                                        csvfileset.lanechanges_postpass,
+    df[symbol(SUBSET_LANE_CROSSING)] = _calc_subset_vector([csvfileset.lanechanges_normal;
+                                                        csvfileset.lanechanges_postpass;
                                                         csvfileset.lanechanges_arbitrary], nframes)
 
     df
@@ -487,8 +487,8 @@ function pull_pdset_segments(
         validfind_index += 1
 
         validfind = validfinds[validfind_index]
-        validfind_start = int(jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
-        validfind_end   = int(jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
+        validfind_start = convert(Int, jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
+        validfind_end   = convert(Int, jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
 
         # println(validfind_start, "  ", validfind, "  ", validfind_end)
         # println(validfind_start != 0, "  ", validfind_end != 0)
@@ -523,12 +523,12 @@ function pull_pdset_segments(
             v_orig    =      get(SPEED,     basics, carind, validfind)::Float64
             ω         =      get(TURNRATE,  basics, carind, validfind)::Float64
             a         =      get(ACC,       basics, carind, validfind)::Float64
-            has_front = bool(get(HAS_FRONT, basics, carind, validfind)::Float64)
+            has_front =  convert(Bool, get(HAS_FRONT, basics, carind, validfind)::Float64)
             d_x_front =      get(D_X_FRONT, basics, carind, validfind)::Float64
             d_y_front =      get(D_Y_FRONT, basics, carind, validfind)::Float64
             v_x_front =      get(V_X_FRONT, basics, carind, validfind)::Float64
-            nll       =  int(get(N_LANE_L,  basics, carind, validfind)::Float64)
-            nlr       =  int(get(N_LANE_R,  basics, carind, validfind)::Float64)
+            nll       =  convert(Int, get(N_LANE_L,  basics, carind, validfind)::Float64)
+            nlr       =  convert(Int, get(N_LANE_R,  basics, carind, validfind)::Float64)
 
             if  abs(d_cl)                ≤ extract_params.tol_d_cl &&
                 abs(ϕ)                   ≤ extract_params.tol_yaw &&

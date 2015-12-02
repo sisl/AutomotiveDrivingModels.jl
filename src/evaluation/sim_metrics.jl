@@ -158,6 +158,7 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
                     v_montecarlo = get(F, basics, carind, validfind)
 
                     Δ = v_true - v_montecarlo
+
                     running_sum += Δ*Δ
                 end
             end

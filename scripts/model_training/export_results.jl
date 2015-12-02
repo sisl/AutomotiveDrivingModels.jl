@@ -57,7 +57,7 @@ function _convert_to_short_name(name::AbstractString)
     retval
 end
 
-function create_tikzpicture_model_compare_logl{S<:String, B<:BehaviorFrameMetric}(io::IO,
+function create_tikzpicture_model_compare_logl{S<:AbstractString, B<:BehaviorFrameMetric}(io::IO,
     metrics_straight::Vector{Vector{B}},
     metrics_bagged::Vector{Vector{BaggedMetricResult}},
     names::Vector{S},
@@ -82,7 +82,7 @@ function create_tikzpicture_model_compare_logl{S<:String, B<:BehaviorFrameMetric
         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, Δ, Δ)
     end
 end
-function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
+function create_tikzpicture_model_compare_kldiv_barplot{S<:AbstractString}(io::IO,
     metrics_sets_test_traces::Vector{Vector{BehaviorTraceMetric}},
     metrics_sets_test_traces_bagged::Vector{Vector{BaggedMetricResult}},
     names::Vector{S}
@@ -127,7 +127,7 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:String}(io::IO,
     end
     print(io, "}\n")
 end
-function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO,
+function create_tikzpicture_model_compare_rwse_mean{S<:AbstractString}(io::IO,
     metrics_sets::Vector{Vector{BehaviorTraceMetric}},
     names::Vector{S},
     F::AbstractFeature,
@@ -167,7 +167,7 @@ function create_tikzpicture_model_compare_rwse_mean{S<:String}(io::IO,
         @printf(io, "};\n")
     end
 end
-function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metrics_sets::Vector{Vector{BaggedMetricResult}}, names::Vector{S})
+function create_tikzpicture_model_compare_rwse_variance{S<:AbstractString}(io::IO, metrics_sets::Vector{Vector{BaggedMetricResult}}, names::Vector{S})
 
     #=
     The first model is used as the baseline
@@ -207,8 +207,21 @@ function create_tikzpicture_model_compare_rwse_variance{S<:String}(io::IO, metri
         @printf(io, "};\n")
     end
 end
+function create_tikzpicture_model_compare_rwse_legend{S<:AbstractString}(io::IO, names::Vector{S})
 
-function create_table_validation_across_context_classes{S<:String, T<:String}(
+    # \legend{SG, LG, RF, DF, GM, BN}
+
+    print(io, "\\legend{")
+    for (i,name) in enumerate(names)
+        print(io, _convert_to_short_name(name))
+        if i < length(names)
+            print(io, ", ")
+        end
+    end
+    println(io, "}")
+end
+
+function create_table_validation_across_context_classes{S<:AbstractString, T<:AbstractString}(
     io::IO,
     context_classes::Vector{Dict},
     context_class_names::Vector{S},
@@ -416,9 +429,9 @@ end
 
 # println(keys(JLD.load(METRICS_OUTPUT_FILE)))
 
+preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network"]
 
-names = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Mixture Regression", "Bayesian Network"]
-
+names = JLD.load(METRICS_OUTPUT_FILE, "model_names")
 metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
 metrics_sets_test_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames_bagged")
 metrics_sets_train_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_train_frames")
@@ -426,6 +439,27 @@ metrics_sets_train_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_t
 metrics_sets_test_traces = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces")
 metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces_bagged")
 # metrics_sets_cv = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_cv")
+
+perm = Array(Int, length(names))
+let
+    i = 0
+    for (j,name) in enumerate(preferred_name_order)
+        ind = findfirst(names, name)
+        if ind != 0
+            i += 1
+            perm[ind] = i
+        end
+    end
+    @assert(i == length(perm))
+end
+
+ipermute!(names, perm)
+ipermute!(metrics_sets_test_frames, perm)
+ipermute!(metrics_sets_test_frames_bagged, perm)
+ipermute!(metrics_sets_train_frames, perm)
+ipermute!(metrics_sets_train_frames_bagged, perm)
+ipermute!(metrics_sets_test_traces, perm)
+ipermute!(metrics_sets_test_traces_bagged, perm)
 
 # all_names = String["Real World"]
 # append!(all_names, behaviorset.names)
@@ -457,6 +491,11 @@ end
 write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
 end
+write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
+    create_tikzpicture_model_compare_rwse_legend(fh, names)
+end
+
+
 println("done")
 exit()
 

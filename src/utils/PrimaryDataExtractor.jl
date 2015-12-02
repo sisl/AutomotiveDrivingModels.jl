@@ -1110,21 +1110,34 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                     posGy_ego = trajdata[frameind, :posGy]
                     yawG_ego  = trajdata[frameind, :yawG]
 
-                    # posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
-                    posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
+                    # posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
 
-                    data_obs[total, :posGx] = posG.x
-                    data_obs[total, :posGy] = posG.y
+                    # data_obs[total, :posGx] = posG.x
+                    # data_obs[total, :posGy] = posG.y
 
-                    # velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
-                    velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
+                    # velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
 
-                    if abs(velG) > 3.0
-                        yawG = atan2(velG)
+                    # if abs(velG) > 3.0
+                    #     yawG = atan2(velG)
+                    # else
+                    #     yawG = yawG_ego # to fix problem with very low velocities
+                    # end
+                    # data_obs[total, :velBx] = abs(velG)
+                    # data_obs[total, :yawG]  = yawG
+
+                    posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
+
+                    data_obs[total, :posGx] = posGx
+                    data_obs[total, :posGy] = posGy
+
+                    velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
+
+                    if hypot(velGx, velGy) > 3.0
+                        yawG = atan2(velGy, velGx)
                     else
                         yawG = yawG_ego # to fix problem with very low velocities
                     end
-                    data_obs[total, :velBx] = abs(velG)
+                    data_obs[total, :velBx] = hypot(velGx, velGy)
                     data_obs[total, :yawG]  = yawG
                 end
             end
@@ -1491,21 +1504,37 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
                     posGy_ego = trajdata[frameind, :posGy]
                     yawG_ego  = trajdata[frameind, :yawG]
 
-                    # posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
-                    posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
+                    # # posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
+                    # posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
 
-                    data_obs[total, :posGx] = posG.x
-                    data_obs[total, :posGy] = posG.y
+                    # data_obs[total, :posGx] = posG.x
+                    # data_obs[total, :posGy] = posG.y
 
-                    # velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
-                    velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
+                    # # velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
+                    # velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
 
-                    if abs(velG) > 3.0
-                        yawG = atan2(velG)
+                    # if abs(velG) > 3.0
+                    #     yawG = atan2(velG)
+                    # else
+                    #     yawG = yawG_ego # to fix problem with very low velocities
+                    # end
+                    # data_obs[total, :velBx] = abs(velG)
+                    # data_obs[total, :yawG]  = yawG
+                    # data_obs[total, :exists] = true
+
+                    posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
+
+                    data_obs[total, :posGx] = posGx
+                    data_obs[total, :posGy] = posGy
+
+                    velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
+
+                    if hypot(velGx, velGy) > 3.0
+                        yawG = atan2(velGy, velGx)
                     else
                         yawG = yawG_ego # to fix problem with very low velocities
                     end
-                    data_obs[total, :velBx] = abs(velG)
+                    data_obs[total, :velBx] = hypot(velGx, velGy)
                     data_obs[total, :yawG]  = yawG
                     data_obs[total, :exists] = true
                 end

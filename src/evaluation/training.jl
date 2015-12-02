@@ -159,7 +159,6 @@ function pull_design_and_target_matrices!(
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool;
-    first_feature_is_bias::Bool = true # if true, the first feature is a bias feature and X is [p+1×n]
     )
 
     #=
@@ -174,6 +173,7 @@ function pull_design_and_target_matrices!(
     n = size(trainingframes, 1)
 
     @assert(length(fold_assignment.frame_assignment) == n)
+    @assert(size(X,1) == length(indicators))
     @assert(size(X,2) == n)
     @assert(size(Y,1) == 2)
     @assert(size(Y,2) == n)
@@ -192,13 +192,7 @@ function pull_design_and_target_matrices!(
             @assert(!isinf(action_lat))
             @assert(!isinf(action_lon))
 
-            j = 0
-            if first_feature_is_bias
-                j += 1
-                X[1, m] = 1.0
-            end
-            for feature in indicators
-                j += 1
+            for (j,feature) in enumerate(indicators)
                 v = trainingframes[row, symbol(feature)]
                 @assert(!isnan(v))
                 X[j, m] = v
@@ -211,7 +205,6 @@ function pull_design_and_target_matrices!(
         Y[1,row] = 0.0
         Y[2,row] = 0.0
         for j in 1 : size(X, 1)
-            println(size(X, 1), "  ", row)
             X[j,row] = 0.0
         end
     end
