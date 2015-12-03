@@ -161,7 +161,7 @@ Base.convert(::Type{LaneID}, tag::LaneTag) = LaneID(tag.segment, tag.lane)
 
 immutable TilePoint2DProjectionResult
 	successful :: Bool       # whether the projection was successful
-	footpoint  :: CurvePt  # the closest point on the curve
+	footpoint  :: CurvePt    # the closest point on the curve
 	extind     :: Float64    # the extind on the curve
 	lane       :: StreetLane # the corresponding lane
 	sqdist     :: Float64    # square distance to the curve

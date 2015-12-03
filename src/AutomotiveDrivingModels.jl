@@ -25,6 +25,9 @@ include("utils/StreetNetworks.jl")
 include("utils/Trajdata.jl")
 @reexport using .Trajdata
 
+include("utils/RunLogs.jl")
+@reexport using .RunLogs
+
 include("features/Features.jl")
 @reexport using .Features
 
