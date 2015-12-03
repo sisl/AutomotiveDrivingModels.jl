@@ -33,7 +33,7 @@ export D_CL, D_ML, D_MR, SCENEVELFX
 export TIMETOCROSSING_RIGHT, TIMETOCROSSING_LEFT, ESTIMATEDTIMETOLANECROSSING
 export D_MERGE, D_SPLIT, ID
 export A_REQ_STAYINLANE, N_LANE_R, N_LANE_L, HAS_LANE_R, HAS_LANE_L, LANECURVATURE
-export SUMO, IDM,
+export SUMO, IDM
 export INDFRONT, HAS_FRONT, D_X_FRONT, D_Y_FRONT, V_X_FRONT, V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, A_REQ_FRONT, TTC_X_FRONT, TIMEGAP_X_FRONT
 export INDREAR,  HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  A_REQ_REAR,  TTC_X_REAR,  TIMEGAP_X_REAR
 export INDLEFT,             D_X_LEFT,  D_Y_LEFT,  V_X_LEFT,  V_Y_LEFT,  YAW_LEFT,  TURNRATE_LEFT,  A_REQ_LEFT,  TTC_X_LEFT,  TIMEGAP_X_LEFT
@@ -2358,7 +2358,7 @@ const MIN_HEADWAY = 1.5 # [m] (even if stopped)
 const DECEL_COMFORTABLE = 1.0 # [m/s²]
 
 
-create_feature_basics( "IDM", "m/s2", false, false, ACCEL_MAX, ACCEL_MIN, true, :idm, L"a_\text{SUMO}", "Intelligent driver model prediction")
+create_feature_basics( "IDM", "m/s2", false, false, ACCEL_MAX, ACCEL_MIN, true, :idm, L"a_\text{IDM}", "Intelligent driver model prediction")
 function _get(::Feature_IDM, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
     # Intelligent Driver Model accel prediction
     # returns NA if no vehicle in front
