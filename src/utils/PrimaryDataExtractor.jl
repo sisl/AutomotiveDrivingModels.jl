@@ -6,13 +6,15 @@ using HDF5, JLD
 using AutomotiveDrivingModels.Vec
 using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Curves
-using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.StreetNetworks
+using AutomotiveDrivingModels.Trajdata
+using AutomotiveDrivingModels.RunLogs
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
 
 export
     PrimaryDataExtractionParams,
+    extract_runlogs,
     gen_primary_data,
     gen_primary_data_no_smoothing
 
@@ -45,7 +47,7 @@ type PrimaryDataExtractionParams
     threshold_other_from_lane_ends      :: Float64 # [m] distance from lane start & end that we want to be
 
     frameinds :: Vector{Int} # if empty, use all of them; otherwise use [x₁:x₂, x₃:x₄, ...]
-    default_control_status :: Int
+    default_control_status :: UInt16
 
     function PrimaryDataExtractionParams(mode::Symbol=:BoschRaw)
         self = new()
@@ -73,7 +75,7 @@ type PrimaryDataExtractionParams
             self.threshold_proj_sqdist_other = self.threshold_lane_lateral_offset_other * self.threshold_lane_lateral_offset_other
             self.threshold_lane_angle_other = deg2rad(45)
             self.threshold_other_from_lane_ends = 1.0
-            self.default_control_status = Trajdata.CONTROL_STATUS_FAILURE
+            self.default_control_status = ControlStatus.UNKNOWN
         elseif mode == :PerfectSim
             self.padding_size  = 1
 
@@ -97,7 +99,7 @@ type PrimaryDataExtractionParams
             self.threshold_proj_sqdist_other = self.threshold_lane_lateral_offset_other * self.threshold_lane_lateral_offset_other
             self.threshold_lane_angle_other = deg2rad(45)
             self.threshold_other_from_lane_ends = 0.0
-            self.default_control_status = Trajdata.CONTROL_STATUS_VIRES_AUTO
+            self.default_control_status = ControlStatus.VIRES_AUTO
         end
 
         self
@@ -292,13 +294,16 @@ function make_angle_continuous!( arr::DataVector{Float64} )
     end
     arr
 end
+function mod2pi_neg_pi_to_pi( θ::Float64 )
+    θ = mod2pi(θ)
+    if θ > π
+        θ -= 2π
+    end
+    θ
+end
 function mod2pi_neg_pi_to_pi!( arr::Vector{Float64} )
     for i = 1 : length(arr)
-        ψ = mod2pi(arr[i])
-        if ψ > π
-            ψ -= 2π
-        end
-        arr[i] = ψ
+        arr[i] = mod2pi_neg_pi_to_pi(arr[i])
     end
     arr
 end
@@ -438,7 +443,7 @@ function smooth(x_arr::Vector{Float64}, y_arr::Vector{Float64}, x_arr2::Vector{F
     end
     y_arr2
 end
-function resample_snap_to_closest{R<:Any}(x_arr::Vector{Float64}, y_arr::DataVector{R}, x_arr2::Vector{Float64})
+function _resample_snap_to_closest{R<:Any}(x_arr::Vector{Float64}, y_arr::DataVector{R}, x_arr2::Vector{Float64})
 
     n = length(x_arr)
     @assert(length(y_arr) == n)
@@ -774,7 +779,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
     df_ego = DataFrame(
         time           = arr_time_resampled,              # time
-        frame          = [1:n_resamples],                 # frame
+        frame          = collect(1:n_resamples),                 # frame
         control_status = DataArray(Int, n_resamples),     # trajdata[:control_status], # enum identifier of control status (5==AUTO)
         posGx          = trajdata_smoothed[:posGx],       # easting in the global frame
         posGy          = trajdata_smoothed[:posGy],       # northing in the global frame
@@ -801,7 +806,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
     ego_car_on_freeway = falses(n_resamples)
 
     if :control_status in names(trajdata)
-        df_ego[:,:control_status] = resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
+        df_ego[:,:control_status] = _resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
     else
         fill!(df_ego[:control_status], params.default_control_status)
     end
@@ -1301,7 +1306,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
 
     df_ego = DataFrame(
         time           = (trajdata[:time] .- trajdata[1, :time])::DataArray{Float64}, # time
-        frame          = [1:nframes],                 # frame
+        frame          = collect(1:nframes),                 # frame
         control_status = DataArray(Int, nframes),     # trajdata[:control_status], # enum identifier of control status (5==AUTO)
         posGx          = trajdata[:posGx],         # easting in the global frame
         posGy          = trajdata[:posGy],         # northing in the global frame
@@ -1623,6 +1628,415 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     retval = PrimaryDataset(df_ego, df_other, dict_trajmat, dict_other_idmap, mat_other_indmap, ego_car_on_freeway)
     println("PrimaryDataset: 2")
     retval
+end
+
+function extract_runlogs(trajdata::DataFrame, sn::StreetNetwork, params::PrimaryDataExtractionParams, runlogheader::RunLogHeader)
+
+    _assert_valid_primarydata_extraction_params(params)
+
+    # initial ego smoothing and outlier removal
+    # -----------------------------------------
+
+    n_initial_samples  = size(trajdata,1)
+
+    arr_time  = convert(Array{Float64}, trajdata[:time]) .- trajdata[1, :time]::Float64
+
+    n_resamples = floor(Int, (arr_time[end] - arr_time[1]) / params.resample_rate)
+    arr_time_resampled = collect(0:n_resamples-1)*params.resample_rate + arr_time[1]
+    arr_time_padded = pad_linear(arr_time, params.padding_size)
+    arr_time_resampled_padded = pad_linear(arr_time_resampled, params.padding_size)
+
+    trajdata_smoothed = DataFrame()
+    trajdata[:yawG] = make_angle_continuous!(convert(Array{Float64}, trajdata[:yawG]))
+    for (variable, RANSAC_fit_threshold, smoothing_variance) in
+        [(:posGx,  Inf,  0.5),
+         (:posGy,  Inf,  0.5),
+         (:yawG,   0.01, 0.5),
+         (:velEx,  0.1,  0.5),
+         (:velEy,  0.05, 0.5)]
+
+        arr_orig_padded = pad_linear(convert(Array{Float64}, trajdata[variable]), params.padding_size)
+
+        if isinf(RANSAC_fit_threshold) || params.ransac_n_inliers_for_first_fit ≤ 3
+            outliers = Set{Int}()
+        else
+            outliers = sliding_window_RANSAC(arr_time_padded, arr_orig_padded, params.ransac_n_iter,
+                            RANSAC_fit_threshold, params.ransac_n_inliers_for_first_fit,
+                            params.ransac_window_width, params.ransac_window_overlap)
+        end
+
+        percent_outliers = 100.0*length(outliers) / n_initial_samples
+        percent_outliers < params.threshold_percent_outliers_error || error("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
+        percent_outliers < params.threshold_percent_outliers_warn  ||  warn("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
+
+        arr_smoothed_padded = smooth(arr_time_padded, arr_orig_padded, arr_time_resampled_padded, smoothing_variance, outliers)
+        trajdata_smoothed[variable] = remove_pad(arr_smoothed_padded, params.padding_size)
+    end
+
+    # lane frame projection and determine ego_car_on_freeway
+    # --------------------------------------------
+
+    ego_car_on_freeway = falses(n_resamples)
+    projections = Array(TilePoint2DProjectionResult, n_resamples)
+
+    for frame in params.buffer_frames : (n_resamples-params.buffer_frames)
+
+        posGx   = trajdata_smoothed[frame, :posGx]
+        posGy   = trajdata_smoothed[frame, :posGy]
+        posGyaw = trajdata_smoothed[frame, :yawG ]
+
+        proj = project_point_to_streetmap(posGx, posGy, sn)
+        projections[frame] = proj
+
+        if proj.successful && proj.sqdist < params.threshold_proj_sqdist_ego
+            ptG = proj.footpoint
+            s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
+
+            meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_ego
+            meets_lane_angle_criterion = abs(θ) < params.threshold_lane_angle_ego
+            ego_car_on_freeway[frameind] = meets_lane_lateral_offset_criterion && meets_lane_angle_criterion
+        end
+    end
+
+    # adjust ego_car_on_freeway based on given frameinds
+    # ----------------------------------------
+    if !isempty(params.frameinds)
+
+        orig_index = 1
+        t_lo = arr_time[params.frameinds[orig_index]]
+        t_hi = arr_time[params.frameinds[orig_index+1]]
+
+        for sample_index = 1 : n_resamples
+            t = arr_time_resampled[sample_index]
+
+            if t > t_hi
+                orig_index += 2
+                if orig_index < length(params.frameinds)
+                    t_lo = arr_time[params.frameinds[orig_index]]
+                    t_hi = arr_time[params.frameinds[orig_index+1]]
+                else
+                    t_lo = Inf
+                    t_hi = Inf
+                end
+            end
+
+            if t < t_lo
+                ego_car_on_freeway[sample_index] = false
+            end
+        end
+    end
+
+    # extract a RunLog for each continuous segment
+    # --------------------------------------------
+
+    segments = continuous_segments(ego_car_on_freeway)
+    n_runlogs = round(Int, length(segments)/2)
+    retval = Array(RunLog, n_runlogs)
+    for i in 1 : n_runlogs
+        frame_lo = segments[2*i-1]
+        frame_hi = segments[2*i]
+        retval[i] = _extract_runlog(trajdata, trajdata_smoothed,
+                                    sn, params, runlogheader,
+                                    frame_lo, frame_hi,
+                                    arr_time, arr_time_resampled,
+                                    projections)
+    end
+
+    retval
+end
+
+function _extract_runlog(
+    trajdata::DataFrame,
+    trajdata_smoothed::DataFrame,
+    sn::StreetNetwork,
+    params::PrimaryDataExtractionParams,
+    runlogheader::RunLogHeader,
+    frame_lo::Int,
+    frame_hi::Int,
+    arr_time::AbstractVector{Float64},
+    arr_time_resampled::AbstractVector{Float64},
+    projections::Vector{TilePoint2DProjectionResult},
+    )
+
+    _assert_valid_primarydata_extraction_params(params)
+    @assert(frame_hi > frame_lo)
+    @assert(frame_lo > 0)
+    @assert(frame_hi ≤ length(projections))
+
+    # initialize the RunLog
+    # ----------------------------------------
+
+    nframes = frame_hi - frame_lo + 1
+
+    runlog = RunLog(nframes, deepcopy(runlogheader), 1)
+    push_agent!(runlog, AgentDefinition(AgentClass.CAR, ID_EGO))
+
+    colset_ego = one(UInt)
+    set!(runlog, 1:nframes, :time, arr_time_resampled[frame_lo:frame_hi])
+
+    if :control_status in names(trajdata)
+        resampled_control_status = _resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
+        set!(runlog, 1:nframes, :environment, resampled_control_status[frame_lo:frame_hi])
+    else
+        set!(runlog, 1:nframes, :environment, repeated(params.default_control_status, nframes))
+    end
+
+    # ego feature extraction
+    # --------------------------------------------
+
+    for (frame_new, frame_old) in enumerate(frame_lo : frame_hi)
+
+        inertial = VecSE2(trajdata_smoothed[frame_old, :posGx],
+                          trajdata_smoothed[frame_old, :posGy],
+                          mod2pi_neg_pi_to_pi(trajdata_smoothed[frame_old, :yawG ]))
+
+        proj = projections[frame_old]
+        @assert(proj.successful)
+        @assert(proj.sqdist < params.threshold_proj_sqdist_ego)
+
+        footpoint = proj.footpoint
+        lanetag = proj.lane.id
+        frenet = VecSE2(pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)...)
+
+        turnrate = NaN
+        if frame_new > 1
+            turnrate = (inertial.θ - trajdata_smoothed[frame_old-1, :yawG]) / get_elapsed_time(runlog, frame_new-1, frame_new)
+        elseif frame_old < frame_hi
+            turnrate = (trajdata_smoothed[frame_old+1, :yawG] - inertial.θ) / get_elapsed_time(runlog, frame_new, frame_new+1)
+        end
+
+        ratesB = VecSE2(trajdata_smoothed[frame_old, :velEx],
+                        trajdata_smoothed[frame_old, :velEy],
+                        turnrate)
+
+        set!(runlog, colset_ego, frame_new, ID_EGO,
+             inertial, frenet, ratesB, footpoint, lanetag)
+    end
+
+    # Other Car Extraction
+    #  - for each car id
+    #    - identify frames where it too is on the freeway
+    #    - pull data for all frames where it is available
+    #    - maintain list of missing frames
+    #    - run smoothing / interpolation same as ego
+    #    - map to frenet
+    # --------------------------------------------
+
+    const freeway_frameinds = frameinds[ego_car_on_freeway]
+    const freeway_frameinds_raw = encompasing_indeces(freeway_frameinds, arr_time_resampled, arr_time)
+
+    const CARID_EGO_ORIG = -1
+    trajdata_carids = get_carids(trajdata) # a Set{Int} of carids
+    delete!(trajdata_carids, CARID_EGO_ORIG)
+
+    for (i,trajdata_carid) in enumerate(trajdata_carids)
+
+        tic()
+        println(trajdata_carid, ": ", i, " / ", length(trajdata_carids))
+
+        carid_new = convert(UInt, CARID_EGO + i)
+
+        # all frames where the car exists
+        car_frameinds_raw = filter(frame->carid_exists(trajdata, trajdata_carid, frame), freeway_frameinds_raw)
+        if isempty(car_frameinds_raw)
+            toc()
+            continue
+        end
+
+        data_arr_index = 0
+
+        for (lo,hi) in near_continuous_segments(car_frameinds_raw, params.threshold_other_frame_gap)
+
+            segment_frameinds = collect(car_frameinds_raw[lo] : car_frameinds_raw[hi]) # array of all frames for this segment
+            n_frames_in_seg = length(segment_frameinds)
+
+            # ------------------------------------------
+            # enforce minimum segment length
+            if n_frames_in_seg < params.threshold_other_segment_length
+                print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                continue
+            end
+
+            # ------------------------------------------
+            # run smoothing + interpolation
+
+            # whether car exists in frame
+            car_exists = falses(n_frames_in_seg)
+            car_exists[car_frameinds_raw[lo:hi]-car_frameinds_raw[lo]+1] = true
+            n_frames_exist = sum(car_exists)
+
+            # map index to carind (-1 if no exist)
+            carinds_raw = map(i->Trajdata.carid2ind_or_negative_one_otherwise(trajdata, trajdata_carid, segment_frameinds[i]), 1:n_frames_in_seg)
+            time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
+
+            time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:n_resamples)
+            time_resampled_ind_hi = findnext(i->arr_time_resampled[i+1] > time_obs[end], 1:n_resamples-1, time_resampled_ind_lo)
+            @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
+            time_resampled = arr_time_resampled[time_resampled_ind_lo:time_resampled_ind_hi]
+            smoothed_frameinds = collect(time_resampled_ind_lo:time_resampled_ind_hi)
+
+            time_obs_padded = pad_linear(time_obs, params.padding_size)
+            time_resampled_padded = pad_linear(time_resampled, params.padding_size)
+
+            # TODO(tim): can this be optimized with pre-allocation outside of the loop?
+            # NOTE(tim): this assumes zero sideslip
+            data_obs = DataFrame(
+                posGx = DataArray(Float64, n_frames_exist),
+                posGy = DataArray(Float64, n_frames_exist),
+                yawG  = DataArray(Float64, n_frames_exist),
+                velBx = DataArray(Float64, n_frames_exist)
+                )
+
+            total = 0
+            for (i,frameind) in enumerate(segment_frameinds)
+
+                if car_exists[i]
+                    total += 1
+                    carind = carinds_raw[i]
+                    @assert(carind != -1)
+
+                    posEx = getc(trajdata, "posEx", carind, frameind)
+                    posEy = getc(trajdata, "posEy", carind, frameind)
+                    velEx = getc(trajdata, "velEx", carind, frameind) # NOTE(tim): velocity in the ego frame but pre-compensated for ego velocity
+                    velEy = getc(trajdata, "velEy", carind, frameind)
+
+                    posGx_ego = trajdata[frameind, :posGx]
+                    posGy_ego = trajdata[frameind, :posGy]
+                    yawG_ego  = trajdata[frameind, :yawG]
+
+                    # posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
+
+                    # data_obs[total, :posGx] = posG.x
+                    # data_obs[total, :posGy] = posG.y
+
+                    # velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
+
+                    # if abs(velG) > 3.0
+                    #     yawG = atan2(velG)
+                    # else
+                    #     yawG = yawG_ego # to fix problem with very low velocities
+                    # end
+                    # data_obs[total, :velBx] = abs(velG)
+                    # data_obs[total, :yawG]  = yawG
+
+                    posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
+
+                    data_obs[total, :posGx] = posGx
+                    data_obs[total, :posGy] = posGy
+
+                    velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
+
+                    if hypot(velGx, velGy) > 3.0
+                        yawG = atan2(velGy, velGx)
+                    else
+                        yawG = yawG_ego # to fix problem with very low velocities
+                    end
+                    data_obs[total, :velBx] = hypot(velGx, velGy)
+                    data_obs[total, :yawG]  = yawG
+                end
+            end
+            @assert(total == size(data_obs, 1))
+            data_obs[:yawG] = make_angle_continuous!(convert(Vector{Float64}, data_obs[:yawG]))
+
+            data_smoothed = DataFrame()
+            should_toss_due_to_outliers = false
+            for (variable, RANSAC_fit_threshold, smoothing_variance) in
+                [(:posGx,  0.5,  0.5), # TODO(tim): tune these
+                 (:posGy,  0.5,  0.5),
+                 (:yawG,   0.05, 0.5),
+                 (:velBx,  2.0,  0.5)] # NOTE(tim): many vehicles are sensitive here... need to investigate
+
+                arr_orig_padded = pad_linear(convert(Vector{Float64}, data_obs[variable]), params.padding_size)
+
+                if  params.ransac_n_inliers_for_first_fit ≤ 3
+                    outliers = Set{Int}()
+                else
+                    outliers = sliding_window_RANSAC(time_obs_padded, arr_orig_padded, params.ransac_n_iter,
+                                        RANSAC_fit_threshold, params.ransac_n_inliers_for_first_fit,
+                                        params.ransac_window_width, params.ransac_window_overlap)
+                end
+
+                percent_outliers = 100.0*length(outliers) / n_frames_in_seg
+                if percent_outliers > params.threshold_percent_outliers_toss
+                    should_toss_due_to_outliers = true
+                    print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
+                    break
+                end
+
+                arr_smoothed_padded = smooth(time_obs_padded, arr_orig_padded, time_resampled_padded, smoothing_variance, outliers)
+                data_smoothed[variable] = remove_pad(arr_smoothed_padded, params.padding_size)
+            end
+            if should_toss_due_to_outliers
+                continue
+            end
+
+            inds_to_keep = find(frame->ego_car_on_freeway[frame], smoothed_frameinds)
+            smoothed_frameinds = smoothed_frameinds[inds_to_keep]
+            data_smoothed = data_smoothed[inds_to_keep, :]
+
+            if size(data_smoothed, 1) < params.threshold_other_segment_length
+                print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                continue
+            end
+
+            # ------------------------------------------
+            # map to frenet frame & extract values
+
+            # for (frame_new, frame_old) in enumerate(frame_lo : frame_hi)
+
+            #
+
+
+
+
+
+            #
+            #
+            # end
+
+            for (i,frame_old) in enumerate(smoothed_frameinds)
+
+                frame_new = frame_old - frame_lo + 1
+
+                inertial = VecSE2(data_smoothed[i, :posGx],
+                                  data_smoothed[i, :posGy],
+                                  mod2pi_neg_pi_to_pi(data_smoothed[i, :yawG ]))
+
+                proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
+                if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
+
+                    footpoint = proj.footpoint
+                    lanetag = proj.lane.id
+                    frenet = VecSE2(pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)...)
+
+                    ratesB = VecSE2(data_smoothed[frame_old, :velEx],
+                                    data_smoothed[frame_old, :velEy],
+                                    NaN) # NOTE(tim): turnrate will be computed in another pass
+
+                    laneid = int(proj.lane.id.lane)
+                    seg = get_segment(sn, proj.lane.id)
+                    d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
+
+                    meets_lane_lateral_offset_criterion = abs(frenet.y) < params.threshold_lane_lateral_offset_other
+                    meets_lane_angle_criterion = abs(frenet.θ) < params.threshold_lane_angle_other
+                    meets_lane_end_criterion = d_end > params.threshold_other_from_lane_ends
+
+                    if  meets_lane_lateral_offset_criterion &&
+                        meets_lane_angle_criterion &&
+                        meets_lane_end_criterion
+
+                        colset = get_first_vacant_colset!(runlog, carid_new, frame_new)
+                        set!(runlog, colset, frame_new, carid_new,
+                             inertial, frenet, ratesB, footpoint, lanetag)
+                    end
+                end
+            end
+        end
+
+        toc()
+    end
+
+    runlog
 end
 
 end # module

@@ -1226,6 +1226,7 @@ function rndf2streetnetwork(
 	)
 	# convert the given rndf to a street network
 
+
 	verbosity < 1 || println("RNDF 2 STREET NETWORK")
 	starttime = time()
 

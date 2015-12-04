@@ -15,8 +15,6 @@ export
 	LaneID,
 	load_rndf
 
-import Base: show, hash
-
 # constants
 # ==============================================
 
@@ -105,17 +103,17 @@ end
 # functions
 # ==============================================
 
-show(io::IO, id::LaneID) = @printf(io, "%d.%d", int(id.segment), int(id.lane))
-show(io::IO, id::WaypointID) = @printf(io, "%d.%d.%d", int(id.segment), int(id.lane), int(id.pt))
-show(io::IO, pt::LatLonAlt) = @printf(io, "(%8.4f, %9.4f, %8.2f)", pt.lat, pt.lon, pt.alt)
+Base.show(io::IO, id::LaneID) = @printf(io, "%d.%d", convert(Int, id.segment), convert(Int, id.lane))
+Base.show(io::IO, id::WaypointID) = @printf(io, "%d.%d.%d", convert(Int, id.segment), convert(Int, id.lane), convert(Int, id.pt))
+Base.show(io::IO, pt::LatLonAlt) = @printf(io, "(%8.4f, %9.4f, %8.2f)", pt.lat, pt.lon, pt.alt)
 
 get_segment(rndf::RNDF, id::Int) = rndf.segments[id]::RNDF_Segment
 get_lane(rndf::RNDF, id::LaneID) = rndf.segments[id.segment].lanes[id.lane]::RNDF_Lane
 get_lane(rndf::RNDF, id::WaypointID) = rndf.segments[id.segment].lanes[id.lane]::RNDF_Lane
 get_waypoint(rndf::RNDF, id::WaypointID) = rndf.segments[id.segment].lanes[id.lane].waypoints[id.pt]::LatLonAlt
 
-hash(id::LaneID, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
-hash(id::WaypointID, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, hash(id.pt, h)))
+Base.hash(id::LaneID, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
+Base.hash(id::WaypointID, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, hash(id.pt, h)))
 
 function add_segment!(rndf::RNDF, id::Int)
 	!haskey(rndf.segments, id) || error("rndf already has segment $id")
