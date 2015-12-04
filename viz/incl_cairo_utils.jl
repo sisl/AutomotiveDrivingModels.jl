@@ -14,6 +14,38 @@ Renderer.camera_set_pos!(rm::RenderModel, car::Vehicle) = camera_set_pos!(rm, co
 
 function render_trace!(
     rm::RenderModel,
+    runlog::RunLog,
+    carid::Integer,
+    frame_start::Integer,
+    frame_end::Integer;
+    color::Colorant=RGB(0xBB,0xBB,0xFF),
+    linewidth::Float64=0.25, # [m]
+    arrowhead_len::Float64=1.0 # [m]
+    )
+
+    npts = validfind_end - validfind_start + 1
+    pts = Array(Float64, 2, npts)
+    pt_index = 0
+
+    for frame in frame_start:frame_end
+        if frame_inbounds(runlog, frame)
+
+            colset = id2colset(runlog, carid, frame)
+            if colset != COLSET_NULL
+                pt_index += 1
+                pos = get(runlog, colset, carid, :inertial)::VecSE2
+                pts[1,pt_index] = pos.x
+                pts[2,pt_index] = pos.y
+            end
+        end
+    end
+
+    pts = pts[:,1:pt_index]
+
+    add_instruction!(rm, render_arrow, (pts, color, linewidth, arrowhead_len))
+end
+function render_trace!(
+    rm::RenderModel,
     pdset::PrimaryDataset,
     carid::Integer,
     validfind_start::Int,
@@ -43,6 +75,7 @@ function render_trace!(
 
     add_instruction!(rm, render_arrow, (pts, color, linewidth, arrowhead_len))
 end
+
 function render_extracted_trajdef!(
     rendermodel::RenderModel,
     extracted::ExtractedTrajdef;
@@ -553,6 +586,33 @@ function render_car!(
     add_instruction!(rm, render_car, (car.pos.x, car.pos.y, car.pos.ϕ, color))
     rm
 end
+
+function render_car!(
+    rm::RenderModel,
+    runlog::RunLog,
+    colset::Integer,
+    frame::Integer;
+    color::Colorant = RGB(rand(), rand(), rand())
+    )
+
+    pos = get(runlog, colset, frame, :inertial)::VecSE2
+    add_instruction!(rm, render_car, (pos.x, pos.y, pos.θ, color))
+    rm
+end
+function render_car!(
+    rm::RenderModel,
+    runlog::RunLog,
+    colset::Integer,
+    frame::Integer,
+    color_fill::Colorant,
+    color_stroke::Colorant = color_fill
+    )
+
+    pos = get(runlog, colset, frame, :inertial)::VecSE2
+    add_instruction!(rm, render_car, (pos.x, pos.y, pos.θ, color_fill, color_stroke))
+    rm
+end
+
 function render_car!(
     rm::RenderModel,
     pdset::PrimaryDataset,
@@ -637,6 +697,28 @@ function render_car!(
     add_instruction!( render_car, (posGx, posGy, posGθ, color))
     rm
 end
+
+function render_scene!(
+    rendermodel::RenderModel,
+    runlog::RunLog,
+    frame::Integer;
+    active_carid::Integer = RunLog.ID_EGO,
+    color_active::Colorant = COLOR_CAR_EGO,
+    color_oth::Colorant = COLOR_CAR_OTHER,
+    )
+
+    @assert(frame_inbounds(runlog, frame))
+
+    for colset in 1 : nactors(runlog, frame)
+
+        id = colset2id(runlog, colset, frame)
+        color = (id == active_carid) ? color_active : color_oth
+
+        render_car!(rendermodel, runlog, colset, frame, color=color)
+    end
+
+    rendermodel
+end
 function render_scene!(
     rm::RenderModel,
     pdset::PrimaryDataset,
@@ -683,6 +765,18 @@ end
 
 function camera_center_on_ego!(
     rendermodel::RenderModel,
+    runlog::RunLog,
+    frame::Int,
+    zoom::Real = rendermodel.camera_zoom # [pix/m]
+    )
+
+    colset = id2colset(runlog, RunLog.ID_EGO, frame)
+    pos = get(runlog, colset, frame, :inertial)::VecSE2
+    camera_set!(rendermodel, pos.x, pos.y, zoom)
+    rendermodel
+end
+function camera_center_on_ego!(
+    rendermodel::RenderModel,
     pdset::PrimaryDataset,
     frameind::Int,
     zoom::Real = rendermodel.camera_zoom # [pix/m]
@@ -707,6 +801,7 @@ function camera_center_on_ego!(
     camera_set!(rendermodel, posGx, posGy, zoom)
     rendermodel
 end
+
 function camera_center_on_carid!(
     rendermodel::RenderModel,
     pdset::PrimaryDataset,
@@ -731,6 +826,18 @@ end
 
 function set_camera_in_front_of_carid!(
     rendermodel::RenderModel,
+    runlog::RunLog,
+    carid::Integer,
+    frame::Integer,
+    camera_forward_offset::Real,
+    )
+
+    pos = get(runlog, colset, frame, :inertial)::VecSE2
+    pos_camera = convert(VecE2, pos) + Vec.polar(camera_forward_offset, pos.θ)
+    camera_set_pos!(rendermodel, pos_camera.x, pos_camera.y)
+end
+function set_camera_in_front_of_carid!(
+    rendermodel::RenderModel,
     pdset::PrimaryDataset,
     carid::Integer,
     frameind::Integer,
@@ -749,6 +856,32 @@ function set_camera_in_front_of_carid!(
     camera_set_pos!(rendermodel, posG.x, posG.y)
 end
 
+function plot_scene(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100,
+    canvas_height::Integer=300,
+    rendermodel::RenderModel=RenderModel(),
+
+    camera_forward_offset::Float64=60.0, # [m]
+    camerazoom::Real=6.5, # [pix/m]
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+    render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
+    camera_setzoom!(rendermodel, camerazoom)
+    set_camera_in_front_of_carid!(rendermodel, runlog, active_carid, frame, camera_forward_offset)
+
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
 function plot_scene(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -793,6 +926,46 @@ function plot_scene(
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end
+
+function plot_traces(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    horizon::Integer,
+    history::Integer;
+    active_carid::Integer=RunLog.ID_EGO,
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=500, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+
+    colset::Integer = id2colset(runlog, active_carid, frame),
+    camerax::Real = get(runlog, colset, frame :inertial).x,
+    cameray::Real = get(runlog, colset, frame :inertial).y,
+    color_history::Colorant=RGBA(0.7,0.3,0.0,0.8),
+    color_horizon::Colorant=RGBA(0.3,0.3,0.7,0.8),
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+
+    for colset in 1 : nactors(runlog, frame)
+        id = colset2id(runlog, colset, frame)
+        render_trace!(rendermodel, runlog, id, frame - history, frame, color=color_history)
+        render_trace!(rendermodel, runlog, id, frame, frame + horizon, color=color_horizon)
+    end
+
+    # render car positions
+    render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
+
+    camera_setzoom!(rendermodel, camerazoom)
+    camera_set_pos!(rendermodel, camerax, cameray)
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
 function plot_traces(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -831,6 +1004,7 @@ function plot_traces(
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end
+
 function plot_extracted_trajdefs(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -956,6 +1130,30 @@ function lerp_color_rgb(a::Colorant, b::Colorant, t::Real, alpha::Real)
     RGBA(r,g,b, alpha)
 end
 
+function plot_manipulable_runlog{I<:Integer}(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camera_forward_offset::Real=0.0,
+
+    frames::AbstractVector{I} = 1:nvalidfinds(runlog),
+    )
+
+    @manipulate for frame in frames
+
+        plot_scene(runlog, sn, frame, active_carid,
+                   canvas_width=canvas_width,
+                   canvas_height=canvas_height,
+                   rendermodel=rendermodel,
+                   camera_forward_offset=camera_forward_offset,
+                   camerazoom=camerazoom)
+    end
+end
 function plot_manipulable_pdset(
     pdset::PrimaryDataset,
     sn::StreetNetwork,
@@ -967,8 +1165,8 @@ function plot_manipulable_pdset(
     camerazoom::Real=6.5,
     camera_forward_offset::Real=0.0,
 
-    validfind_start = 1,
-    validfind_end = nvalidfinds(pdset)
+    validfind_start::Integer = 1,
+    validfind_end::Integer = nvalidfinds(pdset)
     )
 
     @manipulate for validfind in validfind_start : validfind_end
@@ -981,6 +1179,7 @@ function plot_manipulable_pdset(
                    camerazoom=camerazoom)
     end
 end
+
 function plot_manipulable_generated_future_traces(
     behavior::AbstractVehicleBehavior,
     pdset::PrimaryDataset,
@@ -1621,8 +1820,8 @@ function generate_and_plot_manipulable_gridcount_set(
     validfind_start::Integer,
     history::Integer,
     horizon::Integer;
-    disc_bounds_s::(Float64, Float64)=(0.0,150.0),
-    disc_bounds_t::(Float64, Float64)=(-10.0, 10.0),
+    disc_bounds_s::Tuple{Float64, Float64}=(0.0,150.0),
+    disc_bounds_t::Tuple{Float64, Float64}=(-10.0, 10.0),
     nbinsx::Integer=101,
     nbinsy::Integer=51,
     nsimulations::Integer=1000,
@@ -1660,3 +1859,5 @@ function generate_and_plot_manipulable_gridcount_set(
                                    color_prob_hi=color_prob_hi,
                                    count_adjust_exponent=count_adjust_exponent)
 end
+
+nothing

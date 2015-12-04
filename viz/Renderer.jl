@@ -57,13 +57,13 @@ end
 # primitives
 function render_text(
     ctx          :: CairoContext,
-    text         :: String,
+    text         :: AbstractString,
     x            :: Real,
     y            :: Real,
     fontsize     :: Real,
     color        :: Colorant,
     align_center :: Bool        = false,
-    fontfamily   :: String      = "Sans" # ∈ "serif", "sans-serif", "cursive", "fantasy", "monospace"
+    fontfamily   :: AbstractString      = "Sans" # ∈ "serif", "sans-serif", "cursive", "fantasy", "monospace"
     )
 
     save(ctx)

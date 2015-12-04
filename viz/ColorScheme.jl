@@ -29,8 +29,8 @@ const COLOR_LANE_MARKINGS = hexcolor(0xDF,0xDF,0xDF,0xFF)
 const COLOR_CAR_EGO       = hexcolor(0x79,0xAB,0xFF,0xFF) # bluish
 const COLOR_CAR_OTHER     = hexcolor(0xFF,0x00,0x7F,0xFF) # reddish
 
-const COLOR_SCHEMES = [
-		"plain"    => [
+const COLOR_SCHEMES = Dict(
+		"plain"    => Dict(
 			"foreground" => hexcolor(0x00,0x00,0x00), # black
 			"background" => hexcolor(0xFF,0xFF,0xFF), # white
 			"color1"     => hexcolor(0xFF,0x00,0x00), # red
@@ -38,10 +38,10 @@ const COLOR_SCHEMES = [
 			"color3"     => hexcolor(0x00,0x00,0xFF), # blue
 			"color4"     => hexcolor(0xFF,0x00,0xFF), # purple
 			"color5"     => hexcolor(0xFF,0x80,0x00), # orange
-		],
+		),
 
 
-		"monokai" => [
+		"monokai" => Dict(
 			"foreground" => hexcolor(0xCF,0xBF,0xAD),
 			"background" => hexcolor(0x27,0x28,0x22),
 			"color1"     => hexcolor(0x52,0xE3,0xF6), # light blue
@@ -49,9 +49,9 @@ const COLOR_SCHEMES = [
 			"color3"     => hexcolor(0xFF,0x00,0x7F), # red
 			"color4"     => hexcolor(0xF9,0x97,0x1F), # orange
 			"color5"     => hexcolor(0x79,0xAB,0xFF), # cobalt
-		],
+		),
 
-		"3024_day" => [
+		"3024_day" => Dict(
 			"foreground" => hexcolor(0x4A,0x45,0x43),
 			"background" => hexcolor(0xF7,0xF7,0xF7),
 			"color1"     => hexcolor(0x80,0x7D,0x7C),
@@ -59,8 +59,8 @@ const COLOR_SCHEMES = [
 			"color3"     => hexcolor(0xDB,0x2D,0x20),
 			"color4"     => hexcolor(0x01,0xA0,0xE4),
 			"color5"     => hexcolor(0xED,0x0C,0x8C),
-		],
-	]
+		),
+	)
 
 function getcolorscheme(name::AbstractString)
 	global COLOR_SCHEMES
