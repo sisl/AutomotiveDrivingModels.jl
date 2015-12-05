@@ -15,7 +15,9 @@ using AutomotiveDrivingModels.StreetNetworks
 
 export POSFΘ, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT
 export TURNRATE, ACC, ACCFX, ACCFY, ACCBX, ACCBY
-export MarkerDistLeft, MarkerDistRight
+export MARKERDIST_LEFT, MARKERDIST_RIGHT
+export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
+export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 export FutureAcceleration, FutureDesiredAngle
 
 # ----------------------------------
@@ -32,6 +34,8 @@ abstract AbstractFeature
 # globals
 
 const SYMBOL_TO_FEATURE = Dict{Symbol, AbstractFeature}()
+const TIME_THRESHOLD = 10.0 # [s]
+const ACCEL_THRESHOLD = 5.0 # [m/s^2]
 
 # ----------------------------------
 # feature functions
@@ -189,8 +193,8 @@ create_feature_basics("VelFt", :velFt, L"v^F_t", Float64, L"\metre\per\second", 
 get(::Feature_VelFt, runlog::RunLog, ::StreetNetwork, colset::Integer, frame::Integer) =
     (get(runlog, colset, frame, :ratesF)::VecE2).y
 
-create_feature_basics("MarkerDistLeft", :d_ml, L"d_{ml}", Float64, L"\metre", -Inf, Inf, :no_na)
-function get(::Feature_MarkerDistLeft, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+create_feature_basics("MarkerDist_Left", :d_ml, L"d_{ml}", Float64, L"\metre", -Inf, Inf, :no_na)
+function get(::Feature_MarkerDist_Left, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
 
     lane_width = _get_lane(runlog, sn, colset, frame).width
     @assert(!isinf(lane_width) && !isnan(lane_width))
@@ -198,14 +202,86 @@ function get(::Feature_MarkerDistLeft, runlog::RunLog, sn::StreetNetwork, colset
     offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
     lane_width/2.0 - offset
 end
-create_feature_basics("MarkerDistRight", :d_mr, L"d_{mr}", Float64, L"\metre", 0.0, Inf, :no_na)
-function get(::Feature_MarkerDistRight, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+create_feature_basics("MarkerDist_Right", :d_mr, L"d_{mr}", Float64, L"\metre", 0.0, Inf, :no_na)
+function get(::Feature_MarkerDist_Right, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
 
     lane_width = _get_lane(runlog, sn, colset, frame).width
     @assert(!isinf(lane_width) && !isnan(lane_width))
 
     offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
     lane_width/2.0 + offset
+end
+
+create_feature_basics( "TimeToCrossing_Right", :ttcr_mr, L"ttcr^{mr}_y", Float64, L"s", 0.0, Inf, :can_na)
+function get(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    d_mr = get(MARKERDIST_RIGHT, runlog, sn, colset, frame)
+    velFt = get(VELFT, runlog, sn, colset, frame)
+
+    if d_mr > 0.0 && velFt < 0.0
+        min(-d_mr / velFt, TIME_THRESHOLD)
+    else
+        NA_ALIAS
+    end
+end
+# replace_na(::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel right)
+
+create_feature_basics( "TimeToCrossing_Left", :ttcr_ml, L"ttcr^{ml}_y", Float64, L"s", 0.0, Inf, :can_na)
+function get(::Feature_TimeToCrossing_Left, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    d_ml = get(MARKERDIST_LEFT, runlog, sn, colset, frame)
+    velFs = get(VELFS, runlog, sn, colset, frame)
+
+    if d_ml < 0.0 && velFt > 0.0
+        min(-d_ml / velFt, TIME_THRESHOLD)
+    else
+        NA_ALIAS
+    end
+end
+# replace_na(::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel left)
+
+create_feature_basics( "EstimatedTimeToLaneCrossing", :est_ttcr, L"ttcr^\text{est}_y", Float64, L"s", 0.0, Inf, :can_na)
+function get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    ttcr_left = get(TIMETOCROSSING_LEFT, runlog, sn, colset, frame)
+    if !isinf(ttcr_left)
+        return ttcr_left
+    end
+    get(TIMETOCROSSING_RIGHT, runlog, sn, colset, frame)
+end
+# replace_na(::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel)
+
+create_feature_basics( "A_REQ_StayInLane", :a_req_stayinlane, L"a^{req}_y", Float64, "m/s2", -Inf, Inf, :can_na)
+function get(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    velFt = get(VELFT, runlog, sn, colset, frame)
+
+    if velFt > 0.0
+        d_mr = get(D_MR, basics, carind, validfind)
+        return (d_mr > 0.0) ? min( 0.5velFt*velFt / d_mr, ACCEL_THRESHOLD) : NA_ALIAS
+    else
+        d_ml = get(D_ML, basics, carind, validfind)
+        return (d_ml < 0.0) ? min(-0.5velFt*velFt / d_ml, ACCEL_THRESHOLD) : NA_ALIAS
+    end
+end
+# replace_na(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing at random; no action
+
+create_feature_basics( "N_LANE_RIGHT", :n_lane_right, L"n^\text{lane}_r", Int, "-", 0.0, 10.0, :no_na)
+function get(::Feature_N_LANE_R, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    node = _get_node(runlog, sn, colset, frame)
+    convert(Float64, node.n_lanes_right)
+end
+create_feature_basics( "N_LANE_LEFT", :n_lane_left, L"n^\text{lane}_r", Int, "-", 0.0, 10.0, :no_na)
+function get(::Feature_N_LANE_R, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    node = _get_node(runlog, sn, colset, frame)
+    convert(Float64, node.n_lanes_left)
+end
+create_feature_basics( "HAS_LANE_RIGHT", :has_lane_right, L"\exists_{\text{lane}}^\text{r}", Bool, "-", :no_na)
+get(::Feature_HAS_LANE_RIGHT, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer) =
+    Float64(get(N_LANE_RIGHT, runlog, sn , colset, frame) > 0.0)
+create_feature_basics( "HAS_LANE_LEFT", :has_lane_left, L"\exists_{\text{lane}}^\text{l}", Bool, "-", :no_na)
+get(::Feature_HAS_LANE_LEFT, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer) =
+    Float64(get(N_LANE_LEFT, runlog, sn , colset, frame) > 0.0)
+create_feature_basics( "LaneCurvature", :curvature, L"\kappa", Float64, "1/m", -Inf, Inf, :no_na)
+function get(::Feature_LaneCurvature, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    footpoint = get(runlog, colset, frame, :footpoint)::CurvePt
+    footpoint.k
 end
 
 create_feature_basics("TurnRate", :turnrate, L"\dot{\psi}", Float64, L"\radian\per\second", -Inf, Inf, :no_na)
@@ -330,7 +406,11 @@ end
 #
 ############################################
 
-_get_lane(runlog, sn, colset, frame) = get_lane(sn, get(runlog, colset, frame, :lanetag)::LaneTag)
-
-
+function _get_lane(runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    get_lane(sn, get(runlog, colset, frame, :lanetag)::LaneTag)
+end
+function _get_node(runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+    lane = _get_lane(runlog, sn, colset, frame)
+    extind = get(runlog, colset, frame, :extind)::Float64
+    closest_node_to_extind(sn, lane, extind)::StreetNode
 end # module
