@@ -1904,21 +1904,6 @@ function _extract_runlog(
                     posGy_ego = trajdata[frameind, :posGy]
                     yawG_ego  = trajdata[frameind, :yawG]
 
-                    # posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
-
-                    # data_obs[total, :posGx] = posG.x
-                    # data_obs[total, :posGy] = posG.y
-
-                    # velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
-
-                    # if abs(velG) > 3.0
-                    #     yawG = atan2(velG)
-                    # else
-                    #     yawG = yawG_ego # to fix problem with very low velocities
-                    # end
-                    # data_obs[total, :velBx] = abs(velG)
-                    # data_obs[total, :yawG]  = yawG
-
                     posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
 
                     data_obs[total, :posGx] = posGx
@@ -1979,21 +1964,6 @@ function _extract_runlog(
                 continue
             end
 
-            # ------------------------------------------
-            # map to frenet frame & extract values
-
-            # for (frame_new, frame_old) in enumerate(frame_lo : frame_hi)
-
-            #
-
-
-
-
-
-            #
-            #
-            # end
-
             for (i,frame_old) in enumerate(smoothed_frameinds)
 
                 frame_new = frame_old - frame_lo + 1
@@ -2031,12 +2001,41 @@ function _extract_runlog(
                     end
                 end
             end
+
+            # second pass to compute turnrate
+            for (i,frame_old) in enumerate(smoothed_frameinds)
+                frame_new = frame_old - frame_lo + 1
+                if idinframe(runlong, carid_new, frame_new)
+
+                    turnrate = 0.0
+                    if frame_new > 1 && idinframe(runlog, carid_new, frame_new-1)
+                        turnrate = _estimate_turnrate(runlog, carid_new, frame_new-1, frame_new)
+                    elseif frame_old < frame_hi && idinframe(runlog, carid_new, frame_new+1)
+                        turnrate = _estimate_turnrate(runlog, carid_new, frame_new, frame_new+1)
+                    end
+
+                    colset = id2colset(runlog, carid_new, frame_new)
+                    ratesB = get(runlog, colset, :ratesB)::VecSE2
+                    ratesB = VecSE2(ratesB.x, ratesB.y, turnrate)
+                    set!(runlog, colset, :ratesB, ratesB)
+                end
+            end
         end
 
         toc()
     end
 
     runlog
+end
+
+function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::Integer)
+    colset₁ = id2colset(runlog, id, frame1)
+    colset₂ = id2colset(runlog, id, frame2)
+    θ₁ = get(runlog, colset₁, frame1, :inertial).θ
+    θ₂ = get(runlog, colset₂, frame2, :inertial).θ
+    @assert(!isnan(θ₁))
+    @assert(!isnan(θ₂))
+    (θ₂ - θ₁)/get_elapsed_time(runlog, frame1, frame2)
 end
 
 end # module
