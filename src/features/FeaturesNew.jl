@@ -15,6 +15,7 @@ using AutomotiveDrivingModels.StreetNetworks
 
 export POSFΘ, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT
 export TURNRATE, ACC, ACCFX, ACCFY, ACCBX, ACCBY
+export MarkerDistLeft, MarkerDistRight
 export FutureAcceleration, FutureDesiredAngle
 
 # ----------------------------------
@@ -188,19 +189,24 @@ create_feature_basics("VelFt", :velFt, L"v^F_t", Float64, L"\metre\per\second", 
 get(::Feature_VelFt, runlog::RunLog, ::StreetNetwork, colset::Integer, frame::Integer) =
     (get(runlog, colset, frame, :ratesF)::VecE2).y
 
-# create_feature_basics("D_ML", :d_ml, L"d_{ml}", Float64, L"\metre", -Inf, Inf, :no_na)
-# function get(::Feature_D_ML, runlog::RunLog, ::StreetNetwork, colset::Integer, frame::Integer)
-#     lane_width = ###
-#     offset = (get(runlog, colset, frame, :lanecoord)::LaneCoordIm).offset
-#     lane_width/2 - offset
-# end
+create_feature_basics("MarkerDistLeft", :d_ml, L"d_{ml}", Float64, L"\metre", -Inf, Inf, :no_na)
+function get(::Feature_MarkerDistLeft, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
 
-# create_feature_basics("D_MR", :d_mr, L"d_{mr}", Float64, L"\metre", 0.0, Inf, :no_na)
-# function get(::Feature_D_MR, runlog::RunLog, ::StreetNetwork, colset::Integer, frame::Integer)
-#     lane_width = ###
-#     offset = (get(runlog, colset, frame, :lanecoord)::LaneCoordIm).offset
-#     lane_width/2 + offset
-# end
+    lane_width = _get_lane(runlog, sn, colset, frame).width
+    @assert(!isinf(lane_width) && !isnan(lane_width))
+
+    offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
+    lane_width/2.0 - offset
+end
+create_feature_basics("MarkerDistRight", :d_mr, L"d_{mr}", Float64, L"\metre", 0.0, Inf, :no_na)
+function get(::Feature_MarkerDistRight, runlog::RunLog, sn::StreetNetwork, colset::Integer, frame::Integer)
+
+    lane_width = _get_lane(runlog, sn, colset, frame).width
+    @assert(!isinf(lane_width) && !isnan(lane_width))
+
+    offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
+    lane_width/2.0 + offset
+end
 
 create_feature_basics("TurnRate", :turnrate, L"\dot{\psi}", Float64, L"\radian\per\second", -Inf, Inf, :no_na)
 get(::Feature_TurnRate, runlog::RunLog, ::StreetNetwork, colset::Integer, frame::Integer) =
@@ -317,5 +323,14 @@ function _get(::Feature_FutureDesiredAngle, runlog::RunLog, sn::StreetNetwork, c
         NA_ALIAS
     end
 end
+
+############################################
+#
+# Helper Functions
+#
+############################################
+
+_get_lane(runlog, sn, colset, frame) = get_lane(sn, get(runlog, colset, frame, :lanetag)::LaneTag)
+
 
 end # module
