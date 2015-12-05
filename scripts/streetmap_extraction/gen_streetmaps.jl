@@ -18,7 +18,6 @@ for (RNDF_FILE, STREETMAP_OUTPUT_FILE) in (
     rndf = RoadNetwork.load_rndf(RNDF_FILE)
     toc()
 
-    println(methods(AutomotiveDrivingModels.rndf2streetnetwork))
     @printf("Building streetmap... "); tic()
     sn = AutomotiveDrivingModels.rndf2streetnetwork(rndf)
     toc()
