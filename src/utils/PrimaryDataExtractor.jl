@@ -1904,21 +1904,6 @@ function _extract_runlog(
                     posGy_ego = trajdata[frameind, :posGy]
                     yawG_ego  = trajdata[frameind, :yawG]
 
-                    # posG = body2inertial(VecE2(posGx_ego, posGy_ego), VecSE2(posEx, posEy, yawG_ego))
-
-                    # data_obs[total, :posGx] = posG.x
-                    # data_obs[total, :posGy] = posG.y
-
-                    # velG = body2inertial(VecE2(0,0), VecSE2(velEx, velEy, yawG_ego))
-
-                    # if abs(velG) > 3.0
-                    #     yawG = atan2(velG)
-                    # else
-                    #     yawG = yawG_ego # to fix problem with very low velocities
-                    # end
-                    # data_obs[total, :velBx] = abs(velG)
-                    # data_obs[total, :yawG]  = yawG
-
                     posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
 
                     data_obs[total, :posGx] = posGx
@@ -2021,9 +2006,160 @@ function _extract_runlog(
                     end
                 end
             end
+
+            # second pass to compute turnrate
+            for (i,frame_old) in enumerate(smoothed_frameinds)
+                frame_new = frame_old - frame_lo + 1
+                if idinframe(runlong, carid_new, frame_new)
+
+                    turnrate = 0.0
+                    if frame_new > 1 && idinframe(runlog, carid_new, frame_new-1)
+                        turnrate = _estimate_turnrate(runlog, carid_new, frame_new-1, frame_new)
+                    elseif frame_old < frame_hi && idinframe(runlog, carid_new, frame_new+1)
+                        turnrate = _estimate_turnrate(runlog, carid_new, frame_new, frame_new+1)
+                    end
+
+                    colset = id2colset(runlog, carid_new, frame_new)
+                    ratesB = get(runlog, colset, :ratesB)::VecSE2
+                    ratesB = VecSE2(ratesB.x, ratesB.y, turnrate)
+                    set!(runlog, colset, :ratesB, ratesB)
+                end
+            end
         end
 
         toc()
+    end
+
+    # now that the full scene set is computed, calc front and rear
+    _calc_front_and_rear!(runlog, sn)
+
+    runlog
+end
+
+function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::Integer)
+    colset₁ = id2colset(runlog, id, frame1)
+    colset₂ = id2colset(runlog, id, frame2)
+    θ₁ = get(runlog, colset₁, frame1, :inertial).θ
+    θ₂ = get(runlog, colset₂, frame2, :inertial).θ
+    @assert(!isnan(θ₁))
+    @assert(!isnan(θ₂))
+    (θ₂ - θ₁)/get_elapsed_time(runlog, frame1, frame2)
+end
+
+function _calc_front_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Int)
+
+    #=
+    It turns out that defining the closest vehicle in front is tricky
+      ex: a vehicle in neighboring lane that is moving towards your lane is likely
+          to be what you pay attention to
+
+    This merely finds the closest vehicle in the same lane based on footpoint and lanetag
+    Quits once it reaches a max distance
+    =#
+
+    best_colset = COLSET_NULL
+    best_dist   = Inf # [m]
+    max_dist    = 1000.0 # [m]
+
+    active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
+    active_lane = get_lane(sn, active_lanetag)
+    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
+    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
+
+    # walk forwards along the lanetag until we find a car in it or reach max dist
+    while true
+        for i in 1 : nactors(runlog, frame)
+            test_colset = convert(UInt, i)
+
+            if test_colset == colset
+                continue
+            end
+
+            lanetag_target = get(runlog, test_colset, frame, :lanetag)::LaneTag
+            if lanetag == active_lanetag
+
+                footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
+                if footpoint_s_target > footpoint_s_host
+
+                    cand_dist = dist + footpoint_s_target - footpoint_s_host
+                    if cand_dist < best_dist
+                        best_dist = cand_dist
+                        best_colset = test_colset
+                    end
+                end
+            end
+        end
+
+        if isinf(best_dest) || dist > max_dist || !has_next_lane(sn, active_lane)
+            break
+        end
+
+        dist += active_lane.curve.s[end] # move full curve length
+        active_lane = next_lane(sn, active_lane)
+        active_lanetag = active_lane.id
+        footpoint_s_host = 0.0 # move to base of curve
+    end
+
+    best_colset
+end
+function _calc_rear_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Int)
+
+    best_colset = COLSET_NULL
+    best_dist   = Inf # [m]
+    max_dist    = 1000.0 # [m]
+
+    active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
+    active_lane = get_lane(sn, active_lanetag)
+    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
+    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
+
+    # walk forwards along the lanetag until we find a car in it or reach max dist
+    while true
+        for i in 1 : nactors(runlog, frame)
+            test_colset = convert(UInt, i)
+
+            if test_colset == colset
+                continue
+            end
+
+            lanetag_target = get(runlog, test_colset, frame, :lanetag)::LaneTag
+            if lanetag == active_lanetag
+
+                footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
+                if footpoint_s_target < footpoint_s_host
+
+                    cand_dist = dist + footpoint_s_host - footpoint_s_target
+                    if cand_dist < best_dist
+                        best_dist = cand_dist
+                        best_colset = test_colset
+                    end
+                end
+            end
+        end
+
+        if isinf(best_dest) || dist > max_dist || !has_prev_lane(sn, active_lane)
+            break
+        end
+
+        active_lane = prev_lane(sn, active_lane)
+        active_lanetag = active_lane.id
+        dist += active_lane.curve.s[end] # move full length
+        footpoint_s_host = active_lane.curve.s[end] # move to end of curve
+    end
+
+    best_colset
+end
+function _calc_front_and_rear!(runlog::RunLog, sn::StreetNetwork)
+    #=
+    Run through populated runlog and calc front and rear for each vehicle in each frame
+    =#
+
+    for frame in 1 : nframes(runlog)
+        for i in 1 : nactors(runlog, frame)
+            colset = convert(UInt, i)
+            set!(runlog, colset, frame, :front, _calc_front_vehicle_colset(runlog, sn, colset, frame)::UInt)
+            set!(runlog, colset, frame, :rear, _calc_rear_vehicle_colset(runlog, sn, colset, frame)::UInt)
+        end
     end
 
     runlog
