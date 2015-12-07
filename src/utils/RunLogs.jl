@@ -3,7 +3,9 @@ module RunLogs
 using DataFrames
 using DataArrays
 
-import AutomotiveDrivingModels: LaneTag, CurvePt, VecSE2, VecE2
+using AutomotiveDrivingModels.Vec
+
+import AutomotiveDrivingModels: LaneTag, CurvePt
 
 export
     AgentClass,                         # enum containing classes of agents
@@ -170,10 +172,11 @@ const COLSET_NULL = zero(UInt)
 # VecSE2      frenet      (s,d,θ) [m,m,rad] vehicle position in frenet coordinates
 # VecSE2      ratesB      [m/s, m/s, rad/2] linear and angular rates in the body frame
 # VecS2       ratesF      [m/s, m/s] linear rates in the lane-relative Frenet frame (relative to closest lane centerline)
+# Float64     extind      [-] extended index of the closest centerline (see Curves.jl)
 # CurvePt     footpoint   [-] point on the closest centerline
 # LaneTag     lanetag     [-] assigned lane in given map
-# UInt        front       [-] colset of the vehicle in front of this one, COLSET_NULL if none
-# UInt        rear        [-] colset of the vehicle behind this one, COLSET_NULL if none
+# UInt        idfront     [-] colset of the vehicle in front of this one, COLSET_NULL if none
+# UInt        idrear      [-] colset of the vehicle behind this one, COLSET_NULL if none
 # UInt16      behavior    [0] context class
 
 function _create_framedata(nframes::Integer)
@@ -191,6 +194,7 @@ function _create_columnset(nframes::Integer)
         frenet = DataArray(VecSE2, nframes),
         ratesB = DataArray(VecSE2, nframes),
         ratesF = DataArray(VecE2, nframes),
+        extind = DataArray(Float64, nframes),
         footpoint = DataArray(CurvePt, nframes),
         lanetag = DataArray(LaneTag, nframes),
         idfront = fill(COLSET_NULL, nframes),
@@ -248,7 +252,7 @@ function extract_subset(runlog::RunLog, frame_start::Int, frame_end::Int)
 end
 
 nframes(runlog::RunLog) = nrow(runlog.colsets[1])
-ncolsets(runlog::RunLog) = length(runlog.colsets)
+ncolsets(runlog::RunLog) = convert(UInt, length(runlog.colsets))
 frame_inbounds(runlog::RunLog, frame::Integer) = (1 ≤ frame ≤ nframes(runlog))
 
 Base.get(runlog::RunLog, frame::Integer, sym::Symbol) = runlog.framedata[frame, sym]
@@ -276,7 +280,7 @@ end
 function set!{I<:Integer}(runlog::RunLog, colset::UInt, frames::AbstractVector{I}, sym::Symbol, values::AbstractVector)
 
     df = runlog.colsets[colset]
-    for (frame,v) in zip(frames, values)
+    for (frame,value) in zip(frames, values)
         df[frame, sym] = value
     end
 
@@ -290,10 +294,11 @@ function set!(
     inertial  :: VecSE2,
     frenet    :: VecSE2,
     ratesB    :: VecSE2,
+    extind    :: Float64,
     footpoint :: CurvePt,
     lanetag   :: LaneTag,
-    front     :: UInt = COLSET_NULL,
-    rear      :: UInt = COLSET_NULL,
+    idfront   :: UInt = COLSET_NULL,
+    idrear    :: UInt = COLSET_NULL,
     behavior  :: UInt16 = ContextClass.NULL,
     )
 
@@ -318,10 +323,11 @@ function set!(
     df[frame, :frenet     ] = frenet
     df[frame, :ratesB     ] = ratesB
     df[frame, :ratesF     ] = ratesF
+    df[frame, :extind     ] = extind
     df[frame, :footpoint  ] = footpoint
     df[frame, :lanetag    ] = lanetag
-    df[frame, :front      ] = front
-    df[frame, :rear       ] = rear
+    df[frame, :idfront    ] = idfront
+    df[frame, :idrear     ] = idrear
     df[frame, :behavior   ] = behavior
 
     runlog
@@ -333,7 +339,7 @@ end
 function set!{I<:Integer}(runlog::RunLog, frames::AbstractVector{I}, sym::Symbol, values::AbstractVector)
 
     df = runlog.framedata
-    for (frame,v) in zip(frames, values)
+    for (frame,value) in zip(frames, values)
         df[frame, sym] = value
     end
 
@@ -371,8 +377,8 @@ function id2colset(runlog::RunLog, id::UInt, frame::Integer)
     Returns COLSET_NULL if non-existent
     =#
 
-    for colset in 1 : carindmax(runlog)
-        if colset2id(runlog, colset, frame) == id
+    for colset in 1 : nactors(runlog, frame)
+        if colset2id(runlog, convert(UInt, colset), frame) == id
             return colset
         end
     end
@@ -480,16 +486,16 @@ end
 function get_first_vacant_colset(runlog::RunLog, id::UInt, frame::Integer)
     for (colset, df) in enumerate(runlog.colsets)
         if df[frame, :id] == ID_NULL
-            return colset
+            return convert(UInt, colset)
         end
     end
     COLSET_NULL
 end
 function get_first_vacant_colset!(runlog::RunLog, id::UInt, frame::Integer)
-    colset = get_first_vacant_colset(runlog, id, frame)
+    colset = get_first_vacant_colset(runlog, id, frame)::UInt
     if colset == COLSET_NULL
         push_columnset!(runlog)
-        colset = ncolsets(runlog)
+        colset = ncolsets(runlog)::UInt
     end
     colset
 end

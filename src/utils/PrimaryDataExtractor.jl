@@ -1216,7 +1216,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
                     ptG = proj.footpoint
                     s,d,θ = pt_to_frenet_xyy(ptG, posGx, posGy, posGyaw)
 
-                    laneid = int(proj.lane.id.lane)
+                    laneid = convert(Int, proj.lane.id.lane)
                     seg = get_segment(sn, proj.lane.id)
                     d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
 
@@ -1694,7 +1694,7 @@ function extract_runlogs(trajdata::DataFrame, sn::StreetNetwork, params::Primary
 
             meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_ego
             meets_lane_angle_criterion = abs(θ) < params.threshold_lane_angle_ego
-            ego_car_on_freeway[frameind] = meets_lane_lateral_offset_criterion && meets_lane_angle_criterion
+            ego_car_on_freeway[frame] = meets_lane_lateral_offset_criterion && meets_lane_angle_criterion
         end
     end
 
@@ -1730,11 +1730,10 @@ function extract_runlogs(trajdata::DataFrame, sn::StreetNetwork, params::Primary
     # --------------------------------------------
 
     segments = continuous_segments(ego_car_on_freeway)
-    n_runlogs = round(Int, length(segments)/2)
+    n_runlogs = length(segments)
     retval = Array(RunLog, n_runlogs)
     for i in 1 : n_runlogs
-        frame_lo = segments[2*i-1]
-        frame_hi = segments[2*i]
+        frame_lo, frame_hi = segments[i]
         retval[i] = _extract_runlog(trajdata, trajdata_smoothed,
                                     sn, params, runlogheader,
                                     frame_lo, frame_hi,
@@ -1772,13 +1771,13 @@ function _extract_runlog(
     push_agent!(runlog, AgentDefinition(AgentClass.CAR, ID_EGO))
 
     colset_ego = one(UInt)
-    set!(runlog, 1:nframes, :time, arr_time_resampled[frame_lo:frame_hi])
+    RunLogs.set!(runlog, 1:nframes, :time, arr_time_resampled[frame_lo:frame_hi])
 
     if :control_status in names(trajdata)
         resampled_control_status = _resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
-        set!(runlog, 1:nframes, :environment, resampled_control_status[frame_lo:frame_hi])
+        RunLogs.set!(runlog, 1:nframes, :environment, resampled_control_status[frame_lo:frame_hi])
     else
-        set!(runlog, 1:nframes, :environment, repeated(params.default_control_status, nframes))
+        RunLogs.set!(runlog, 1:nframes, :environment, repeated(params.default_control_status, nframes))
     end
 
     # ego feature extraction
@@ -1794,23 +1793,24 @@ function _extract_runlog(
         @assert(proj.successful)
         @assert(proj.sqdist < params.threshold_proj_sqdist_ego)
 
+        extind = proj.extind
         footpoint = proj.footpoint
         lanetag = proj.lane.id
         frenet = VecSE2(pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)...)
 
         turnrate = NaN
         if frame_new > 1
-            turnrate = (inertial.θ - trajdata_smoothed[frame_old-1, :yawG]) / get_elapsed_time(runlog, frame_new-1, frame_new)
+            turnrate = (inertial.θ - trajdata_smoothed[frame_old-1, :yawG]) / RunLogs.get_elapsed_time(runlog, frame_new-1, frame_new)
         elseif frame_old < frame_hi
-            turnrate = (trajdata_smoothed[frame_old+1, :yawG] - inertial.θ) / get_elapsed_time(runlog, frame_new, frame_new+1)
+            turnrate = (trajdata_smoothed[frame_old+1, :yawG] - inertial.θ) / RunLogs.get_elapsed_time(runlog, frame_new, frame_new+1)
         end
 
         ratesB = VecSE2(trajdata_smoothed[frame_old, :velEx],
                         trajdata_smoothed[frame_old, :velEy],
                         turnrate)
 
-        set!(runlog, colset_ego, frame_new, ID_EGO,
-             inertial, frenet, ratesB, footpoint, lanetag)
+        RunLogs.set!(runlog, colset_ego, frame_new, ID_EGO,
+             inertial, frenet, ratesB, extind, footpoint, lanetag)
     end
 
     # Other Car Extraction
@@ -1822,7 +1822,7 @@ function _extract_runlog(
     #    - map to frenet
     # --------------------------------------------
 
-    const freeway_frameinds = frameinds[ego_car_on_freeway]
+    const freeway_frameinds = collect(frame_lo:frame_hi)
     const freeway_frameinds_raw = encompasing_indeces(freeway_frameinds, arr_time_resampled, arr_time)
 
     const CARID_EGO_ORIG = -1
@@ -1869,8 +1869,8 @@ function _extract_runlog(
             carinds_raw = map(i->Trajdata.carid2ind_or_negative_one_otherwise(trajdata, trajdata_carid, segment_frameinds[i]), 1:n_frames_in_seg)
             time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
 
-            time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:n_resamples)
-            time_resampled_ind_hi = findnext(i->arr_time_resampled[i+1] > time_obs[end], 1:n_resamples-1, time_resampled_ind_lo)
+            time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:length(arr_time_resampled))
+            time_resampled_ind_hi = time_resampled_ind_lo + findfirst(i->arr_time_resampled[i+1] > time_obs[end], (time_resampled_ind_lo+1):(length(arr_time_resampled)-1))
             @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
             time_resampled = arr_time_resampled[time_resampled_ind_lo:time_resampled_ind_hi]
             smoothed_frameinds = collect(time_resampled_ind_lo:time_resampled_ind_hi)
@@ -1970,7 +1970,7 @@ function _extract_runlog(
                 continue
             end
 
-            inds_to_keep = find(frame->ego_car_on_freeway[frame], smoothed_frameinds)
+            inds_to_keep = find(frame->frame_lo ≤ frame ≤ frame_hi, smoothed_frameinds)
             smoothed_frameinds = smoothed_frameinds[inds_to_keep]
             data_smoothed = data_smoothed[inds_to_keep, :]
 
@@ -1981,18 +1981,6 @@ function _extract_runlog(
 
             # ------------------------------------------
             # map to frenet frame & extract values
-
-            # for (frame_new, frame_old) in enumerate(frame_lo : frame_hi)
-
-            #
-
-
-
-
-
-            #
-            #
-            # end
 
             for (i,frame_old) in enumerate(smoothed_frameinds)
 
@@ -2005,17 +1993,19 @@ function _extract_runlog(
                 proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
                 if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
 
+                    extind = proj.extind
                     footpoint = proj.footpoint
                     lanetag = proj.lane.id
                     frenet = VecSE2(pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)...)
 
-                    ratesB = VecSE2(data_smoothed[frame_old, :velEx],
-                                    data_smoothed[frame_old, :velEy],
+                    velBx = data_smoothed[i, :velBx]
+                    ratesB = VecSE2(velBx*cos(inertial.θ),
+                                    velBx*sin(inertial.θ),
                                     NaN) # NOTE(tim): turnrate will be computed in another pass
 
-                    laneid = int(proj.lane.id.lane)
+                    laneid = convert(Int, proj.lane.id.lane)
                     seg = get_segment(sn, proj.lane.id)
-                    d_end = distance_to_lane_end(sn, seg, laneid, proj.extind)
+                    d_end = distance_to_lane_end(sn, seg, laneid, extind)
 
                     meets_lane_lateral_offset_criterion = abs(frenet.y) < params.threshold_lane_lateral_offset_other
                     meets_lane_angle_criterion = abs(frenet.θ) < params.threshold_lane_angle_other
@@ -2026,8 +2016,8 @@ function _extract_runlog(
                         meets_lane_end_criterion
 
                         colset = get_first_vacant_colset!(runlog, carid_new, frame_new)
-                        set!(runlog, colset, frame_new, carid_new,
-                             inertial, frenet, ratesB, footpoint, lanetag)
+                        RunLogs.set!(runlog, colset, frame_new, carid_new,
+                             inertial, frenet, ratesB, extind, footpoint, lanetag)
                     end
                 end
             end

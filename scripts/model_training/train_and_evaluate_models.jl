@@ -16,8 +16,7 @@ const CONFIDENCE_LEVEL = 0.95
 
 const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
 const AM_ON_TULA = gethostname() == "tula"
-const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
-                                  joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
+const INCLUDE_FILE = Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl")
 const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
 include(INCLUDE_FILE)
