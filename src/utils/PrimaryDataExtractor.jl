@@ -10,6 +10,8 @@ using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.RunLogs
 
+import AutomotiveDrivingModels: CSVFileSet
+
 include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
 
 export
@@ -48,56 +50,50 @@ type PrimaryDataExtractionParams
 
     frameinds :: Vector{Int} # if empty, use all of them; otherwise use [x₁:x₂, x₃:x₄, ...]
     default_control_status :: UInt16
+    csvfileset::Union{CSVFileSet,Nothing} # used to set the behavior attribute (otherwise it is extrated automatically)
+
+    verbosity::Int
 
     function PrimaryDataExtractionParams(mode::Symbol=:BoschRaw)
         self = new()
 
         self.resample_rate = 1/20.0 # exactly 20 Hz # TODO(tim): merge this appropriately
         self.frameinds = Int[]
+        self.csvfileset = nothing
+        self.verbosity = 0
+
+        self.threshold_percent_outliers_warn = 0.5
+        self.threshold_percent_outliers_error = 2.5
+        self.threshold_lane_lateral_offset_ego = 2.5
+        self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
+        self.threshold_other_frame_gap = 5
+        self.threshold_other_segment_length = 20
+        self.threshold_percent_outliers_toss = 25.0
+        self.threshold_lane_lateral_offset_other = 2.2
+        self.threshold_proj_sqdist_other = self.threshold_lane_lateral_offset_other * self.threshold_lane_lateral_offset_other
+        self.threshold_lane_angle_other = deg2rad(45)
 
         if mode == :BoschRaw
             self.padding_size  = 50
+
             self.ransac_n_iter = 50
             self.ransac_window_width = 20
             self.ransac_window_overlap = 5
             self.ransac_n_inliers_for_first_fit = 5
-            self.threshold_percent_outliers_warn = 0.5
-            self.threshold_percent_outliers_error = 2.5
             self.buffer_frames = 5
             self.min_frames_ego_on_freeway = 1200
             self.threshold_lane_angle_ego = deg2rad(30)
-            self.threshold_lane_lateral_offset_ego = 2.5
-            self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
-            self.threshold_other_frame_gap = 5
-            self.threshold_other_segment_length = 20
-            self.threshold_percent_outliers_toss = 25.0
-            self.threshold_lane_lateral_offset_other = 2.2
-            self.threshold_proj_sqdist_other = self.threshold_lane_lateral_offset_other * self.threshold_lane_lateral_offset_other
-            self.threshold_lane_angle_other = deg2rad(45)
             self.threshold_other_from_lane_ends = 1.0
             self.default_control_status = ControlStatus.UNKNOWN
         elseif mode == :PerfectSim
             self.padding_size  = 1
-
-            # NOTE(tim): do not do ransac
-            self.ransac_n_iter = 1
-            self.ransac_window_width = 3
-            self.ransac_window_overlap = 0
-            self.ransac_n_inliers_for_first_fit = 3
-
-            self.threshold_percent_outliers_warn = 0.5
-            self.threshold_percent_outliers_error = 2.5
+            self.ransac_n_iter = 1 # NOTE(tim): do not do ransac
+            self.ransac_window_width = 3 # NOTE(tim): do not do ransac
+            self.ransac_window_overlap = 0 # NOTE(tim): do not do ransac
+            self.ransac_n_inliers_for_first_fit = 3 # NOTE(tim): do not do ransac
             self.buffer_frames = 1 # NOTE(tim): no frames removed
             self.min_frames_ego_on_freeway = 0
             self.threshold_lane_angle_ego = deg2rad(45)
-            self.threshold_lane_lateral_offset_ego = 2.5
-            self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
-            self.threshold_other_frame_gap = 5
-            self.threshold_other_segment_length = 20
-            self.threshold_percent_outliers_toss = 25.0
-            self.threshold_lane_lateral_offset_other = 2.2
-            self.threshold_proj_sqdist_other = self.threshold_lane_lateral_offset_other * self.threshold_lane_lateral_offset_other
-            self.threshold_lane_angle_other = deg2rad(45)
             self.threshold_other_from_lane_ends = 0.0
             self.default_control_status = ControlStatus.VIRES_AUTO
         end
@@ -443,7 +439,7 @@ function smooth(x_arr::Vector{Float64}, y_arr::Vector{Float64}, x_arr2::Vector{F
     end
     y_arr2
 end
-function _resample_snap_to_closest{R<:Any}(x_arr::Vector{Float64}, y_arr::DataVector{R}, x_arr2::Vector{Float64})
+function _resample_snap_to_closest{R<:Any}(x_arr::Vector{Float64}, y_arr::AbstractVector{R}, x_arr2::Vector{Float64})
 
     n = length(x_arr)
     @assert(length(y_arr) == n)
@@ -739,7 +735,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
         percent_outliers = 100.0*length(outliers) / n_initial_samples
         percent_outliers < params.threshold_percent_outliers_error || error("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
-        percent_outliers < params.threshold_percent_outliers_warn  ||  warn("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
+        percent_outliers < params.threshold_percent_outliers_warn  || params.verbosity == 0 || warn("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
 
         arr_smoothed_padded = smooth(arr_time_padded, arr_orig_padded, arr_time_resampled_padded, smoothing_variance, outliers)
         trajdata_smoothed[variable] = remove_pad(arr_smoothed_padded, params.padding_size)
@@ -1630,7 +1626,13 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     retval
 end
 
-function extract_runlogs(trajdata::DataFrame, sn::StreetNetwork, params::PrimaryDataExtractionParams, runlogheader::RunLogHeader)
+
+function extract_runlogs(
+    trajdata::DataFrame,
+    sn::StreetNetwork,
+    params::PrimaryDataExtractionParams,
+    runlogheader::RunLogHeader
+    )
 
     _assert_valid_primarydata_extraction_params(params)
 
@@ -1667,7 +1669,7 @@ function extract_runlogs(trajdata::DataFrame, sn::StreetNetwork, params::Primary
 
         percent_outliers = 100.0*length(outliers) / n_initial_samples
         percent_outliers < params.threshold_percent_outliers_error || error("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
-        percent_outliers < params.threshold_percent_outliers_warn  ||  warn("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
+        percent_outliers < params.threshold_percent_outliers_warn  || params.verbosity == 0 || warn("TOO MANY OUTLIERS ($percent_outliers \%) FOR VARIABLE $variable")
 
         arr_smoothed_padded = smooth(arr_time_padded, arr_orig_padded, arr_time_resampled_padded, smoothing_variance, outliers)
         trajdata_smoothed[variable] = remove_pad(arr_smoothed_padded, params.padding_size)
@@ -1743,7 +1745,6 @@ function extract_runlogs(trajdata::DataFrame, sn::StreetNetwork, params::Primary
 
     retval
 end
-
 function _extract_runlog(
     trajdata::DataFrame,
     trajdata_smoothed::DataFrame,
@@ -1831,15 +1832,17 @@ function _extract_runlog(
 
     for (i,trajdata_carid) in enumerate(trajdata_carids)
 
-        tic()
-        println(trajdata_carid, ": ", i, " / ", length(trajdata_carids))
+        if params.verbosity > 0
+            tic()
+            println(trajdata_carid, ": ", i, " / ", length(trajdata_carids))
+        end
 
         carid_new = convert(UInt, CARID_EGO + i)
 
         # all frames where the car exists
         car_frameinds_raw = filter(frame->carid_exists(trajdata, trajdata_carid, frame), freeway_frameinds_raw)
         if isempty(car_frameinds_raw)
-            toc()
+            params.verbosity ≤ 0 || toc()
             continue
         end
 
@@ -1853,7 +1856,9 @@ function _extract_runlog(
             # ------------------------------------------
             # enforce minimum segment length
             if n_frames_in_seg < params.threshold_other_segment_length
-                print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                if params.verbosity > 0
+                    print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                end
                 continue
             end
 
@@ -1944,7 +1949,9 @@ function _extract_runlog(
                 percent_outliers = 100.0*length(outliers) / n_frames_in_seg
                 if percent_outliers > params.threshold_percent_outliers_toss
                     should_toss_due_to_outliers = true
-                    print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
+                    if params.verbosity > 0
+                        print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
+                    end
                     break
                 end
 
@@ -1960,7 +1967,9 @@ function _extract_runlog(
             data_smoothed = data_smoothed[inds_to_keep, :]
 
             if size(data_smoothed, 1) < params.threshold_other_segment_length
-                print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                if params.verbosity > 0
+                    print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                end
                 continue
             end
 
@@ -2010,28 +2019,74 @@ function _extract_runlog(
             # second pass to compute turnrate
             for (i,frame_old) in enumerate(smoothed_frameinds)
                 frame_new = frame_old - frame_lo + 1
-                if idinframe(runlong, carid_new, frame_new)
+                if RunLogs.idinframe(runlog, carid_new, frame_new)
 
                     turnrate = 0.0
-                    if frame_new > 1 && idinframe(runlog, carid_new, frame_new-1)
+                    if frame_new > 1 && RunLogs.idinframe(runlog, carid_new, frame_new-1)
                         turnrate = _estimate_turnrate(runlog, carid_new, frame_new-1, frame_new)
-                    elseif frame_old < frame_hi && idinframe(runlog, carid_new, frame_new+1)
+                    elseif frame_old < frame_hi && RunLogs.idinframe(runlog, carid_new, frame_new+1)
                         turnrate = _estimate_turnrate(runlog, carid_new, frame_new, frame_new+1)
                     end
 
                     colset = id2colset(runlog, carid_new, frame_new)
-                    ratesB = get(runlog, colset, :ratesB)::VecSE2
+                    ratesB = get(runlog, colset, frame_new, :ratesB)::VecSE2
                     ratesB = VecSE2(ratesB.x, ratesB.y, turnrate)
-                    set!(runlog, colset, :ratesB, ratesB)
+                    RunLogs.set!(runlog, colset, frame_new, :ratesB, ratesB)
                 end
             end
         end
 
-        toc()
+        if params.verbosity > 0
+            toc()
+        end
     end
 
-    # now that the full scene set is computed, calc front and rear
-    _calc_front_and_rear!(runlog, sn)
+    # Post Processing
+    #  - front and rear for each vehicle
+    #  - calc behavior for each vehicle
+    # --------------------------------------------
+
+    # front and rear for each vehicle
+    for frame in 1 : nframes(runlog)
+        for colset in get_colset_range(runlog, frame)
+            RunLogs.set!(runlog, colset, frame, :idfront, FeaturesNew._calc_front_vehicle_colset(runlog, sn, colset, frame)::UInt)
+            RunLogs.set!(runlog, colset, frame, :idrear, FeaturesNew._calc_rear_vehicle_colset(runlog, sn, colset, frame)::UInt)
+        end
+    end
+
+    # behavior for each vehicle
+    if !isa(params.csvfileset, Nothing)
+        # set the behavior using the CSVFileSet
+
+        csvfileset = params.csvfileset
+        id = convert(UInt, csvfileset.carid)
+
+        freeflow = _resample_snap_to_closest(arr_time, _calc_subset_vector(csvfileset.freeflow, nframes), arr_time_resampled)
+        carfollow = _resample_snap_to_closest(arr_time, _calc_subset_vector(csvfileset.carfollow, nframes), arr_time_resampled)
+        lanechange = _resample_snap_to_closest(arr_time, _calc_subset_vector([csvfileset.lanechanges_normal;
+                                                                              csvfileset.lanechanges_postpass;
+                                                                              csvfileset.lanechanges_arbitrary], nframes),
+                                               arr_time_resampled)
+
+        for frame in 1 : nframes(runlog)
+            colset = id2colset(runlog, id, frame)
+
+            behavior = ContextClass.NULL
+            if freeflow[frame]
+                behavior |= ContextClass.FREEFLOW
+            end
+            if freeflow[carfollow]
+                behavior |= ContextClass.FOLLOWING
+            end
+            if freeflow[lanechange]
+                behavior |= ContextClass.LANECHANGE
+            end
+
+            RunLogs.set!(runlog, colset, frame, :behavior, behavior)
+        end
+    else
+        # TODO: compute the behavior manually
+    end
 
     runlog
 end
@@ -2043,126 +2098,29 @@ function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::I
     θ₂ = get(runlog, colset₂, frame2, :inertial).θ
     @assert(!isnan(θ₁))
     @assert(!isnan(θ₂))
-    (θ₂ - θ₁)/get_elapsed_time(runlog, frame1, frame2)
+    (θ₂ - θ₁)/RunLogs.get_elapsed_time(runlog, frame1, frame2)
 end
 
-function _calc_front_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Int)
+function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::Int)
 
-    #=
-    It turns out that defining the closest vehicle in front is tricky
-      ex: a vehicle in neighboring lane that is moving towards your lane is likely
-          to be what you pay attention to
+    n = length(validfind_regions)
+    @assert(mod(n,2) == 0) # ensure even number of regions
 
-    This merely finds the closest vehicle in the same lane based on footpoint and lanetag
-    Quits once it reaches a max distance
-    =#
+    retval = falses(nframes)
+    for i = 1 : 2 : n
+        validfind_lo = validfind_regions[i]
+        validfind_hi = validfind_regions[i+1]
 
-    best_colset = COLSET_NULL
-    best_dist   = Inf # [m]
-    max_dist    = 1000.0 # [m]
+        @assert(validfind_lo ≤ validfind_hi)
+        @assert(validfind_lo ≥ 1)
+        @assert(validfind_hi ≤ nframes)
 
-    active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
-    active_lane = get_lane(sn, active_lanetag)
-    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
-    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
-
-    # walk forwards along the lanetag until we find a car in it or reach max dist
-    while true
-        for i in 1 : nactors(runlog, frame)
-            test_colset = convert(UInt, i)
-
-            if test_colset == colset
-                continue
-            end
-
-            lanetag_target = get(runlog, test_colset, frame, :lanetag)::LaneTag
-            if lanetag == active_lanetag
-
-                footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
-                if footpoint_s_target > footpoint_s_host
-
-                    cand_dist = dist + footpoint_s_target - footpoint_s_host
-                    if cand_dist < best_dist
-                        best_dist = cand_dist
-                        best_colset = test_colset
-                    end
-                end
-            end
-        end
-
-        if isinf(best_dest) || dist > max_dist || !has_next_lane(sn, active_lane)
-            break
-        end
-
-        dist += active_lane.curve.s[end] # move full curve length
-        active_lane = next_lane(sn, active_lane)
-        active_lanetag = active_lane.id
-        footpoint_s_host = 0.0 # move to base of curve
-    end
-
-    best_colset
-end
-function _calc_rear_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Int)
-
-    best_colset = COLSET_NULL
-    best_dist   = Inf # [m]
-    max_dist    = 1000.0 # [m]
-
-    active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
-    active_lane = get_lane(sn, active_lanetag)
-    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
-    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
-
-    # walk forwards along the lanetag until we find a car in it or reach max dist
-    while true
-        for i in 1 : nactors(runlog, frame)
-            test_colset = convert(UInt, i)
-
-            if test_colset == colset
-                continue
-            end
-
-            lanetag_target = get(runlog, test_colset, frame, :lanetag)::LaneTag
-            if lanetag == active_lanetag
-
-                footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
-                if footpoint_s_target < footpoint_s_host
-
-                    cand_dist = dist + footpoint_s_host - footpoint_s_target
-                    if cand_dist < best_dist
-                        best_dist = cand_dist
-                        best_colset = test_colset
-                    end
-                end
-            end
-        end
-
-        if isinf(best_dest) || dist > max_dist || !has_prev_lane(sn, active_lane)
-            break
-        end
-
-        active_lane = prev_lane(sn, active_lane)
-        active_lanetag = active_lane.id
-        dist += active_lane.curve.s[end] # move full length
-        footpoint_s_host = active_lane.curve.s[end] # move to end of curve
-    end
-
-    best_colset
-end
-function _calc_front_and_rear!(runlog::RunLog, sn::StreetNetwork)
-    #=
-    Run through populated runlog and calc front and rear for each vehicle in each frame
-    =#
-
-    for frame in 1 : nframes(runlog)
-        for i in 1 : nactors(runlog, frame)
-            colset = convert(UInt, i)
-            set!(runlog, colset, frame, :front, _calc_front_vehicle_colset(runlog, sn, colset, frame)::UInt)
-            set!(runlog, colset, frame, :rear, _calc_rear_vehicle_colset(runlog, sn, colset, frame)::UInt)
+        for j = validfind_lo : validfind_hi
+            retval[j] = true
         end
     end
 
-    runlog
+    retval
 end
 
 end # module

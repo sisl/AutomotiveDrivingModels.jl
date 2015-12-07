@@ -45,6 +45,7 @@ export
 
     nactors,                            # number of column sets with actors (id ≠ ID_NULL)
     get_max_nactors,                    # maximum nactors over all frames in runlog
+    get_colset_range,                   # range from 1 : nactors as a UInt
 
     get_first_vacant_colset,            # returns index of first vacant colset
     get_first_vacant_colset!,           # exands the number of colsets if necessary
@@ -305,12 +306,31 @@ function set!(
     #=
     Sets all attributes for a vehicle's frame
     Note that next_colset, prev_colset, and ratesF are automatically computed
-    Note that front and rear are >not< computed
+    Note that front and rear are NOT computed
     =#
 
     df = runlog.colsets[colset]
 
-    next_colset = (frame < nframes(runlog)) ? id2colset(runlog, id, frame+1) : COLSET_NULL
+    next_colset = COLSET_NULL
+    if frame < nframes(runlog)
+        next_frame = frame+1
+        next_colset = id2colset(runlog, id, next_frame)
+        if next_colset != COLSET_NULL
+            # present ← future
+            set!(runlog, next_colset, next_frame, :prev_colset, colset)
+        end
+    end
+
+    prev_colset = COLSET_NULL
+    if frame > 1
+        prev_frame = frame-1
+        prev_colset = id2colset(runlog, id, prev_frame)
+        if prev_colset != COLSET_NULL
+            # past → future
+            set!(runlog, prev_colset, prev_frame, :next_colset, colset)
+        end
+    end
+
     prev_colset = (frame > 1) ? id2colset(runlog, id, frame-1) : COLSET_NULL
 
     speed = hypot(ratesB)
@@ -379,7 +399,7 @@ function id2colset(runlog::RunLog, id::UInt, frame::Integer)
 
     for colset in 1 : nactors(runlog, frame)
         if colset2id(runlog, convert(UInt, colset), frame) == id
-            return colset
+            return convert(UInt, colset)
         end
     end
     return COLSET_NULL
@@ -468,6 +488,10 @@ function get_max_nactors{I<:Integer}(runlog::RunLog, frames::AbstractVector{I})
         retval = max(retval, nactors(runlog, frame))
     end
     retval
+end
+function get_colset_range(runlog::RunLog, frame::Integer)
+    n = nactors(runlog, frame)
+    one(UInt) : convert(UInt, n)
 end
 
 # Base.show(runlog::RunLog) # this should just list some basic statics

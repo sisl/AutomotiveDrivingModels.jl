@@ -31,6 +31,9 @@ include("utils/RunLogs.jl")
 include("features/Features.jl")
 @reexport using .Features
 
+include("features/FeaturesNew.jl")
+@reexport using .FeaturesNew
+
 include("utils/FeaturesetExtractor.jl")
 @reexport using .FeaturesetExtractor
 
