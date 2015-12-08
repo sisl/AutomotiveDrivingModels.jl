@@ -125,12 +125,12 @@ function _propagate_one_pdset_frame!(
     validfind_fut = jumpframe(pdset, validfind, 1)
     @assert(validfind_fut != 0)
 
-    Δt = get_elapsed_time(pdset, validfind, validfind_fut)
+    Δt = Trajdata.get_elapsed_time(pdset, validfind, validfind_fut)
     δt = Δt / n_euler_steps
 
     carind = carid2ind(pdset, carid, validfind)
 
-    if !idinframe(pdset, carid, validfind_fut)
+    if !Trajdata.idinframe(pdset, carid, validfind_fut)
         add_car_to_validfind!(pdset, carid, validfind_fut)
     end
     carind_fut = carid2ind(pdset, carid, validfind_fut)

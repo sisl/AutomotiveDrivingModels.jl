@@ -678,10 +678,10 @@ function render_car!(
     posGθ = trajdata[frameind, :yawG]
 
     if carind != CARIND_EGO
-        posEx = getc(trajdata, :posEx, carind, frameind)
-        posEy = getc(trajdata, :posEy, carind, frameind)
-        velEx = getc(trajdata, :velEx, carind, frameind)
-        velEy = getc(trajdata, :velEy, carind, frameind)
+        posEx = getc(trajdata, "posEx", carind, frameind)
+        posEy = getc(trajdata, "posEy", carind, frameind)
+        velEx = getc(trajdata, "velEx", carind, frameind)
+        velEy = getc(trajdata, "velEy", carind, frameind)
 
         posGx, posGy = Trajdata.ego2global(posGx, posGy, posGθ, posEx, posEy)
 
@@ -694,7 +694,7 @@ function render_car!(
         end
     end
 
-    add_instruction!( render_car, (posGx, posGy, posGθ, color))
+    add_instruction!(rm, render_car, (posGx, posGy, posGθ, color))
     rm
 end
 
@@ -709,7 +709,7 @@ function render_scene!(
 
     @assert(frame_inbounds(runlog, frame))
 
-    for colset in 1 : nactors(runlog, frame)
+    for colset in get_colset_range(runlog, frame)
 
         id = colset2id(runlog, colset, frame)
         color = (id == active_carid) ? color_active : color_oth
@@ -752,7 +752,7 @@ function render_scene!(
     @assert(0 < frameind ≤ size(trajdata, 1))
 
     # render other cars first
-    for i = 1 : ncars_in_frame(trajdata, frameind)
+    for i = 1 : get_num_other_cars_in_frame(trajdata, frameind)
         carind = i - 1
         render_car!(rm, trajdata, carind, frameind, color=color_oth)
     end
@@ -827,7 +827,7 @@ end
 function set_camera_in_front_of_carid!(
     rendermodel::RenderModel,
     runlog::RunLog,
-    carid::Integer,
+    colset::UInt,
     frame::Integer,
     camera_forward_offset::Real,
     )
@@ -927,6 +927,156 @@ function plot_scene(
     s
 end
 
+function plot_scene_overlay_trajdata(
+    runlog::RunLog,
+    trajdata::DataFrame,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100,
+    canvas_height::Integer=300,
+    rendermodel::RenderModel=RenderModel(),
+
+    camera_forward_offset::Float64=60.0, # [m]
+    camerazoom::Real=6.5, # [pix/m]
+    )
+
+    # find frameind in trajdata
+    t = get(runlog, frame, :time)::Float64
+    t₀ = trajdata[1, :time]::Float64
+    frameind_in_trajdata = -1
+    for frameind in 1 : size(trajdata, 1)
+        if abs(trajdata[frameind, :time]::Float64 - t- t₀) < 0.05
+            frameind_in_trajdata = frameind
+            break
+        end
+    end
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+    render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
+
+    frameind_in_trajdata == -1 || render_scene!(rendermodel, trajdata, frameind_in_trajdata,
+                                                color_ego=RGBA(COLOR_CAR_EGO.r*1.1, COLOR_CAR_EGO.g*0.9, COLOR_CAR_EGO.b*0.9, 0.5),
+                                                color_oth=RGBA(COLOR_CAR_OTHER.r*0.9, COLOR_CAR_OTHER.g*1.1, COLOR_CAR_OTHER.b*1.1, 0.5))
+
+    camera_setzoom!(rendermodel, camerazoom)
+    set_camera_in_front_of_carid!(rendermodel, runlog, active_carid, frame, camera_forward_offset)
+
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
+function plot_scene_and_front_rear(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100,
+    canvas_height::Integer=300,
+    rendermodel::RenderModel=RenderModel(),
+
+    camera_forward_offset::Float64=60.0, # [m]
+    camerazoom::Real=6.5, # [pix/m]
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+    render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
+
+    id = convert(UInt, active_carid)
+    colset = id2colset(runlog, id, frame)
+    if colset != COLSET_NULL
+
+        ego = get(runlog, colset, frame, :inertial)::VecSE2
+
+        idfront = get(runlog, colset, frame, :idfront)
+        if idfront != COLSET_NULL
+            pts = Array(Float64, 2, 2)
+            pts[1,1] = ego.x + 2.0*cos(ego.θ)
+            pts[2,1] = ego.y + 2.0*sin(ego.θ)
+
+            oth = get(runlog, idfront, frame, :inertial)::VecSE2
+            pts[1,2] = oth.x - 2.0*cos(oth.θ)
+            pts[2,2] = oth.y - 2.0*sin(oth.θ)
+
+            add_instruction!(rendermodel, render_line, (pts, RGBA(0.0, 1.0, 0.0, 1.0), 0.5))
+            render_car!(rendermodel, runlog, idfront, frame, color=RGBA(1.0, 1.0, 1.0, 0.5))
+        end
+
+        idrear = get(runlog, colset, frame, :idrear)
+        if idrear != COLSET_NULL
+            pts = Array(Float64, 2, 2)
+            pts[1,1] = ego.x - 2.0*cos(ego.θ)
+            pts[2,1] = ego.y - 2.0*sin(ego.θ)
+
+            oth = get(runlog, idrear, frame, :inertial)::VecSE2
+            pts[1,2] = oth.x + 2.0*cos(oth.θ)
+            pts[2,2] = oth.y + 2.0*sin(oth.θ)
+
+            add_instruction!(rendermodel, render_line, (pts, RGBA(0.0, 0.0, 1.0, 1.0), 0.5))
+            render_car!(rendermodel, runlog, idrear, frame, color=RGBA(1.0, 1.0, 1.0, 0.5))
+        end
+    end
+
+    camera_setzoom!(rendermodel, camerazoom)
+    set_camera_in_front_of_carid!(rendermodel, runlog, active_carid, frame, camera_forward_offset)
+
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
+function plot_scene_and_footpoint(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100,
+    canvas_height::Integer=300,
+    rendermodel::RenderModel=RenderModel(),
+
+    camera_forward_offset::Float64=60.0, # [m]
+    camerazoom::Real=6.5, # [pix/m]
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+    render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
+
+    id = convert(UInt, active_carid)
+    colset = id2colset(runlog, id, frame)
+    if colset != COLSET_NULL
+
+        inertial = get(runlog, colset, frame, :inertial)::VecSE2
+        footpoint = get(runlog, colset, frame, :footpoint)::CurvePt
+
+        pts = Array(Float64, 2, 2)
+        pts[1,1] = inertial.x
+        pts[2,1] = inertial.y
+
+        pts[1,2] = footpoint.x
+        pts[2,2] = footpoint.y
+
+        add_instruction!(rendermodel, render_line, (pts, RGBA(0.0, 0.0, 0.0, 1.0), 0.3))
+    end
+
+    camera_setzoom!(rendermodel, camerazoom)
+    set_camera_in_front_of_carid!(rendermodel, runlog, active_carid, frame, camera_forward_offset)
+
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
+
 function plot_traces(
     runlog::RunLog,
     sn::StreetNetwork,
@@ -952,7 +1102,7 @@ function plot_traces(
 
     render_streetnet_roads!(rendermodel, sn)
 
-    for colset in 1 : nactors(runlog, frame)
+    for colset in get_colset_range(runlog, frame)
         id = colset2id(runlog, colset, frame)
         render_trace!(rendermodel, runlog, id, frame - history, frame, color=color_history)
         render_trace!(rendermodel, runlog, id, frame, frame + horizon, color=color_horizon)
@@ -1141,7 +1291,7 @@ function plot_manipulable_runlog{I<:Integer}(
     camerazoom::Real=6.5,
     camera_forward_offset::Real=0.0,
 
-    frames::AbstractVector{I} = 1:nvalidfinds(runlog),
+    frames::AbstractVector{I} = 1:nframes(runlog),
     )
 
     @manipulate for frame in frames
@@ -1154,6 +1304,80 @@ function plot_manipulable_runlog{I<:Integer}(
                    camerazoom=camerazoom)
     end
 end
+function plot_manipulable_runlog_overlay_trajdata{I<:Integer}(
+    runlog::RunLog,
+    trajdata::DataFrame,
+    sn::StreetNetwork,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camera_forward_offset::Real=0.0,
+
+    frames::AbstractVector{I} = 1:nframes(runlog),
+    )
+
+    @manipulate for frame in frames
+
+        plot_scene_overlay_trajdata(runlog, trajdata, sn, frame, active_carid,
+                   canvas_width=canvas_width,
+                   canvas_height=canvas_height,
+                   rendermodel=rendermodel,
+                   camera_forward_offset=camera_forward_offset,
+                   camerazoom=camerazoom)
+    end
+end
+function plot_manipulable_runlog_and_front_rear{I<:Integer}(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camera_forward_offset::Real=0.0,
+
+    frames::AbstractVector{I} = 1:nframes(runlog),
+    )
+
+    @manipulate for frame in frames
+
+        plot_scene_and_front_rear(runlog, sn, frame, active_carid,
+                   canvas_width=canvas_width,
+                   canvas_height=canvas_height,
+                   rendermodel=rendermodel,
+                   camera_forward_offset=camera_forward_offset,
+                   camerazoom=camerazoom)
+    end
+end
+function plot_manipulable_runlog_and_footpoint{I<:Integer}(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    active_carid::Integer=RunLog.ID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=15.0,
+    camera_forward_offset::Real=0.0,
+
+    frames::AbstractVector{I} = 1:nframes(runlog),
+    )
+
+    @manipulate for frame in frames
+
+        plot_scene_and_footpoint(runlog, sn, frame, active_carid,
+                   canvas_width=canvas_width,
+                   canvas_height=canvas_height,
+                   rendermodel=rendermodel,
+                   camera_forward_offset=camera_forward_offset,
+                   camerazoom=camerazoom)
+    end
+end
+
 function plot_manipulable_pdset(
     pdset::PrimaryDataset,
     sn::StreetNetwork,

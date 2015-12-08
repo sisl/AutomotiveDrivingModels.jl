@@ -7,7 +7,7 @@ const STREETNET_CACHE = Dict{AbstractString, StreetNetwork}()
 const PRIMARYDATA_DIR = "/media/tim/DATAPART1/Data/Bosch/processed/primarydata/"
 const STREETMAP_BASE = "/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
 const OUTPUT_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/realworld/"
-const PDSET_OUTPUT_DIR = joinpath(OUTPUT_DIR, "pdsets")
+const RUNLOG_OUTPUT_DIR = joinpath(OUTPUT_DIR, "runlogs")
 
 # const CSVFILESETS = [
     #             CSVFileSet(CARIND_EGO, "philippdrive01_2015-03-24-15-21-12-raw", "280_pagemill_to_92", # 16
@@ -258,7 +258,7 @@ end
 
 #############################################
 
-pdset_extract_params = PrimaryDataExtractionParams()
+extract_params = PrimaryDataExtractionParams()
 
 tic()
 csvfilesets = CSVFileSet[]
@@ -274,12 +274,12 @@ for csvfileset in CSVFILESETS
     println(csvfilename)
 
     trajdata = PrimaryDataExtractor.load_trajdata(csvfilename)
-    pdset = gen_primary_data(trajdata, sn, pdset_extract_params)
+    runlogs = extract_runlogs(trajdata, sn, extract_params, RunLogHeader(streetmapbasename, "unknown"))::AbstractVector{RunLog}
 
-    if isa(pdset, PrimaryDataset)
+    for (i,runlog) in enumerate(runlogs)
         csvfilebase = basename(csvfilename)
-        pdsetname = joinpath(PDSET_OUTPUT_DIR, toext("primarydata_" * csvfilebase, "jld"))
-        JLD.save(pdsetname, "pdset", pdset::PrimaryDataset)
+        runlogname = joinpath(RUNLOG_OUTPUT_DIR, @sprintf("primarydata_%s_%d.jld", csvfilebase, i))
+        JLD.save(pdsetname, "runlog", runlog::RunLog)
 
         push!(csvfilesets, csvfileset)
     end

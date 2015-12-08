@@ -176,8 +176,8 @@ const COLSET_NULL = zero(UInt)
 # Float64     extind      [-] extended index of the closest centerline (see Curves.jl)
 # CurvePt     footpoint   [-] point on the closest centerline
 # LaneTag     lanetag     [-] assigned lane in given map
-# UInt        idfront     [-] colset of the vehicle in front of this one, COLSET_NULL if none
-# UInt        idrear      [-] colset of the vehicle behind this one, COLSET_NULL if none
+# UInt        colset_front[-] colset of the vehicle in front of this one, COLSET_NULL if none
+# UInt        colset_rear [-] colset of the vehicle behind this one, COLSET_NULL if none
 # UInt16      behavior    [0] context class
 
 function _create_framedata(nframes::Integer)
@@ -198,8 +198,8 @@ function _create_columnset(nframes::Integer)
         extind = DataArray(Float64, nframes),
         footpoint = DataArray(CurvePt, nframes),
         lanetag = DataArray(LaneTag, nframes),
-        idfront = fill(COLSET_NULL, nframes),
-        idrear = fill(COLSET_NULL, nframes),
+        colset_front = fill(COLSET_NULL, nframes),
+        colset_rear = fill(COLSET_NULL, nframes),
         behavior = fill(ContextClass.NULL, nframes),
     )
 end
@@ -291,16 +291,16 @@ function set!(
     runlog::RunLog,
     colset::UInt,
     frame::Integer,
-    id        :: UInt,
-    inertial  :: VecSE2,
-    frenet    :: VecSE2,
-    ratesB    :: VecSE2,
-    extind    :: Float64,
-    footpoint :: CurvePt,
-    lanetag   :: LaneTag,
-    idfront   :: UInt = COLSET_NULL,
-    idrear    :: UInt = COLSET_NULL,
-    behavior  :: UInt16 = ContextClass.NULL,
+    id           :: UInt,
+    inertial     :: VecSE2,
+    frenet       :: VecSE2,
+    ratesB       :: VecSE2,
+    extind       :: Float64,
+    footpoint    :: CurvePt,
+    lanetag      :: LaneTag,
+    colset_front :: UInt = COLSET_NULL,
+    colset_rear  :: UInt = COLSET_NULL,
+    behavior     :: UInt16 = ContextClass.NULL,
     )
 
     #=
@@ -336,19 +336,19 @@ function set!(
     speed = hypot(ratesB)
     ratesF = polar(speed, frenet.θ)
 
-    df[frame, :id         ] = id
-    df[frame, :next_colset] = next_colset
-    df[frame, :prev_colset] = prev_colset
-    df[frame, :inertial   ] = inertial
-    df[frame, :frenet     ] = frenet
-    df[frame, :ratesB     ] = ratesB
-    df[frame, :ratesF     ] = ratesF
-    df[frame, :extind     ] = extind
-    df[frame, :footpoint  ] = footpoint
-    df[frame, :lanetag    ] = lanetag
-    df[frame, :idfront    ] = idfront
-    df[frame, :idrear     ] = idrear
-    df[frame, :behavior   ] = behavior
+    df[frame, :id          ] = id
+    df[frame, :next_colset ] = next_colset
+    df[frame, :prev_colset ] = prev_colset
+    df[frame, :inertial    ] = inertial
+    df[frame, :frenet      ] = frenet
+    df[frame, :ratesB      ] = ratesB
+    df[frame, :ratesF      ] = ratesF
+    df[frame, :extind      ] = extind
+    df[frame, :footpoint   ] = footpoint
+    df[frame, :lanetag     ] = lanetag
+    df[frame, :colset_front] = colset_front
+    df[frame, :colset_rear ] = colset_rear
+    df[frame, :behavior    ] = behavior
 
     runlog
 end
