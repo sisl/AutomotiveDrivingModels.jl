@@ -21,12 +21,12 @@ behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(
                                             DF_TrainParams(indicators=INDICATOR_SET),
                                             [
                                                 BehaviorParameter(:ntrees, 1:10:51, 3),
-                                                BehaviorParameter(:max_tree_depth, 1:5:16, 3),
+                                                BehaviorParameter(:max_tree_depth, 1:6, 3),
                                                 # BehaviorParameter(:min_samples_split, 10:10:50, 3),
                                                 # BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
                                                 # BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
-                                                BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
-                                                # BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),
+                                                # BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
+                                                BehaviorParameter(:n_split_tries, [2,3,4,5,10,20], 5),
                                             ])
 behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
                                             BN_TrainParams(
@@ -39,12 +39,12 @@ behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
                                             ),
                                             [
                                                 BehaviorParameter(:ncandidate_bins, 5:5:25, 2),
-                                                BehaviorParameter(:max_parents, 1:7, 5),
+                                                BehaviorParameter(:max_parents, 3:7, 2),
+                                                BehaviorParameter(:dirichlet_prior, [UniformPrior(), BDeuPrior(0.5), BDeuPrior(1.0), BDeuPrior(2.0), BDeuPrior(10.0)], 1),
                                             ])
-
 behaviorset["Mixture Regression"] = BehaviorTrainDefinition(
-                                            GMR_TrainParams(indicators=[YAW, SPEED, ACC, VELFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE, TTC_X_FRONT]), # [YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE, TTC_X_FRONT]
+                                            GMR_TrainParams(indicators=INDICATOR_SET), #[YAW, SPEED, ACC, VELFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE, TTC_X_FRONT]), # [YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE, TTC_X_FRONT]
                                             [
-                                                BehaviorParameter(:n_components, 2:5, 1),
-                                                BehaviorParameter(:max_n_indicators, 2:6, 1),
+                                                BehaviorParameter(:n_components, 2:8, 1),
+                                                BehaviorParameter(:max_n_indicators, 2:7, 1),
                                             ])

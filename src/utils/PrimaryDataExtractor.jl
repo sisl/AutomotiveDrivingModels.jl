@@ -1641,7 +1641,7 @@ function extract_runlogs(
 
     n_initial_samples  = size(trajdata,1)
 
-    arr_time  = convert(Array{Float64}, trajdata[:time]) .- trajdata[1, :time]::Float64
+    arr_time = convert(Array{Float64}, trajdata[:time]) .- trajdata[1, :time]::Float64
 
     n_resamples = floor(Int, (arr_time[end] - arr_time[1]) / params.resample_rate)
     arr_time_resampled = collect(0:n_resamples-1)*params.resample_rate + arr_time[1]
@@ -1830,216 +1830,216 @@ function _extract_runlog(
     trajdata_carids = get_carids(trajdata) # a Set{Int} of carids
     delete!(trajdata_carids, CARID_EGO_ORIG)
 
-    # for (i,trajdata_carid) in enumerate(trajdata_carids)
+    for (i,trajdata_carid) in enumerate(trajdata_carids)
 
-    #     if params.verbosity > 0
-    #         tic()
-    #         println(trajdata_carid, ": ", i, " / ", length(trajdata_carids))
-    #     end
+        if params.verbosity > 0
+            tic()
+            println(trajdata_carid, ": ", i, " / ", length(trajdata_carids))
+        end
 
-    #     carid_new = convert(UInt, CARID_EGO + i)
+        carid_new = convert(UInt, CARID_EGO + i)
 
-    #     # all frames where the car exists
-    #     car_frameinds_raw = filter(frame->carid_exists(trajdata, trajdata_carid, frame), freeway_frameinds_raw)
-    #     if isempty(car_frameinds_raw)
-    #         params.verbosity ≤ 0 || toc()
-    #         continue
-    #     end
+        # all frames where the car exists
+        car_frameinds_raw = filter(frame->carid_exists(trajdata, trajdata_carid, frame), freeway_frameinds_raw)
+        if isempty(car_frameinds_raw)
+            params.verbosity ≤ 0 || toc()
+            continue
+        end
 
-    #     data_arr_index = 0
+        data_arr_index = 0
 
-    #     for (lo,hi) in near_continuous_segments(car_frameinds_raw, params.threshold_other_frame_gap)
+        for (lo,hi) in near_continuous_segments(car_frameinds_raw, params.threshold_other_frame_gap)
 
-    #         segment_frameinds = collect(car_frameinds_raw[lo] : car_frameinds_raw[hi]) # array of all frames for this segment
-    #         n_frames_in_seg = length(segment_frameinds)
+            segment_frameinds = collect(car_frameinds_raw[lo] : car_frameinds_raw[hi]) # array of all frames for this segment
+            n_frames_in_seg = length(segment_frameinds)
 
-    #         # ------------------------------------------
-    #         # enforce minimum segment length
-    #         if n_frames_in_seg < params.threshold_other_segment_length
-    #             if params.verbosity > 0
-    #                 print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
-    #             end
-    #             continue
-    #         end
+            # ------------------------------------------
+            # enforce minimum segment length
+            if n_frames_in_seg < params.threshold_other_segment_length
+                if params.verbosity > 0
+                    print_with_color(:red, "skipping due to insufficient length ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                end
+                continue
+            end
 
-    #         # ------------------------------------------
-    #         # run smoothing + interpolation
+            # ------------------------------------------
+            # run smoothing + interpolation
 
-    #         # whether car exists in frame
-    #         car_exists = falses(n_frames_in_seg)
-    #         car_exists[car_frameinds_raw[lo:hi]-car_frameinds_raw[lo]+1] = true
-    #         n_frames_exist = sum(car_exists)
+            # whether car exists in frame
+            car_exists = falses(n_frames_in_seg)
+            car_exists[car_frameinds_raw[lo:hi]-car_frameinds_raw[lo]+1] = true
+            n_frames_exist = sum(car_exists)
 
-    #         # map index to carind (-1 if no exist)
-    #         carinds_raw = map(i->Trajdata.carid2ind_or_negative_one_otherwise(trajdata, trajdata_carid, segment_frameinds[i]), 1:n_frames_in_seg)
-    #         time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
+            # map index to carind (-1 if no exist)
+            carinds_raw = map(i->Trajdata.carid2ind_or_negative_one_otherwise(trajdata, trajdata_carid, segment_frameinds[i]), 1:n_frames_in_seg)
+            time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
 
-    #         time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:length(arr_time_resampled))
-    #         time_resampled_ind_hi = time_resampled_ind_lo + findfirst(i->arr_time_resampled[i+1] > time_obs[end], (time_resampled_ind_lo+1):(length(arr_time_resampled)-1))
-    #         @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
-    #         time_resampled = arr_time_resampled[time_resampled_ind_lo:time_resampled_ind_hi]
-    #         smoothed_frameinds = collect(time_resampled_ind_lo:time_resampled_ind_hi)
+            time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:length(arr_time_resampled))
+            time_resampled_ind_hi = time_resampled_ind_lo + findfirst(i->arr_time_resampled[i+1] > time_obs[end], (time_resampled_ind_lo+1):(length(arr_time_resampled)-1))
+            @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
+            time_resampled = arr_time_resampled[time_resampled_ind_lo:time_resampled_ind_hi]
+            smoothed_frameinds = collect(time_resampled_ind_lo:time_resampled_ind_hi)
 
-    #         time_obs_padded = pad_linear(time_obs, params.padding_size)
-    #         time_resampled_padded = pad_linear(time_resampled, params.padding_size)
+            time_obs_padded = pad_linear(time_obs, params.padding_size)
+            time_resampled_padded = pad_linear(time_resampled, params.padding_size)
 
-    #         # TODO(tim): can this be optimized with pre-allocation outside of the loop?
-    #         # NOTE(tim): this assumes zero sideslip
-    #         data_obs = DataFrame(
-    #             posGx = DataArray(Float64, n_frames_exist),
-    #             posGy = DataArray(Float64, n_frames_exist),
-    #             yawG  = DataArray(Float64, n_frames_exist),
-    #             velBx = DataArray(Float64, n_frames_exist)
-    #             )
+            # TODO(tim): can this be optimized with pre-allocation outside of the loop?
+            # NOTE(tim): this assumes zero sideslip
+            data_obs = DataFrame(
+                posGx = DataArray(Float64, n_frames_exist),
+                posGy = DataArray(Float64, n_frames_exist),
+                yawG  = DataArray(Float64, n_frames_exist),
+                velBx = DataArray(Float64, n_frames_exist)
+                )
 
-    #         total = 0
-    #         for (i,frameind) in enumerate(segment_frameinds)
+            total = 0
+            for (i,frameind) in enumerate(segment_frameinds)
 
-    #             if car_exists[i]
-    #                 total += 1
-    #                 carind = carinds_raw[i]
-    #                 @assert(carind != -1)
+                if car_exists[i]
+                    total += 1
+                    carind = carinds_raw[i]
+                    @assert(carind != -1)
 
-    #                 posEx = getc(trajdata, "posEx", carind, frameind)
-    #                 posEy = getc(trajdata, "posEy", carind, frameind)
-    #                 velEx = getc(trajdata, "velEx", carind, frameind) # NOTE(tim): velocity in the ego frame but pre-compensated for ego velocity
-    #                 velEy = getc(trajdata, "velEy", carind, frameind)
+                    posEx = getc(trajdata, "posEx", carind, frameind)
+                    posEy = getc(trajdata, "posEy", carind, frameind)
+                    velEx = getc(trajdata, "velEx", carind, frameind) # NOTE(tim): velocity in the ego frame but pre-compensated for ego velocity
+                    velEy = getc(trajdata, "velEy", carind, frameind)
 
-    #                 posGx_ego = trajdata[frameind, :posGx]
-    #                 posGy_ego = trajdata[frameind, :posGy]
-    #                 yawG_ego  = trajdata[frameind, :yawG]
+                    posGx_ego = trajdata[frameind, :posGx]
+                    posGy_ego = trajdata[frameind, :posGy]
+                    yawG_ego  = trajdata[frameind, :yawG]
 
-    #                 posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
+                    posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
 
-    #                 data_obs[total, :posGx] = posGx
-    #                 data_obs[total, :posGy] = posGy
+                    data_obs[total, :posGx] = posGx
+                    data_obs[total, :posGy] = posGy
 
-    #                 velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
+                    velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
 
-    #                 if hypot(velGx, velGy) > 3.0
-    #                     yawG = atan2(velGy, velGx)
-    #                 else
-    #                     yawG = yawG_ego # to fix problem with very low velocities
-    #                 end
-    #                 data_obs[total, :velBx] = hypot(velGx, velGy)
-    #                 data_obs[total, :yawG]  = yawG
-    #             end
-    #         end
-    #         @assert(total == size(data_obs, 1))
-    #         data_obs[:yawG] = make_angle_continuous!(convert(Vector{Float64}, data_obs[:yawG]))
+                    if hypot(velGx, velGy) > 3.0
+                        yawG = atan2(velGy, velGx)
+                    else
+                        yawG = yawG_ego # to fix problem with very low velocities
+                    end
+                    data_obs[total, :velBx] = hypot(velGx, velGy)
+                    data_obs[total, :yawG]  = yawG
+                end
+            end
+            @assert(total == size(data_obs, 1))
+            data_obs[:yawG] = make_angle_continuous!(convert(Vector{Float64}, data_obs[:yawG]))
 
-    #         data_smoothed = DataFrame()
-    #         should_toss_due_to_outliers = false
-    #         for (variable, RANSAC_fit_threshold, smoothing_variance) in
-    #             [(:posGx,  0.5,  0.5), # TODO(tim): tune these
-    #              (:posGy,  0.5,  0.5),
-    #              (:yawG,   0.05, 0.5),
-    #              (:velBx,  2.0,  0.5)] # NOTE(tim): many vehicles are sensitive here... need to investigate
+            data_smoothed = DataFrame()
+            should_toss_due_to_outliers = false
+            for (variable, RANSAC_fit_threshold, smoothing_variance) in
+                [(:posGx,  0.5,  0.5), # TODO(tim): tune these
+                 (:posGy,  0.5,  0.5),
+                 (:yawG,   0.05, 0.5),
+                 (:velBx,  2.0,  0.5)] # NOTE(tim): many vehicles are sensitive here... need to investigate
 
-    #             arr_orig_padded = pad_linear(convert(Vector{Float64}, data_obs[variable]), params.padding_size)
+                arr_orig_padded = pad_linear(convert(Vector{Float64}, data_obs[variable]), params.padding_size)
 
-    #             if  params.ransac_n_inliers_for_first_fit ≤ 3
-    #                 outliers = Set{Int}()
-    #             else
-    #                 outliers = sliding_window_RANSAC(time_obs_padded, arr_orig_padded, params.ransac_n_iter,
-    #                                     RANSAC_fit_threshold, params.ransac_n_inliers_for_first_fit,
-    #                                     params.ransac_window_width, params.ransac_window_overlap)
-    #             end
+                if  params.ransac_n_inliers_for_first_fit ≤ 3
+                    outliers = Set{Int}()
+                else
+                    outliers = sliding_window_RANSAC(time_obs_padded, arr_orig_padded, params.ransac_n_iter,
+                                        RANSAC_fit_threshold, params.ransac_n_inliers_for_first_fit,
+                                        params.ransac_window_width, params.ransac_window_overlap)
+                end
 
-    #             percent_outliers = 100.0*length(outliers) / n_frames_in_seg
-    #             if percent_outliers > params.threshold_percent_outliers_toss
-    #                 should_toss_due_to_outliers = true
-    #                 if params.verbosity > 0
-    #                     print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
-    #                 end
-    #                 break
-    #             end
+                percent_outliers = 100.0*length(outliers) / n_frames_in_seg
+                if percent_outliers > params.threshold_percent_outliers_toss
+                    should_toss_due_to_outliers = true
+                    if params.verbosity > 0
+                        print_with_color(:red, "skipping due to high outlier percentage in $variable ($percent_outliers > $(params.threshold_percent_outliers_toss))\n")
+                    end
+                    break
+                end
 
-    #             arr_smoothed_padded = smooth(time_obs_padded, arr_orig_padded, time_resampled_padded, smoothing_variance, outliers)
-    #             data_smoothed[variable] = remove_pad(arr_smoothed_padded, params.padding_size)
-    #         end
-    #         if should_toss_due_to_outliers
-    #             continue
-    #         end
+                arr_smoothed_padded = smooth(time_obs_padded, arr_orig_padded, time_resampled_padded, smoothing_variance, outliers)
+                data_smoothed[variable] = remove_pad(arr_smoothed_padded, params.padding_size)
+            end
+            if should_toss_due_to_outliers
+                continue
+            end
 
-    #         inds_to_keep = find(frame->frame_lo ≤ frame ≤ frame_hi, smoothed_frameinds)
-    #         smoothed_frameinds = smoothed_frameinds[inds_to_keep]
-    #         data_smoothed = data_smoothed[inds_to_keep, :]
+            inds_to_keep = find(frame->frame_lo ≤ frame ≤ frame_hi, smoothed_frameinds)
+            smoothed_frameinds = smoothed_frameinds[inds_to_keep]
+            data_smoothed = data_smoothed[inds_to_keep, :]
 
-    #         if size(data_smoothed, 1) < params.threshold_other_segment_length
-    #             if params.verbosity > 0
-    #                 print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
-    #             end
-    #             continue
-    #         end
+            if size(data_smoothed, 1) < params.threshold_other_segment_length
+                if params.verbosity > 0
+                    print_with_color(:red, "skipping due to insufficient length after smoothing ($n_frames_in_seg < $(params.threshold_other_segment_length))\n")
+                end
+                continue
+            end
 
-    #         # ------------------------------------------
-    #         # map to frenet frame & extract values
+            # ------------------------------------------
+            # map to frenet frame & extract values
 
-    #         for (i,frame_old) in enumerate(smoothed_frameinds)
+            for (i,frame_old) in enumerate(smoothed_frameinds)
 
-    #             frame_new = frame_old - frame_lo + 1
+                frame_new = frame_old - frame_lo + 1
 
-    #             inertial = VecSE2(data_smoothed[i, :posGx],
-    #                               data_smoothed[i, :posGy],
-    #                               mod2pi_neg_pi_to_pi(data_smoothed[i, :yawG ]))
+                inertial = VecSE2(data_smoothed[i, :posGx],
+                                  data_smoothed[i, :posGy],
+                                  mod2pi_neg_pi_to_pi(data_smoothed[i, :yawG ]))
 
-    #             proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
-    #             if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
+                proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
+                if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
 
-    #                 extind = proj.extind
-    #                 footpoint = proj.footpoint
-    #                 lanetag = proj.lane.id
-    #                 frenet = VecSE2(pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)...)
+                    extind = proj.extind
+                    footpoint = proj.footpoint
+                    lanetag = proj.lane.id
+                    frenet = VecSE2(pt_to_frenet_xyy(footpoint, inertial.x, inertial.y, inertial.θ)...)
 
-    #                 velBx = data_smoothed[i, :velBx]
-    #                 ratesB = VecSE2(velBx*cos(inertial.θ),
-    #                                 velBx*sin(inertial.θ),
-    #                                 NaN) # NOTE(tim): turnrate will be computed in another pass
+                    velBx = data_smoothed[i, :velBx]
+                    ratesB = VecSE2(velBx*cos(inertial.θ),
+                                    velBx*sin(inertial.θ),
+                                    NaN) # NOTE(tim): turnrate will be computed in another pass
 
-    #                 laneid = convert(Int, proj.lane.id.lane)
-    #                 seg = get_segment(sn, proj.lane.id)
-    #                 d_end = distance_to_lane_end(sn, seg, laneid, extind)
+                    laneid = convert(Int, proj.lane.id.lane)
+                    seg = get_segment(sn, proj.lane.id)
+                    d_end = distance_to_lane_end(sn, seg, laneid, extind)
 
-    #                 meets_lane_lateral_offset_criterion = abs(frenet.y) < params.threshold_lane_lateral_offset_other
-    #                 meets_lane_angle_criterion = abs(frenet.θ) < params.threshold_lane_angle_other
-    #                 meets_lane_end_criterion = d_end > params.threshold_other_from_lane_ends
+                    meets_lane_lateral_offset_criterion = abs(frenet.y) < params.threshold_lane_lateral_offset_other
+                    meets_lane_angle_criterion = abs(frenet.θ) < params.threshold_lane_angle_other
+                    meets_lane_end_criterion = d_end > params.threshold_other_from_lane_ends
 
-    #                 if  meets_lane_lateral_offset_criterion &&
-    #                     meets_lane_angle_criterion &&
-    #                     meets_lane_end_criterion
+                    if  meets_lane_lateral_offset_criterion &&
+                        meets_lane_angle_criterion &&
+                        meets_lane_end_criterion
 
-    #                     colset = get_first_vacant_colset!(runlog, carid_new, frame_new)
-    #                     RunLogs.set!(runlog, colset, frame_new, carid_new,
-    #                          inertial, frenet, ratesB, extind, footpoint, lanetag)
-    #                 end
-    #             end
-    #         end
+                        colset = get_first_vacant_colset!(runlog, carid_new, frame_new)
+                        RunLogs.set!(runlog, colset, frame_new, carid_new,
+                             inertial, frenet, ratesB, extind, footpoint, lanetag)
+                    end
+                end
+            end
 
-    #         # second pass to compute turnrate
-    #         for (i,frame_old) in enumerate(smoothed_frameinds)
-    #             frame_new = frame_old - frame_lo + 1
-    #             if RunLogs.idinframe(runlog, carid_new, frame_new)
+            # second pass to compute turnrate
+            for (i,frame_old) in enumerate(smoothed_frameinds)
+                frame_new = frame_old - frame_lo + 1
+                if RunLogs.idinframe(runlog, carid_new, frame_new)
 
-    #                 turnrate = 0.0
-    #                 if frame_new > 1 && RunLogs.idinframe(runlog, carid_new, frame_new-1)
-    #                     turnrate = _estimate_turnrate(runlog, carid_new, frame_new-1, frame_new)
-    #                 elseif frame_old < frame_hi && RunLogs.idinframe(runlog, carid_new, frame_new+1)
-    #                     turnrate = _estimate_turnrate(runlog, carid_new, frame_new, frame_new+1)
-    #                 end
+                    turnrate = 0.0
+                    if frame_new > 1 && RunLogs.idinframe(runlog, carid_new, frame_new-1)
+                        turnrate = _estimate_turnrate(runlog, carid_new, frame_new-1, frame_new)
+                    elseif frame_old < frame_hi && RunLogs.idinframe(runlog, carid_new, frame_new+1)
+                        turnrate = _estimate_turnrate(runlog, carid_new, frame_new, frame_new+1)
+                    end
 
-    #                 colset = id2colset(runlog, carid_new, frame_new)
-    #                 ratesB = get(runlog, colset, frame_new, :ratesB)::VecSE2
-    #                 ratesB = VecSE2(ratesB.x, ratesB.y, turnrate)
-    #                 RunLogs.set!(runlog, colset, frame_new, :ratesB, ratesB)
-    #             end
-    #         end
-    #     end
+                    colset = id2colset(runlog, carid_new, frame_new)
+                    ratesB = get(runlog, colset, frame_new, :ratesB)::VecSE2
+                    ratesB = VecSE2(ratesB.x, ratesB.y, turnrate)
+                    RunLogs.set!(runlog, colset, frame_new, :ratesB, ratesB)
+                end
+            end
+        end
 
-    #     if params.verbosity > 0
-    #         toc()
-    #     end
-    # end
+        if params.verbosity > 0
+            toc()
+        end
+    end
 
     # Post Processing
     #  - front and rear for each vehicle
@@ -2067,15 +2067,16 @@ function _extract_runlog(
         csvfileset = params.csvfileset
         id = convert(UInt, csvfileset.carid)
 
-        freeflow = _resample_snap_to_closest(arr_time, _calc_subset_vector(csvfileset.freeflow, nframes), arr_time_resampled)
-        carfollow = _resample_snap_to_closest(arr_time, _calc_subset_vector(csvfileset.carfollow, nframes), arr_time_resampled)
+        nframes_time = length(arr_time)
+        freeflow = _resample_snap_to_closest(arr_time, _calc_subset_vector(csvfileset.freeflow, nframes_time), arr_time_resampled)
+        carfollow = _resample_snap_to_closest(arr_time, _calc_subset_vector(csvfileset.carfollow, nframes_time), arr_time_resampled)
         lanechange = _resample_snap_to_closest(arr_time, _calc_subset_vector([csvfileset.lanechanges_normal;
                                                                               csvfileset.lanechanges_postpass;
-                                                                              csvfileset.lanechanges_arbitrary], nframes),
+                                                                              csvfileset.lanechanges_arbitrary], nframes_time),
                                                arr_time_resampled)
 
-        for frame in 1 : nframes(runlog)
-            colset = id2colset(runlog, id, frame)
+        for frame in 1 : RunLogs.nframes(runlog)
+            colset = RunLogs.id2colset(runlog, id, frame)
 
             behavior = ContextClass.NULL
             if freeflow[frame]

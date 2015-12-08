@@ -9,7 +9,7 @@ using StreamStats
 ##############################
 
 const INCLUDE_FILE_BASE = "realworld"
-const N_SIMULATIONS_PER_TRACE = 50
+const N_SIMULATIONS_PER_TRACE = 75
 const DEFAULT_TRACE_HISTORY = 2*DEFAULT_FRAME_PER_SEC
 const N_BAGGING_SAMPLES = 10
 const CONFIDENCE_LEVEL = 0.95
