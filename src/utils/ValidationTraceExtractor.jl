@@ -18,9 +18,12 @@ import AutomotiveDrivingModels.FeaturesetExtractor: create_dataframe_with_featur
 
 export
         OrigHistobinExtractParameters,
-        StartCondition,
+        # StartCondition,
         ModelTrainingData,
         FoldAssignment,
+
+        RunLogSegment,
+        ModelTrainingData2,
 
         FOLD_TRAIN,
         FOLD_TEST,
@@ -134,9 +137,61 @@ Base.isequal(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters)
 #          START CONDITION             #
 ########################################
 
-immutable StartCondition
-    validfind :: Int # the starting validfind (includes history)
-    carids    :: Vector{Int} # vehicles to pull traces for
+# immutable StartCondition
+#     validfind :: Int # the starting validfind (includes history)
+#     carids    :: Vector{Int} # vehicles to pull traces for
+# end
+
+########################################
+#            RunLog Segment            #
+########################################
+
+immutable RunLogSegment
+
+    # NOTE: mapname can be identified using RunLog.hedaer.map_name
+
+    runlog_id   :: Int # index within ModelTrainingData.runlog_filepaths of the relevant runlog
+    carid       :: Int # the active vehicle
+    frame_start :: Int # the starting frame (does not count any sort of history)
+    frame_end   :: Int # the ending frame
+end
+function Base.(:(==))(a::RunLogSegment, b::RunLogSegment)
+    a.runlog_id   == b.runlog_id &&
+    a.carid       == b.carid &&
+    a.frame_start == b.frame_start &&
+    a.frame_end   == b.frame_end
+end
+function Base.show(io::IO, seg::RunLogSegment)
+    println(io, "RunLogSegment")
+    @printf(io, "\trunlog_id:   %d\n", seg.pdset_id)
+    @printf(io, "\tcarid:       %d\n", seg.carid)
+    @printf(io, "\tframe_start: %d\n", seg.frame_start)
+    @printf(io, "\tframe_end:   %d\n", seg.frame_end)
+end
+
+get_nframes(seg::RunLogSegment) = seg.frame_end - seg.frame_start + 1
+function get_nsimframes(seg::RunLogSegment, nframes_per_simframe::Int=N_FRAMES_PER_SIM_FRAME)
+    # NOTE(tim): this includes the first frame
+    h = get_nframes(seg) - 1
+    ceil(Int, h / nframes_per_simframe)
+end
+
+########################################
+#         MODEL TRAINING DATA 2        #
+########################################
+
+type ModelTrainingData2
+    runlog_filepaths::Vector{AbstractString}     # list of runlog full file paths
+    streetnet_filepaths::Vector{AbstractString}  # list of streetnet full file paths
+    runlog_segments::Vector{RunLogSegment}       # set of RunLogSegments, all should be of the same length
+    dataframe::DataFrame                         # dataframe of features used in training. A bunch of vcat'ed runlog features
+    dataframe_nona::DataFrame                    # dataframe of features in which na has been replaced using replacena()
+    seg_start_to_index_in_dataframe::Vector{Int} # maps index of runlogseg.frame_start to the corresponding index in dataframe
+end
+function Base.print(io::IO, dset::ModelTrainingData2)
+    println(io, "ModelTrainingData2:")
+    @printf(io, "\t%-30s  %10s\n", "n frames:", @sprintf("%d", nrow(dset.dataframe)))
+    @printf(io, "\t%-30s  %10s\n", "n traces:", @sprintf("%d", length(dset.runlog_segments)))
 end
 
 ########################################
@@ -144,8 +199,8 @@ end
 ########################################
 
 type ModelTrainingData
-    pdset_filepaths::Vector{AbstractString}      # list of pdset full filepaths
-    streetnet_filepaths::Vector{AbstractString}  # list of streetnet full filepaths
+    pdset_filepaths::Vector{AbstractString}     # list of pdset full filepaths
+    streetnet_filepaths::Vector{AbstractString} # list of streetnet full filepaths
     pdset_segments::Vector{PdsetSegment} # set of PdsetSegments, all should be of the same length
     dataframe::DataFrame                 # dataframe of features used in training. A bunch of vcat'ed pdset data
     dataframe_nona::DataFrame            # dataframe of features in which na has been replaced (otherwise exactly equal)
@@ -202,7 +257,6 @@ function Base.print(io::IO, dset::ModelTrainingData)
     @printf(io, "\t%-30s  %10s\n", "n frames:", @sprintf("%d", nrow(dset.dataframe)))
     @printf(io, "\t%-30s  %10s\n", "n traces:", @sprintf("%d", length(dset.startframes)))
 end
-
 
 ########################################
 #            Fold Assignment           #
@@ -288,24 +342,24 @@ function _load_pdset(csvfile::AbstractString, pdset_dir::AbstractString=PRIMARYD
     pdset = load(pdsetfile, "pdset")
 end
 
-function calc_traces_to_keep_with_frameskip(
-    start_conditions :: Vector{StartCondition},
-    pdset :: PrimaryDataset,
-    frameskip :: Int
-    )
+# function calc_traces_to_keep_with_frameskip(
+#     start_conditions :: Vector{StartCondition},
+#     pdset :: PrimaryDataset,
+#     frameskip :: Int
+#     )
 
-    keep = falses(length(start_conditions))
-    prev_frameind = -frameskip
-    for (i,start_condition) in enumerate(start_conditions)
-        frameind = validfind2frameind(pdset, start_condition.validfind)
-        keep[i] = (frameind - prev_frameind) ≥ frameskip
-        if keep[i]
-            prev_frameind = frameind
-        end
-    end
+#     keep = falses(length(start_conditions))
+#     prev_frameind = -frameskip
+#     for (i,start_condition) in enumerate(start_conditions)
+#         frameind = validfind2frameind(pdset, start_condition.validfind)
+#         keep[i] = (frameind - prev_frameind) ≥ frameskip
+#         if keep[i]
+#             prev_frameind = frameind
+#         end
+#     end
 
-    keep
-end
+#     keep
+# end
 
 function _calc_frame_passes_subsets{F<:AbstractFeature}(
     pdset     :: PrimaryDataset,

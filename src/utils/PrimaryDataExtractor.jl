@@ -2082,10 +2082,10 @@ function _extract_runlog(
             if freeflow[frame]
                 behavior |= ContextClass.FREEFLOW
             end
-            if freeflow[carfollow]
+            if carfollow[frame]
                 behavior |= ContextClass.FOLLOWING
             end
-            if freeflow[lanechange]
+            if lanechange[frame]
                 behavior |= ContextClass.LANECHANGE
             end
 

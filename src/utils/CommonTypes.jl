@@ -3,6 +3,7 @@ module CommonTypes
 export
     Vehicle,
     PdsetSegment,
+    RunLogSegment,
 
     DEFAULT_CAR_LENGTH,
     DEFAULT_CAR_WIDTH,

@@ -280,7 +280,7 @@ for (csvfileset_index, csvfileset) in enumerate(CSVFILESETS)
     for (i,runlog) in enumerate(runlogs)
         csvfilebase = basename(csvfilename)
         runlogname = joinpath(RUNLOG_OUTPUT_DIR, @sprintf("primarydata_%s_%d.jld", csvfilebase, i))
-        JLD.save(pdsetname, "runlog", runlog)
+        JLD.save(runlogname, "runlog", runlog)
     end
 end
 toc()
