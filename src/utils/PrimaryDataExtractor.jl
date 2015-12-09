@@ -1733,14 +1733,17 @@ function extract_runlogs(
 
     segments = continuous_segments(ego_car_on_freeway)
     n_runlogs = length(segments)
-    retval = Array(RunLog, n_runlogs)
+    retval = RunLog[]
     for i in 1 : n_runlogs
         frame_lo, frame_hi = segments[i]
-        retval[i] = _extract_runlog(trajdata, trajdata_smoothed,
-                                    sn, params, runlogheader,
-                                    frame_lo, frame_hi,
-                                    arr_time, arr_time_resampled,
-                                    projections)
+        duration = frame_hi - frame_lo + 1
+        if duration ≥ params.min_frames_ego_on_freeway
+            push!(retval, _extract_runlog(trajdata, trajdata_smoothed,
+                                          sn, params, runlogheader,
+                                          frame_lo, frame_hi,
+                                          arr_time, arr_time_resampled,
+                                          projections))
+        end
     end
 
     retval
@@ -1778,7 +1781,7 @@ function _extract_runlog(
         resampled_control_status = _resample_snap_to_closest(arr_time, trajdata[:control_status], arr_time_resampled)
         RunLogs.set!(runlog, 1:nframes, :environment, resampled_control_status[frame_lo:frame_hi])
     else
-        RunLogs.set!(runlog, 1:nframes, :environment, repeated(params.default_control_status, nframes))
+        RunLogs.set!(runlog, 1:nframes, :environment, collect(repeated(params.default_control_status, nframes)))
     end
 
     # ego feature extraction
@@ -2047,7 +2050,7 @@ function _extract_runlog(
     # --------------------------------------------
 
     # front and rear for each vehicle
-    println("front and rear for each vehicle: "); tic()
+    # println("front and rear for each vehicle: "); tic()
     for frame in 1 : RunLogs.nframes(runlog)
         for colset in get_colset_range(runlog, frame)
             colset_front = _calc_front_vehicle_colset(runlog, sn, colset, frame)::UInt
@@ -2057,10 +2060,10 @@ function _extract_runlog(
             RunLogs.set!(runlog, colset, frame, :colset_rear, colset_rear)
         end
     end
-    toc()
+    # toc()
 
     # behavior for each vehicle
-    println("behavior for each vehicle: "); tic()
+    # println("behavior for each vehicle: "); tic()
     if !isa(params.csvfileset, Void)
         # set the behavior using the CSVFileSet
 
@@ -2094,7 +2097,7 @@ function _extract_runlog(
     else
         # TODO: compute the behavior manually
     end
-    toc()
+    # toc()
 
     runlog
 end
