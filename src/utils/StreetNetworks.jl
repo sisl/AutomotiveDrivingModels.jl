@@ -199,7 +199,6 @@ same_tile(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && A.index_n == B.ind
 
 # ===============================================================================
 
-
 # TODO(tim): move coordinate conversions to a utility file
 function lla2xyz( lat::Real, lon::Real, alt::Real )
 	# convert a point in geo (lat, lon, alt) to a point in ECEX (x,y,z)

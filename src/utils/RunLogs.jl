@@ -93,10 +93,10 @@ baremodule ControlStatus
 end
 
 baremodule ContextClass
-    const NULL                = 0x0000
-    const FREEFLOW            = 0x0001
-    const FOLLOWING           = 0x0002
-    const LANECHANGE          = 0x0004
+    const NULL       = 0x0000
+    const FREEFLOW   = 0x0001
+    const FOLLOWING  = 0x0002
+    const LANECHANGE = 0x0004
 end
 
 immutable AgentDefinition
@@ -163,6 +163,7 @@ const COLSET_NULL = zero(UInt)
 #
 # Float64 time            [s] unix epoch
 # UInt16  environment     [0] environment mask
+#
 # ----------------------------------------
 # THESE COLUMNS ARE REPEATED FOR N VEHICLES (each entry in RunLog.colsets)
 #

@@ -464,66 +464,6 @@ function _resample_snap_to_closest{R<:Any}(x_arr::Vector{Float64}, y_arr::Abstra
     retval
 end
 
-function continuous_segments(arr::AbstractVector{Bool})
-
-    # INPUT: boolean or bit array
-    # OUTPUT: set of continuous segments
-    #
-    # ex: [T,T,T,F,F,T,T]
-    #     [(1,3)(6,7)]
-
-    ind = 1
-    N = length(arr)
-    segmentset = Tuple{Int,Int}[] # (frameind_lo, frameind_hi)
-    while ind <= N
-        curseg_1 = findnext(arr, true, ind)
-        if curseg_1 == 0
-            break
-        end
-
-        ind = curseg_1 + 1
-        curseg_2 = findnext(arr, false, ind)
-
-        if curseg_2 == 0
-            curseg_2 = N
-        else
-            ind = curseg_2
-            curseg_2 -= 1
-        end
-
-        push!(segmentset, (curseg_1, curseg_2))
-    end
-    segmentset
-end
-function near_continuous_segments(arr::Vector{Int}, tol::Int)
-    # this assumes frames are evenly spaced
-    # arr :: list of integer values, sorted in increasing order
-    # tol :: tolerance in jump between segments
-    # outputs list of segments by index of arr
-
-    # example:
-    #   arr = [1,2,3,5,10,11,12]
-    #   tol = 2
-    #   output: [(1,4),(5,7)]
-
-    segmentset = Tuple{Int,Int}[] # (lo,hi)
-    prev_val, prev_ind = arr[1], 1
-    curseg_1 = 1
-    for (ind,val) in enumerate(arr)
-        Δ = val - prev_val
-        @assert(Δ >= 0)
-        if Δ > tol # start a new segment
-            push!(segmentset, (curseg_1, prev_ind))
-            curseg_1 = ind
-        end
-        prev_ind = ind
-        prev_val = val
-    end
-
-    push!(segmentset, (curseg_1, length(arr)))
-    segmentset
-end
-
 function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{Float64}, sample_time_B::Vector{Float64})
     # given a set of indeces (in order, ascending) from sample_time_A (in order, ascending)
     # find the set of indeces in sample_time_B that encompass inds

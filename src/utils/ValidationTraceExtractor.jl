@@ -8,10 +8,12 @@ using JLD
 
 using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Trajdata
+using AutomotiveDrivingModels.RunLogs
 using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Features
+using AutomotiveDrivingModels.FeaturesNew
 using AutomotiveDrivingModels.FeaturesetExtractor
-using AutomotiveDrivingModels.Curves # TODO: remove this
+# using AutomotiveDrivingModels.Curves # TODO: remove this
 
 import Base.Collections: PriorityQueue, dequeue!
 import AutomotiveDrivingModels.FeaturesetExtractor: create_dataframe_with_feature_columns
@@ -22,8 +24,10 @@ export
         ModelTrainingData,
         FoldAssignment,
 
+        RunLogSegmentExtractParameters,
         RunLogSegment,
         ModelTrainingData2,
+        DatasetExtractParams,
 
         FOLD_TRAIN,
         FOLD_TEST,
@@ -143,6 +147,75 @@ Base.isequal(a::OrigHistobinExtractParameters, b::OrigHistobinExtractParameters)
 # end
 
 ########################################
+# ORIGINAL HISTOBIN EXTRACT PARAMETERS #
+########################################
+
+type RunLogSegmentExtractParameters
+    sim_horizon :: Int # number of sim frames past the initial conditions to run (≥0)
+    sim_history :: Int # number of sim frames up to and including frame 1 (≥1)
+    frameskip_between_extracted_scenes :: Int
+    runlog_frames_per_sim_frame :: Int # number of pdset frames that occur in the space of one sim frame
+
+    function RunLogSegmentExtractParameters(
+        sim_horizon::Int,
+        sim_history::Int,
+        frameskip_between_extracted_scenes::Int = 0,
+        runlog_frames_per_sim_frame::Int = PDSET_FRAMES_PER_SIM_FRAME,
+        )
+
+        @assert(sim_horizon ≥ 0)
+        @assert(sim_history ≥ 1)
+
+        retval = new()
+        retval.sim_horizon = sim_horizon
+        retval.sim_history = sim_history
+        retval.frameskip_between_extracted_scenes = frameskip_between_extracted_scenes
+        retval.runlog_frames_per_sim_frame = runlog_frames_per_sim_frame
+        retval
+    end
+end
+get_nframes(p::RunLogSegmentExtractParameters) = p.sim_history + p.sim_horizon
+function Base.(:(==))(a::RunLogSegmentExtractParameters, b::RunLogSegmentExtractParameters)
+    a.behavior_to_match == b.behavior_to_match &&
+    a.behavior_to_avoid == b.behavior_to_avoid &&
+    a.sim_horizon == b.sim_horizon &&
+    a.sim_history == b.sim_history &&
+    a.frameskip_between_extracted_scenes == b.frameskip_between_extracted_scenes &&
+    a.pdset_frames_per_sim_frame == b.pdset_frames_per_sim_frame
+end
+Base.(:(!=))(a::RunLogSegmentExtractParameters, b::RunLogSegmentExtractParameters) = !(a==b)
+Base.isequal(a::RunLogSegmentExtractParameters, b::RunLogSegmentExtractParameters) = a == b
+
+type DatasetExtractParams
+
+    id_target         :: UInt
+    behavior_to_match :: UInt16 # all frames must have (behavior & behavior_to_match) > 1
+    behavior_to_avoid :: UInt16 # all frames must have (behavior & behavior_to_avoid) == 0
+    features          :: Vector{FeaturesNew.AbstractFeature}
+    filters           :: Vector{FeaturesNew.AbstractFeature}
+    seg               :: RunLogSegmentExtractParameters
+
+    function DatasetExtractParams(
+        behavior_to_match::UInt16,
+        behavior_to_avoid::UInt16,
+        features::Vector{FeaturesNew.AbstractFeature},
+        seg::RunLogSegmentExtractParameters;
+        filters::Vector{FeaturesNew.AbstractFeature} = Array(FeaturesNew.AbstractFeature, 0),
+        id_target::UInt = ID_EGO,
+        )
+
+        retval = new()
+        retval.id_target = id_target
+        retval.behavior_to_match = behavior_to_match
+        retval.behavior_to_avoid = behavior_to_avoid
+        retval.features = features
+        retval.filters = filters
+        retval.seg = seg
+        retval
+    end
+end
+
+########################################
 #            RunLog Segment            #
 ########################################
 
@@ -151,9 +224,9 @@ immutable RunLogSegment
     # NOTE: mapname can be identified using RunLog.hedaer.map_name
 
     runlog_id   :: Int # index within ModelTrainingData.runlog_filepaths of the relevant runlog
-    carid       :: Int # the active vehicle
-    frame_start :: Int # the starting frame (does not count any sort of history)
-    frame_end   :: Int # the ending frame
+    carid       :: UInt # the active vehicle
+    frame_start :: Int # the starting frame in runlog (does not count any sort of history)
+    frame_end   :: Int # the ending frame in runlog
 end
 function Base.(:(==))(a::RunLogSegment, b::RunLogSegment)
     a.runlog_id   == b.runlog_id &&
@@ -182,7 +255,6 @@ end
 
 type ModelTrainingData2
     runlog_filepaths::Vector{AbstractString}     # list of runlog full file paths
-    streetnet_filepaths::Vector{AbstractString}  # list of streetnet full file paths
     runlog_segments::Vector{RunLogSegment}       # set of RunLogSegments, all should be of the same length
     dataframe::DataFrame                         # dataframe of features used in training. A bunch of vcat'ed runlog features
     dataframe_nona::DataFrame                    # dataframe of features in which na has been replaced using replacena()
@@ -256,76 +328,6 @@ function Base.print(io::IO, dset::ModelTrainingData)
     println(io, "ModelTrainingData:")
     @printf(io, "\t%-30s  %10s\n", "n frames:", @sprintf("%d", nrow(dset.dataframe)))
     @printf(io, "\t%-30s  %10s\n", "n traces:", @sprintf("%d", length(dset.startframes)))
-end
-
-########################################
-#            Fold Assignment           #
-########################################
-
-type FoldAssignment
-    # assigns each frame and pdsetseg to
-    # an integer fold
-    # first fold is fold 1
-    frame_assignment::Vector{Int}
-    pdsetseg_assignment::Vector{Int}
-    nfolds::Int
-
-    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int}, nfolds::Int)
-
-        # some precautions...
-        # for a in frame_assignment
-        #     @assert(a ≤ nfolds)
-        # end
-        # for a in pdsetseg_assignment
-        #     @assert(a ≤ nfolds)
-        # end
-
-        new(frame_assignment, pdsetseg_assignment, nfolds)
-    end
-    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int})
-
-        # some precautions...
-        nfolds = -1
-        for a in frame_assignment
-            @assert(a > 0)
-            nfolds = max(a, nfolds)
-        end
-        for a in pdsetseg_assignment
-            @assert(a > 0)
-            nfolds = max(a, nfolds)
-        end
-
-        new(frame_assignment, pdsetseg_assignment, nfolds)
-    end
-end
-const FOLD_TRAIN = 1
-const FOLD_TEST = 2
-
-Base.deepcopy(a::FoldAssignment) = FoldAssignment(deepcopy(a.frame_assignment), deepcopy(a.pdsetseg_assignment), a.nfolds)
-
-function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
-    fold_size = 0
-    for a in fold_assignment
-        if is_in_fold(fold, a, match_fold)
-            fold_size += 1
-        end
-    end
-    fold_size
-end
-function calc_fold_inds!{I<:Integer}(fold_inds::Vector{Int}, fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
-    k = 0
-    for (i,a) in enumerate(fold_assignment)
-        if is_in_fold(fold, a, match_fold)
-            k += 1
-            fold_inds[k] = i
-        end
-    end
-    @assert(k == length(fold_inds))
-    fold_inds
-end
-function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
-    (fold != 0) && # NOTE(tim): zero never matches
-        ((match_fold && fold_assignment == fold) || (!match_fold && fold_assignment != fold))
 end
 
 
@@ -811,7 +813,7 @@ function pull_pdset_segments_and_dataframe(
                 if isinf(v)
                     validfind = validfinds[i]
                     carind = carid2ind(pdset, csvfileset.carid, validfind)
-                    dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
+                    dataframe_nona[i,sym] = FeaturesNew.replace_na(F, basics, carind, validfind)
                 end
             end
         end
@@ -989,6 +991,205 @@ function pull_model_training_data(
         _pull_model_training_data(extract_params, csvfilesets,
                                            features, filters, pdset_dir, streetmap_base)
     end
+end
+
+########################################
+#             RunLog Code              #
+########################################
+
+function pull_model_training_data{S<:AbstractString}(
+    extract_params::DatasetExtractParams,
+    runlog_filepaths::Vector{S},
+    )
+
+    streetnet_cache = Dict{AbstractString, StreetNetwork}()
+    id_target = extract_params.id_target
+
+    # -----------------------------------------------------
+    # compute the number of frames to be extracted
+
+    tot_n_frames = 0
+    frames_that_pass = Array(BitVector, length(runlog_filepaths))
+    for (runlog_index, runlog_filepath) in enumerate(runlog_filepaths)
+
+        runlog = JLD.load(runlog_filepath, "runlog")::RunLog
+        frames_that_pass[runlog_index] = falses(nframes(runlog))
+        pass = frames_that_pass[runlog_index]
+
+        streetmapbasename = runlog.header.map_name
+        if !haskey(streetnet_cache, streetmapbasename)
+            streetnet_cache[streetmapbasename] = load(joinpath("/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/", "streetmap_" * streetmapbasename * ".jld"), "streetmap")
+        end
+        sn = streetnet_cache[streetmapbasename]
+
+        # compute the number of frames that pass the filters
+        # (assuming we are only extracting data for id_target)
+        for frame in 1 : nframes(runlog)
+            colset = id2colset(runlog, id_target, frame)
+            if colset != COLSET_NULL
+
+                behavior = get(runlog, colset, frame, :behavior)::UInt16
+
+                if  (behavior & extract_params.behavior_to_match) > 0 &&
+                    (behavior & extract_params.behavior_to_avoid) == 0 &&
+                    findfirst(f->FeaturesNew.get(f, runlog, sn, colset, frame) != 1.0, extract_params.filters) == 0
+
+                    tot_n_frames += 1
+                    pass[frame] = true
+                end
+            end
+        end
+    end
+
+    println("tot_n_frames: ", tot_n_frames)
+    println("pass: ", sum(p->sum(p), frames_that_pass)) # should be equal to tot_n_frames
+
+    # -----------------------------------------------------
+    # extract dataframe and dataframe_nona
+
+    # dataframe = create_dataframe_with_feature_columns(extract_params.features, tot_n_frames)
+    dataframe = DataFrame()
+    for f in extract_params.features
+        dataframe[FeaturesNew.symbol(f)] = DataArray(Float64, tot_n_frames)
+    end
+
+    dataframe_nona = deepcopy(dataframe)
+
+    df_index = 0
+    for (runlog_index, runlog_filepath) in enumerate(runlog_filepaths)
+        runlog = JLD.load(runlog_filepath, "runlog")::RunLog
+        sn = streetnet_cache[runlog.header.map_name]
+        pass = frames_that_pass[runlog_index]
+
+        for frame in 1 : nframes(runlog)
+            if pass[frame]
+
+                df_index += 1
+
+                colset = id2colset(runlog, id_target, frame)
+                assert(colset != COLSET_NULL)
+
+                # extract the frame
+                for f in extract_params.features
+                    v = get(f, runlog, sn, colset, frame)::Float64
+                    @assert(!isnan(v))
+                    dataframe[df_index, symbol(f)] = v
+                    dataframe_nona[df_index, symbol(f)] = isinf(v) ?
+                        FeaturesNew.replace_na(f, runlog, sn, colset, frame)::Float64 : v
+                end
+            end
+        end
+    end
+
+    # -----------------------------------------------------
+    # extract the runlog segments
+
+    runlog_segments = RunLogSegment[]
+    seg_start_to_index_in_dataframe = Int[]
+
+    runlog_frames_per_sim_frame = extract_params.seg.runlog_frames_per_sim_frame
+    n_frames_for_history = (extract_params.seg.sim_history - 1) * runlog_frames_per_sim_frame
+    n_frames_for_horizon = extract_params.seg.sim_horizon * runlog_frames_per_sim_frame
+    n_frames_between_starts = n_frames_for_horizon + extract_params.seg.frameskip_between_extracted_scenes * runlog_frames_per_sim_frame
+
+    runlog_to_index_in_dataframe = 0
+    for (runlog_index, runlog_filepath) in enumerate(runlog_filepaths)
+
+        pass = frames_that_pass[runlog_index]
+        continuous_segments = CommonTypes.continuous_segments(pass)
+
+        for (range_start, range_end) in continuous_segments
+
+            range_start = max(range_start, n_frames_for_history) # ensure history is taken care of
+            frame_start = range_start
+            frame_end = frame_start + n_frames_for_horizon
+
+            while range_start ≤ frame_start && frame_end ≤ range_end
+
+                push!(runlog_segments, RunLogSegment(runlog_index, id_target, frame_start, frame_end))
+                push!(seg_start_to_index_in_dataframe, runlog_to_index_in_dataframe + sum(pass[1:frame_start]))
+
+                frame_start += n_frames_between_starts
+                frame_end += n_frames_between_starts
+                runlog_to_index_in_dataframe += sum(pass)
+            end
+        end
+    end
+
+    # -----------------------------------------------------
+    # return
+
+    ModelTrainingData2(runlog_filepaths, runlog_segments, dataframe, dataframe_nona, seg_start_to_index_in_dataframe)
+end
+
+########################################
+#            Fold Assignment           #
+########################################
+
+type FoldAssignment
+    # assigns each frame and pdsetseg to
+    # an integer fold
+    # first fold is fold 1
+    frame_assignment::Vector{Int}
+    pdsetseg_assignment::Vector{Int}
+    nfolds::Int
+
+    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int}, nfolds::Int)
+
+        # some precautions...
+        # for a in frame_assignment
+        #     @assert(a ≤ nfolds)
+        # end
+        # for a in pdsetseg_assignment
+        #     @assert(a ≤ nfolds)
+        # end
+
+        new(frame_assignment, pdsetseg_assignment, nfolds)
+    end
+    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int})
+
+        # some precautions...
+        nfolds = -1
+        for a in frame_assignment
+            @assert(a > 0)
+            nfolds = max(a, nfolds)
+        end
+        for a in pdsetseg_assignment
+            @assert(a > 0)
+            nfolds = max(a, nfolds)
+        end
+
+        new(frame_assignment, pdsetseg_assignment, nfolds)
+    end
+end
+const FOLD_TRAIN = 1
+const FOLD_TEST = 2
+
+Base.deepcopy(a::FoldAssignment) = FoldAssignment(deepcopy(a.frame_assignment), deepcopy(a.pdsetseg_assignment), a.nfolds)
+
+function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
+    fold_size = 0
+    for a in fold_assignment
+        if is_in_fold(fold, a, match_fold)
+            fold_size += 1
+        end
+    end
+    fold_size
+end
+function calc_fold_inds!{I<:Integer}(fold_inds::Vector{Int}, fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
+    k = 0
+    for (i,a) in enumerate(fold_assignment)
+        if is_in_fold(fold, a, match_fold)
+            k += 1
+            fold_inds[k] = i
+        end
+    end
+    @assert(k == length(fold_inds))
+    fold_inds
+end
+function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
+    (fold != 0) && # NOTE(tim): zero never matches
+        ((match_fold && fold_assignment == fold) || (!match_fold && fold_assignment != fold))
 end
 
 function get_cross_validation_fold_assignment(

@@ -7,7 +7,7 @@ for ticks in tick_list_short
 	fname_str = "PastD_CL$counts$unit"
 	feature_name = symbol("Feature_" * fname_str)
 	str_description  = "the lane centerline offset $counts $unit ago"
-	sym_feature = symbol("pastd_cl$counts$unit")
+	sym_feature = symbol("past_d_cl$counts$unit")
 	lstr = latexstring("d_{cl}^\\text{-$counts$unit}")
 
 	create_feature_basics( fname_str, "m", false, false, Inf, -Inf, true, sym_feature, lstr, str_description)

@@ -269,7 +269,7 @@ for (csvfileset_index, csvfileset) in enumerate(CSVFILESETS)
     streetmapbasename = csvfileset.streetmapbasename
 
     if !haskey(STREETNET_CACHE, streetmapbasename)
-        STREETNET_CACHE[streetmapbasename] = load(joinpath(STREETMAP_BASE, "streetmap_" * streetmapbasename*".jld"))["streetmap"]
+        STREETNET_CACHE[streetmapbasename] = load(joinpath(STREETMAP_BASE, "streetmap_" * streetmapbasename*".jld"), "streetmap")
     end
     sn = STREETNET_CACHE[streetmapbasename]
 

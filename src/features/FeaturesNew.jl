@@ -56,6 +56,8 @@ symbol2feature(sym::Symbol) = SYMBOL_TO_FEATURE[sym]
 is_symbol_a_feature(sym::Symbol) = haskey(SYMBOL_TO_FEATURE, sym)
 allfeatures() = values(SYMBOL_TO_FEATURE)
 
+replace_na(::AbstractFeature, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) = 0.0
+
 # ----------------------------------
 
 function create_feature_basics(
@@ -223,7 +225,7 @@ function Base.get(::Feature_MarkerDist_Right, runlog::RunLog, sn::StreetNetwork,
 end
 
 create_feature_basics( "TimeToCrossing_Right", :ttcr_mr, L"ttcr^{mr}_y", Float64, L"s", 0.0, Inf, :can_na)
-# replace_na(::Feature_TimeToCrossing_Right, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel right)
+replace_na(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 10.0 # large threshold value (same value as already set for pos. vel right)
 function Base.get(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     d_mr = get(MARKERDIST_RIGHT, runlog, sn, colset, frame)
     velFt = get(VELFT, runlog, sn, colset, frame)
@@ -236,20 +238,20 @@ function Base.get(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetw
 end
 
 create_feature_basics( "TimeToCrossing_Left", :ttcr_ml, L"ttcr^{ml}_y", Float64, L"s", 0.0, Inf, :can_na)
-# replace_na(::Feature_TimeToCrossing_Left, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel left)
+replace_na(::Feature_TimeToCrossing_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 10.0 # large threshold value (same value as already set for pos. vel left)
 function Base.get(::Feature_TimeToCrossing_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     d_ml = get(MARKERDIST_LEFT, runlog, sn, colset, frame)
     velFs = get(VELFS, runlog, sn, colset, frame)
 
-    if d_ml < 0.0 && velFt > 0.0
-        min(-d_ml / velFt, TIME_THRESHOLD)
+    if d_ml < 0.0 && velFs > 0.0
+        min(-d_ml / velFs, TIME_THRESHOLD)
     else
         NA_ALIAS
     end
 end
 
 create_feature_basics( "EstimatedTimeToLaneCrossing", :est_ttcr, L"ttcr^\text{est}_y", Float64, L"s", 0.0, Inf, :can_na)
-# replace_na(::Feature_EstimatedTimeToLaneCrossing, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 10.0 # large threshold value (same value as already set for pos. vel)
+replace_na(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 10.0 # large threshold value (same value as already set for pos. vel)
 function Base.get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     ttcr_left = get(TIMETOCROSSING_LEFT, runlog, sn, colset, frame)
     if !isinf(ttcr_left)
@@ -259,15 +261,15 @@ function Base.get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::Str
 end
 
 create_feature_basics( "A_REQ_StayInLane", :a_req_stayinlane, L"a^{req}_y", Float64, "m/s2", -Inf, Inf, :can_na)
-# replace_na(::Feature_A_REQ_StayInLane, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = 0.0 # missing at random; no action
+replace_na(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 0.0 # missing at random; no action
 function Base.get(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     velFt = get(VELFT, runlog, sn, colset, frame)
 
     if velFt > 0.0
-        d_mr = get(D_MR, basics, carind, validfind)
+        d_mr = get(MARKERDIST_RIGHT, runlog, sn, colset, frame)
         return (d_mr > 0.0) ? min( 0.5velFt*velFt / d_mr, ACCEL_THRESHOLD) : NA_ALIAS
     else
-        d_ml = get(D_ML, basics, carind, validfind)
+        d_ml = get(MARKERDIST_LEFT, runlog, sn, colset, frame)
         return (d_ml < 0.0) ? min(-0.5velFt*velFt / d_ml, ACCEL_THRESHOLD) : NA_ALIAS
     end
 end
@@ -439,7 +441,7 @@ end
 function _get_node(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     lane = _get_lane(runlog, sn, colset, frame)
     extind = get(runlog, colset, frame, :extind)::Float64
-    closest_node_to_extind(sn, lane, extind)::StreetNode
+    sn.nodes[closest_node_to_extind(sn, lane, extind)::Int]
 end
 
 end # module
