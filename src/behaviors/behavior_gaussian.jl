@@ -56,6 +56,21 @@ function select_action(
 
     (action_lat, action_lon)
 end
+function select_action(
+    behavior::VehicleBehaviorGaussian,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    colset::UInt,
+    frame::Int
+    )
+
+    Distributions._rand!(behavior.Σ, behavior.action)
+
+    action_lat = behavior.action[1]
+    action_lon = behavior.action[2]
+
+    (action_lat, action_lon)
+end
 
 function calc_action_loglikelihood(
     ::FeatureExtractBasicsPdSet,
@@ -82,8 +97,13 @@ function calc_action_loglikelihood(
     frameind::Integer,
     )
 
-    behavior.action[1] = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
-    behavior.action[2] = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
+    if haskey(features, symbol(FUTUREDESIREDANGLE_250MS))
+        behavior.action[1] = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
+        behavior.action[2] = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
+    else
+        behavior.action[1] = features[frameind, symbol(FeaturesNew.FUTUREDESIREDANGLE)]::Float64
+        behavior.action[2] = features[frameind, symbol(FeaturesNew.FUTUREACCELERATION)]::Float64
+    end
 
     logpdf(behavior.Σ, behavior.action)
 end
@@ -107,6 +127,38 @@ function train(
         # TODO(tim): shouldn't use hard-coded symbols
         action_lat = trainingframes[i, :f_des_angle_250ms]
         action_lon = trainingframes[i, :f_accel_250ms]
+
+        if !isnan(action_lat) && !isnan(action_lon) &&
+           !isinf(action_lat) && !isinf(action_lon)
+
+            total += 1
+            trainingmatrix[1, total] = action_lat
+            trainingmatrix[2, total] = action_lon
+        end
+    end
+    trainingmatrix = trainingmatrix[:, 1:total]
+
+    VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
+end
+function train(
+    training_data::ModelTrainingData2,
+    preallocated_data::SG_PreallocatedData,
+    params::SG_TrainParams,
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    match_fold::Bool,
+    )
+
+    trainingframes = training_data.dataframe_nona
+    nframes = size(trainingframes, 1)
+
+    total = 0
+    trainingmatrix = Array(Float64, 2, nframes)
+    for i = 1 : nframes
+
+        # TODO(tim): shouldn't use hard-coded symbols
+        action_lat = trainingframes[i, symbol(FeaturesNew.FUTUREDESIREDANGLE)]
+        action_lon = trainingframes[i, symbol(FeaturesNew.FUTUREACCELERATION)]
 
         if !isnan(action_lat) && !isnan(action_lon) &&
            !isinf(action_lat) && !isinf(action_lon)
