@@ -51,6 +51,7 @@ export
 
 
         load_pdsets,
+        load_runlogs,
         load_streetnets
 
 
@@ -813,7 +814,7 @@ function pull_pdset_segments_and_dataframe(
                 if isinf(v)
                     validfind = validfinds[i]
                     carind = carid2ind(pdset, csvfileset.carid, validfind)
-                    dataframe_nona[i,sym] = FeaturesNew.replace_na(F, basics, carind, validfind)
+                    dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
                 end
             end
         end
@@ -1075,7 +1076,7 @@ function pull_model_training_data{S<:AbstractString}(
                     @assert(!isnan(v))
                     dataframe[df_index, symbol(f)] = v
                     dataframe_nona[df_index, symbol(f)] = isinf(v) ?
-                        FeaturesNew.replace_na(f, runlog, sn, colset, frame)::Float64 : v
+                        FeaturesNew.replace_na(f)::Float64 : v
                 end
             end
         end
@@ -1111,9 +1112,10 @@ function pull_model_training_data{S<:AbstractString}(
 
                 frame_start += n_frames_between_starts
                 frame_end += n_frames_between_starts
-                runlog_to_index_in_dataframe += sum(pass)
             end
         end
+
+        runlog_to_index_in_dataframe += sum(pass)
     end
 
     # -----------------------------------------------------
@@ -1525,6 +1527,46 @@ function get_fold_assignment_across_drives(dset::ModelTrainingData)
 
     FoldAssignment(a_frame, a_seg, length(pdset_id_to_fold))
 end
+function get_fold_assignment_across_drives(dset::ModelTrainingData2)
+
+    #=
+    returns a FoldAssignment with one fold for each drive
+    Works by splitting over pdset_id's
+    =#
+
+    # runlog_id
+    # frame_start
+    # frame_end
+
+    # seg_start_to_index_in_dataframe
+
+    dataframe = dset.dataframe
+    runlog_segments = dset.runlog_segments
+
+    a_frame = zeros(Int, nrow(dataframe))
+    a_seg = zeros(Int, length(runlog_segments))
+
+    runlog_id_to_fold = Dict{Int,Int}()
+    for (i, runlogseg) in enumerate(runlog_segments)
+
+        id = runlogseg.runlog_id
+
+        if !haskey(runlog_id_to_fold, id)
+            runlog_id_to_fold[id] = length(runlog_id_to_fold) + 1
+        end
+
+        df_frame_start = dset.seg_start_to_index_in_dataframe[i]
+        println("df_frame_start: ", df_frame_start)
+        df_frame_end = df_frame_start + runlogseg.frame_end - runlogseg.frame_start
+        for df_frame in df_frame_start : df_frame_end
+            a_frame[df_frame] = runlog_id_to_fold[id]
+        end
+
+        a_seg[i] = runlog_id_to_fold[runlogseg.runlog_id]
+    end
+
+    FoldAssignment(a_frame, a_seg, length(runlog_id_to_fold))
+end
 function get_fold_assignment_across_traces(dset::ModelTrainingData)
 
     #=
@@ -1603,10 +1645,28 @@ function load_pdsets(dset::ModelTrainingData)
     end
     pdsets
 end
+function load_runlogs(dset::ModelTrainingData2)
+    runlogs = Array(RunLog, length(dset.runlog_filepaths))
+    for (i,runlog_filepath) in enumerate(dset.runlog_filepaths)
+        runlogs[i] = load(runlog_filepath, "runlog")
+    end
+    runlogs
+end
 function load_streetnets(dset::ModelTrainingData)
     streetnets = Array(StreetNetwork, length(dset.streetnet_filepaths))
     for (i,streetnet_filepath) in enumerate(dset.streetnet_filepaths)
         streetnets[i] = load(streetnet_filepath, "streetmap")
+    end
+    streetnets
+end
+function load_streetnets(runlogs::AbstractVector{RunLog})
+
+    streetnets = Dict{AbstractString, StreetNetwork}()
+    for runlog in runlogs
+        streetmapbasename = runlog.header.map_name
+        if !haskey(streetnets, streetmapbasename)
+            streetnets[streetmapbasename] = JLD.load(joinpath("/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/", "streetmap_" * streetmapbasename * ".jld"), "streetmap")
+        end
     end
     streetnets
 end

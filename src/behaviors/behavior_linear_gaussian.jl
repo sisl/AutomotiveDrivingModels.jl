@@ -81,9 +81,29 @@ type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
 
         new(X, Y, Φ, μ∞, best_μ∞, best_A, best_Σ)
     end
+    function LG_PreallocatedData(dset::ModelTrainingData2, params::LG_TrainParams)
+
+        nframes = size(dset.dataframe, 1)
+        p = length(params.indicators)
+        X = Array(Float64, p, nframes)
+        Y = Array(Float64, 2, nframes)
+        Φ = Array(Float64, 2, nframes)
+        μ∞ = Array(Float64, 2)
+        best_μ∞ = Array(Float64, 2)
+        best_A = Array(Float64, 2, 2)
+        best_Σ = Array(Float64, 2, 2)
+
+        new(X, Y, Φ, μ∞, best_μ∞, best_A, best_Σ)
+    end
 end
 function preallocate_learning_data(
     dset::ModelTrainingData,
+    params::LG_TrainParams)
+
+    LG_PreallocatedData(dset, params)
+end
+function preallocate_learning_data(
+    dset::ModelTrainingData2,
     params::LG_TrainParams)
 
     LG_PreallocatedData(dset, params)

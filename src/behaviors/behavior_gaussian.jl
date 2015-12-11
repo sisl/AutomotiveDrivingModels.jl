@@ -27,9 +27,16 @@ type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     # TODO(tim): use this
 
     SG_PreallocatedData(dset::ModelTrainingData, params::SG_TrainParams) = new()
+    SG_PreallocatedData(dset::ModelTrainingData2, params::SG_TrainParams) = new()
 end
 function preallocate_learning_data(
     dset::ModelTrainingData,
+    params::SG_TrainParams)
+
+    SG_PreallocatedData(dset, params)
+end
+function preallocate_learning_data(
+    dset::ModelTrainingData2,
     params::SG_TrainParams)
 
     SG_PreallocatedData(dset, params)

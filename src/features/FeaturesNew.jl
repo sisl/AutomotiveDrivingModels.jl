@@ -56,9 +56,8 @@ symbol2feature(sym::Symbol) = SYMBOL_TO_FEATURE[sym]
 is_symbol_a_feature(sym::Symbol) = haskey(SYMBOL_TO_FEATURE, sym)
 allfeatures() = values(SYMBOL_TO_FEATURE)
 
-replace_na(::AbstractFeature, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) = 0.0
-
 # ----------------------------------
+# create_feature_basics
 
 function create_feature_basics(
     name        :: AbstractString,
@@ -68,7 +67,8 @@ function create_feature_basics(
     unit        :: AbstractString,
     minvalue    :: Float64,
     maxvalue    :: Float64,
-    can_na      :: Symbol, # ∈ {:can_na, :no_na}
+    can_na      :: Symbol; # ∈ {:can_na, :no_na}
+    na_replacement :: Union{Void,Float64} = nothing
     )
 
     for feature in values(SYMBOL_TO_FEATURE)
@@ -96,6 +96,14 @@ function create_feature_basics(
         lsymbol(     ::$feature_name)  = $lstr
         SYMBOL_TO_FEATURE[symbol($const_name)] = $const_name
     end
+
+    if !could_be_na || isa(na_replacement, Void)
+        return
+    end
+
+    @eval begin
+        replace_na(::$feature_name) = $na_replacement
+    end
 end
 function create_feature_basics(
     name        :: AbstractString,
@@ -105,7 +113,8 @@ function create_feature_basics(
     unit        :: AbstractString,
     minvalue    :: Float64,
     maxvalue    :: Float64,
-    can_na      :: Symbol, # ∈ {:can_na, :no_na}
+    can_na      :: Symbol; # ∈ {:can_na, :no_na}
+    na_replacement :: Union{Void,Float64} = nothing
     )
 
     for feature in values(SYMBOL_TO_FEATURE)
@@ -133,6 +142,14 @@ function create_feature_basics(
         lsymbol(     ::$feature_name)  = $lstr
         SYMBOL_TO_FEATURE[symbol($const_name)] = $const_name
     end
+
+    if !could_be_na || isa(na_replacement, Void)
+        return
+    end
+
+    @eval begin
+        replace_na(::$feature_name) = $na_replacement
+    end
 end
 function create_feature_basics(
     name        :: AbstractString,
@@ -140,7 +157,8 @@ function create_feature_basics(
     lstr        :: LaTeXString,
                 :: Type{Bool},
     unit        :: AbstractString,
-    can_na      :: Symbol, # ∈ {:can_na, :no_na}
+    can_na      :: Symbol; # ∈ {:can_na, :no_na}
+    na_replacement :: Union{Void,Float64} = nothing
     )
 
     for feature in values(SYMBOL_TO_FEATURE)
@@ -166,6 +184,14 @@ function create_feature_basics(
         Base.symbol( ::$feature_name)  = $sym_feature
         lsymbol(     ::$feature_name)  = $lstr
         SYMBOL_TO_FEATURE[symbol($const_name)] = $const_name
+    end
+
+    if !could_be_na || isa(na_replacement, Void)
+        return
+    end
+
+    @eval begin
+        replace_na(::$feature_name) = $na_replacement
     end
 end
 
@@ -224,8 +250,7 @@ function Base.get(::Feature_MarkerDist_Right, runlog::RunLog, sn::StreetNetwork,
     node.marker_dist_right + offset
 end
 
-create_feature_basics( "TimeToCrossing_Right", :ttcr_mr, L"ttcr^{mr}_y", Float64, L"s", 0.0, Inf, :can_na)
-replace_na(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 10.0 # large threshold value (same value as already set for pos. vel right)
+create_feature_basics( "TimeToCrossing_Right", :ttcr_mr, L"ttcr^{mr}_y", Float64, L"s", 0.0, Inf, :can_na, na_replacement=10.0)
 function Base.get(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     d_mr = get(MARKERDIST_RIGHT, runlog, sn, colset, frame)
     velFt = get(VELFT, runlog, sn, colset, frame)
@@ -237,8 +262,7 @@ function Base.get(::Feature_TimeToCrossing_Right, runlog::RunLog, sn::StreetNetw
     end
 end
 
-create_feature_basics( "TimeToCrossing_Left", :ttcr_ml, L"ttcr^{ml}_y", Float64, L"s", 0.0, Inf, :can_na)
-replace_na(::Feature_TimeToCrossing_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 10.0 # large threshold value (same value as already set for pos. vel left)
+create_feature_basics( "TimeToCrossing_Left", :ttcr_ml, L"ttcr^{ml}_y", Float64, L"s", 0.0, Inf, :can_na, na_replacement=10.0)
 function Base.get(::Feature_TimeToCrossing_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     d_ml = get(MARKERDIST_LEFT, runlog, sn, colset, frame)
     velFs = get(VELFS, runlog, sn, colset, frame)
@@ -250,8 +274,7 @@ function Base.get(::Feature_TimeToCrossing_Left, runlog::RunLog, sn::StreetNetwo
     end
 end
 
-create_feature_basics( "EstimatedTimeToLaneCrossing", :est_ttcr, L"ttcr^\text{est}_y", Float64, L"s", 0.0, Inf, :can_na)
-replace_na(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 10.0 # large threshold value (same value as already set for pos. vel)
+create_feature_basics( "EstimatedTimeToLaneCrossing", :est_ttcr, L"ttcr^\text{est}_y", Float64, L"s", 0.0, Inf, :can_na, na_replacement=10.0)
 function Base.get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     ttcr_left = get(TIMETOCROSSING_LEFT, runlog, sn, colset, frame)
     if !isinf(ttcr_left)
@@ -260,8 +283,7 @@ function Base.get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::Str
     get(TIMETOCROSSING_RIGHT, runlog, sn, colset, frame)
 end
 
-create_feature_basics( "A_REQ_StayInLane", :a_req_stayinlane, L"a^{req}_y", Float64, "m/s2", -Inf, Inf, :can_na)
-replace_na(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer) = 0.0 # missing at random; no action
+create_feature_basics( "A_REQ_StayInLane", :a_req_stayinlane, L"a^{req}_y", Float64, "m/s2", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     velFt = get(VELFT, runlog, sn, colset, frame)
 
@@ -376,7 +398,7 @@ function Base.get(::Feature_AccFt, runlog::RunLog, sn::StreetNetwork, colset::UI
     end
 end
 
-create_feature_basics("FutureAcceleration", :f_accel, L"a^{\text{fut}}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na)
+create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na)
 function Base.get(::Feature_FutureAcceleration, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # TODO(tim): should we be using AccBx to propagate the model?
@@ -423,11 +445,9 @@ Base.symbol( ::Feature_IsClean) = symbol("isclean_" * string(target_symbol))
 lsymbol(     ::Feature_IsClean) = L"\texttt{isclean}\left(" * lsymbol(symbol2feature(target_symbol)) * L"\right)"
 function Base.get{F}(::Feature_IsClean{F}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
-    v = get(f, runlog, sn, colset, frame)
+    v = get(f, runlog, sn, colset, frame)::Float64
     convert(Float64, !isnan(v) && !isinf(v))
 end
-
-
 
 ############################################
 #

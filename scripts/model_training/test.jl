@@ -2,41 +2,20 @@ using AutomotiveDrivingModels
 
 using RandomForestBehaviors
 using DynamicBayesianNetworkBehaviors
-using StreamStats
-
-#=
-1 - load the best inputs for every model
-2 - train a final model on the test dataset
-3 - save them
-4 - compute validation metrics on the validation dataset
-5 - save results to a .csv
-=#
-
-# For LOOCV2:
-#=
-- load full dataset
-- construct split over drives
-- run CV split get the best hyperparams for each model based on likelihood
-- for each drive:
-   - train a model on the other drives
-   - compute train and test metrics (logl, emergent kldiv counts, rwse) on the withheld set
-- aggregate the resuts
-=#
 
 ##############################
 # PARAMETERS
 ##############################
 
 const INCLUDE_FILE_BASE = "realworld"
-const N_SIMULATIONS_PER_TRACE = 50
+const N_SIMULATIONS_PER_TRACE = 10
 const DEFAULT_TRACE_HISTORY = 2*DEFAULT_FRAME_PER_SEC
 const N_BAGGING_SAMPLES = 10
 const CONFIDENCE_LEVEL = 0.95
 
 const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
 const AM_ON_TULA = gethostname() == "tula"
-const INCLUDE_FILE = AM_ON_TULA ? joinpath("/home/wheelert/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl") :
-                                  joinpath("/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels", INCLUDE_FILE_BASE, "extract_params.jl")
+const INCLUDE_FILE = Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl")
 const INCLUDE_NAME = splitdir(splitext(INCLUDE_FILE)[1])[2]
 
 include(INCLUDE_FILE)
@@ -116,73 +95,254 @@ metric_types_test_traces_bagged = [
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 nmodels = length(behaviorset)
 
-dset_filepath_modifier = "_subset_car_following"
+for dset_filepath_modifier in (
+    "_freeflow",
+    # "_following",
+    # "_lanechange",
+    )
 
-METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * ".jld")
-MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * dset_filepath_modifier * ".jld")
-TRAIN_VALIDATION_JLD_FILE = joinpath(EVALUATION_DIR, "train_validation_split" * dset_filepath_modifier * ".jld")
-DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset" * dset_filepath_modifier * ".jld")
+    println(dset_filepath_modifier)
 
-dset = JLD.load(DATASET_JLD_FILE, "model_training_data")
+    METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * ".jld")
+    MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * dset_filepath_modifier * ".jld")
+    TRAIN_VALIDATION_JLD_FILE = joinpath(EVALUATION_DIR, "train_validation_split" * dset_filepath_modifier * ".jld")
+    DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset2" * dset_filepath_modifier * ".jld")
 
-split_drives = get_fold_assignment_across_drives(dset)
+    dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
 
-# model_type = DynamicBayesianNetworkBehavior
-# params = BN_TrainParams(
-#   indicators = INDICATOR_SET,
-#   preoptimize_target_bins = true,
-#   preoptimize_indicator_bins = true,
-#   optimize_structure = true,
-#   optimize_target_bins = false,
-#   optimize_parent_bins = false,
-#   ncandidate_bins = 7,
-#   max_parents = 5
-# )
+    if AM_ON_TULA
+        # replace foldernames
+        for (i,str) in enumerate(dset.pdset_filepaths)
+            dset.pdset_filepaths[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
+        end
 
-# model_type = GindeleRandomForestBehavior
-# params = GRF_TrainParams(indicators=INDICATOR_SET)
+        for (i,str) in enumerate(dset.streetnet_filepaths)
+            dset.streetnet_filepaths[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
+        end
+    end
 
-# model_type = DynamicForestBehavior
-# params = DF_TrainParams(indicators=INDICATOR_SET)
+    preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
+    for (behavior_name, train_def) in behaviorset
+        preallocated_data_dict[behavior_name] = preallocate_learning_data(dset, train_def.trainparams)
+    end
 
-# model_type = GMRBehavior
-# params = GMR_TrainParams(indicators=INDICATOR_SET)
+    print("loading sim resources "); tic()
+    runlogs_original = load_runlogs(dset)
+    streetnets = load_streetnets(runlogs_original)
+    toc()
 
-# model_type = VehicleBehaviorLinearGaussian
-# params = LG_TrainParams(indicators=INDICATOR_SET)
+    cv_split_outer = get_fold_assignment_across_drives(dset)
+    println(cv_split_outer)
 
-# model_type = VehicleBehaviorGaussian
-# params = SG_TrainParams()
+    println("DONE")
+    exit()
 
-# model_name = "Static Gaussian"
-# model_name = "Linear Gaussian"
-# model_name = "Random Forest"
-model_name = "Dynamic Forest"
-# model_name = "Mixture Regression"
-# model_name = "Bayesian Network"
-trainparams = model_trainparams[model_name]
-hyperparams = model_hyperparams[model_name]
+    nframes = nrow(dset.dataframe)
+    ntraces = length(cv_split_outer.pdsetseg_assignment)
+    frame_logls = Array(Float64, nframes, ntraces, nmodels) # logl for each frame under each run (we can back out TRAIN and TEST)
 
+    foldinds = collect(1:ntraces)
+    bagged_selection = collect(1:ntraces)
+    model_names = collect(keys(behaviorset))
 
-fold = 1
-preallocated_data = preallocate_learning_data(dset, trainparams)
+    # make pdset copies that are only as large as needed
+    # (contain history and horizon from pdsets_original)
+    println("preallocating memory for traces"); tic()
+    arr_pdsets_for_simulation = Array(Matrix{PrimaryDataset}, nmodels)
+    for k = 1 : nmodels
+        arr_pdsets_for_simulation[k] = Array(PrimaryDataset, ntraces, N_SIMULATIONS_PER_TRACE)
+    end
+    validfind_starts_sim = Array(Int, ntraces) # new validfind_start for the truncated pdsets_for_simulation
+    basics = FeatureExtractBasicsPdSet(pdsets_original[1], streetnets[1])
 
-tic()
-AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent(
-                                dset,
-                                preallocated_data,
-                                trainparams,
-                                split_drives,
-                                hyperparams
-                                )
-toc()
+    for (i,ind) in enumerate(foldinds)
+        seg = dset.pdset_segments[ind]
+        validfind_start = max(1, seg.validfind_start - DEFAULT_TRACE_HISTORY)
+        pdset_sim = deepcopy(pdsets_original[seg.pdset_id], validfind_start, seg.validfind_end)
+        validfind_starts_sim[i] = clamp(seg.validfind_start-DEFAULT_TRACE_HISTORY, 1, DEFAULT_TRACE_HISTORY+1)
 
-println("woo")
-exit()
+        for k in 1 : nmodels
+            for j in 1 : N_SIMULATIONS_PER_TRACE
+                arr_pdsets_for_simulation[k][i,j] = deepcopy(pdset_sim)
+            end
+        end
+    end
+    toc()
 
-tic()
-train(model_type, dset, preallocated_data, params, fold, split_drives, false)
-toc()
+    ######################################
+    # TRAIN A MODEL FOR EACH FOLD USING CV
+    ######################################
 
+    for fold in 1 : cv_split_outer.nfolds
+        #=
+        1 - find optimal hyperparam set
+        2 - update trace metrics for given traces
+        3 - update mean frame likelihood
+        =#
+
+        println("fold ", fold, " / ", cv_split_outer.nfolds)
+
+        # create an inner split where we remove the current fold
+        cv_split_inner = deepcopy(cv_split_outer)
+        for (i,v) in enumerate(cv_split_inner.frame_assignment)
+            if v == fold
+                cv_split_inner.frame_assignment[i] = 0
+            elseif v > fold
+                cv_split_inner.frame_assignment[i] -= 1
+            end
+        end
+        for (i,v) in enumerate(cv_split_inner.pdsetseg_assignment)
+            if v == fold
+                cv_split_inner.pdsetseg_assignment[i] = 0
+            elseif v > fold
+                cv_split_inner.pdsetseg_assignment[i] -= 1
+            end
+        end
+        cv_split_inner.nfolds -= 1
+        @assert(cv_split_inner.nfolds > 0)
+
+        ##############
+
+        print("\toptimizing hyperparameters\n"); tic()
+        for (behavior_name, train_def) in behaviorset
+            println(behavior_name)
+            preallocated_data = preallocated_data_dict[behavior_name]
+            AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
+                    train_def, dset, preallocated_data, cv_split_inner)
+        end
+        toc()
+
+        print("\ttraining models  "); tic()
+        models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_outer)
+        toc()
+
+        print("\tcomputing likelihoods  "); tic()
+        for (i,behavior_name) in enumerate(model_names)
+            behavior = models[behavior_name]
+            for frameind in 1 : nframes
+                if trains_with_nona(behavior)
+                    frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+                else
+                    frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+                end
+            end
+        end
+        toc()
+
+        println("\tsimulating"); tic()
+        for (k,behavior_name) in enumerate(model_names)
+            behavior = models[behavior_name]
+
+            print("\t\t", behavior_name, "  "); tic()
+            for i in 1 : ntraces
+                if cv_split_outer.pdsetseg_assignment[i] == fold # in test
+                    # simulate
+                    seg = dset.pdset_segments[i]
+                    basics.sn = streetnets[seg.streetnet_id]
+                    validfind_start = validfind_starts_sim[i]
+                    validfind_end = validfind_start + seg.validfind_end - seg.validfind_start
+
+                    for l in 1 : N_SIMULATIONS_PER_TRACE
+                        basics.pdset = arr_pdsets_for_simulation[k][i, l]
+                        basics.runid += 1
+
+                        simulate!(basics, behavior, seg.carid, validfind_start, validfind_end)
+                    end
+                end
+            end
+            toc()
+        end
+        toc()
+
+    end
+
+    #########################################################
+
+    print("Exctracting frame stats  "); tic()
+
+    metrics_sets_test_frames = Array(Vector{BehaviorFrameMetric}, nmodels)
+    metrics_sets_train_frames = Array(Vector{BehaviorFrameMetric}, nmodels)
+    metrics_sets_test_frames_bagged = Array(Vector{BaggedMetricResult}, nmodels)
+    metrics_sets_train_frames_bagged = Array(Vector{BaggedMetricResult}, nmodels)
+    metrics_sets_test_traces = Array(Vector{BehaviorTraceMetric}, nmodels)
+    metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, nmodels)
+
+    for k in 1:nmodels
+        print("\tmodel: ", k, "  "); tic()
+
+        arr_logl_test = Float64[]
+        arr_logl_train = Float64[]
+
+        for j in 1 : cv_split_outer.nfolds
+            for i in 1 : nframes
+                if cv_split_outer.frame_assignment[i] == j
+                    push!(arr_logl_test, frame_logls[i,j,k])
+                elseif cv_split_outer.frame_assignment[i] != 0
+                    push!(arr_logl_train, frame_logls[i,j,k])
+                end
+            end
+        end
+
+        metrics_sets_test_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_test))]
+        metrics_sets_train_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_train))]
+        metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
+        metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
+
+        # TRACES
+
+        retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
+        retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
+        for (i,M) in enumerate(metric_types_test_traces)
+            retval_straight[i] = extract(M, dset.pdset_segments,
+                                         pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
+                                         streetnets, foldinds, basics, bagged_selection)
+            if i ≤ length(retval_bagged)
+                retval_bagged[i] = BaggedMetricResult(M, dset.pdset_segments,
+                                             pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
+                                             streetnets, foldinds, basics,
+                                             bagged_selection, N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
+            end
+        end
+
+        metrics_sets_test_traces[k] = retval_straight
+        metrics_sets_test_traces_bagged[k] = retval_bagged
+
+        toc()
+    end
+    toc()
+
+    println("\tLOGL TEST")
+    for i in 1 : length(metrics_sets_test_frames)
+        logl_μ = get_score(metrics_sets_test_frames[i][1])
+        logl_b = metrics_sets_test_frames_bagged[i][1].confidence_bound
+        @printf("\t%-20s logl %6.3f ± %6.3f\n", model_names[i], logl_μ, logl_b)
+    end
+    println("")
+
+    println("\tLOGL TRAIN")
+    for i in 1 : length(metrics_sets_train_frames)
+        logl_μ = get_score(metrics_sets_train_frames[i][1])
+        logl_b = metrics_sets_train_frames_bagged[i][1].confidence_bound
+        @printf("\t%-20s logl %6.3f ± %6.3f\n", model_names[i], logl_μ, logl_b)
+    end
+    println("")
+
+    println("metrics_sets_test_traces: ")
+    println(metrics_sets_test_traces)
+    println("metrics_sets_test_traces_bagged: ")
+    println(metrics_sets_test_traces_bagged)
+
+    JLD.save(METRICS_OUTPUT_FILE,
+             "model_names",                      model_names,
+             "metrics_sets_test_frames",         metrics_sets_test_frames,
+             "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
+             "metrics_sets_train_frames",        metrics_sets_train_frames,
+             "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
+             "metrics_sets_test_traces",         metrics_sets_test_traces,
+             "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
+            )
+end
+
+# println("DONE")
 println("DONE")
 exit()

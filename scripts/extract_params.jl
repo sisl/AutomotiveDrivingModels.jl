@@ -19,13 +19,14 @@ const EVALUATION_DIR = let
     end
 end
 
+const RUNLOG_DIR = joinpath(EVALUATION_DIR, "runlogs")
 const PDSET_DIR = joinpath(EVALUATION_DIR, "pdsets")
-const CSVFILESETS = [load(joinpath(EVALUATION_DIR, "csvfilesets.jld"), "csvfilesets")...]::Vector{CSVFileSet}
+const CSVFILESETS = [JLD.load(joinpath(EVALUATION_DIR, "csvfilesets.jld"), "csvfilesets")...]::Vector{CSVFileSet}
 
 const PDSET_FRAMES_PER_SIM_FRAME = round(Int, SIM_SEC_PER_FRAME/TRAJDATA_SEC_PER_FRAME, RoundNearestTiesUp)
 const SIM_HORIZON_IN_FRAMES = round(Int, SIM_HORIZON_IN_SECONDS/SIM_SEC_PER_FRAME, RoundNearestTiesUp)
 const NFRAMES_TOTAL = SIM_HORIZON_IN_FRAMES + SIM_HISTORY_IN_FRAMES
-const FRAMESKIP_BETWEEN_EXTRACTED_SCENES = SIM_HORIZON_IN_FRAMES + 1
+const FRAMESKIP_BETWEEN_EXTRACTED_SCENES = 1
 
 const TARGET_SET = ModelTargets(FUTUREDESIREDANGLE_250MS, FUTUREACCELERATION_250MS)
 const SIMPARAMS = DEFAULT_SIM_PARAMS

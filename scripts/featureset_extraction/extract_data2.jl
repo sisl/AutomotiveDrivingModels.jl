@@ -29,12 +29,14 @@ if !isdir(SAVE_DIR)
 end
 
 features = collect(FeaturesNew.allfeatures())
-# filters = [FeaturesNew.Feature_IsClean{symbol(TARGET_SET.lat)}(),
-#                           Feature_IsClean{symbol(TARGET_SET.lon)}()]
+filters = FeaturesNew.AbstractFeature[FeaturesNew.Feature_IsClean{:f_accel}(),
+                                      FeaturesNew.Feature_IsClean{:f_des_angle}()]
 
 runlog_extract_params = RunLogSegmentExtractParameters(SIM_HORIZON_IN_FRAMES, SIM_HISTORY_IN_FRAMES,
                                                        FRAMESKIP_BETWEEN_EXTRACTED_SCENES, PDSET_FRAMES_PER_SIM_FRAME)
-dataset_extract_params = DatasetExtractParams(0x0000, 0x0000, features, runlog_extract_params)
+dataset_extract_params = DatasetExtractParams(0x0000, 0x0000, features, runlog_extract_params,
+                                              filters=filters)
+
 runlog_filepaths = filter!(s->splitext(s)[2] == ".jld", readdir(RUNLOG_DIR))
 for i in 1 : length(runlog_filepaths)
     runlog_filepaths[i] = joinpath(RUNLOG_DIR, runlog_filepaths[i])
