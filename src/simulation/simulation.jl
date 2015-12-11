@@ -29,6 +29,30 @@ end
 const DEFAULT_SIM_PARAMS = SimParams()
 
 function simulate!(
+    runlog          :: RunLog,
+    sn              :: StreetNetwork,
+    behavior        :: AbstractVehicleBehavior,
+    id              :: UInt,
+    frame_start     :: Int,
+    frame_end       :: Int;
+    pdset_frames_per_sim_frame::Int = N_FRAMES_PER_SIM_FRAME,
+    n_euler_steps   :: Int = 2
+    )
+
+    for frame in frame_start : pdset_frames_per_sim_frame : frame_end-1
+
+        colset = id2colset(runlog, id, frame)
+        @assert(colset != COLSET_NULL)
+
+        action_lat, action_lon = select_action(behavior, runlog, sn, colset, frame)
+        propagate!(runlog, sn, frame, colset, action_lat, action_lon,
+                   pdset_frames_per_sim_frame, n_euler_steps)
+    end
+
+    runlog
+end
+
+function simulate!(
     basics          :: FeatureExtractBasicsPdSet,
     behavior        :: AbstractVehicleBehavior,
     carid           :: Int,
@@ -262,7 +286,7 @@ function propagate!(
     #     println("$i) v = ", v)
     # end
 
-    for jump = 0 : pdset_frames_per_sim_frame-1
+    for jump in 0 : pdset_frames_per_sim_frame-1
         validfind_fut = jumpframe(pdset, validfind, jump)
         @assert(validfind_fut != 0)
         _propagate_one_pdset_frame!(pdset, sn, validfind_fut, carid, action_lat, action_lon, n_euler_steps)
@@ -289,6 +313,96 @@ function propagate!(
     # exit()
 
     pdset
+end
+
+function _propagate_one_runlog_frame!(
+    runlog        :: RunLog,
+    sn            :: StreetNetwork,
+    frame         :: Int,
+    colset        :: UInt,
+    action_lat    :: Float64,
+    action_lon    :: Float64,
+    n_euler_steps :: Int,
+    )
+
+    frame_fut = frame + 1
+    Δt = RunLogs.get_elapsed_time(runlog, frame, frame_fut)
+    δt = Δt / n_euler_steps
+
+    inertial = get(runlog, colset, frame, :inertial)::VecSE2
+    x = inertial.x
+    y = inertial.y
+    θ = inertial.θ
+
+    s = d = 0.0
+    ϕ = ϕₒ = (get(runlog, colset, frame, :frenet)::VecSE2).θ
+
+    rates = get(runlog, colset, frame, :ratesB)::VecSE2
+    v = sqrt(rates.x*rates.x + rates.y*rates.y)
+
+    for i = 1 : n_euler_steps
+
+        a = get_input_acceleration(action_lon)
+        ω = get_input_turnrate(action_lat, ϕ)
+
+        v += a*δt
+        θ += ω*δt
+        x += v*cos(θ)*δt
+        y += v*sin(θ)*δt
+
+        proj = project_point_to_streetmap(x, y, sn)
+        @assert(proj.successful)
+        s, d, ϕ = pt_to_frenet_xyy(proj.footpoint, x, y, θ)
+    end
+
+    proj = project_point_to_streetmap(x, y, sn)
+    @assert(proj.successful)
+    s, d, ϕ = pt_to_frenet_xyy(proj.footpoint, x, y, θ)
+
+    colset_fut = get(runlog, colset, frame, :next_colset)::UInt
+    if colset_fut == NULL
+        # automatically insert car into future frame if necessary
+        id = colset2id(runlog, colset, frame)
+        colset_fut = get_first_vacant_colset!(runlog, id, frame_fut)
+    end
+
+    RunLogs.set!(runlog, colset_fut, frame_fut,
+         get(runlog, colset, frame, :id)::UInt,
+         VecSE2(x, y, θ), # inertial
+         VecSE2(s, d, ϕ), # frenet
+         VecSE2(v*cos(θ), v*sin(θ), (ϕ - ϕₒ)/Δt), # ratesB
+         proj.extind,
+         proj.footpoint,
+         proj.lane.id,
+         COLSET_NULL,
+         COLSET_NULL,
+         get(runlog, colset, frame, :behavior)::UInt16
+    )
+
+    RunLogs.set!(runlog, colset_fut, frame_fut, :colset_front,
+        RunLogs.calc_front_vehicle_colset(runlog, sn, colset_fut, frame_fut))
+    RunLogs.set!(runlog, colset_fut, frame_fut, :colset_rear,
+        RunLogs.calc_rear_vehicle_colset(runlog, sn, colset_fut, frame_fut))
+
+    runlog
+end
+function propagate!(
+    runlog        :: RunLog,
+    sn            :: StreetNetwork,
+    frame         :: Int,
+    colset        :: UInt,
+    action_lat    :: Float64,
+    action_lon    :: Float64,
+    pdset_frames_per_sim_frame :: Int,
+    n_euler_steps :: Int,
+    )
+
+    for jump in 0 : pdset_frames_per_sim_frame-1
+        frame_fut = frame + jump
+        _propagate_one_runlog_frame!(runlog, sn, frame_fut, colset, action_lat, action_lon, n_euler_steps)
+    end
+
+    runlog
 end
 
 # TODO(tim): move to elsewhere?
