@@ -100,6 +100,51 @@ function extract{Fsym}(::Type{EmergentKLDivMetric{Fsym}},
 
     EmergentKLDivMetric{Fsym}(calc_kl_div_categorical(counts_orig, counts_sim))
 end
+function extract{Fsym}(::Type{EmergentKLDivMetric{Fsym}},
+    runlog_segments::Vector{RunLogSegment},
+    runlogs_original::Vector{RunLog},
+    runlogs_for_simulation::Matrix{RunLog},
+    frame_starts_sim::Vector{Int},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    foldinds::Vector{Int},
+    bagged_selection::Vector{Int},
+    kldiv_metric_nbins::Int = KLDIV_METRIC_NBINS,
+    )
+
+    F = FeaturesNew.symbol2feature(Fsym)
+    disc = KLDIV_METRIC_DISC_DICT[Fsym]
+
+    counts_orig = zeros(Int, kldiv_metric_nbins) # NOTE(tim): no prior counts
+    counts_sim  = ones(Int, kldiv_metric_nbins)  # NOTE(tim): uniform Dirichlet prior
+
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    for i in bagged_selection
+        ind = foldinds[i]
+
+        # real-world
+        seg = runlog_segments[ind]
+        carid = seg.carid
+        runlog = runlogs_original[seg.runlog_id]
+        sn = streetnets[runlog.header.map_name]
+
+        colset = RunLogs.id2colset(runlog, carid, seg.frame_end)
+        v = get(F, runlog, sn, colset, seg.frame_end)::Float64
+        counts_orig[encode(disc, v)] += 1
+
+        # sim
+        frame_end = frame_starts_sim[i] + seg.frame_end - seg.frame_start
+
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[i, j]
+            colset = RunLogs.id2colset(runlog, carid, frame_end)
+            v = get(F, runlog, sn, colset, frame_end)::Float64
+            counts_sim[encode(disc, v)] += 1
+        end
+    end
+
+    EmergentKLDivMetric{Fsym}(calc_kl_div_categorical(counts_orig, counts_sim))
+end
 
 #########################################################################################################
 # RootWeightedSquareError
@@ -111,6 +156,7 @@ type RootWeightedSquareError{feature_symbol, horizon} <: BehaviorTraceMetric
 end
 
 get_score(metric::RootWeightedSquareError) = metric.rwse
+
 function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
     pdset_segments::Vector{PdsetSegment},
     pdsets_original::Vector{PrimaryDataset},
@@ -168,6 +214,59 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
     NM = n_monte_carlo_samples * length(foldinds)
     RootWeightedSquareError{Fsym, H}(sqrt(running_sum / NM))
 end
+function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
+    runlog_segments::Vector{RunLogSegment},
+    runlogs_original::Vector{RunLog},
+    runlogs_for_simulation::Matrix{RunLog},
+    frame_starts_sim::Vector{Int},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    foldinds::Vector{Int},
+    bagged_selection::Vector{Int},
+    )
+
+    F = FeaturesNew.symbol2feature(Fsym)
+
+    v_true_arr = Array(Float64, 100)
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    running_sum = 0.0
+    for (i, ind) in enumerate(bagged_selection)
+
+        seg = runlog_segments[ind]
+        carid = seg.carid
+        runlog = runlogs_original[seg.runlog_id]
+        sn = streetnets[runlog.header.map_name]
+
+        for (j,frame) in enumerate(seg.frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.frame_end)
+            colset = RunLogs.id2colset(runlog, carid, frame)
+            v_true_arr[j] = get(F, runlog, sn, colset, frame)
+        end
+
+        frame_start = frame_starts_sim[i]
+        frame_end = frame_start + seg.frame_end - seg.frame_start
+
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[i, j]
+
+            for (k,frame) in enumerate(frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end)
+
+                Δt = (frame - frame_start)*DEFAULT_SEC_PER_FRAME
+
+                if Δt ≤ H
+                    v_true = v_true_arr[k]
+                    colset = RunLogs.id2colset(runlog, carid, frame)
+                    v_montecarlo = get(F, runlog, sn, colset, frame)
+
+                    Δ = v_true - v_montecarlo
+                    running_sum += Δ*Δ
+                end
+            end
+        end
+    end
+
+    NM = n_monte_carlo_samples * length(foldinds)
+    RootWeightedSquareError{Fsym, H}(sqrt(running_sum / NM))
+end
 
 #########################################################################################################
 # LoglikelihoodMetric
@@ -198,9 +297,43 @@ function extract(::Type{LoglikelihoodMetric},
     end
     LoglikelihoodMetric(logl/nframes)
 end
+function extract(::Type{LoglikelihoodMetric},
+    dset::ModelTrainingData2,
+    behavior::AbstractVehicleBehavior,
+    assignment::FoldAssignment,
+    fold::Int,
+    match_fold::Bool,
+    )
+
+    logl = 0.0
+    nframes = 0
+    for frameind in 1 : nrow(dset.dataframe)
+        if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
+            nframes += 1
+            if trains_with_nona(behavior)
+                logl += calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+            else
+                logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+            end
+        end
+    end
+    LoglikelihoodMetric(logl/nframes)
+end
 extract(::Type{LoglikelihoodMetric}, frame_scores::AbstractVector{Float64}) = LoglikelihoodMetric(mean(frame_scores))
 function get_frame_score(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData,
+    behavior::AbstractVehicleBehavior,
+    frameind::Int,
+    )
+
+    if trains_with_nona(behavior)
+        calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+    else
+        calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+    end
+end
+function get_frame_score(::Type{LoglikelihoodMetric},
+    dset::ModelTrainingData2,
     behavior::AbstractVehicleBehavior,
     frameind::Int,
     )
@@ -250,6 +383,29 @@ function _bagged_sample(
     get_score(extract(M, pdset_segments, pdsets_original, pdsets_for_simulation,
                       validfind_starts_sim, streetnets, foldinds, basics, bagged_selection))
 end
+function _bagged_sample(
+    M::DataType,
+    runlog_segments::Vector{RunLogSegment},
+    runlogs_original::Vector{RunLog},
+    runlogs_for_simulation::Matrix{RunLog},
+    frame_starts_sim::Vector{Int},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    foldinds::Vector{Int},
+    bagged_selection::Vector{Int}, # preallocated memory - of same length as foldinds
+    m::Int=length(foldinds),
+    bag_range::UnitRange{Int}=1:m
+    )
+
+    @assert(length(bagged_selection) == length(foldinds))
+
+    for i in 1 : m
+        bagged_selection[i] = rand(bag_range)
+    end
+
+    get_score(extract(M, runlog_segments, runlogs_original, runlogs_for_simulation,
+                      frame_starts_sim, streetnets, foldinds, bagged_selection))
+end
+
 
 immutable BaggedMetricResult
     M::DataType # datatype of the source BehaviorMetric
@@ -319,6 +475,48 @@ immutable BaggedMetricResult
             # take a bagged sample
             x = _bagged_sample(B, pdset_segments, pdsets_original, pdsets_for_simulation,
                                validfind_starts_sim, streetnets, foldinds, basics,
+                               bagged_selection, m, bag_range)
+
+            # update running stats
+            M_new = M + (x - M)/k
+            S = S + (x - M)*(x - M_new)
+            M = M_new
+        end
+
+        μ = M
+        σ = sqrt(S/(n_bagging_samples-1))
+
+        confidence_bound = z * σ / sqrt(n_bagging_samples)
+
+        new(B, μ, σ, n_bagging_samples, confidence_bound, confidence_level)
+    end
+    function BaggedMetricResult{B<:BehaviorTraceMetric}(
+        ::Type{B},
+        runlog_segments::Vector{RunLogSegment},
+        runlogs_original::Vector{RunLog},
+        runlogs_for_simulation::Matrix{RunLog},
+        frame_starts_sim::Vector{Int},
+        streetnets::Dict{AbstractString, StreetNetwork},
+        foldinds::Vector{Int},
+        bagged_selection::Vector{Int}, # preallocated memory - of same length as foldinds
+        n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES,
+        confidence_level::Float64=DEFAULT_CONFIDENCE_LEVEL,
+        )
+
+        z = 1.41421356237*erfinv(confidence_level)
+        m = length(foldinds)
+        bag_range = 1 : m
+
+        M = _bagged_sample(B, runlog_segments, runlogs_original, runlogs_for_simulation,
+                           frame_starts_sim, streetnets, foldinds,
+                           bagged_selection, m, bag_range)
+        S = 0.0 # running variance sum (variance = Sₖ/(k-1))
+
+        for k in 2 : n_bagging_samples
+
+            # take a bagged sample
+            x = _bagged_sample(B, runlog_segments, runlogs_original, runlogs_for_simulation,
+                               frame_starts_sim, streetnets, foldinds,
                                bagged_selection, m, bag_range)
 
             # update running stats
@@ -561,8 +759,8 @@ function extract_trace_metrics{B<:AbstractVehicleBehavior}(
     @assert(n_bagging_samples > 1)
 
     # allocate memory
-    n = calc_fold_size(fold, assignment.pdsetseg_assignment, match_fold)
-    foldinds = calc_fold_inds!(Array(Int, n), fold, assignment.pdsetseg_assignment, match_fold)
+    n = calc_fold_size(fold, assignment.seg_assignment, match_fold)
+    foldinds = calc_fold_inds!(Array(Int, n), fold, assignment.seg_assignment, match_fold)
     bagged_selection = Array(Int, n)
 
     # make pdset copies that are only as large as needed (contain history and horizon from pdsets_original)
@@ -720,12 +918,12 @@ function extract_bagged_metrics_from_traces{B<:AbstractVehicleBehavior}(
     end
 
     # select samples
-    n_valid_samples = calc_fold_size(fold, assignment.pdsetseg_assignment, match_fold)
+    n_valid_samples = calc_fold_size(fold, assignment.seg_assignment, match_fold)
 
     # calc mapping from bagged index to pdset index
     valid_sample_indeces = Array(Int, n_valid_samples)
     fold_count = 0
-    for (i,a) in enumerate(assignment.pdsetseg_assignment)
+    for (i,a) in enumerate(assignment.seg_assignment)
         if is_in_fold(fold, a, match_fold)
             fold_count += 1
             valid_sample_indeces[fold_count] = i
@@ -942,7 +1140,7 @@ function extract_metrics_from_traces(
         metrics[i] = init(T)
     end
 
-    for (fold_assignment, seg) in zip(assignment.pdsetseg_assignment, pdset_segments)
+    for (fold_assignment, seg) in zip(assignment.seg_assignment, pdset_segments)
         if is_in_fold(fold, fold_assignment, match_fold)
 
             pdset_orig = pdsets_original[seg.pdset_id]
@@ -992,7 +1190,7 @@ function extract_metrics_from_traces{B<:AbstractVehicleBehavior}(
     end
 
     basics = FeatureExtractBasicsPdSet(pdsets_original[1], streetnets[1])
-    for (fold_assignment, seg) in zip(assignment.pdsetseg_assignment, pdset_segments)
+    for (fold_assignment, seg) in zip(assignment.seg_assignment, pdset_segments)
         if is_in_fold(fold, fold_assignment, match_fold)
             pdset_orig = pdsets_original[seg.pdset_id]
             basics.pdset = pdset_orig

@@ -134,7 +134,7 @@ for dset_filepath_modifier in (
     cv_split_outer = get_fold_assignment_across_drives(dset)
 
     nframes = nrow(dset.dataframe)
-    ntraces = length(cv_split_outer.pdsetseg_assignment)
+    ntraces = length(cv_split_outer.seg_assignment)
     frame_logls = Array(Float64, nframes, ntraces, nmodels) # logl for each frame under each run (we can back out TRAIN and TEST)
 
     foldinds = collect(1:ntraces)
@@ -187,11 +187,11 @@ for dset_filepath_modifier in (
                 cv_split_inner.frame_assignment[i] -= 1
             end
         end
-        for (i,v) in enumerate(cv_split_inner.pdsetseg_assignment)
+        for (i,v) in enumerate(cv_split_inner.seg_assignment)
             if v == fold
-                cv_split_inner.pdsetseg_assignment[i] = 0
+                cv_split_inner.seg_assignment[i] = 0
             elseif v > fold
-                cv_split_inner.pdsetseg_assignment[i] -= 1
+                cv_split_inner.seg_assignment[i] -= 1
             end
         end
         cv_split_inner.nfolds -= 1
@@ -231,7 +231,7 @@ for dset_filepath_modifier in (
 
             print("\t\t", behavior_name, "  "); tic()
             for i in 1 : ntraces
-                if cv_split_outer.pdsetseg_assignment[i] == fold # in test
+                if cv_split_outer.seg_assignment[i] == fold # in test
                     # simulate
                     seg = dset.pdset_segments[i]
                     basics.sn = streetnets[seg.streetnet_id]

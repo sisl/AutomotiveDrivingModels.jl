@@ -2320,12 +2320,12 @@ get(::Feature_ID, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int
 create_feature_basics( "LaneCurvature", "1/m", false, false, Inf, -Inf, false, :curvature, L"\kappa", "the local lane curvature")
 get(::Feature_LaneCurvature, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int) = get(basics.pdset, :curvature, carind, validfind)::Float64
 
-const ACCEL_MAX =  3.0 # m/s²
-const ACCEL_MIN = -3.0 # m/s²
-const VEL_MAX = 33.0 # m/s # TODO - validate this
-const RESPONSE_TIME_AVERAGE = -1.2 # typical driver reaction time according to Lefevre [s]
+# const ACCEL_MAX =  3.0 # m/s²
+# const ACCEL_MIN = -3.0 # m/s²
+# const VEL_MAX = 33.0 # m/s # TODO - validate this
+# const RESPONSE_TIME_AVERAGE = 1.2 # typical driver reaction time according to Lefevre [s]
 
-create_feature_basics( "SUMO", "m/s2", false, false, ACCEL_MAX, ACCEL_MIN, true, :sumo, L"a_\text{SUMO}", "SUMO accel prediction")
+create_feature_basics( "SUMO", "m/s2", false, false, Inf, -Inf, true, :sumo, L"a_\text{SUMO}", "SUMO accel prediction")
 function _get(::Feature_SUMO, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
     # SUMO accel prediction
     # returns NA if no vehicle in front
@@ -2342,10 +2342,10 @@ function _get(::Feature_SUMO, basics::FeatureExtractBasicsPdSet, carind::Int, va
     d_front = get(D_X_FRONT, basics, carind, validfind)::Float64
     v = get(pdset, :velFx, carind, validfind)::Float64
 
-    τ = RESPONSE_TIME_AVERAGE
-    amx = ACCEL_MAX
-    bmx = -ACCEL_MIN
-    vmx = VEL_MAX
+    τ = 5.0 # RESPONSE_TIME_AVERAGE
+    amx = 50.0 # ACCEL_MAX
+    bmx = 0.342 #-ACCEL_MIN
+    vmx = 100.0 # VEL_MAX
 
     v_safe = -τ*bmx + sqrt((τ*bmx)^2 + v_front^2 + 2*bmx*d_front)
     v_des = min(min(v_safe, v + amx*(1 - v/vmx)*DEFAULT_SEC_PER_FRAME), vmx)
@@ -2354,11 +2354,10 @@ function _get(::Feature_SUMO, basics::FeatureExtractBasicsPdSet, carind::Int, va
     return a_sumo
 end
 
-const MIN_HEADWAY = 1.5 # [m] (even if stopped)
-const DECEL_COMFORTABLE = 1.0 # [m/s²]
+# const MIN_HEADWAY = 1.5 # [m] (even if stopped)
+# const DECEL_COMFORTABLE = 1.0 # [m/s²]
 
-
-create_feature_basics( "IDM", "m/s2", false, false, ACCEL_MAX, ACCEL_MIN, true, :idm, L"a_\text{IDM}", "Intelligent driver model prediction")
+create_feature_basics( "IDM", "m/s2", false, false, Inf, -Inf, true, :idm, L"a_\text{IDM}", "Intelligent driver model prediction")
 function _get(::Feature_IDM, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
     # Intelligent Driver Model accel prediction
     # returns NA if no vehicle in front
@@ -2374,15 +2373,14 @@ function _get(::Feature_IDM, basics::FeatureExtractBasicsPdSet, carind::Int, val
     Δv_front = get(V_X_FRONT, basics, carind, validfind)::Float64
     d_front = get(D_X_FRONT, basics, carind, validfind)::Float64
     v = get(pdset, :velFx, carind, validfind)::Float64
-
-    amx = ACCEL_MAX
-    vmx = VEL_MAX
-    bcmf = DECEL_COMFORTABLE
-
-    dmn = MIN_HEADWAY
     T = get(TIMEGAP_X_FRONT, basics, carind, validfind)::Float64
 
-    d_des = dmn + T*v - (v*Δv_front) / (2*sqrt(amx*DECEL_COMFORTABLE))
+    amx = 0.2235743521748731# ACCEL_MAX
+    vmx = 100.0# VEL_MAX
+    dmn = 1.564476357544317 # MIN_HEADWAY
+    d_comf = 2.4401797787331043 # DECEL_COMFORTABLE
+
+    d_des = dmn + T*v - (v*Δv_front) / (2*sqrt(amx*d_comf))
     a_idm = amx * (1.0 - (v/vmx)^4 - (d_des/d_front)^2)
 
     return a_idm

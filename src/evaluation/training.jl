@@ -69,10 +69,102 @@ function train(
     end
     retval
 end
+function train(
+    behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
+    dset::ModelTrainingData2,
+    preallocated_data_dict::Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData},
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    )
+
+    retval = Dict{AbstractString,AbstractVehicleBehavior}()
+    for (behavior_name, train_def) in behaviorset
+        preallocated_data = preallocated_data_dict[behavior_name]
+        retval[behavior_name] = train(dset, preallocated_data, train_def.trainparams, fold, fold_assignment, false)
+    end
+    retval
+end
 
 function optimize_hyperparams_cyclic_coordinate_ascent!(
     traindef::BehaviorTrainDefinition,
     dset::ModelTrainingData,
+    preallocated_data::AbstractVehicleBehaviorPreallocatedData,
+    cross_validation_split::FoldAssignment,
+    )
+
+    hyperparams = traindef.hyperparams
+    trainparams = traindef.trainparams
+
+    if isempty(hyperparams) # nothing varies
+        return traindef
+    end
+
+    n_varying_params = length(hyperparams)
+    param_indeces = Array(Int, n_varying_params)
+    for i in 1 : n_varying_params
+        param_indeces[i] = hyperparams[i].index_of_default
+    end
+
+    best_logl = -Inf # mean cross-validated log likelihood
+    param_hash_set = Set{UInt}() # set of param hashes that have already been done
+
+    t_start = time()
+    t_prev_printout = t_start
+    iteration_count = 0
+    finished = false
+    while !finished
+
+        iteration_count += 1
+        has_improved = false
+
+        if (time() - t_prev_printout) > 5.0
+            println("optimize_hyperparams_cyclic_coordinate_ascent iteration ", iteration_count, "  et: ", time() - t_start)
+            t_prev_printout = time()
+        end
+
+        for (param_index, behavior_param) in enumerate(hyperparams)
+
+            sym = behavior_param.sym
+            best_param_val = getfield(trainparams, sym) # current one
+
+            for (i, v) in enumerate(behavior_param.range)
+                param_indeces[param_index] = i
+
+                param_hash = hash(param_indeces)
+                if !in(param_hash, param_hash_set)
+                    push!(param_hash_set, param_hash)
+
+                    setfield!(trainparams, sym, v)
+
+                    logl = 0.0
+                    for fold in 1 : cross_validation_split.nfolds
+                        model = train(dset, preallocated_data, trainparams, fold, cross_validation_split, false)
+                        logl += extract(LoglikelihoodMetric, dset, model, cross_validation_split, fold, true).logl
+                    end
+                    logl /= cross_validation_split.nfolds
+
+                    @printf("%3d %3d %6.4f %6.4f\n", param_index, i, logl, best_logl)
+
+                    if logl > best_logl
+                        best_logl = logl
+                        best_param_val = v
+                        has_improved = true
+                    end
+                end
+            end
+
+            # reset to best param val
+            setfield!(trainparams, sym, best_param_val)
+        end
+
+        finished = !has_improved # terminate if we never improved
+    end
+
+    traindef
+end
+function optimize_hyperparams_cyclic_coordinate_ascent!(
+    traindef::BehaviorTrainDefinition,
+    dset::ModelTrainingData2,
     preallocated_data::AbstractVehicleBehaviorPreallocatedData,
     cross_validation_split::FoldAssignment,
     )
@@ -194,6 +286,67 @@ function pull_design_and_target_matrices!(
 
             for (j,feature) in enumerate(indicators)
                 v = trainingframes[row, symbol(feature)]
+                @assert(!isnan(v))
+                X[j, m] = v
+            end
+        end
+    end
+
+    # zero out the rest
+    for row = m+1 : n
+        Y[1,row] = 0.0
+        Y[2,row] = 0.0
+        for j in 1 : size(X, 1)
+            X[j,row] = 0.0
+        end
+    end
+
+    return m
+end
+function pull_design_and_target_matrices!(
+    X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
+    Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
+    trainingframes::DataFrame,
+    targets::ModelTargets,
+    indicators::Vector{FeaturesNew.AbstractFeature},
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    match_fold::Bool;
+    )
+
+    #=
+    Pulls the data for X and Y, filling the first m frames that match the fold
+    The remaining allocated frames are zeroed
+    Returns the number of frames that match the fold, m
+    =#
+
+    sym_lat = symbol(FeaturesNew.FUTUREDESIREDANGLE)
+    sym_lon = symbol(FeaturesNew.FUTUREACCELERATION)
+
+    n = size(trainingframes, 1)
+
+    @assert(length(fold_assignment.frame_assignment) == n)
+    @assert(size(X,1) == length(indicators))
+    @assert(size(X,2) == n)
+    @assert(size(Y,1) == 2)
+    @assert(size(Y,2) == n)
+
+    m = 0
+    for row = 1 : n
+        if is_in_fold(fold, fold_assignment.frame_assignment[row], match_fold)
+
+            m += 1
+            action_lat = trainingframes[row, sym_lat]
+            action_lon = trainingframes[row, sym_lon]
+
+            Y[1, m] = action_lat
+            Y[2, m] = action_lon
+
+            @assert(!isinf(action_lat))
+            @assert(!isinf(action_lon))
+
+            for (j,feature) in enumerate(indicators)
+                v = trainingframes[row, FeaturesNew.symbol(feature)]
                 @assert(!isnan(v))
                 X[j, m] = v
             end

@@ -1133,22 +1133,22 @@ type FoldAssignment
     # an integer fold
     # first fold is fold 1
     frame_assignment::Vector{Int}
-    pdsetseg_assignment::Vector{Int}
+    seg_assignment::Vector{Int}
     nfolds::Int
 
-    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int}, nfolds::Int)
+    function FoldAssignment(frame_assignment::Vector{Int}, seg_assignment::Vector{Int}, nfolds::Int)
 
         # some precautions...
         # for a in frame_assignment
         #     @assert(a ≤ nfolds)
         # end
-        # for a in pdsetseg_assignment
+        # for a in seg_assignment
         #     @assert(a ≤ nfolds)
         # end
 
-        new(frame_assignment, pdsetseg_assignment, nfolds)
+        new(frame_assignment, seg_assignment, nfolds)
     end
-    function FoldAssignment(frame_assignment::Vector{Int}, pdsetseg_assignment::Vector{Int})
+    function FoldAssignment(frame_assignment::Vector{Int}, seg_assignment::Vector{Int})
 
         # some precautions...
         nfolds = -1
@@ -1156,18 +1156,18 @@ type FoldAssignment
             @assert(a > 0)
             nfolds = max(a, nfolds)
         end
-        for a in pdsetseg_assignment
+        for a in seg_assignment
             @assert(a > 0)
             nfolds = max(a, nfolds)
         end
 
-        new(frame_assignment, pdsetseg_assignment, nfolds)
+        new(frame_assignment, seg_assignment, nfolds)
     end
 end
 const FOLD_TRAIN = 1
 const FOLD_TEST = 2
 
-Base.deepcopy(a::FoldAssignment) = FoldAssignment(deepcopy(a.frame_assignment), deepcopy(a.pdsetseg_assignment), a.nfolds)
+Base.deepcopy(a::FoldAssignment) = FoldAssignment(deepcopy(a.frame_assignment), deepcopy(a.seg_assignment), a.nfolds)
 
 function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
     fold_size = 0
@@ -1319,7 +1319,7 @@ function get_cross_validation_fold_assignment(
     seg_to_framestart = dset.startframes
 
     frame_tv_assignment = train_test_split.frame_assignment
-    pdsetseg_tv_assignment = train_test_split.pdsetseg_assignment
+    pdsetseg_tv_assignment = train_test_split.seg_assignment
 
     nframes = nrow(dataframe)
     npdsetsegments = length(pdset_segments)
@@ -1556,7 +1556,6 @@ function get_fold_assignment_across_drives(dset::ModelTrainingData2)
         end
 
         df_frame_start = dset.seg_start_to_index_in_dataframe[i]
-        println("df_frame_start: ", df_frame_start)
         df_frame_end = df_frame_start + runlogseg.frame_end - runlogseg.frame_start
         for df_frame in df_frame_start : df_frame_end
             a_frame[df_frame] = runlog_id_to_fold[id]

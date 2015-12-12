@@ -2,6 +2,7 @@ module FeaturesNew
 
 using LaTeXStrings
 
+using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Vec
 using AutomotiveDrivingModels.Curves
 using AutomotiveDrivingModels.RunLogs
@@ -11,9 +12,9 @@ using AutomotiveDrivingModels.StreetNetworks
 # exports
 
 # export AbstractFeature
-# export POSFΘ, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT
-# export TURNRATE, ACC, ACCFX, ACCFY, ACCBX, ACCBY
-# export MARKERDIST_LEFT, MARKERDIST_RIGHT
+# export POSFYAW, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT
+# export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY
+# export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
 # export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 # export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 # export FutureAcceleration, FutureDesiredAngle
@@ -201,19 +202,8 @@ create_feature_basics("PosFt", :posFt, L"p^F_t", Float64, L"\metre", -Inf, Inf, 
 Base.get(::Feature_PosFt, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :frenet)::VecSE2).y
 
-# create_feature_basics("PosFΘ", :posFθ, L"\psi", Float64, L"\radian", -Inf, Inf, :no_na)
-immutable Feature_PosFθ <: AbstractFeature end
-const       POSFθ  = Feature_PosFθ()
-units(       ::Feature_PosFθ)  = L"\radian"
-isint(       ::Feature_PosFθ)  = false
-isbool(      ::Feature_PosFθ)  = false
-lowerbound(  ::Feature_PosFθ)  = -Inf
-upperbound(  ::Feature_PosFθ)  = Inf
-couldna(     ::Feature_PosFθ)  = false
-Base.symbol( ::Feature_PosFθ)  = :posFθ
-lsymbol(     ::Feature_PosFθ)  = L"\psi"
-SYMBOL_TO_FEATURE[symbol(POSFθ)] = POSFθ
-Base.get(::Feature_PosFθ, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
+create_feature_basics("PosFyaw", :posFyaw, L"\psi", Float64, L"\radian", -Inf, Inf, :no_na)
+Base.get(::Feature_PosFyaw, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :frenet)::VecSE2).θ
 
 create_feature_basics("Speed", :speed, L"\|v\|", Float64, L"\metre\per\second", 0.0, Inf, :no_na)
@@ -248,6 +238,11 @@ function Base.get(::Feature_MarkerDist_Right, runlog::RunLog, sn::StreetNetwork,
     offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
     node = _get_node(runlog, sn, colset, frame)
     node.marker_dist_right + offset
+end
+create_feature_basics("Dist_From_Centerline", :d_cl, L"d_{cl}", Float64, L"\metre", 0.0, Inf, :no_na)
+function Base.get(::Feature_Dist_From_Centerline, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    (get(runlog, colset, frame, :frenet)::VecSE2).y
 end
 
 create_feature_basics( "TimeToCrossing_Right", :ttcr_mr, L"ttcr^{mr}_y", Float64, L"s", 0.0, Inf, :can_na, na_replacement=10.0)
@@ -403,11 +398,12 @@ function Base.get(::Feature_FutureAcceleration, runlog::RunLog, sn::StreetNetwor
 
     # TODO(tim): should we be using AccBx to propagate the model?
 
-    if frame_inbounds(runlog, frame+1)
+    frame_fut = frame + N_FRAMES_PER_SIM_FRAME
+    if frame_inbounds(runlog, frame_fut)
         curr = get(SPEED, runlog, sn, colset, frame)::Float64
-        futr = get(SPEED, runlog, sn, colset, frame+1)::Float64
+        futr = get(SPEED, runlog, sn, colset, frame_fut)::Float64
         curr_t = get(runlog, frame,   :time)::Float64
-        futr_t = get(runlog, frame+1, :time)::Float64
+        futr_t = get(runlog, frame_fut, :time)::Float64
         (futr - curr) / (futr_t - curr_t)
     else
         NA_ALIAS
@@ -418,12 +414,14 @@ function Base.get(::Feature_FutureDesiredAngle, runlog::RunLog, sn::StreetNetwor
     KP_DESIRED_ANGLE::Float64=1.0
     )
 
-    if frame_inbounds(runlog, frame+1)
+    frame_fut = frame + N_FRAMES_PER_SIM_FRAME
+
+    if frame_inbounds(runlog, frame_fut)
 
         curϕ = (get(runlog, colset, frame,   :frenet)::VecSE2).θ
-        futϕ = (get(runlog, colset, frame+1, :frenet)::VecSE2).θ
+        futϕ = (get(runlog, colset, frame_fut, :frenet)::VecSE2).θ
         curr_t = get(runlog, frame,   :time)::Float64
-        futr_t = get(runlog, frame+1, :time)::Float64
+        futr_t = get(runlog, frame_fut, :time)::Float64
 
         ΔT = futr_t - curr_t
         expconst = exp(-KP_DESIRED_ANGLE*ΔT)

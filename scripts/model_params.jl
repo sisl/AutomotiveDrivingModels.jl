@@ -1,11 +1,19 @@
 behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
 
+INDICATOR_SET2 = [
+                    FeaturesNew.POSFYAW, FeaturesNew.POSFT, FeaturesNew.SPEED, FeaturesNew.VELBX, FeaturesNew.VELBY, FeaturesNew.VELFS, FeaturesNew.VELFT,
+                    FeaturesNew.TURNRATE, FeaturesNew.ACC, FeaturesNew.ACCFS, FeaturesNew.ACCFT, FeaturesNew.ACCBX, FeaturesNew.ACCBY,
+                    FeaturesNew.MARKERDIST_LEFT, FeaturesNew.MARKERDIST_RIGHT,
+                    FeaturesNew.TIMETOCROSSING_LEFT, FeaturesNew.TIMETOCROSSING_RIGHT, FeaturesNew.ESTIMATEDTIMETOLANECROSSING, FeaturesNew.A_REQ_STAYINLANE,
+                    FeaturesNew.N_LANE_LEFT, FeaturesNew.N_LANE_RIGHT, FeaturesNew.HAS_LANE_RIGHT, FeaturesNew.HAS_LANE_LEFT, FeaturesNew.LANECURVATURE,
+                ]
+
 behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
-behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
-                                            LG_TrainParams(indicators=INDICATOR_SET),
-                                            [
-                                                BehaviorParameter(:ridge_regression_constant, collect(linspace(0.0,1.0,5)), 5)
-                                            ])
+# behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
+#                                             LG_TrainParams(indicators=INDICATOR_SET2),
+#                                             [
+#                                                 BehaviorParameter(:ridge_regression_constant, collect(linspace(0.0,1.0,5)), 5)
+#                                             ])
 # behaviorset["Random Forest"] = BehaviorTrainDefinition(
 #                                             GRF_TrainParams(indicators=INDICATOR_SET),
 #                                             [
@@ -28,6 +36,22 @@ behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
 #                                                 # BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
 #                                                 BehaviorParameter(:n_split_tries, [2,3,4,5,10,20], 5),
 #                                             ])
+
+behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
+                                            BN_TrainParams(
+                                                starting_structure=ParentFeatures(FeaturesNew.AbstractFeature[], FeaturesNew.AbstractFeature[]),
+                                                forced=ParentFeatures(FeaturesNew.AbstractFeature[], FeaturesNew.AbstractFeature[]),
+                                                indicators=INDICATOR_SET2,
+                                                preoptimize_target_bins=true,
+                                                preoptimize_indicator_bins=true,
+                                                optimize_structure=true,
+                                                optimize_target_bins=false,
+                                                optimize_parent_bins=false,
+                                                ncandidate_bins=25,
+                                                max_parents=5,
+                                                dirichlet_prior=UniformPrior(),
+                                            ))
+
 # behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
 #                                             BN_TrainParams(
 #                                                 indicators=INDICATOR_SET,
@@ -42,6 +66,7 @@ behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
 #                                                 BehaviorParameter(:max_parents, 3:7, 2),
 #                                                 BehaviorParameter(:dirichlet_prior, [UniformPrior(), BDeuPrior(0.5), BDeuPrior(1.0), BDeuPrior(2.0), BDeuPrior(10.0)], 1),
 #                                             ])
+
 # behaviorset["Mixture Regression"] = BehaviorTrainDefinition(
 #                                             GMR_TrainParams(indicators=INDICATOR_SET), #[YAW, SPEED, ACC, VELFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE, TTC_X_FRONT]), # [YAW, SPEED, VELFX, VELFY, TURNRATE, ACC, ACCFX, ACCFY, A_REQ_STAYINLANE, TIME_CONSECUTIVE_THROTTLE, TTC_X_FRONT]
 #                                             [

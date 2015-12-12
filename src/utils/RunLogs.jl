@@ -4,8 +4,9 @@ using DataFrames
 using DataArrays
 
 using AutomotiveDrivingModels.Vec
+using AutomotiveDrivingModels.StreetNetworks
 
-import AutomotiveDrivingModels: LaneTag, CurvePt
+import AutomotiveDrivingModels: CurvePt
 
 export
     AgentClass,                         # enum containing classes of agents
@@ -49,7 +50,10 @@ export
 
     get_first_vacant_colset,            # returns index of first vacant colset
     get_first_vacant_colset!,           # exands the number of colsets if necessary
-    frames_contain_id                   # returns true if all of the frames in the range contain the id
+    frames_contain_id,                  # returns true if all of the frames in the range contain the id
+
+    calc_front_vehicle_colset,          # get the colset of the vehicle in front of this one
+    calc_rear_vehicle_colset            # get the colset of the vehicle behind this one
 
     # copy_trace!,
     # copy_vehicle!,
@@ -139,6 +143,9 @@ type RunLog
     colsets::Vector{DataFrame} # each dataframe contains the same columns
                                # colsets is indexed by `colset`, the column set index
 
+    function RunLog(header::RunLogHeader, agents::Dict{UInt, AgentDefinition}, framedata::DataFrame, colsets::Vector{DataFrame})
+        new(header, agents, framedata, colsets)
+    end
     function RunLog(nframes::Integer, header::RunLogHeader, ncolsets::Integer=0)
 
         agents = Dict{UInt, AgentDefinition}()
@@ -203,6 +210,43 @@ function _create_columnset(nframes::Integer)
         colset_rear = fill(COLSET_NULL, nframes),
         behavior = fill(ContextClass.NULL, nframes),
     )
+end
+
+function Base.deepcopy(runlog::RunLog, frame_start::Int, frame_end::Int)
+
+    header = deepcopy(runlog.header)
+    agents = Dict{UInt, AgentDefinition}()
+
+    nframes = frame_end - frame_start + 1
+    framedata = _create_framedata(nframes)
+    colsets = Array(DataFrame, 1)
+    colsets[1] = _create_columnset(nframes)
+
+    # copy colset and framedata
+    for (frame_new, frame_old) in enumerate(frame_start : frame_end)
+        for j in 1 : ncol(runlog.framedata)
+            framedata[frame_new, j] = deepcopy(runlog.framedata[frame_old, j])
+        end
+
+        for colset in get_colset_range(runlog, frame_old)
+
+            # pull the agent definition
+            id = get(runlog, colset, frame_old, :id)::UInt
+            if !haskey(agents, id) && haskey(runlog.agents, id)
+                agents[id] = deepcopy(runlog.agents[id])
+            end
+
+            if colset > length(colsets)
+                push!(colsets, _create_columnset(nframes))
+            end
+
+            for j in 1 : ncol(runlog.colsets[colset])
+                colsets[colset][frame_new, j] = deepcopy(runlog.colsets[colset][frame_old, j])
+            end
+        end
+    end
+
+    RunLog(header, agents, framedata, colsets)
 end
 
 function push_agent!(runlog::RunLog, agent::AgentDefinition)
@@ -525,51 +569,107 @@ function get_first_vacant_colset!(runlog::RunLog, id::UInt, frame::Integer)
     colset
 end
 
-# function extract_column_set_values!(
-#     runlog::RunLog,
-#     mgr::OdrManagerLite,
-#     id::UInt,
-#     frame::Integer,
-#     inertial::AbstractCoord, # inertial position
-#     ratesB::AbstractCoord, # linear and angular rates in the body frame
-#     )
-#
-#     #=
-#     1 - use add_id!() to obtain the colset DONE
-#     2 - compute the features DONE
-#          - id is given DONE
-#          - inertial is given DONE
-#          - ratesB is given DONE
-#          - ratesF need to be computed
-#          - lanecoord needs to be computed
-#          - behavior, idfront, and idrear # tackle these later (just use 0 for now)
-#          - indprev needs to be computed (use id2ind_zero_on_fail())
-#          - indnext also needs to be computed (use id2ind_zero_on_fail())
-#     3 - insert them into the body using set!()
-#          - note that you need to convert all Coord-likes into their immutable versions
-#            convert(CoordIm, inertial)
-#     4 - return the modified runlog
-#     =#
-#
-#     set_pos(mgr, inertial)
-#     inertial2lane(mgr)
-#     lane_pos = get_lanepos(mgr)
-#     foot_pos = get_footpoint(mgr)
-#
-#     lane_heading = foot_pos.h
-#     posFθ = inertial.h - lane_heading
-#     velFs, velFt = get_lane_relative_velocity(mgr, posFθ, ratesB.x, ratesB.y)
-#     ratesF = CoordIm(velFs, velFt, ratesB.z, ratesB.h, ratesB.p, ratesB.r)
-#
-#     colset = add_id!(runlog, id, frame)
-#     set!(runlog, colset, frame, :id, convert(UInt, id))
-#     set!(runlog, colset, frame, :inertial, convert(CoordIm, inertial))
-#     set!(runlog, colset, frame, :ratesB, convert(CoordIm, ratesB))
-#     set!(runlog, colset, frame, :ratesF, ratesF)
-#     set!(runlog, colset, frame, :lanecoord, convert(LaneCoordIm, lane_pos))
-#
-#     runlog
-# end
+function calc_front_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Int)
+
+    #=
+    It turns out that defining the closest vehicle in front is tricky
+      ex: a vehicle in neighboring lane that is moving towards your lane is likely
+          to be what you pay attention to
+
+    This merely finds the closest vehicle in the same lane based on footpoint and lanetag
+    Quits once it reaches a max distance
+    =#
+
+    best_colset = COLSET_NULL
+    best_dist   = Inf # [m]
+    max_dist    = 1000.0 # [m]
+
+    active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
+    active_lane = get_lane(sn, active_lanetag)
+    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
+    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
+
+    # walk forwards along the lanetag until we find a car in it or reach max dist
+    while true
+        for test_colset in get_colset_range(runlog, frame)
+
+            if test_colset == colset
+                continue
+            end
+
+            lanetag_target = get(runlog, test_colset, frame, :lanetag)::LaneTag
+            if lanetag_target == active_lanetag
+
+                footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
+                if footpoint_s_target > footpoint_s_host
+
+                    cand_dist = dist + footpoint_s_target - footpoint_s_host
+                    if cand_dist < best_dist
+                        best_dist = cand_dist
+                        best_colset = test_colset
+                    end
+                end
+            end
+        end
+
+        if !isinf(best_dist) || dist > max_dist || !has_next_lane(sn, active_lane)
+            break
+        end
+
+        dist += active_lane.curve.s[end] # move full curve length
+        active_lane = next_lane(sn, active_lane)
+        active_lanetag = active_lane.id
+        footpoint_s_host = 0.0 # move to base of curve
+    end
+
+    best_colset
+end
+function calc_rear_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Int)
+
+    best_colset = COLSET_NULL
+    best_dist   = Inf # [m]
+    max_dist    = 1000.0 # [m]
+
+    active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
+    active_lane = get_lane(sn, active_lanetag)
+    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
+    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
+
+    # walk forwards along the lanetag until we find a car in it or reach max dist
+    while true
+        for test_colset in get_colset_range(runlog, frame)
+
+            if test_colset == colset
+                continue
+            end
+
+            lanetag_target = get(runlog, test_colset, frame, :lanetag)::LaneTag
+            if lanetag_target == active_lanetag
+
+                footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
+                if footpoint_s_target < footpoint_s_host
+
+                    cand_dist = dist + footpoint_s_host - footpoint_s_target
+                    if cand_dist < best_dist
+                        best_dist = cand_dist
+                        best_colset = test_colset
+                    end
+                end
+            end
+        end
+
+        if !isinf(best_dist) || dist > max_dist || !has_prev_lane(sn, active_lane)
+            break
+        end
+
+        active_lane = prev_lane(sn, active_lane)
+        active_lanetag = active_lane.id
+        dist += active_lane.curve.s[end] # move full length
+        footpoint_s_host = active_lane.curve.s[end] # move to end of curve
+    end
+
+    best_colset
+end
 
 let
     function all_fields_are_bits(df::DataFrame)

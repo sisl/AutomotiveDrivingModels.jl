@@ -360,7 +360,7 @@ function _propagate_one_runlog_frame!(
     s, d, ϕ = pt_to_frenet_xyy(proj.footpoint, x, y, θ)
 
     colset_fut = get(runlog, colset, frame, :next_colset)::UInt
-    if colset_fut == NULL
+    if colset_fut == COLSET_NULL
         # automatically insert car into future frame if necessary
         id = colset2id(runlog, colset, frame)
         colset_fut = get_first_vacant_colset!(runlog, id, frame_fut)

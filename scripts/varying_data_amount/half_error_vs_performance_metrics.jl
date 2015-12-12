@@ -73,7 +73,7 @@ end
 
 dset_validation = Dataset(DATASET_VALIDATION)
 
-pdsetseg_assignment = ones(Int, length(dset_validation.pdset_segments))
+seg_assignment = ones(Int, length(dset_validation.pdset_segments))
 
 pdsets = Array(PrimaryDataset, length(dset_validation.pdset_filepaths))
 for (i,pdset_filepath) in enumerate(dset_validation.pdset_filepaths)
@@ -229,7 +229,7 @@ for i in 1 : nrow(df)
     metrics_sets = create_metrics_sets_no_tracemetrics(
                     models, pdsets, pdsets_for_simulation,
                     streetnets, dset_validation.pdset_segments,
-                    EVAL_PARAMS, 1, pdsetseg_assignment, true)
+                    EVAL_PARAMS, 1, seg_assignment, true)
 
     for (metric_set, name) in zip(metrics_sets, behaviorset.names)
         df[i, symbol(name)] = metric_set.aggmetrics[:logl_mean]

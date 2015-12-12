@@ -46,9 +46,9 @@ for dset_filepath_modifier in (
     println("n_other_frame: ", sum(v->v!=1 && v!=2, train_test_split.frame_assignment))
     println("n_train_frame: ", sum(v->v==1, train_test_split.frame_assignment))
     println("n_test__frame: ", sum(v->v==2, train_test_split.frame_assignment))
-    println("n_other_pdset: ", sum(v->v!=1 && v!=2, train_test_split.pdsetseg_assignment))
-    println("n_train_pdset: ", sum(v->v==1, train_test_split.pdsetseg_assignment))
-    println("n_test__pdset: ", sum(v->v==2, train_test_split.pdsetseg_assignment))
+    println("n_other_pdset: ", sum(v->v!=1 && v!=2, train_test_split.seg_assignment))
+    println("n_train_pdset: ", sum(v->v==1, train_test_split.seg_assignment))
+    println("n_test__pdset: ", sum(v->v==2, train_test_split.seg_assignment))
 
     cross_validation_split = get_cross_validation_fold_assignment(NFOLDS, dset, train_test_split)
 
@@ -59,7 +59,7 @@ for dset_filepath_modifier in (
             counts[v] += 1
         end
     end
-    for v in cross_validation_split.pdsetseg_assignment
+    for v in cross_validation_split.seg_assignment
         if v != 0
             counts2[v] += 1
         end
