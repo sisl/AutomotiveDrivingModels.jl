@@ -462,4 +462,6 @@ function _get_node(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integ
     sn.nodes[closest_node_to_extind(sn, lane, extind)::Int]
 end
 
+include("data_preprocessor.jl")
+
 end # module

@@ -31,8 +31,8 @@ metric_types_train_frames_bagged = [LoglikelihoodMetric]
 
 metric_types_test_traces = [
                             EmergentKLDivMetric{symbol(SPEED)},
-                            EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                             EmergentKLDivMetric{symbol(D_CL)},
+                            # EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                             RootWeightedSquareError{symbol(SPEED), 0.5},
                             RootWeightedSquareError{symbol(SPEED), 1.0},
                             RootWeightedSquareError{symbol(SPEED), 1.5},
@@ -49,19 +49,19 @@ metric_types_test_traces = [
                             RootWeightedSquareError{symbol(D_CL), 3.0},
                             RootWeightedSquareError{symbol(D_CL), 3.5},
                             RootWeightedSquareError{symbol(D_CL), 4.0},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
-                            RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
+                            # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
                            ]
 metric_types_test_traces_bagged = [
                                    EmergentKLDivMetric{symbol(SPEED)},
-                                   EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                                    EmergentKLDivMetric{symbol(D_CL)},
+                                   # EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
                                    # RootWeightedSquareError{symbol(SPEED), 0.5},
                                    # RootWeightedSquareError{symbol(SPEED), 1.0},
                                    # RootWeightedSquareError{symbol(SPEED), 1.5},
@@ -110,17 +110,6 @@ for dset_filepath_modifier in (
 
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
 
-    if AM_ON_TULA
-        # replace foldernames
-        for (i,str) in enumerate(dset.pdset_filepaths)
-            dset.pdset_filepaths[i] = joinpath(EVALUATION_DIR, "pdsets", splitdir(str)[2])
-        end
-
-        for (i,str) in enumerate(dset.streetnet_filepaths)
-            dset.streetnet_filepaths[i] = joinpath(EVALUATION_DIR, "streetmaps", splitdir(str)[2])
-        end
-    end
-
     preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
     for (behavior_name, train_def) in behaviorset
         preallocated_data_dict[behavior_name] = preallocate_learning_data(dset, train_def.trainparams)
@@ -132,13 +121,9 @@ for dset_filepath_modifier in (
     toc()
 
     cv_split_outer = get_fold_assignment_across_drives(dset)
-    println(cv_split_outer)
-
-    println("DONE")
-    exit()
 
     nframes = nrow(dset.dataframe)
-    ntraces = length(cv_split_outer.pdsetseg_assignment)
+    ntraces = length(cv_split_outer.seg_assignment)
     frame_logls = Array(Float64, nframes, ntraces, nmodels) # logl for each frame under each run (we can back out TRAIN and TEST)
 
     foldinds = collect(1:ntraces)
@@ -146,24 +131,24 @@ for dset_filepath_modifier in (
     model_names = collect(keys(behaviorset))
 
     # make pdset copies that are only as large as needed
-    # (contain history and horizon from pdsets_original)
+    # (contain history and horizon from runlogs_original)
     println("preallocating memory for traces"); tic()
-    arr_pdsets_for_simulation = Array(Matrix{PrimaryDataset}, nmodels)
-    for k = 1 : nmodels
-        arr_pdsets_for_simulation[k] = Array(PrimaryDataset, ntraces, N_SIMULATIONS_PER_TRACE)
-    end
-    validfind_starts_sim = Array(Int, ntraces) # new validfind_start for the truncated pdsets_for_simulation
-    basics = FeatureExtractBasicsPdSet(pdsets_original[1], streetnets[1])
 
+    arr_runlogs_for_simulation = Array(Matrix{RunLog}, nmodels)
+    frame_starts_sim = Array(Int, ntraces) # new frame_start for the truncated arr_runlogs_for_simulation
+    for k in 1 : nmodels
+        arr_runlogs_for_simulation[k] = Array(RunLog, ntraces, N_SIMULATIONS_PER_TRACE)
+    end
     for (i,ind) in enumerate(foldinds)
-        seg = dset.pdset_segments[ind]
-        validfind_start = max(1, seg.validfind_start - DEFAULT_TRACE_HISTORY)
-        pdset_sim = deepcopy(pdsets_original[seg.pdset_id], validfind_start, seg.validfind_end)
-        validfind_starts_sim[i] = clamp(seg.validfind_start-DEFAULT_TRACE_HISTORY, 1, DEFAULT_TRACE_HISTORY+1)
+
+        seg = dset.runlog_segments[ind]
+        frame_start = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+        runlog_sim = deepcopy(runlogs_original[seg.runlog_id], frame_start, seg.frame_end)
+        frame_starts_sim[i] = clamp(seg.frame_start-DEFAULT_TRACE_HISTORY, 1, DEFAULT_TRACE_HISTORY+1)
 
         for k in 1 : nmodels
             for j in 1 : N_SIMULATIONS_PER_TRACE
-                arr_pdsets_for_simulation[k][i,j] = deepcopy(pdset_sim)
+                arr_runlogs_for_simulation[k][i,j] = deepcopy(runlog_sim)
             end
         end
     end
@@ -191,11 +176,11 @@ for dset_filepath_modifier in (
                 cv_split_inner.frame_assignment[i] -= 1
             end
         end
-        for (i,v) in enumerate(cv_split_inner.pdsetseg_assignment)
+        for (i,v) in enumerate(cv_split_inner.seg_assignment)
             if v == fold
-                cv_split_inner.pdsetseg_assignment[i] = 0
+                cv_split_inner.seg_assignment[i] = 0
             elseif v > fold
-                cv_split_inner.pdsetseg_assignment[i] -= 1
+                cv_split_inner.seg_assignment[i] -= 1
             end
         end
         cv_split_inner.nfolds -= 1
@@ -235,25 +220,22 @@ for dset_filepath_modifier in (
 
             print("\t\t", behavior_name, "  "); tic()
             for i in 1 : ntraces
-                if cv_split_outer.pdsetseg_assignment[i] == fold # in test
+                if cv_split_outer.seg_assignment[i] == fold # in test
                     # simulate
-                    seg = dset.pdset_segments[i]
-                    basics.sn = streetnets[seg.streetnet_id]
-                    validfind_start = validfind_starts_sim[i]
-                    validfind_end = validfind_start + seg.validfind_end - seg.validfind_start
+                    seg = dset.runlog_segments[i]
+                    frame_start = frame_starts_sim[i]
+                    frame_end = frame_start + seg.frame_end - seg.frame_start
 
                     for l in 1 : N_SIMULATIONS_PER_TRACE
-                        basics.pdset = arr_pdsets_for_simulation[k][i, l]
-                        basics.runid += 1
-
-                        simulate!(basics, behavior, seg.carid, validfind_start, validfind_end)
+                        runlog = arr_runlogs_for_simulation[k][i, l]
+                        sn = streetnets[runlog.header.map_name]
+                        simulate!(runlog, sn, behavior, seg.carid, frame_start, frame_end)
                     end
                 end
             end
             toc()
         end
         toc()
-
     end
 
     #########################################################
@@ -293,14 +275,14 @@ for dset_filepath_modifier in (
         retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
         retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
         for (i,M) in enumerate(metric_types_test_traces)
-            retval_straight[i] = extract(M, dset.pdset_segments,
-                                         pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
-                                         streetnets, foldinds, basics, bagged_selection)
+            retval_straight[i] = extract(M, dset.runlog_segments,
+                                         runlogs_original, arr_runlogs_for_simulation[k], frame_starts_sim,
+                                         streetnets, foldinds, bagged_selection)
             if i ≤ length(retval_bagged)
-                retval_bagged[i] = BaggedMetricResult(M, dset.pdset_segments,
-                                             pdsets_original, arr_pdsets_for_simulation[k], validfind_starts_sim,
-                                             streetnets, foldinds, basics,
-                                             bagged_selection, N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
+                retval_bagged[i] = BaggedMetricResult(M, dset.runlog_segments,
+                                             runlogs_original, arr_runlogs_for_simulation[k], frame_starts_sim,
+                                             streetnets, foldinds, bagged_selection,
+                                             N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
             end
         end
 
@@ -332,15 +314,15 @@ for dset_filepath_modifier in (
     println("metrics_sets_test_traces_bagged: ")
     println(metrics_sets_test_traces_bagged)
 
-    JLD.save(METRICS_OUTPUT_FILE,
-             "model_names",                      model_names,
-             "metrics_sets_test_frames",         metrics_sets_test_frames,
-             "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
-             "metrics_sets_train_frames",        metrics_sets_train_frames,
-             "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
-             "metrics_sets_test_traces",         metrics_sets_test_traces,
-             "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
-            )
+    # JLD.save(METRICS_OUTPUT_FILE,
+    #          "model_names",                      model_names,
+    #          "metrics_sets_test_frames",         metrics_sets_test_frames,
+    #          "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
+    #          "metrics_sets_train_frames",        metrics_sets_train_frames,
+    #          "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
+    #          "metrics_sets_test_traces",         metrics_sets_test_traces,
+    #          "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
+    #         )
 end
 
 # println("DONE")

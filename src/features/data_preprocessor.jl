@@ -1,6 +1,9 @@
-export
-    FeatureSubsetExtractor,
-    DataPreprocessor
+using DataFrames
+
+# export
+#     FeatureSubsetExtractor,
+#     DatasetTransformProperties,
+#     DataPreprocessor
 
 ##############################
 
@@ -11,16 +14,16 @@ end
 
 function observe!(extractor::FeatureSubsetExtractor, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     x = extractor.x
-    for (i,f) in indicators
+    for (i,f) in enumerate(extractor.indicators)
         x[i] = get(f, runlog, sn, colset, frame)
     end
     x
 end
-function observe!(extractor::FeatureSubsetExtractor, dset::ModelTrainingData2, frame::Integer)
+function observe!(extractor::FeatureSubsetExtractor, dataframe::DataFrame, frame::Integer)
     x = extractor.x
-    for (i,f) in indicators
+    for (i,f) in enumerate(extractor.indicators)
         sym = symbol(f)
-        x[i] = dset.dataframe[frame,sym]
+        x[i] = dataframe[frame,sym]
     end
     x
 end
@@ -243,6 +246,7 @@ end
 function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataLinearTransform}, n_components::Int)
     # add a PCA transform to the chain
     # - has a new output, so reset the chain
+    # - X should be de-meaned before this
     # - new data will be z = U*x
 
     n_features = size(X, 1)
