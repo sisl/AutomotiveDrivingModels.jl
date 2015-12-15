@@ -74,6 +74,12 @@ type ChainedDataProcessor <: DataPreprocessor
         n_features = length(x)
         new(x, x, DataPreprocessor[])
     end
+    function ChainedDataProcessor(indicators::Vector{AbstractFeature})
+        # TODO(tim): remove this function once RunLogs are completely integrated
+        x = Array(Float64, length(indicators))
+        n_features = length(x)
+        new(x, x, DataPreprocessor[])
+    end
 end
 
 function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
