@@ -1,9 +1,16 @@
 using DataFrames
 
-# export
-#     FeatureSubsetExtractor,
-#     DatasetTransformProperties,
-#     DataPreprocessor
+export
+    FeatureSubsetExtractor,
+    DatasetTransformProperties,
+    DataPreprocessor,
+
+    DataNaReplacer,
+    DataScaler,
+    DataClamper,
+    DataLinearTransform,
+    DataSubset,
+    ChainedDataProcessor
 
 ##############################
 
@@ -67,6 +74,39 @@ type ChainedDataProcessor <: DataPreprocessor
         n_features = length(x)
         new(x, x, DataPreprocessor[])
     end
+end
+
+function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
+    
+    #=
+    Make a copy of the chain, given a newly created extractor_new.
+    This will ensure that the io arrays are properly linked in memory and that the
+    new one is not linked to the original.
+    =#
+
+    x = extractor_new.x
+
+    retval = ChainedDataProcessor(extractor_new)
+    for dp in processor.processors
+        if isa(dp, DataNaReplacer)
+            push!(retval.processors, DataNaReplacer(x, deepcopy(dp.indicators)))
+        elseif isa(dp, DataScaler)
+            push!(retval.processors, DataScaler(x, deepcopy(dp.weights), deepcopy(dp.offset)))
+        elseif isa(dp, DataClamper)
+            push!(retval.processors, DataClamper(x, deepcopy(dp.f_lo), deepcopy(dp.f_hi)))
+        elseif isa(dp, DataLinearTransform)
+            z = deepcopy(dp.z)
+            push!(retval.processors, DataLinearTransform(x, z, deepcopy(dp.A), deepcopy(dp.b)))
+            x = z
+        elseif isa(dp, DataSubset)
+            z = deepcopy(dp.z)
+            push!(retval.processors, DataSubset(x, z, deepcopy(dp.indeces)))
+            x = z
+        end
+    end
+    retval.z = x
+
+    retval
 end
 
 function process!(dp::DataNaReplacer)
@@ -162,6 +202,36 @@ function process!(dp::ChainedDataProcessor)
     nothing
 end
 
+function process!(X::Matrix{Float64}, dp::DataPreprocessor)
+
+    # Processes the data matrix X in place
+
+    x = dp.x
+    @assert(!isdefined(dp, :z))
+        
+    for i in 1 : size(X, 2)
+        copy!(x, X[:,i])
+        process!(dp)
+        copy!(X[:,i], x)
+    end
+    X
+end
+function process!(Z::Matrix{Float64}, X::Matrix{Float64}, dp::DataPreprocessor)
+    x = dp.x
+    z = dp.z
+
+    # Processes X → Z
+
+    @assert(size(x,2) == size(z,2)) # same number of samples
+        
+    for i in 1 : size(X, 2)
+        copy!(x, X[:,i])
+        process!(dp)
+        copy!(Z[:,i], z)
+    end
+    Z
+end
+
 function Base.reverse(dp::DataScaler)
 
     #=
@@ -179,32 +249,20 @@ function Base.reverse(dp::DataScaler)
     nothing
 end
 
-function _update_X_in_place!(X::Matrix{Float64}, dp::DataPreprocessor)
-    x = dp.x
-    for i in 1 : size(X, 2)
-        copy!(x, X[:,i])
-        process!(dp)
-        copy!(X[:,i], x)
-    end
-end
-
 # X = [n_features, n_samples] NOT THE SAME AS A DATAFRAME!
 function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataNaReplacer}, indicators::Vector{AbstractFeature})
     # add a NaReplacer to the chain
-    # X will be updated in-place with the post-processed dataset
 
     # NOTE - uses the exact same list, no deepcopying
     #      - input is same as output, so chain.z does not change
 
     dp = DataNaReplacer(chain.z, indicators)
-    _update_X_in_place!(X, dp)
     push!(chain.processors, dp)
     chain
 end
 function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataScaler})
     # add a scaler to the chain
     # This will train the scaler to standardize the data
-    # X will be updated in-place with the post-processed dataset
     # - input is same as output, so chain.z does not change
 
     n_features = size(X, 1)
@@ -219,7 +277,6 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     b = -μ./σ
 
     dp = DataScaler(chain.z, w, b)
-    _update_X_in_place!(X, dp)
     push!(chain.processors, dp)
     chain
 end
@@ -239,7 +296,6 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     end
 
     dp = DataClamper(chain.z, lo, hi)
-    _update_X_in_place!(X, dp)
     push!(chain.processors, dp)
     chain
 end
