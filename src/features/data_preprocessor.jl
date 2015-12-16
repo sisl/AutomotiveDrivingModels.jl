@@ -127,7 +127,7 @@ function process!(dp::DataNaReplacer)
     for (i,f) in enumerate(dp.indicators)
         val = x[i]
         if isnan(val) || isinf(val)
-            val = replace_na(f)::Float64
+            val = FeaturesNew.replace_na(f)::Float64
         end
         x[i] = val
     end
@@ -217,9 +217,16 @@ function process!(X::Matrix{Float64}, dp::DataPreprocessor)
     @assert(!isdefined(dp, :z))
 
     for i in 1 : size(X, 2)
-        copy!(x, X[:,i])
+
+        for j in 1 : size(X, 1)
+            x[j] = X[j,i]
+        end
+
         process!(dp)
-        copy!(X[:,i], x)
+
+        for j in 1 : size(X, 1)
+            X[j,i] = x[j]
+        end
     end
     X
 end
@@ -232,9 +239,16 @@ function process!(Z::Matrix{Float64}, X::Matrix{Float64}, dp::DataPreprocessor)
     @assert(size(x,2) == size(z,2)) # same number of samples
 
     for i in 1 : size(X, 2)
-        copy!(x, X[:,i])
+
+        for j in 1 : size(X, 1)
+            x[j] = X[j,i]
+        end
+
         process!(dp)
-        copy!(Z[:,i], z)
+
+        for j in 1 : size(Z, 1)
+            Z[j,i] = z[j]
+        end
     end
     Z
 end
@@ -332,13 +346,20 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     n_features = size(X, 1)
     @assert(n_components ≤ n_features)
 
-    z = Array(Float64, n_components)
+    @assert(all(X != NaN))
+    @assert(all(X != Inf))
+
+    println("svd, ", size(X))
+    tic()
 
     U, S, V = svd(X)
+    toc()
 
     A = U[1:n_components,:]
     b = zeros(Float64, n_components)
 
+
+    z = Array(Float64, n_components)
     push!(chain.processors, DataLinearTransform(chain.z, z, A, b))
     chain.z = z
     chain

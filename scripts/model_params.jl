@@ -9,13 +9,16 @@ INDICATOR_SET2 = [
                 ]
 
 behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
+
+behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
+# behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(DF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
+
 # behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
 #                                             LG_TrainParams(indicators=INDICATOR_SET2),
 #                                             [
 #                                                 BehaviorParameter(:ridge_regression_constant, collect(linspace(0.0,1.0,5)), 5)
 #                                             ])
-grf_params = GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3)
-behaviorset["Random Forest"] = BehaviorTrainDefinition(grf_params)
+
 # behaviorset["Random Forest"] = BehaviorTrainDefinition(
 #                                             GRF_TrainParams(indicators=INDICATOR_SET),
 #                                             [

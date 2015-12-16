@@ -546,7 +546,7 @@ function load_trajdata(csvfile::AbstractString)
     rename_scheme = ((:entry, :frame), (:timings, :time), (:control_node_status, :control_status), (:global_position_x, :posGx),
         (:global_position_y, :posGy), (:global_position_z, :posGz), (:global_rotation_w, :quatw), (:global_rotation_x, :quatx),
         (:global_rotation_y, :quaty), (:global_rotation_z, :quatz), (:odom_velocity_x, :velEx), (:odom_velocity_y, :velEy),
-        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz), (:heading, :yawG))
+        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz)) # , (:heading, :yawG)
     for (source, target) in rename_scheme
         if in(source, colnames)
             rename!(df, source, target)
@@ -568,6 +568,7 @@ function load_trajdata(csvfile::AbstractString)
 
     # replace quatx, quaty, quatz with rollG, pitchG, yawG
     # ----------------------------------------
+    colnames = names(df)
     if in(:quatw, colnames) && in(:quatx, colnames) && in(:quaty, colnames) && in(:quatz, colnames)
         rpy = zeros(size(df,1), 3)
         for i = 1 : size(df,1)
@@ -2051,6 +2052,14 @@ function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::I
     θ₂ = get(runlog, colset₂, frame2, :inertial).θ
     @assert(!isnan(θ₁))
     @assert(!isnan(θ₂))
+
+    # correct for wrap-around
+    if θ₂ - θ₁ > π
+        θ₂ -= 2π
+    elseif θ₂ - θ₁ < π
+        θ₁ -= 2π
+    end
+
     (θ₂ - θ₁)/RunLogs.get_elapsed_time(runlog, frame1, frame2)
 end
 
