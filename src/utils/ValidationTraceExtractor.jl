@@ -1190,7 +1190,7 @@ function calc_fold_inds!{I<:Integer}(fold_inds::Vector{Int}, fold::Integer, fold
     fold_inds
 end
 function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
-    (fold != 0) && # NOTE(tim): zero never matches
+    (fold != 0) && (fold_assignment != 0) && # NOTE(tim): zero never matches
         ((match_fold && fold_assignment == fold) || (!match_fold && fold_assignment != fold))
 end
 

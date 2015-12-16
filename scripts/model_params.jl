@@ -14,6 +14,8 @@ behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 #                                             [
 #                                                 BehaviorParameter(:ridge_regression_constant, collect(linspace(0.0,1.0,5)), 5)
 #                                             ])
+grf_params = GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3)
+behaviorset["Random Forest"] = BehaviorTrainDefinition(grf_params)
 # behaviorset["Random Forest"] = BehaviorTrainDefinition(
 #                                             GRF_TrainParams(indicators=INDICATOR_SET),
 #                                             [
@@ -37,20 +39,20 @@ behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 #                                                 BehaviorParameter(:n_split_tries, [2,3,4,5,10,20], 5),
 #                                             ])
 
-behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
-                                            BN_TrainParams(
-                                                starting_structure=ParentFeatures(FeaturesNew.AbstractFeature[], FeaturesNew.AbstractFeature[]),
-                                                forced=ParentFeatures(FeaturesNew.AbstractFeature[], FeaturesNew.AbstractFeature[]),
-                                                indicators=INDICATOR_SET2,
-                                                preoptimize_target_bins=true,
-                                                preoptimize_indicator_bins=true,
-                                                optimize_structure=true,
-                                                optimize_target_bins=false,
-                                                optimize_parent_bins=false,
-                                                ncandidate_bins=25,
-                                                max_parents=5,
-                                                dirichlet_prior=UniformPrior(),
-                                            ))
+# behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
+#                                             BN_TrainParams(
+#                                                 starting_structure=ParentFeatures(FeaturesNew.AbstractFeature[], FeaturesNew.AbstractFeature[]),
+#                                                 forced=ParentFeatures(FeaturesNew.AbstractFeature[], FeaturesNew.AbstractFeature[]),
+#                                                 indicators=INDICATOR_SET2,
+#                                                 preoptimize_target_bins=true,
+#                                                 preoptimize_indicator_bins=true,
+#                                                 optimize_structure=true,
+#                                                 optimize_target_bins=false,
+#                                                 optimize_parent_bins=false,
+#                                                 ncandidate_bins=25,
+#                                                 max_parents=5,
+#                                                 dirichlet_prior=UniformPrior(),
+#                                             ))
 
 # behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
 #                                             BN_TrainParams(

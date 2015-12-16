@@ -546,7 +546,7 @@ function load_trajdata(csvfile::AbstractString)
     rename_scheme = ((:entry, :frame), (:timings, :time), (:control_node_status, :control_status), (:global_position_x, :posGx),
         (:global_position_y, :posGy), (:global_position_z, :posGz), (:global_rotation_w, :quatw), (:global_rotation_x, :quatx),
         (:global_rotation_y, :quaty), (:global_rotation_z, :quatz), (:odom_velocity_x, :velEx), (:odom_velocity_y, :velEy),
-        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz))
+        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz), (:heading, :yawG))
     for (source, target) in rename_scheme
         if in(source, colnames)
             rename!(df, source, target)
@@ -568,18 +568,20 @@ function load_trajdata(csvfile::AbstractString)
 
     # replace quatx, quaty, quatz with rollG, pitchG, yawG
     # ----------------------------------------
-    rpy = zeros(size(df,1), 3)
-    for i = 1 : size(df,1)
-        quat = [df[:quatw][i], df[:quatx][i], df[:quaty][i], df[:quatz][i]]
-        rpy[i,:] = [quat2euler(quat)...]
+    if in(:quatw, colnames) && in(:quatx, colnames) && in(:quaty, colnames) && in(:quatz, colnames)
+        rpy = zeros(size(df,1), 3)
+        for i = 1 : size(df,1)
+            quat = [df[:quatw][i], df[:quatx][i], df[:quaty][i], df[:quatz][i]]
+            rpy[i,:] = [quat2euler(quat)...]
+        end
+        df[:quatx] = rpy[:,1]
+        df[:quaty] = rpy[:,2]
+        df[:quatz] = rpy[:,3]
+        rename!(df, :quatx, :rollG)
+        rename!(df, :quaty, :pitchG)
+        rename!(df, :quatz, :yawG)
+        delete!(df, :quatw)
     end
-    df[:quatx] = rpy[:,1]
-    df[:quaty] = rpy[:,2]
-    df[:quatz] = rpy[:,3]
-    rename!(df, :quatx, :rollG)
-    rename!(df, :quaty, :pitchG)
-    rename!(df, :quatz, :yawG)
-    delete!(df, :quatw)
 
     # add a column for every id seen
     # for each frame, list the car index it corresponds to or 0 if it is not in the frame

@@ -46,10 +46,11 @@ preallocate_learning_data(dset::ModelTrainingData, params::AbstractVehicleBehavi
 
 ###############################################################
 
-type ModelTargets
-    lat :: AbstractFeature
-    lon :: AbstractFeature
+type ModelTargets{F<:Union{AbstractFeature, FeaturesNew.AbstractFeature}}
+    lat::F
+    lon::F
 end
+Base.eltype{F}(modeltarget::ModelTargets{F}) = F
 
 function calc_action_loglikelihood(
     basics::FeatureExtractBasicsPdSet,

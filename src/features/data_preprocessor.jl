@@ -1,4 +1,5 @@
 using DataFrames
+using StreamStats
 
 export
     FeatureSubsetExtractor,
@@ -83,7 +84,7 @@ type ChainedDataProcessor <: DataPreprocessor
 end
 
 function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
-    
+
     #=
     Make a copy of the chain, given a newly created extractor_new.
     This will ensure that the io arrays are properly linked in memory and that the
@@ -93,7 +94,7 @@ function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubset
     x = extractor_new.x
 
     retval = ChainedDataProcessor(extractor_new)
-    for dp in processor.processors
+    for dp in chain.processors
         if isa(dp, DataNaReplacer)
             push!(retval.processors, DataNaReplacer(x, deepcopy(dp.indicators)))
         elseif isa(dp, DataScaler)
@@ -201,7 +202,7 @@ function process!(dp::ChainedDataProcessor)
     NOTE: this requires that dp.x already is filled with input
     =#
 
-    for (processor) in enumerate(dp.processors)
+    for processor in dp.processors
         process!(processor)
     end
 
@@ -214,7 +215,7 @@ function process!(X::Matrix{Float64}, dp::DataPreprocessor)
 
     x = dp.x
     @assert(!isdefined(dp, :z))
-        
+
     for i in 1 : size(X, 2)
         copy!(x, X[:,i])
         process!(dp)
@@ -229,7 +230,7 @@ function process!(Z::Matrix{Float64}, X::Matrix{Float64}, dp::DataPreprocessor)
     # Processes X → Z
 
     @assert(size(x,2) == size(z,2)) # same number of samples
-        
+
     for i in 1 : size(X, 2)
         copy!(x, X[:,i])
         process!(dp)
@@ -272,8 +273,25 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     # - input is same as output, so chain.z does not change
 
     n_features = size(X, 1)
-    μ = vec(mean(X, 2))
-    σ = vec(std(X, 2))
+    n_frames = size(X, 2)
+
+    μ = Array(Float64, n_features)
+    σ = Array(Float64, n_features)
+
+    for i in 1 : n_features
+
+        streamstats = StreamStats.Var()
+
+        for j in 1 : n_frames
+            v = X[i,j]
+            if !isinf(v)
+                update!(streamstats, v)
+            end
+        end
+
+        μ[i] = mean(streamstats)
+        σ[i] = sqrt(streamstats.v_hat)
+    end
 
     # z = (x - μ)/σ
     #   = x/σ - μ/σ

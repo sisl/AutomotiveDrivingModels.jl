@@ -242,12 +242,56 @@ end
 
 ####################################################
 
-function pull_design_and_target_matrices!(
+function pull_design_and_target_matrices!{F}(
     X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
     Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
     trainingframes::DataFrame,
-    targets::ModelTargets,
-    indicators::Vector{AbstractFeature},
+    targets::ModelTargets{F},
+    indicators::Vector{F},
+    )
+
+    #=
+    Pulls the data for X and Y, taking all of the data
+
+    RETURN: nothing
+    =#
+
+    sym_lat = symbol(targets.lat)
+    sym_lon = symbol(targets.lon)
+
+    n = nrow(trainingframes)
+
+    @assert(size(X,1) == length(indicators))
+    @assert(size(X,2) == n)
+    @assert(size(Y,1) == 2)
+    @assert(size(Y,2) == n)
+
+    for row in 1 : n
+
+        action_lat = trainingframes[row, sym_lat]
+        action_lon = trainingframes[row, sym_lon]
+
+        @assert(!isinf(action_lat))
+        @assert(!isinf(action_lon))
+
+        Y[1, row] = action_lat
+        Y[2, row] = action_lon
+
+        for (j,feature) in enumerate(indicators)
+            v = trainingframes[row, symbol(feature)]
+            @assert(!isnan(v))
+            X[j, row] = v
+        end
+    end
+
+    nothing
+end
+function pull_design_and_target_matrices!{F}(
+    X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
+    Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
+    trainingframes::DataFrame,
+    targets::ModelTargets{F},
+    indicators::Vector{F},
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool;
@@ -256,7 +300,7 @@ function pull_design_and_target_matrices!(
     #=
     Pulls the data for X and Y, filling the first m frames that match the fold
     The remaining allocated frames are zeroed
-    Returns the number of frames that match the fold, m
+    RETURN: the number of frames that match the fold [::Int]
     =#
 
     sym_lat = symbol(targets.lat)
@@ -271,7 +315,7 @@ function pull_design_and_target_matrices!(
     @assert(size(Y,2) == n)
 
     m = 0
-    for row = 1 : n
+    for row in 1 : n
         if is_in_fold(fold, fold_assignment.frame_assignment[row], match_fold)
 
             m += 1
@@ -293,68 +337,7 @@ function pull_design_and_target_matrices!(
     end
 
     # zero out the rest
-    for row = m+1 : n
-        Y[1,row] = 0.0
-        Y[2,row] = 0.0
-        for j in 1 : size(X, 1)
-            X[j,row] = 0.0
-        end
-    end
-
-    return m
-end
-function pull_design_and_target_matrices!(
-    X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
-    Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
-    trainingframes::DataFrame,
-    targets::ModelTargets,
-    indicators::Vector{FeaturesNew.AbstractFeature},
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool;
-    )
-
-    #=
-    Pulls the data for X and Y, filling the first m frames that match the fold
-    The remaining allocated frames are zeroed
-    Returns the number of frames that match the fold, m
-    =#
-
-    sym_lat = symbol(FeaturesNew.FUTUREDESIREDANGLE)
-    sym_lon = symbol(FeaturesNew.FUTUREACCELERATION)
-
-    n = size(trainingframes, 1)
-
-    @assert(length(fold_assignment.frame_assignment) == n)
-    @assert(size(X,1) == length(indicators))
-    @assert(size(X,2) == n)
-    @assert(size(Y,1) == 2)
-    @assert(size(Y,2) == n)
-
-    m = 0
-    for row = 1 : n
-        if is_in_fold(fold, fold_assignment.frame_assignment[row], match_fold)
-
-            m += 1
-            action_lat = trainingframes[row, sym_lat]
-            action_lon = trainingframes[row, sym_lon]
-
-            Y[1, m] = action_lat
-            Y[2, m] = action_lon
-
-            @assert(!isinf(action_lat))
-            @assert(!isinf(action_lon))
-
-            for (j,feature) in enumerate(indicators)
-                v = trainingframes[row, FeaturesNew.symbol(feature)]
-                @assert(!isnan(v))
-                X[j, m] = v
-            end
-        end
-    end
-
-    # zero out the rest
-    for row = m+1 : n
+    for row in m+1 : n
         Y[1,row] = 0.0
         Y[2,row] = 0.0
         for j in 1 : size(X, 1)
