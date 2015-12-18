@@ -18,6 +18,9 @@ export
 type FeatureSubsetExtractor
     x::Vector{Float64} # output
     indicators::Vector{AbstractFeature}
+
+    FeatureSubsetExtractor(x::Vector{Float64}, indicators::Vector{AbstractFeature}) = new(x, indicators)
+    FeatureSubsetExtractor(indicators::Vector{AbstractFeature}) = new(Array(Float64, length(indicators)), indicators)
 end
 
 function observe!(extractor::FeatureSubsetExtractor, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
@@ -70,30 +73,21 @@ type ChainedDataProcessor <: DataPreprocessor
     z::Vector{Float64} # output of last processor
     processors::Vector{DataPreprocessor}
 
+    function ChainedDataProcessor(n::Integer)
+        x = Array(Float64, n)
+        n_features = length(x)
+        new(x, x, DataPreprocessor[])
+    end
     function ChainedDataProcessor(extractor::FeatureSubsetExtractor)
         x = extractor.x
         n_features = length(x)
         new(x, x, DataPreprocessor[])
     end
-    function ChainedDataProcessor(indicators::Vector{AbstractFeature})
-        # TODO(tim): remove this function once RunLogs are completely integrated
-        x = Array(Float64, length(indicators))
-        n_features = length(x)
-        new(x, x, DataPreprocessor[])
-    end
 end
 
-function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
+function _deepcopy(chain::ChainedDataProcessor, x::Vector{Float64})
 
-    #=
-    Make a copy of the chain, given a newly created extractor_new.
-    This will ensure that the io arrays are properly linked in memory and that the
-    new one is not linked to the original.
-    =#
-
-    x = extractor_new.x
-
-    retval = ChainedDataProcessor(extractor_new)
+    retval = ChainedDataProcessor(length(x))
     for dp in chain.processors
         if isa(dp, DataNaReplacer)
             push!(retval.processors, DataNaReplacer(x, deepcopy(dp.indicators)))
@@ -114,6 +108,26 @@ function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubset
     retval.z = x
 
     retval
+end
+function Base.deepcopy(chain::ChainedDataProcessor)
+
+    #=
+    Make a copy of the chain, given a newly created extractor_new.
+    This will ensure that the io arrays are properly linked in memory and that the
+    new one is not linked to the original.
+    =#
+
+    _deepcopy(chain, Array(Float64, length(chain.x)))
+end
+function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
+
+    #=
+    Make a copy of the chain, given a newly created extractor_new.
+    This will ensure that the io arrays are properly linked in memory and that the
+    new one is not linked to the original.
+    =#
+
+    _deepcopy(chain, extractor_new.x)
 end
 
 function process!(dp::DataNaReplacer)
@@ -364,12 +378,12 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     chain.z = z
     chain
 end
-function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataSubset}, indeces::Vector{Int})
+function Base.push!(chain::ChainedDataProcessor, ::Type{DataSubset}, indeces::Vector{Int})
     # add a PCA transform to the chain
     # - has a new output, so reset the chain
 
     z = Array(Float64, length(indeces))
-    push!(chain.processors, DataLinearTransform(chain.z, z, indeces))
+    push!(chain.processors, DataSubset(chain.z, z, indeces))
     chain.z = z
     chain
 end

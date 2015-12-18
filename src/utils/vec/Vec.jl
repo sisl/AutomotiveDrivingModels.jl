@@ -49,5 +49,7 @@ function Base.isapprox(x::VecE, y::VecE;
 end
 
 include("geomE2.jl")
+include("coordinate_transforms.jl")
+include("quat.jl")
 
 end # module

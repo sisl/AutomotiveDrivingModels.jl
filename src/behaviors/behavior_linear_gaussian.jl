@@ -39,7 +39,7 @@ type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
     ridge_regression_constant::Float64
 
     function LG_TrainParams(;
-        targets::ModelTargets = ModelTargets(FUTUREDESIREDANGLE_250MS, FUTUREACCELERATION_250MS),
+        targets::ModelTargets = ModelTargets{AbstractFeature}(FUTUREDESIREDANGLE_250MS, FUTUREACCELERATION_250MS),
         indicators = [
                     POSFY, YAW, SPEED, DELTA_SPEED_LIMIT, VELFX, VELFY, SCENEVELFX, TURNRATE,
                     D_CL, D_ML, D_MR, TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT,
@@ -52,6 +52,12 @@ type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
         )
 
         @assert(0.0 ≤ ridge_regression_constant ≤ 1.0)
+
+        if eltype(indicators) <: FeaturesNew.AbstractFeature
+            targets = ModelTargets{FeaturesNew.AbstractFeature}(
+                            FeaturesNew.FUTUREDESIREDANGLE,
+                            FeaturesNew.FUTUREACCELERATION)
+        end
 
         new(targets, indicators, ridge_regression_constant)
     end

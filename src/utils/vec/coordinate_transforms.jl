@@ -8,88 +8,10 @@ export
     check_is_in_radians,
     ensure_lon_between_pies,
     deg_rad_min_to_degrees,
+    get_Earth_radius,
 
     GeodeticDatum,
     eccentricity
-
-
-abstract AbstractCoordinate
-
-"""
-The latitude, longitude, altitude coordinate system
-"""
-type LatLonAlt <: AbstractCoordinate
-    lat::Float64 # [rad] ϕ, angle between the equatorial plane and the straight line that passes through the point and through the center of the Earth
-    lon::Float64 # [rad] λ, angle (typically east) from a reference meridian to another meridian that passes through that point
-    alt::Float64 # [m] above reference ellipsoid
-end
-function check_is_in_radians(lla::LatLonAlt)
-    if abs(lla.lat) > π/2 || abs(lla.lon) > π
-        warn("lat and lon may not be in radians!")
-    end
-    nothing
-end
-function ensure_lon_between_pies(lla::LatLonAlt)
-    lon = lla.lon
-
-    while lon ≤ -π
-        lon += 2π
-    end
-    while lon ≥ π
-        lon -= 2π
-    end
-
-    LatLonAlt(lla.lat, lon, lla.alt)
-end
-deg_min_sec_to_degrees(deg::Real, min::Real, sec::Real) = convert(Float64, deg + min/60.0 + sec/3600.0)
-function degrees_to_deg_min_sec(degrees::Real)
-    degrees = convert(Float64, degrees)
-    deg, remainder = divrem(degrees, 1.0)
-    min, remainder = divrem(remainder*60.0, 1.0)
-    sec = remainder * 60.0
-    (convert(Int, deg), convert(Int, min), sec)
-end
-
-Base.convert(::Type{VecE3}, lla::LatLonAlt) = VecE3(lla.lat, lla.lon, lla.alt)
-Base.convert(::Type{LatLonAlt}, p::VecE3) = LatLonAlt(p.x, p.y, p.z)
-
-"""
-The Earth-centered, Earth-fixed coordinate system
-"""
-type ECEF <: AbstractCoordinate
-    x::Float64 # [m]
-    y::Float64 # [m]
-    z::Float64 # [m]
-end
-Base.convert(::Type{VecE3}, p::ECEF) = VecE3(p.x, p.y, p.z)
-Base.convert(::Type{ECEF}, p::VecE3) = ECEF(p.x, p.y, p.z)
-
-"""
-Universal Transverse Mercator coordinate system
-"""
-
-const UTM_LATITUDE_LIMIT_NORTH = deg2rad(84)
-const UTM_LATITUDE_LIMIT_SOUTH = deg2rad(-80)
-
-type UTM <: AbstractCoordinate
-    e::Float64 # [m]
-    n::Float64 # [m]
-    u::Float64 # [m] above reference ellipsoid
-    zone::Int # UTM zone (∈ 1:60)
-end
-Base.convert(::Type{VecE3}, p::UTM) = VecE3(p.e, p.n, p.u)
-
-"""
-East North Up coordinate system
-relative to some point on the surface of the earth
-"""
-type ENU <: AbstractCoordinate
-    e::Float64 # [m]
-    n::Float64 # [m]
-    u::Float64 # [m] above reference location
-end
-Base.convert(::Type{VecE3}, p::ENU) = VecE3(p.e, p.n, p.u)
-Base.convert(::Type{ENU}, p::VecE3) = ENU(p.x, p.y, p.z)
 
 ###################
 
@@ -134,6 +56,118 @@ end
 const WGS_84        = GeodeticDatum(6378137.0, 6356752.314245)
 const INTERNATIONAL = GeodeticDatum(6378388.0, 6356911.94613)
 
+############################################################################
+#
+#
+#
+#
+############################################################################
+
+abstract AbstractCoordinate
+
+"""
+The latitude, longitude, altitude coordinate system
+"""
+type LatLonAlt <: AbstractCoordinate
+    lat::Float64 # [rad] ϕ, angle between the equatorial plane and the straight line that passes through the point and through the center of the Earth
+    lon::Float64 # [rad] λ, angle (typically east) from a reference meridian to another meridian that passes through that point
+    alt::Float64 # [m] above reference ellipsoid
+end
+
+Base.print(io::IO, lla::LatLonAlt) = @printf("%6.2f %7.2f %10.2f", rad2deg(lla.lat), rad2deg(lla.lon), lla.alt)
+
+function check_is_in_radians(lla::LatLonAlt)
+    if abs(lla.lat) > π/2 || abs(lla.lon) > π
+        warn("lat and lon may not be in radians!")
+    end
+    nothing
+end
+function ensure_lon_between_pies(lla::LatLonAlt)
+
+    # lan ∈ [-π/2, π/2]
+    # lon ∈ [-π, π]
+
+    lon = lla.lon
+
+    while lon ≤ -π
+        lon += 2π
+    end
+    while lon ≥ π
+        lon -= 2π
+    end
+
+    LatLonAlt(lla.lat, lon, lla.alt)
+end
+deg_min_sec_to_degrees(deg::Real, min::Real, sec::Real) = convert(Float64, deg + min/60.0 + sec/3600.0)
+function degrees_to_deg_min_sec(degrees::Real)
+    degrees = convert(Float64, degrees)
+    deg, remainder = divrem(degrees, 1.0)
+    min, remainder = divrem(remainder*60.0, 1.0)
+    sec = remainder * 60.0
+    (convert(Int, deg), convert(Int, min), sec)
+end
+function get_Earth_radius(lat::Float64, lon::Float64, datum::GeodeticDatum=WGS_84)
+
+    a = datum.a
+    e = eccentricity(datum)
+    e² = e*e
+
+    slat = sin(lat)
+
+    a / sqrt(1.0 - e²*slat*slat)
+end
+
+Base.convert(::Type{VecE3}, lla::LatLonAlt) = VecE3(lla.lat, lla.lon, lla.alt)
+Base.convert(::Type{LatLonAlt}, p::VecE3) = LatLonAlt(p.x, p.y, p.z)
+
+"""
+The Earth-centered, Earth-fixed coordinate system
+"""
+type ECEF <: AbstractCoordinate
+    x::Float64 # [m]
+    y::Float64 # [m]
+    z::Float64 # [m]
+end
+Base.convert(::Type{VecE3}, p::ECEF) = VecE3(p.x, p.y, p.z)
+Base.convert(::Type{ECEF}, p::VecE3) = ECEF(p.x, p.y, p.z)
+
+"""
+Universal Transverse Mercator coordinate system
+"""
+
+const UTM_LATITUDE_LIMIT_NORTH = deg2rad(84)
+const UTM_LATITUDE_LIMIT_SOUTH = deg2rad(-80)
+
+type UTM <: AbstractCoordinate
+    e::Float64 # [m]
+    n::Float64 # [m]
+    u::Float64 # [m] above reference ellipsoid
+    zone::Int # UTM zone (∈ 1:60)
+end
+Base.convert(::Type{VecE3}, p::UTM) = VecE3(p.e, p.n, p.u)
+function Base.(:(+))(a::UTM, b::UTM)
+    @assert(a.zone == b.zone)
+    UTM(a.e+b.e, a.n+b.n, a.u+b.u, a.zone)
+end
+function Base.(:(-))(a::UTM, b::UTM)
+    @assert(a.zone == b.zone)
+    UTM(a.e-b.e, a.n-b.n, a.u-b.u, a.zone)
+end
+
+"""
+East North Up coordinate system
+relative to some point on the surface of the earth
+"""
+type ENU <: AbstractCoordinate
+    e::Float64 # [m]
+    n::Float64 # [m]
+    u::Float64 # [m] above reference location
+end
+Base.convert(::Type{VecE3}, p::ENU) = VecE3(p.e, p.n, p.u)
+Base.convert(::Type{ENU}, p::VecE3) = ENU(p.x, p.y, p.z)
+Base.(:(+))(a::ENU, b::ENU) = ENU(a.e+b.e, a.n+b.n, a.u+b.u)
+Base.(:(-))(a::ENU, b::ENU) = ENU(a.e-b.e, a.n-b.n, a.u-b.u)
+
 ###################
 
 function Base.convert(::Type{ECEF}, lla::LatLonAlt, datum::GeodeticDatum=WGS_84)
@@ -142,6 +176,7 @@ function Base.convert(::Type{ECEF}, lla::LatLonAlt, datum::GeodeticDatum=WGS_84)
     lon = lla.lon
     alt = lla.alt
 
+    a = datum.a
     e = eccentricity(datum)
     e² = e*e
 
@@ -160,67 +195,42 @@ function Base.convert(::Type{ECEF}, lla::LatLonAlt, datum::GeodeticDatum=WGS_84)
 end
 function Base.convert(::Type{LatLonAlt}, ecef::ECEF, datum::GeodeticDatum=WGS_84)
 
-    # http://danceswithcode.net/engineeringnotes/geodetic_to_ecef/geodetic_to_ecef.html
+    # https://microem.ru/files/2012/08/GPS.G1-X-00006.pdf
 
     #=
     Convert Earth-Centered-Earth-Fixed (ECEF) to lat, Lon, Altitude
     Input is x, y, z in meters
     Returns lat and lon in radians, and altitude in meters
+
+    correction for altitude near poles left out.
     =#
 
     a = datum.a
     b = datum.b
     e = eccentricity(datum)
-    e2 = e*e
-    a1 = a*e2
-    a2 = a1*a1
-    a3 = a1*e2/2
-    a4 = 2.5*a2
-    a5 = a1+a3
-    a6 = 1.0-e2
+    e² = e*e
 
     x = ecef.x
     y = ecef.y
     z = ecef.z
 
-    geo = LatLonAlt(NaN,NaN,NaN)
+    λ = atan2(y, x)
+    p = sqrt(x*x + y*y)
+    θ = atan(z*a / (p*b))
 
-    zp = abs(z)
-    w2 = x*x + y*y
-    w = sqrt(w2)
-    r2 = w2 + z*z
-    r = sqrt(r2)
-    geo.lon = atan2(y, x)     # Lon (final)
-    s2 = z*z/r2
-    c2 = w2/r2
-    u = a2/r
-    v = a3 - a4/r
-    if c2 > 0.3
-        s = ( zp/r )*( 1.0 + c2*( a1 + u + s2*v )/r )
-        geo.lat = asin( s )      # Lat
-        ss = s*s
-        c = sqrt( 1.0 - ss )
-    else
-        c = ( w/r )*( 1.0 - s2*( a5 - u - c2*v )/r );
-        geo.lat = acos( c )      # Lat
-        ss = 1.0 - c*c
-        s = sqrt( ss )
-    end
-    g = 1.0 - e2*ss;
-    rg = a/sqrt( g );
-    rf = a6*rg;
-    u = w - rg*c;
-    v = zp - rf*s;
-    f = c*u + s*v;
-    m = c*v - s*u;
-    p = m/( rf/g + f );
-    geo.lat = geo.lat + p     # Lat
-    geo.alt = f + m*p/2.0     # Altitude
-    if z < 0.0
-        geo.lat *= -1.0     # Lat
+    h = 0.0
+    ϕ = atan(z/(p*(1.0-e²)))
+
+    Δh = Inf
+    while Δh > 1e-4
+        N = a / sqrt(1-e²*sin(ϕ)^2)
+        h₂ = p/cos(ϕ) - N
+        ϕ = atan(z/(p*(1-e²*N/(N + h₂))))
+        Δh = abs(h - h₂)
+        h = h₂
     end
 
-    geo
+    ensure_lon_between_pies(LatLonAlt(ϕ, λ, h))
 end
 
 function Base.convert(::Type{UTM}, lla::LatLonAlt, datum::GeodeticDatum=WGS_84, zone::Integer=-1)
@@ -383,7 +393,7 @@ function Base.convert(::Type{LatLonAlt}, utm::UTM, datum::GeodeticDatum=WGS_84)
     LatLonAlt(ϕ, λ, alt)
 end
 
-function Base.convert(::Type{ECEF}, neu::ENU, reference::LatLonAlt)
+function Base.convert(::Type{ECEF}, enu::ENU, reference::LatLonAlt)
 
     # http://www.navipedia.net/index.php/Transformations_between_ECEF_and_ENU_coordinates
 
@@ -397,10 +407,12 @@ function Base.convert(::Type{ECEF}, neu::ENU, reference::LatLonAlt)
           cλ  -sλ*sϕ  sλ*cϕ;
          0.0      cϕ     sϕ]
 
-    p = [neu.x, neu.y, neu.z]
+    p = [enu.e, enu.n, enu.u]
     ecef = R*p
 
-    ECEF(ecef[1], ecef[2], ecef[3])
+    ref_ecef = convert(ECEF, reference)
+
+    ECEF(ecef[1] + ref_ecef.x, ecef[2] + ref_ecef.y, ecef[3] +  ref_ecef.z)
 end
 function Base.convert(::Type{ENU}, ecef::ECEF, reference::LatLonAlt)
 

@@ -22,6 +22,7 @@ function Base.convert{R<:Real}(::Type{VecSE2}, a::AbstractArray{R})
     @assert(length(a) == 3)
     VecSE2(a[1], a[2], a[3])
 end
+Base.show(io::IO, a::VecSE2) = @printf(io, "VecSE2({%.3f, %.3f}, %.3f)", a.x, a.y, a.θ)
 
 # function Base.isapprox(x::VecE, y::VecE;
 #     _absx::Float64 = abs(x),
@@ -30,7 +31,7 @@ end
 #     rtol::Real=cbrt(_maxeps),
 #     atol::Real=sqrt(_maxeps)
 #     )
-    
+
 #     dist2(x, y) <= atol + rtol*max(_absx, _absy)
 # end
 

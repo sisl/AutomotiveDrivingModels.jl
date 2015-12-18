@@ -10,17 +10,17 @@ INDICATOR_SET2 = [
 
 behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 
-behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
+# behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
 # behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(DF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
+behaviorset["Mixture Regression"] = BehaviorTrainDefinition(GMR_TrainParams(indicators=INDICATOR_SET2, n_components=3, max_n_indicators=2, n_PCA_features=5))
 
 # behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
 #                                             LG_TrainParams(indicators=INDICATOR_SET2),
 #                                             [
 #                                                 BehaviorParameter(:ridge_regression_constant, collect(linspace(0.0,1.0,5)), 5)
 #                                             ])
-
 # behaviorset["Random Forest"] = BehaviorTrainDefinition(
-#                                             GRF_TrainParams(indicators=INDICATOR_SET),
+#                                             GRF_TrainParams(indicators=INDICATOR_SET2),
 #                                             [
 #                                                 BehaviorParameter(:ntrees, 1:10:51, 3),
 #                                                 BehaviorParameter(:max_tree_depth, 1:6, 3),
@@ -29,9 +29,10 @@ behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicator
 #                                                 # BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
 #                                                 # BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
 #                                                 BehaviorParameter(:n_split_tries, [2,3,4,5,10,20], 5),
+#                                                 BehaviorParameter(:n_PCA_features, [5,10,20], 2),
 #                                             ])
 # behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(
-#                                             DF_TrainParams(indicators=INDICATOR_SET),
+#                                             DF_TrainParams(indicators=INDICATOR_SET2),
 #                                             [
 #                                                 BehaviorParameter(:ntrees, 1:10:51, 3),
 #                                                 BehaviorParameter(:max_tree_depth, 1:6, 3),
@@ -40,6 +41,7 @@ behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicator
 #                                                 # BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
 #                                                 # BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
 #                                                 BehaviorParameter(:n_split_tries, [2,3,4,5,10,20], 5),
+#                                                 BehaviorParameter(:n_PCA_features, [5,10,20], 2),
 #                                             ])
 
 # behaviorset["Bayesian Network"] = BehaviorTrainDefinition(

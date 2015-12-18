@@ -7,7 +7,9 @@ export
     # CrossValidationResults,
 
     optimize_hyperparams_cyclic_coordinate_ascent!,
-    pull_design_and_target_matrices!
+    pull_design_and_target_matrices!,
+    copy_matrix_fold!,
+    copy_matrix_fold
     # cross_validate
 
     # add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
@@ -346,6 +348,44 @@ function pull_design_and_target_matrices!{F}(
     end
 
     return m
+end
+
+function copy_matrix_fold!(
+    dest::Matrix{Float64}, # [nframes × p]
+    src::Matrix{Float64}, # [p × nframes]
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    match_fold::Bool,
+    )
+
+    i = 0
+    for (frame, fold_a) in enumerate(fold_assignment.frame_assignment)
+        if is_in_fold(fold, fold_a, match_fold)
+            i += 1
+
+            for j in 1 : size(src, 1)
+                dest[i,j] = src[j,frame]
+            end
+        end
+    end
+
+    @assert(i == size(dest, 1)) # must fill the entire matrix
+
+    dest
+end
+function copy_matrix_fold(
+    X::Matrix{Float64}, # [p × nframes]
+    fold::Int,
+    fold_assignment::FoldAssignment,
+    match_fold::Bool,
+    )
+
+    nframes = calc_fold_size(fold, fold_assignment.frame_assignment, match_fold)
+    X2 = Array(Float64, nframes, size(X, 1)) # NOTE: transposed from YX
+
+    copy_matrix_fold!(X2, X, fold, fold_assignment, match_fold)
+
+    X2 # [nframes × p]
 end
 
 # type CVFoldResults
