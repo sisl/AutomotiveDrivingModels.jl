@@ -217,7 +217,7 @@ function lla2xyz( lat::Real, lon::Real, alt::Real )
 	return Vec3E(x,y,z)
 end
 function ll2utm( lat::Real, lon::Real, zone::Integer=-1; map_datum::Symbol=:WGS_84)
-	# see DMATM 8358.2 by the Army
+	# see DMATM 8358.2 against the Army documentation
 	# code verified using their samples
 
 	if abs(lat) > pi/2 || abs(lon) > pi
