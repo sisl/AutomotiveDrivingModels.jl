@@ -16,7 +16,7 @@ import .RoadNetwork: LaneID, WaypointID
 export TILE_WIDTH, TILE_HEIGHT, EASTING_BASE, NORTHING_BASE
 export DEFAULT_LANE_WIDTH
 export StreetNode, StreetLane, StreetSegment, NetworkTile, StreetNetwork
-export lla2xyz, ll2utm, utm2tileindex_east, utm2tileindex_north, utm2tileindex
+export utm2tileindex_east, utm2tileindex_north, utm2tileindex
 export tile_center_north, tile_center_east, tile_lowerbound_north, tile_lowerbound_east
 export tile_upperbound_north, tile_upperbound_east, tile_bounds, tile_center
 export get_tile, get_tile!, add_tile!, has_tile, same_tile
@@ -198,105 +198,6 @@ Base.isequal(A::LaneTag, B::LaneTag) = A.index_e == B.index_e &&
 same_tile(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && A.index_n == B.index_n
 
 # ===============================================================================
-
-# TODO(tim): move coordinate conversions to a utility file
-function lla2xyz( lat::Real, lon::Real, alt::Real )
-	# convert a point in geo (lat, lon, alt) to a point in ECEX (x,y,z)
-
-	# WGS84
-	const a = 6378137.0 # equatorial radius [m]
-	const b = 6356752.3142 # polar radius [m]
-	local const e = sqrt(1.0-(b/a)^2) # eccentricity
-
-	RN = a / (1 - e^2*sin(lat)^2)^0.5
-
-	x = (RN + alt)*cos(lat)*cos(lon)
-	y = (RN + alt)*cos(lat)*sin(lon)
-	z = (RN*(1-e^2)+alt)*sin(lat)
-
-	return Vec3E(x,y,z)
-end
-function ll2utm( lat::Real, lon::Real, zone::Integer=-1; map_datum::Symbol=:WGS_84)
-	# see DMATM 8358.2 against the Army documentation
-	# code verified using their samples
-
-	if abs(lat) > pi/2 || abs(lon) > pi
-		warn("ll2utm: lat and lon may not be in radians!")
-	end
-
-	# input latitude and longitude in radians
-	while lon ≤ -π
-		lon += 2π
-	end
-	while lon ≥ π
-		lon -= 2π
-	end
-
-	const LATITUDE_LIMIT_NORTH = deg2rad(84)
-	const LATITUDE_LIMIT_SOUTH = deg2rad(-80)
-	if lat > LATITUDE_LIMIT_NORTH || lat < LATITUDE_LIMIT_SOUTH
-		error("latitude $(rad2deg(lat)) is out of limits!")
-	end
-
-
-    if map_datum == :WGS_84
-        const a = 6378137.0 # equatorial radius [m]
-        const b = 6356752.314245 # polar radius [m]
-    elseif map_datum == :INTERNATIONAL
-        const a = 6378388.0
-        const b = 6356911.94613
-    else
-        # default to WGS 84
-        const a = 6378137.0
-        const b = 6356752.314245
-    end
-
-	const FN = 0.0      # false northing, zero in the northern hemisphere
-	const FE = 500000.0 # false easting
-
-	const ko = 0.9996   # central scale factor
-
-	zone_centers = -177.0*pi/180 + 6.0*pi/180*collect(0:59) # longitudes of the zone centers
-	if zone == -1
-		zone = indmin(map(x->abs(lon - x), zone_centers)) # index of min zone center
-	end
-	long0 = zone_centers[zone]
-
-	s  = sin(lat)
-	c  = cos(lat)
-	t  = tan(lat)
-
-	n  = (a-b)/(a+b)
-	e₁  = sqrt((a^2-b^2)/a^2) # first eccentricity
-	ep = sqrt((a^2-b^2)/b^2) # second eccentricity
-	nu = a/(1-e₁^2*s^2)^0.5   # radius of curvature in the prime vertical
-	dh = lon - long0         # longitudinal distance from central meridian
-
-	A  = a*(1 - n + 5.0/4*(n^2-n^3) + 81.0/64*(n^4-n^5))
-	B  = 3.0/2*a*(n-n^2 + 7.0/8*(n^3-n^4) + 55.0/64*n^5)
-	C  = 15.0/16*a*(n^2-n^3 + 3.0/4*(n^4-n^5))
-	D  = 35.0/48*a*(n^3-n^4 + 11.0/16.0*n^5)
-	E  = 315.0/512*a*(n^4-n^5)
-	S  = A*lat - B*sin(2*lat) + C*sin(4*lat) - D*sin(6*lat) + E*sin(8*lat)
-
-	T1 = S*ko
-	T2 = nu*s*c*ko/2
-	T3 = nu*s*c^3*ko/24  * (5  -    t^2 + 9*ep^2*c^2 + 4*ep^4*c^4)
-	T4 = nu*s*c^5*ko/720 * (61 - 58*t^2 + t^4 + 270*ep^2*c^2 - 330*(t*ep*c)^2
-		                       + 445*ep^4*c^4 + 324*ep^6*c^6 - 680*t^2*ep^4*c^4
-		                       + 88*ep^8*c^8  - 600*t^2*ep^6*c^6 - 192*t^2*ep^8*c^8)
-	T5 = nu*s*c^7*ko/40320 * (1385 - 3111*t^2 + 543*t^4 - t^6)
-	T6 = nu*c*ko
-	T7 = nu*c^3*ko/6   * (1 - t^2 + ep^2*c^2)
-	T8 = nu*c^5*ko/120 * (5 - 18*t^2 + t^4 + 14*ep^2*c^2 - 58*t^2*ep^2*c^2 + 13*ep^4*c^4
-		                    + 4*ep^6*c^6 - 64*t^2*ep^4*c^4 - 24*t^2*ep^6*c^6)
-	T9 = nu*c^7*ko/5040 * (61 - 479*t^2 + 179*t^4 - t^6)
-
-	E = FE + (dh*T6 + dh^3*T7 + dh^5*T8 + dh^7*T9)        # easting  [m]
-	N = FN + (T1 + dh^2*T2 + dh^4*T3 + dh^6*T4 + dh^8*T5) # northing [m]
-
-    return (E,N,zone)
-end
 
 # NOTE(tim): returns the smallest in magnitude signed angle a must be rotated by to get to b
 # TODO(tim): move to a utility file
@@ -1246,7 +1147,8 @@ function rndf2streetnetwork(
 			for (waypoint_index,lla) in lane.waypoints
 				lat, lon = lla.lat, lla.lon
 				if convert_ll2utm
-					eas, nor = ll2utm(deg2rad(lat), deg2rad(lon))
+					utm = convert(UTM, LatLonAlt(deg2rad(lat), deg2rad(lon), NaN))
+					eas, nor = utm.e, utm.n
 				else
 					eas, nor = lat, lon
 				end

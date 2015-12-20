@@ -926,6 +926,32 @@ function plot_scene(
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end
+function plot_scene(
+    trajdata::DataFrame,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer=CARID_EGO;
+
+    canvas_width::Integer=1100,
+    canvas_height::Integer=300,
+    rendermodel::RenderModel=RenderModel(),
+
+    camera_forward_offset::Float64=60.0, # [m]
+    camerazoom::Real=6.5, # [pix/m]
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render_streetnet_roads!(rendermodel, sn)
+    render_scene!(rendermodel, trajdata, frame)
+
+    camera_center_on_ego!(rendermodel, trajdata, frame, camerazoom)
+
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
+end
 
 function plot_scene_overlay_trajdata(
     runlog::RunLog,
@@ -1278,6 +1304,31 @@ function lerp_color_rgb(a::Colorant, b::Colorant, t::Real, alpha::Real)
     b = ba + (bb - ba)*t
 
     RGBA(r,g,b, alpha)
+end
+
+function plot_manipulable_trajdata{I<:Integer}(
+    trajdata::DataFrame,
+    sn::StreetNetwork,
+    active_carid::Integer=CARID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camera_forward_offset::Real=0.0,
+
+    frames::AbstractVector{I} = 1:nrow(trajdata),
+    )
+
+    @manipulate for frame in frames
+
+        plot_scene(trajdata, sn, frame, active_carid,
+                   canvas_width=canvas_width,
+                   canvas_height=canvas_height,
+                   rendermodel=rendermodel,
+                   camera_forward_offset=camera_forward_offset,
+                   camerazoom=camerazoom)
+    end
 end
 
 function plot_manipulable_runlog{I<:Integer}(

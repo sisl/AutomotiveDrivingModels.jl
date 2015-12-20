@@ -19,6 +19,7 @@ function Base.convert{R<:Real}(::Type{VecE3}, a::AbstractArray{R})
     @assert(length(a) == 3)
     VecE3(a[1], a[2], a[3])
 end
+Base.show(io::IO, a::VecE3) = @printf(io, "VecE3(%.3f, %.3f, %.3f)", a.x, a.y, a.z)
 
 Base.(:(+))(a::VecE3, b::Real) = VecE3(a.x+b, a.y+b, a.z+b)
 Base.(:(+))(a::VecE3, b::VecE3) = VecE3(a.x+b.x, a.y+b.y, a.z+b.z)

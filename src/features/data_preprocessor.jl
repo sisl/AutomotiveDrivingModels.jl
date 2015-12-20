@@ -1,4 +1,5 @@
 using DataFrames
+using StreamStats
 
 export
     FeatureSubsetExtractor,
@@ -17,6 +18,9 @@ export
 type FeatureSubsetExtractor
     x::Vector{Float64} # output
     indicators::Vector{AbstractFeature}
+
+    FeatureSubsetExtractor(x::Vector{Float64}, indicators::Vector{AbstractFeature}) = new(x, indicators)
+    FeatureSubsetExtractor(indicators::Vector{AbstractFeature}) = new(Array(Float64, length(indicators)), indicators)
 end
 
 function observe!(extractor::FeatureSubsetExtractor, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
@@ -69,31 +73,22 @@ type ChainedDataProcessor <: DataPreprocessor
     z::Vector{Float64} # output of last processor
     processors::Vector{DataPreprocessor}
 
+    function ChainedDataProcessor(n::Integer)
+        x = Array(Float64, n)
+        n_features = length(x)
+        new(x, x, DataPreprocessor[])
+    end
     function ChainedDataProcessor(extractor::FeatureSubsetExtractor)
         x = extractor.x
         n_features = length(x)
         new(x, x, DataPreprocessor[])
     end
-    function ChainedDataProcessor(indicators::Vector{AbstractFeature})
-        # TODO(tim): remove this function once RunLogs are completely integrated
-        x = Array(Float64, length(indicators))
-        n_features = length(x)
-        new(x, x, DataPreprocessor[])
-    end
 end
 
-function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
-    
-    #=
-    Make a copy of the chain, given a newly created extractor_new.
-    This will ensure that the io arrays are properly linked in memory and that the
-    new one is not linked to the original.
-    =#
+function _deepcopy(chain::ChainedDataProcessor, x::Vector{Float64})
 
-    x = extractor_new.x
-
-    retval = ChainedDataProcessor(extractor_new)
-    for dp in processor.processors
+    retval = ChainedDataProcessor(length(x))
+    for dp in chain.processors
         if isa(dp, DataNaReplacer)
             push!(retval.processors, DataNaReplacer(x, deepcopy(dp.indicators)))
         elseif isa(dp, DataScaler)
@@ -114,6 +109,26 @@ function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubset
 
     retval
 end
+function Base.deepcopy(chain::ChainedDataProcessor)
+
+    #=
+    Make a copy of the chain, given a newly created extractor_new.
+    This will ensure that the io arrays are properly linked in memory and that the
+    new one is not linked to the original.
+    =#
+
+    _deepcopy(chain, Array(Float64, length(chain.x)))
+end
+function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubsetExtractor)
+
+    #=
+    Make a copy of the chain, given a newly created extractor_new.
+    This will ensure that the io arrays are properly linked in memory and that the
+    new one is not linked to the original.
+    =#
+
+    _deepcopy(chain, extractor_new.x)
+end
 
 function process!(dp::DataNaReplacer)
 
@@ -126,7 +141,7 @@ function process!(dp::DataNaReplacer)
     for (i,f) in enumerate(dp.indicators)
         val = x[i]
         if isnan(val) || isinf(val)
-            val = replace_na(f)::Float64
+            val = FeaturesNew.replace_na(f)::Float64
         end
         x[i] = val
     end
@@ -201,7 +216,7 @@ function process!(dp::ChainedDataProcessor)
     NOTE: this requires that dp.x already is filled with input
     =#
 
-    for (processor) in enumerate(dp.processors)
+    for processor in dp.processors
         process!(processor)
     end
 
@@ -214,11 +229,18 @@ function process!(X::Matrix{Float64}, dp::DataPreprocessor)
 
     x = dp.x
     @assert(!isdefined(dp, :z))
-        
+
     for i in 1 : size(X, 2)
-        copy!(x, X[:,i])
+
+        for j in 1 : size(X, 1)
+            x[j] = X[j,i]
+        end
+
         process!(dp)
-        copy!(X[:,i], x)
+
+        for j in 1 : size(X, 1)
+            X[j,i] = x[j]
+        end
     end
     X
 end
@@ -229,11 +251,18 @@ function process!(Z::Matrix{Float64}, X::Matrix{Float64}, dp::DataPreprocessor)
     # Processes X → Z
 
     @assert(size(x,2) == size(z,2)) # same number of samples
-        
+
     for i in 1 : size(X, 2)
-        copy!(x, X[:,i])
+
+        for j in 1 : size(X, 1)
+            x[j] = X[j,i]
+        end
+
         process!(dp)
-        copy!(Z[:,i], z)
+
+        for j in 1 : size(Z, 1)
+            Z[j,i] = z[j]
+        end
     end
     Z
 end
@@ -272,8 +301,25 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     # - input is same as output, so chain.z does not change
 
     n_features = size(X, 1)
-    μ = vec(mean(X, 2))
-    σ = vec(std(X, 2))
+    n_frames = size(X, 2)
+
+    μ = Array(Float64, n_features)
+    σ = Array(Float64, n_features)
+
+    for i in 1 : n_features
+
+        streamstats = StreamStats.Var()
+
+        for j in 1 : n_frames
+            v = X[i,j]
+            if !isinf(v)
+                update!(streamstats, v)
+            end
+        end
+
+        μ[i] = mean(streamstats)
+        σ[i] = sqrt(streamstats.v_hat)
+    end
 
     # z = (x - μ)/σ
     #   = x/σ - μ/σ
@@ -314,23 +360,30 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     n_features = size(X, 1)
     @assert(n_components ≤ n_features)
 
-    z = Array(Float64, n_components)
+    @assert(all(X != NaN))
+    @assert(all(X != Inf))
+
+    println("svd, ", size(X))
+    tic()
 
     U, S, V = svd(X)
+    toc()
 
     A = U[1:n_components,:]
     b = zeros(Float64, n_components)
 
+
+    z = Array(Float64, n_components)
     push!(chain.processors, DataLinearTransform(chain.z, z, A, b))
     chain.z = z
     chain
 end
-function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataSubset}, indeces::Vector{Int})
+function Base.push!(chain::ChainedDataProcessor, ::Type{DataSubset}, indeces::Vector{Int})
     # add a PCA transform to the chain
     # - has a new output, so reset the chain
 
     z = Array(Float64, length(indeces))
-    push!(chain.processors, DataLinearTransform(chain.z, z, indeces))
+    push!(chain.processors, DataSubset(chain.z, z, indeces))
     chain.z = z
     chain
 end

@@ -527,6 +527,8 @@ function load_trajdata(csvfile::AbstractString)
 
     temp_name = tempname()*".csv"
 
+    # reexport with enough commas so we can read it in properly
+    # ----------------------------------------
     file = open(temp_name, "w")
     for (i,line) in enumerate(lines)
 
@@ -546,7 +548,7 @@ function load_trajdata(csvfile::AbstractString)
     rename_scheme = ((:entry, :frame), (:timings, :time), (:control_node_status, :control_status), (:global_position_x, :posGx),
         (:global_position_y, :posGy), (:global_position_z, :posGz), (:global_rotation_w, :quatw), (:global_rotation_x, :quatx),
         (:global_rotation_y, :quaty), (:global_rotation_z, :quatz), (:odom_velocity_x, :velEx), (:odom_velocity_y, :velEy),
-        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz))
+        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz)) # , (:heading, :yawG)
     for (source, target) in rename_scheme
         if in(source, colnames)
             rename!(df, source, target)
@@ -568,18 +570,57 @@ function load_trajdata(csvfile::AbstractString)
 
     # replace quatx, quaty, quatz with rollG, pitchG, yawG
     # ----------------------------------------
-    rpy = zeros(size(df,1), 3)
-    for i = 1 : size(df,1)
-        quat = [df[:quatw][i], df[:quatx][i], df[:quaty][i], df[:quatz][i]]
-        rpy[i,:] = [quat2euler(quat)...]
-    end
-    df[:quatx] = rpy[:,1]
-    df[:quaty] = rpy[:,2]
-    df[:quatz] = rpy[:,3]
-    rename!(df, :quatx, :rollG)
-    rename!(df, :quaty, :pitchG)
-    rename!(df, :quatz, :yawG)
-    delete!(df, :quatw)
+    # colnames = names(df)
+    # if in(:quatw, colnames) && in(:quatx, colnames) && in(:quaty, colnames) && in(:quatz, colnames)
+    #     rpy = zeros(size(df,1), 3)
+    #     for i = 1 : size(df,1)
+    #         QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
+    #         rpy_convert = convert(RPY, QUAT_ENU)
+    #         rpy[i,1] = rpy_convert.r
+    #         rpy[i,2] = rpy_convert.p
+    #         rpy[i,3] = rpy_convert.y
+
+    #         # -----
+
+    #         # find a forward-point in ECEF
+    #         # find pos in ECEF
+    #         # convert it to UTM
+    #         # find orientation in UTM
+
+    #         # POS_UTM = UTM(df[i, :posGx], df[i, :posGy], df[i, :posGz], 10) # TODO(tim): remove default zone of 10
+    #         # QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
+
+    #         # R = convert(Matrix{Float64}, QUAT_ENU)
+    #         # fp_enu = VecE3(R * [10.0,0.0,0.0])
+    #         # POS_LLA = convert(LatLonAlt, POS_UTM)
+    #         # FP_ENU = ENU(fp_enu.x, fp_enu.y, fp_enu.z)
+    #         # FP_ENU = ENU(FP_ENU.e, FP_ENU.n, FP_ENU.u)
+    #         # FP_ECEF = convert(ECEF, FP_ENU, POS_LLA)
+    #         # POS_ECEF = convert(ECEF, POS_LLA)
+    #         # FP_LLA = convert(LatLonAlt, FP_ECEF)
+    #         # FP_UTM = convert(UTM, FP_LLA)
+    #         # AXIS_UTM = FP_UTM - POS_UTM
+    #         # yaw = atan2(AXIS_UTM.n, AXIS_UTM.e)
+
+    #         # if i == 2261
+    #         #     println("POS: ", POS_UTM)
+    #         #     println("QUAT: ", QUAT_ENU)
+    #         #     println("YAW: ", rad2deg(yaw))
+    #         # end
+
+    #         # rpy[i,1] = NaN
+    #         # rpy[i,2] = NaN
+    #         # rpy[i,3] = yaw
+    #     end
+    #     df[:quatx] = rpy[:,1]
+    #     df[:quaty] = rpy[:,2]
+    #     df[:quatz] = rpy[:,3]
+
+    #     rename!(df, :quatx, :rollG)
+    #     rename!(df, :quaty, :pitchG)
+    #     rename!(df, :quatz, :yawG)
+    #     delete!(df, :quatw)
+    # end
 
     # add a column for every id seen
     # for each frame, list the car index it corresponds to or 0 if it is not in the frame
@@ -2049,7 +2090,30 @@ function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::I
     θ₂ = get(runlog, colset₂, frame2, :inertial).θ
     @assert(!isnan(θ₁))
     @assert(!isnan(θ₂))
-    (θ₂ - θ₁)/RunLogs.get_elapsed_time(runlog, frame1, frame2)
+
+    # correct for wrap-around
+
+    if θ₁ > 0.5π && θ₂ < -0.5π
+        θ₁ -= 2π
+    elseif θ₁ < -0.5π && θ₂ > 0.5π
+        θ₁ += 2π
+    end
+
+    ψ = (θ₂ - θ₁)/RunLogs.get_elapsed_time(runlog, frame1, frame2)
+
+    if abs(ψ) > 10.0
+        println("frame1: ", frame1, " out of ", nframes(runlog))
+        println("frame2: ", frame2)
+        println("θ₁ orig: ", rad2deg(get(runlog, colset₁, frame1, :inertial).θ))
+        println("θ₂ orig: ", rad2deg(get(runlog, colset₂, frame2, :inertial).θ))
+        println("θ₁: ", rad2deg(θ₁))
+        println("θ₂: ", rad2deg(θ₂))
+        println("Ψ: ", rad2deg(ψ))
+        println("Δt: ", RunLogs.get_elapsed_time(runlog, frame1, frame2))
+        ψ = Inf
+    end
+
+    ψ
 end
 
 function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::Int)
