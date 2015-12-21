@@ -18,7 +18,9 @@ using AutomotiveDrivingModels.StreetNetworks
 # export DIST_MERGE, DIST_SPLIT
 # export SUMO, IDM,
 # export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
-INDREAR,  HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  A_REQ_REAR,  TTC_REAR,  TIMEGAP_REAR, REAR_IS_GAINING
+
+# INDREAR,  HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  A_REQ_REAR,  TTC_REAR,  TIMEGAP_REAR, REAR_IS_GAINING
+
 # export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 # export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 # export FutureAcceleration, FutureDesiredAngle
@@ -508,7 +510,7 @@ end
 #
 #############################################
 
-create_feature_basics("HAS_FRONT", :has_front, L"\exists_\text{front}", Bool, L"-", :no_na)
+create_feature_basics("Has_Front", :has_front, L"\exists_\text{front}", Bool, L"-", :no_na)
 function Base.get(::Feature_Has_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # true if there is a lead vehicle
@@ -517,7 +519,7 @@ function Base.get(::Feature_Has_Front, runlog::RunLog, sn::StreetNetwork, colset
     convert(Float64, colset_front != COLSET_NULL)
 end
 
-create_feature_basics("DIST_FRONT", :d_front, L"d_x^\text{front}", Float64, L"\metre", 0.0, Inf, :can_na, na_replacement=50.0)
+create_feature_basics("Dist_Front", :d_front, L"d_x^\text{front}", Float64, L"\metre", 0.0, Inf, :can_na, na_replacement=50.0)
 function Base.get(::Feature_Dist_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -531,7 +533,7 @@ function Base.get(::Feature_Dist_Front, runlog::RunLog, sn::StreetNetwork, colse
     d_front
 end
 
-create_feature_basics("D_Y_FRONT", :d_y_front, L"d_y^\text{front}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)
+create_feature_basics("D_Y_Front", :d_y_front, L"d_y^\text{front}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)
 function Base.get(::Feature_D_Y_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -545,7 +547,7 @@ function Base.get(::Feature_D_Y_Front, runlog::RunLog, sn::StreetNetwork, colset
     dcl_ego - dcl_oth
 end
 
-create_feature_basics("DELTA_V_FRONT", :dv_x_front, L"\Delta v_x^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Delta_V_Front", :dv_x_front, L"\Delta v_x^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -559,7 +561,7 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
     v_oth - v_ego
 end
 
-create_feature_basics("DELTA_V_Y_FRONT", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Delta_V_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -573,7 +575,7 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
     v_oth - v_ego
 end
 
-create_feature_basics("YAW_FRONT", :yaw_front, L"\psi^\text{front}", Float64, L"\radian", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Yaw_Front", :yaw_front, L"\psi^\text{front}", Float64, L"\radian", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Yaw_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -584,7 +586,7 @@ function Base.get(::Feature_Yaw_Front, runlog::RunLog, sn::StreetNetwork, colset
     (get(runlog, colset_front, frame, :frenet)::VecSE2).θ
 end
 
-create_feature_basics("TURNRATE_FRONT", :turnrate_front, L"\dot{\psi}^\text{front}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Turnrate_Front", :turnrate_front, L"\dot{\psi}^\text{front}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Turnrate_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -595,7 +597,7 @@ function Base.get(::Feature_Turnrate_Front, runlog::RunLog, sn::StreetNetwork, c
     get(TURNRATE, runlog, sn, colset_front, frame)
 end
 
-create_feature_basics("ACC_REQ_FRONT", :acc_req_front, L"a_\text{req}^\text{front}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Acc_Req_Front", :acc_req_front, L"a_\text{req}^\text{front}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Acc_Req_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the const. acceleration required to avoid a collision assuming
@@ -617,7 +619,7 @@ function Base.get(::Feature_Acc_Req_Front, runlog::RunLog, sn::StreetNetwork, co
     -dv*dv / (2dx)
 end
 
-create_feature_basics("INV_TTC_FRONT", :inv_ttc_front, L"ttc_\text{inv}^\text{front}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Inv_TTC_Front", :inv_ttc_front, L"ttc_\text{inv}^\text{front}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Inv_TTC_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the inverse time to collision with lead vehicle
@@ -638,8 +640,8 @@ function Base.get(::Feature_Inv_TTC_Front, runlog::RunLog, sn::StreetNetwork, co
     -dv / dx
 end
 
-create_feature_basics("INV_TIMEGAP_FRONT", :inv_timegap_front, L"timegap_\text{inv}^\text{front}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
-function Base.get(::Feature_Timegap_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+create_feature_basics("Inv_Timegap_Front", :inv_timegap_front, L"timegap_\text{inv}^\text{front}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_Timegap_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the inverse timegap with lead vehicle
 
@@ -659,7 +661,7 @@ function Base.get(::Feature_Timegap_Front, runlog::RunLog, sn::StreetNetwork, co
     v / dx
 end
 
-create_feature_basics("GAINING_ON_FRONT", :gaining_on_front, L"gaining^\text{front}", Bool, L"-", :no_na)
+create_feature_basics("Gaining_On_Front", :gaining_on_front, L"gaining^\text{front}", Bool, L"-", :no_na)
 function Base.get(::Feature_Gaining_On_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -749,12 +751,12 @@ function _get_dist_between(tagA::LaneTag, tagB::LaneTag, extindA::Float64, extin
 
 end
 function _get_dist_between(runlog::RunLog, sn::StreetNetwork, colset::UInt, colset_front::UInt, frame::Int)
-    
+
     tagA = get(runlog, colset, frame, :lanetag)::LaneTag
     tagB = get(runlog, colset_front, frame, :lanetag)::LaneTag
     extindA = get(runlog, colset, frame, :extind)::Float64
     extindB = get(runlog, colset_front, frame, :extind)::Float64
-    
+
     _get_dist_between(tagA, tagB, extindA, extindB, sn)
 end
 
