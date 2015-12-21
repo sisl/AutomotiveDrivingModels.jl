@@ -95,6 +95,10 @@ metric_types_test_traces_bagged = [
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 nmodels = length(behaviorset)
 
+################################
+# MAIN LOOP
+################################
+
 for dset_filepath_modifier in (
     "_freeflow",
     # "_following",
@@ -113,6 +117,12 @@ for dset_filepath_modifier in (
     preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
     for (behavior_name, train_def) in behaviorset
         preallocated_data_dict[behavior_name] = preallocate_learning_data(dset, train_def.trainparams)
+    end
+
+    hyperparam_counts = Dict{AbstractString, Array(Matrix{Int}}()
+    for (behavior_name, train_def) in behaviorset
+        max_range = maximum([λ->length(λ), train_def.hyperparams])
+        hyperparam_counts[behavior_name] = zeros(length(train_def.hyperparams, max_range))
     end
 
     print("loading sim resources "); tic()
@@ -176,13 +186,6 @@ for dset_filepath_modifier in (
                 cv_split_inner.frame_assignment[i] -= 1
             end
         end
-        for (i,v) in enumerate(cv_split_inner.seg_assignment)
-            if v == fold
-                cv_split_inner.seg_assignment[i] = 0
-            elseif v > fold
-                cv_split_inner.seg_assignment[i] -= 1
-            end
-        end
         cv_split_inner.nfolds -= 1
         @assert(cv_split_inner.nfolds > 0)
 
@@ -196,6 +199,14 @@ for dset_filepath_modifier in (
                     train_def, dset, preallocated_data, cv_split_inner)
         end
         toc()
+
+        # update the count
+        for (behavior_name, train_def) in behaviorset
+            hyperparam_count = hyperparam_counts[behavior_name]
+            for (i, λ) in enumerate(train_def.hyperparams)
+                hyperparam_count[i, λ.index_of_default] += 1
+            end
+        end
 
         print("\ttraining models  "); tic()
         models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_outer)
@@ -237,6 +248,35 @@ for dset_filepath_modifier in (
         end
         toc()
     end
+
+    #########################################################
+
+    print("Hyperparam Statistics: ")
+    for (behavior_name, train_def) in behaviorset
+
+        counts = hyperparam_counts[behavior_name]
+
+        println(behavior_name)
+        for (j,λ) in enumerate(train_def.hyperparams)
+            most_freqent_index = indmax(counts[j,:])
+            @printf("\t%-15s %s", string(λ.sym)*":", string(λ.range[most_freqent_index]))
+        end
+
+        print("i  ")
+        for λ in train_def.hyperparams
+            @printf("%15s", string(λ.sym))
+        end
+        print("\n")
+
+        for i in 1 : size(counts, 2)
+            @printf("%2d ", i)
+            for (j,λ) in enumerate(train_def.hyperparams)
+                @printf("%15d", counts[j,i])
+            end
+        end
+        println("\n\n")
+    end
+
 
     #########################################################
 

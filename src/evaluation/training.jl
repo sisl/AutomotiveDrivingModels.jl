@@ -40,6 +40,8 @@ type BehaviorParameter
     end
 end
 
+Base.length(p::BehaviorParameter) = length(p.range)
+
 ###############################################################
 
 type BehaviorTrainDefinition

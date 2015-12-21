@@ -24,7 +24,7 @@ using AutomotiveDrivingModels.StreetNetworks
 # export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 # export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 # export FutureAcceleration, FutureDesiredAngle
-# export Feature_IsClean
+# export Feature_IsClean, Feature_Past
 # export NA_ALIAS
 
 # export
@@ -42,7 +42,7 @@ using AutomotiveDrivingModels.StreetNetworks
 # ----------------------------------
 # constants
 
-const NA_ALIAS = Inf
+const NA_ALIAS = NaN
 
 # ----------------------------------
 # types
@@ -62,6 +62,7 @@ const ACCEL_THRESHOLD = 5.0 # [m/s^2]
 symbol2feature(sym::Symbol) = SYMBOL_TO_FEATURE[sym]
 is_symbol_a_feature(sym::Symbol) = haskey(SYMBOL_TO_FEATURE, sym)
 allfeatures() = values(SYMBOL_TO_FEATURE)
+is_feature_na(v::Float64) = isnan(v)
 
 # ----------------------------------
 # create_feature_basics
@@ -296,7 +297,7 @@ end
 create_feature_basics( "EstimatedTimeToLaneCrossing", :est_ttcr, L"ttcr^\text{est}_y", Float64, L"s", 0.0, Inf, :can_na, na_replacement=10.0)
 function Base.get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     ttcr_left = get(TIMETOCROSSING_LEFT, runlog, sn, colset, frame)
-    if !isinf(ttcr_left)
+    if !is_feature_na(ttcr_left)
         return ttcr_left
     end
     get(TIMETOCROSSING_RIGHT, runlog, sn, colset, frame)
@@ -720,19 +721,56 @@ function Base.get(::Feature_FutureDesiredAngle, runlog::RunLog, sn::StreetNetwor
     end
 end
 
+#############################################
+#
+# Templated Features
+#
+#############################################
+
 immutable Feature_IsClean{target_symbol} <: AbstractFeature end
-units(       ::Feature_IsClean) = "-"
-isint(       ::Feature_IsClean) = true
-isbool(      ::Feature_IsClean) = true
-lowerbound(  ::Feature_IsClean) = 0.0
-upperbound(  ::Feature_IsClean) = 1.0
-couldna(     ::Feature_IsClean) = false
-Base.symbol( ::Feature_IsClean) = symbol("isclean_" * string(target_symbol))
-lsymbol(     ::Feature_IsClean) = L"\texttt{isclean}\left(" * lsymbol(symbol2feature(target_symbol)) * L"\right)"
+units(          ::Feature_IsClean) = "-"
+isint(          ::Feature_IsClean) = true
+isbool(         ::Feature_IsClean) = true
+lowerbound(     ::Feature_IsClean) = 0.0
+upperbound(     ::Feature_IsClean) = 1.0
+couldna(        ::Feature_IsClean) = false
+Base.symbol{F}( ::Feature_IsClean{F}) = symbol("isclean_" * string(F))
+lsymbol{F}(     ::Feature_IsClean{F}) = L"\texttt{isclean}\left(" * lsymbol(symbol2feature(F)) * L"\right)"
 function Base.get{F}(::Feature_IsClean{F}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     v = get(f, runlog, sn, colset, frame)::Float64
     convert(Float64, !isnan(v) && !isinf(v))
+end
+
+"""
+A past feature
+ target::Symbol - the symbol for the relevant feature
+ history::Int - number of frames previous to extract the feature for
+
+Will be NA if insufficient history
+"""
+immutable Feature_Past{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Past{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Past{F, H}) = isint(symbol2feature(F))
+isbool{F, H}(      ::Feature_Past{F, H}) = isbool(symbol2feature(F))
+lowerbound{F, H}(  ::Feature_Past{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Past{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Past)       = true
+Base.symbol{F, H}( ::Feature_Past{F, H}) = symbol(@sprintf("past_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Past{F, H}) = L"\texttt{past}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Past{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+
+    frame_past = frame - H
+    if frame_inbounds(frame_past)
+        id = colset2id(runlog, colset, frame)
+        colset_past = id2colset(runlog, id, frame)
+        v = get(f, runlog, sn, colset_past, frame_past)::Float64
+    else
+        v = NA_ALIAS
+    end
+
+    v
 end
 
 ############################################
