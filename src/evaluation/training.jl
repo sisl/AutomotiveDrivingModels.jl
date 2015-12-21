@@ -8,6 +8,7 @@ export
 
     optimize_hyperparams_cyclic_coordinate_ascent!,
     pull_design_and_target_matrices!,
+    pull_target_matrix!,
     copy_matrix_fold!,
     copy_matrix_fold
     # cross_validate
@@ -348,6 +349,41 @@ function pull_design_and_target_matrices!{F}(
     end
 
     return m
+end
+function pull_target_matrix!{F}(
+    Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
+    trainingframes::DataFrame,
+    targets::ModelTargets{F},
+    indicators::Vector{F},
+    )
+
+    #=
+    Pulls the data for X and Y, taking all of the data
+
+    RETURN: modified Y
+    =#
+
+    sym_lat = symbol(targets.lat)
+    sym_lon = symbol(targets.lon)
+
+    n = nrow(trainingframes)
+
+    @assert(size(Y,1) == 2)
+    @assert(size(Y,2) == n)
+
+    for row in 1 : n
+
+        action_lat = trainingframes[row, sym_lat]
+        action_lon = trainingframes[row, sym_lon]
+
+        @assert(!isinf(action_lat))
+        @assert(!isinf(action_lon))
+
+        Y[1, row] = action_lat
+        Y[2, row] = action_lon
+    end
+
+    Y
 end
 
 function copy_matrix_fold!(
