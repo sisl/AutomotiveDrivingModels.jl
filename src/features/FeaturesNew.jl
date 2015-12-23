@@ -18,9 +18,7 @@ using AutomotiveDrivingModels.StreetNetworks
 # export DIST_MERGE, DIST_SPLIT
 # export SUMO, IDM,
 # export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
-
-# INDREAR,  HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  A_REQ_REAR,  TTC_REAR,  TIMEGAP_REAR, REAR_IS_GAINING
-
+# export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TURNRATE_REAR, ACC_REQ_REAR, INV_TTC_REAR, INV_TIMEGAP_REAR, REAR_IS_GAINING
 # export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 # export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 # export FutureAcceleration, FutureDesiredAngle
@@ -562,8 +560,8 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
     v_oth - v_ego
 end
 
-create_feature_basics("Delta_V_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
-function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+create_feature_basics("Delta_V_Y_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Y_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
     if colset_front == COLSET_NULL
@@ -611,7 +609,7 @@ function Base.get(::Feature_Acc_Req_Front, runlog::RunLog, sn::StreetNetwork, co
 
     dv = get(DELTA_V_FRONT, runlog, sn, colset, frame)
 
-    if dv >= 0.0 # they are pulling away; we are good
+    if dv ≥ 0.0 # they are pulling away; we are good
         return NA_ALIAS
     end
 
@@ -632,7 +630,7 @@ function Base.get(::Feature_Inv_TTC_Front, runlog::RunLog, sn::StreetNetwork, co
 
     dv = get(DELTA_V_FRONT, runlog, sn, colset, frame)
 
-    if dv >= 0.0 # they are pulling away; we are good
+    if dv ≥ 0.0 # they are pulling away; we are good
         return NA_ALIAS
     end
 
@@ -674,6 +672,177 @@ function Base.get(::Feature_Gaining_On_Front, runlog::RunLog, sn::StreetNetwork,
     v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).x
 
     convert(Float64, v_ego > v_oth)
+end
+
+#############################################
+#
+# REAR
+#
+#############################################
+
+create_feature_basics("Has_Rear", :has_rear, L"\exists_\text{rear}", Bool, L"-", :no_na)
+function Base.get(::Feature_Has_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # true if there is a following vehicle
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    convert(Float64, colset_rear != COLSET_NULL)
+end
+
+create_feature_basics("Dist_Rear", :d_rear, L"d_x^\text{rear}", Float64, L"\metre", 0.0, Inf, :can_na, na_replacement=50.0)
+function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
+    @assert(!isnan(d_rear))
+
+    d_rear
+end
+
+create_feature_basics("D_Y_Rear", :d_y_rear, L"d_y^\text{rear}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)
+function Base.get(::Feature_D_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    dcl_ego = get(DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
+    dcl_oth = get(DIST_FROM_CENTERLINE, runlog, sn, colset_rear, frame)
+
+    dcl_ego - dcl_oth
+end
+
+create_feature_basics("Delta_V_Rear", :dv_x_rear, L"\Delta v_x^\text{rear}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).x
+
+    v_oth - v_ego
+end
+
+create_feature_basics("Delta_V_Y_Rear", :dv_y_rear, L"\Delta v_y^\text{rear}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).y
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).y
+
+    v_oth - v_ego
+end
+
+create_feature_basics("Yaw_Rear", :yaw_rear, L"\psi^\text{rear}", Float64, L"\radian", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Yaw_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    (get(runlog, colset_rear, frame, :frenet)::VecSE2).θ
+end
+
+create_feature_basics("Turnrate_Rear", :turnrate_rear, L"\dot{\psi}^\text{rear}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Turnrate_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    get(TURNRATE, runlog, sn, colset_rear, frame)
+end
+
+create_feature_basics("Acc_Req_Rear", :acc_req_rear, L"a_\text{req}^\text{rear}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Acc_Req_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # the const. acceleration required to avoid a collision assuming
+    # everyone drives with constant frenet-x velocity
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    dv = get(DELTA_V_REAR, runlog, sn, colset, frame)
+
+    if dv ≤ 0.0 # they are pulling away; we are good
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_REAR, runlog, sn, colset, frame)
+
+    dv*dv / (2dx)
+end
+
+create_feature_basics("Inv_TTC_Rear", :inv_ttc_rear, L"ttc_\text{inv}^\text{rear}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_TTC_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # the inverse time to collision with lead vehicle
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    dv = get(DELTA_V_REAR, runlog, sn, colset, frame)
+
+    if dv ≤ 0.0 # we are pulling away; we are good
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_REAR, runlog, sn, colset, frame)
+
+    dv / dx
+end
+
+create_feature_basics("Inv_Timegap_Rear", :inv_timegap_rear, L"timegap_\text{inv}^\text{rear}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_Timegap_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # the inverse timegap with lead vehicle
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+
+    if v ≤ 0.0
+        return 0.0
+    end
+
+    dx = get(DIST_REAR, runlog, sn, colset, frame)
+
+    v / dx
+end
+
+create_feature_basics("Rear_Is_Gaining", :gaining_on_rear, L"gaining^\text{rear}", Bool, L"-", :no_na)
+function Base.get(::Feature_Gaining_On_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).x
+
+    convert(Float64, v_oth > v_ego)
 end
 
 #############################################
