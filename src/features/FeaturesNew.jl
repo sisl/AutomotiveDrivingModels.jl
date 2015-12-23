@@ -1,6 +1,7 @@
 module FeaturesNew
 
 using LaTeXStrings
+using StreamStats
 
 using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Vec
@@ -21,8 +22,12 @@ using AutomotiveDrivingModels.StreetNetworks
 # export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TURNRATE_REAR, ACC_REQ_REAR, INV_TTC_REAR, INV_TIMEGAP_REAR, REAR_IS_GAINING
 # export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 # export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
+# LEFT, RIGHT
+# TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
+# IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
 # export FutureAcceleration, FutureDesiredAngle
 # export Feature_IsClean, Feature_Past
+# export Feature_Mean_Over_History, Feature_Std_Over_Histroy, Feature_Max_Over_Histroy, Feature_Min_Over_Histroy
 # export NA_ALIAS
 
 # export
@@ -931,15 +936,152 @@ function Base.get{F, H}(::Feature_Past{F, H}, runlog::RunLog, sn::StreetNetwork,
     f = symbol2feature(F)
 
     frame_past = frame - H
-    if frame_inbounds(frame_past)
+    if frame_inbounds(runlog, frame_past)
         id = colset2id(runlog, colset, frame)
-        colset_past = id2colset(runlog, id, frame)
+        colset_past = id2colset(runlog, id, frame_past)
         v = get(f, runlog, sn, colset_past, frame_past)::Float64
     else
         v = NA_ALIAS
     end
 
     v
+end
+
+"""
+target::Symbol - the symbol for the relevant feature
+history::Int - number of frames previous to extract the feature for
+               (typically a multiple of N_FRAMES_PER_SIM_FRAME)
+"""
+immutable Feature_Mean_Over_History{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Mean_Over_History{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Mean_Over_History{F, H}) = false
+isbool{F, H}(      ::Feature_Mean_Over_History{F, H}) = false
+lowerbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Mean_Over_History)       = true
+Base.symbol{F, H}( ::Feature_Mean_Over_History{F, H}) = symbol(@sprintf("mean_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Mean_Over_History{F, H}) = L"\texttt{mean}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Mean_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Var()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    mean(var)
+end
+
+immutable Feature_Std_Over_Histroy{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Std_Over_Histroy{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Std_Over_Histroy{F, H}) = false
+isbool{F, H}(      ::Feature_Std_Over_Histroy{F, H}) = false
+lowerbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Std_Over_Histroy)       = true
+Base.symbol{F, H}( ::Feature_Std_Over_Histroy{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Std_Over_Histroy{F, H}) = L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Std_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Var()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    std(var)
+end
+
+immutable Feature_Max_Over_Histroy{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Max_Over_Histroy{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Max_Over_Histroy{F, H}) = false
+isbool{F, H}(      ::Feature_Max_Over_Histroy{F, H}) = false
+lowerbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Max_Over_Histroy)       = true
+Base.symbol{F, H}( ::Feature_Max_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Max_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Max_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Max()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    maximum(var)
+end
+
+immutable Feature_Min_Over_Histroy{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Min_Over_Histroy{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Min_Over_Histroy{F, H}) = false
+isbool{F, H}(      ::Feature_Min_Over_Histroy{F, H}) = false
+lowerbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Min_Over_Histroy)       = true
+Base.symbol{F, H}( ::Feature_Min_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Min_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Min_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Max()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    minimum(var)
 end
 
 ############################################
