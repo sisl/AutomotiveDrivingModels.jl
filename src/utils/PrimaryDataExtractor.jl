@@ -9,6 +9,7 @@ using AutomotiveDrivingModels.Curves
 using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.RunLogs
+using AutomotiveDrivingModels.FeaturesNew
 
 import AutomotiveDrivingModels: CSVFileSet
 
@@ -16,6 +17,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
 
 export
     PrimaryDataExtractionParams,
+    load_header_trajdata_and_streetmap,
     extract_runlogs,
     gen_primary_data,
     gen_primary_data_no_smoothing
@@ -517,6 +519,24 @@ function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{
     retval
 end
 
+function load_header_trajdata_and_streetmap(csvfile::AbstractString)
+
+    header_file = splitext(csvfile)[1] * "_header.txt"
+    header_file_io = open(header_file, "r")
+    @assert(isfile(header_file))
+    header = RunLogHeader(header_file_io)
+    close(header_file_io)
+
+    streetnet_file =joinpath(STREETMAP_BASE, "streetmap_" * header.map_name*".jld")
+    sn = JLD.load(streetnet_file, "streetmap")
+
+    csvfile_io = open(csvfile)
+    trajdata = PrimaryDataExtractor.load_trajdata(csvfile_io, header)
+    close(csvfile_io)
+
+    (header, trajdata, sn)
+end
+
 function load_trajdata(csvfile::AbstractString)
 
     file = open(csvfile, "r")
@@ -570,49 +590,116 @@ function load_trajdata(csvfile::AbstractString)
 
     # replace quatx, quaty, quatz with rollG, pitchG, yawG
     # ----------------------------------------
+    rpy = zeros(size(df,1), 3)
+    for i = 1 : size(df,1)
+        QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
+        rpy_convert = convert(RPY, QUAT_ENU)
+        rpy[i,1] = rpy_convert.r
+        rpy[i,2] = rpy_convert.p
+        rpy[i,3] = rpy_convert.y
+    end
+    df[:quatx] = rpy[:,1]
+    df[:quaty] = rpy[:,2]
+    df[:quatz] = rpy[:,3]
+
+    rename!(df, :quatx, :rollG)
+    rename!(df, :quaty, :pitchG)
+    rename!(df, :quatz, :yawG)
+    delete!(df, :quatw)
+
+    # add a column for every id seen
+    # for each frame, list the car index it corresponds to or 0 if it is not in the frame
+    # ----------------------------------------
+    idset = Int[]
+    for i = 1 : size(df,1)
+        for carind = 0 : maxcarind
+            id = df[symbol(@sprintf("id_%d", carind))][i]
+            if !isa(id, NAtype) && !in( id, idset )
+                push!(idset, id)
+            end
+        end
+    end
+    for id in sort!(idset)
+        df[symbol(@sprintf("has_%d", id))] = -1*ones(size(df,1))
+    end
+    for frame = 1 : size(df,1)
+        for carind = 0 : maxcarind
+            carid = df[symbol(@sprintf("id_%d", carind))][frame]
+            if !isa(carid, NAtype)
+                df[symbol(@sprintf("has_%d", carid))][frame] = carind
+            end
+        end
+    end
+
+    df
+end
+function load_trajdata(io::IO, header::RunLogHeader)
+
+    lines = readlines(io)
+
+    n_cols = length(matchall(r",", lines[1]))+1
+
+    temp_name = tempname()*".csv"
+
+    # reexport with enough commas so we can read it in properly
+    # ----------------------------------------
+    file = open(temp_name, "w")
+    for (i,line) in enumerate(lines)
+
+        line = replace(line, "None", "Inf")
+
+        cols = length(matchall(r",", lines[i]))+1
+        @printf(file, "%s", lines[i][1:end-1]*(","^(n_cols-cols))*"\n" )
+    end
+    close(file)
+
+    df = readtable(temp_name)
+    rm(temp_name)
+
+    # rename the columns
+    # ----------------------------------------
     colnames = names(df)
-    if in(:quatw, colnames) && in(:quatx, colnames) && in(:quaty, colnames) && in(:quatz, colnames)
-        rpy = zeros(size(df,1), 3)
+    rename_scheme = ((:entry, :frame), (:timings, :time), (:control_node_status, :control_status), (:global_position_x, :posGx),
+        (:global_position_y, :posGy), (:global_position_z, :posGz), (:global_rotation_w, :quatw), (:global_rotation_x, :quatx),
+        (:global_rotation_y, :quaty), (:global_rotation_z, :quatz), (:odom_velocity_x, :velEx), (:odom_velocity_y, :velEy),
+        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz)) # , (:heading, :yawG)
+    for (source, target) in rename_scheme
+        if in(source, colnames)
+            rename!(df, source, target)
+        end
+    end
+
+    carind = 0
+    while haskey(df, symbol(@sprintf("car_id%d", carind)))
+
+        rename!(df, symbol(@sprintf("car_id%d",carind)), symbol(@sprintf("id_%d",    carind)))
+        rename!(df, symbol(@sprintf("ego_x%d", carind)), symbol(@sprintf("posEx_%d", carind)))
+        rename!(df, symbol(@sprintf("ego_y%d", carind)), symbol(@sprintf("posEy_%d", carind)))
+        rename!(df, symbol(@sprintf("v_x%d",   carind)), symbol(@sprintf("velEx_%d", carind)))
+        rename!(df, symbol(@sprintf("v_y%d",   carind)), symbol(@sprintf("velEy_%d", carind)))
+
+        carind += 1
+    end
+    maxcarind = carind - 1
+
+    # replace quatx, quaty, quatz with rollG, pitchG, yawG
+    # ----------------------------------------
+
+    rpy = zeros(size(df,1), 3)
+    if isa(header.quat_frame, Type{UTM})
         for i = 1 : size(df,1)
-            # QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
-            # rpy_convert = convert(RPY, QUAT_ENU)
-            # rpy[i,1] = rpy_convert.r
-            # rpy[i,2] = rpy_convert.p
-            # rpy[i,3] = rpy_convert.y
-
-            # -----
-
-            # find a forward-point in ECEF
-            # find pos in ECEF
-            # convert it to UTM
-            # find orientation in UTM
-
-            # POS_UTM = UTM(df[i, :posGx], df[i, :posGy], df[i, :posGz], 10) # TODO(tim): remove default zone of 10
-            # QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
-
-            # R = convert(Matrix{Float64}, QUAT_ENU)
-            # fp_enu = VecE3(R * [10.0,0.0,0.0])
-            # POS_LLA = convert(LatLonAlt, POS_UTM)
-            # FP_ENU = ENU(fp_enu.x, fp_enu.y, fp_enu.z)
-            # FP_ENU = ENU(FP_ENU.e, FP_ENU.n, FP_ENU.u)
-            # FP_ECEF = convert(ECEF, FP_ENU, POS_LLA)
-            # POS_ECEF = convert(ECEF, POS_LLA)
-            # FP_LLA = convert(LatLonAlt, FP_ECEF)
-            # FP_UTM = convert(UTM, FP_LLA)
-            # AXIS_UTM = FP_UTM - POS_UTM
-            # yaw = atan2(AXIS_UTM.n, AXIS_UTM.e)
-
-            # if i == 2261
-            #     println("POS: ", POS_UTM)
-            #     println("QUAT: ", QUAT_ENU)
-            #     println("YAW: ", rad2deg(yaw))
-            # end
-
-            # rpy[i,1] = NaN
-            # rpy[i,2] = NaN
-            # rpy[i,3] = yaw
-
-            # -----
+            quat_utm = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
+            rpy_convert = convert(RPY, quat_utm)
+            rpy[i,1] = rpy_convert.r
+            rpy[i,2] = rpy_convert.p
+            rpy[i,3] = rpy_convert.y
+        end
+    elseif isa(header.quat_frame, Type{ECEF})
+        for i = 1 : size(df,1)
+            #=
+            The newer runlogs have the quaternion in ECEF
+            They are rectified here
+            =#
 
             POS_UTM = UTM(df[i, :posGx], df[i, :posGy], df[i, :posGz], 10) # TODO(tim): remove default zone of 10
             QUAT_ECEF = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
@@ -631,15 +718,17 @@ function load_trajdata(csvfile::AbstractString)
             rpy[i,2] = NaN
             rpy[i,3] = yaw
         end
-        df[:quatx] = rpy[:,1]
-        df[:quaty] = rpy[:,2]
-        df[:quatz] = rpy[:,3]
-
-        rename!(df, :quatx, :rollG)
-        rename!(df, :quaty, :pitchG)
-        rename!(df, :quatz, :yawG)
-        delete!(df, :quatw)
+    else
+        error("unrecognized header quat_frame type $(header.quat_frame)")
     end
+    df[:quatx] = rpy[:,1]
+    df[:quaty] = rpy[:,2]
+    df[:quatz] = rpy[:,3]
+
+    rename!(df, :quatx, :rollG)
+    rename!(df, :quaty, :pitchG)
+    rename!(df, :quatz, :yawG)
+    delete!(df, :quatw)
 
     # add a column for every id seen
     # for each frame, list the car index it corresponds to or 0 if it is not in the frame
@@ -2084,6 +2173,7 @@ function _extract_runlog(
 
     # behavior for each vehicle
     # println("behavior for each vehicle: "); tic()
+
     if !isa(params.csvfileset, Void)
         # set the behavior using the CSVFileSet
 
@@ -2115,7 +2205,59 @@ function _extract_runlog(
             RunLogs.set!(runlog, colset, frame, :behavior, behavior)
         end
     else
-        # TODO: compute the behavior manually
+        # compute the behavior manually
+
+        id = ID_EGO
+        d_cl_prev = Inf
+
+        for frame in 1 : RunLogs.nframes(runlog)
+            colset = RunLogs.id2colset(runlog, id, frame)
+
+            velFy = get(FeaturesNew.VELFT, runlog, sn, colset, frame)
+            inv_timegap_front = get(FeaturesNew.INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
+            Δv_front = get(FeaturesNew.DELTA_V_FRONT, runlog, sn, colset, frame)
+            d_cl = get(FeaturesNew.DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
+
+            behavior = ContextClass.NULL
+
+            # freeflow and carfollow are mutually exclusive
+            is_in_freeflow = (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5)
+            if is_in_freeflow
+                behavior |= ContextClass.FREEFLOW
+            else carfollow[frame]
+                behavior |= ContextClass.FOLLOWING
+            end
+
+            # lanechange can be set separately
+            if frame > 1 && abs(d_cl - d_cl_prev) > 2.5
+                # identifier lanechange
+                # move forward and back until |velFy| < 0.1
+
+                behavior |= ContextClass.LANECHANGE
+
+                for frame_fut  in frame + 1 : RunLogs.nframes(runlog)
+                    colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
+                    velFy_fut = get(FeaturesNew.VELFT, runlog, sn, colset, frame_fut)
+                    if abs(velFy_fut) ≥ 0.1
+                        set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
+                    else
+                        break
+                    end
+                end
+
+                for frame_past  in frame - 1 : -1 : 1
+                    colset_past = RunLogs.id2colset(runlog, id, frame_past)
+                    velFy_past = get(FeaturesNew.VELFT, runlog, sn, colset, frame_past)
+                    if abs(velFy_past) ≥ 0.1
+                        set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
+                    else
+                        break
+                    end
+                end
+            end
+
+            RunLogs.set!(runlog, colset, frame, :behavior, behavior)
+        end
     end
     # toc()
 

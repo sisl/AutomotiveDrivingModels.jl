@@ -14,7 +14,7 @@ import .RoadNetwork: LaneID, WaypointID
 # ===============================================================================
 
 export TILE_WIDTH, TILE_HEIGHT, EASTING_BASE, NORTHING_BASE
-export DEFAULT_LANE_WIDTH
+export DEFAULT_LANE_WIDTH, STREETMAP_BASE
 export StreetNode, StreetLane, StreetSegment, NetworkTile, StreetNetwork
 export utm2tileindex_east, utm2tileindex_north, utm2tileindex
 export tile_center_north, tile_center_east, tile_lowerbound_north, tile_lowerbound_east
@@ -56,6 +56,8 @@ const SATURATION_DISTANCE_TO_LANE_MERGE = 100.0 # [m]
 const SATURATION_DISTANCE_TO_NODE       = 100.0 # [m]
 const SATURATION_DISTANCE_BETWEEN       = 500.0 # [m]
 const THRESHOLD_DISTANCE_TO_NODE        = 500.0 # [m]
+
+const STREETMAP_BASE = "/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
 
 # ===============================================================================
 

@@ -10,6 +10,126 @@ Reel.set_output_type("gif")
 
 colorscheme = getcolorscheme("monokai")
 
+######################
+
+abstract Overlay
+
+type TextStatsOverlay <: Overlay
+    draw_velFy::Bool
+    draw_inv_timegap::Bool
+    draw_Δv_front::Bool
+    draw_inferred_context::Bool
+    draw_actual_contexts::Bool
+
+    function TextStatsOverlay(;
+        draw_velFy::Bool = true,
+        draw_inv_timegap::Bool = true,
+        draw_Δv_front::Bool = true,
+        draw_inferred_context::Bool = true,
+        draw_actual_contexts::Bool = true,
+        )
+
+        new(draw_velFy, draw_inv_timegap, draw_Δv_front, draw_inferred_context, draw_actual_contexts)
+    end
+end
+function render_overlay!(overlay::TextStatsOverlay,
+    rendermodel::RenderModel,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer,
+    )
+
+    colset = id2colset(runlog, active_carid, frame)
+    velFy = get(FeaturesNew.VELFT, runlog, sn, colset, frame)
+    inv_timegap_front = get(FeaturesNew.INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
+    Δv_front = get(FeaturesNew.DELTA_V_FRONT, runlog, sn, colset, frame)
+
+    r = colorant"red"
+    b = colorant"blue"
+    color_freeflow = (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5) ? r : b
+    str_inferred_context = abs(velFy) > 0.1 ? "lanechange" : (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5) ? "freeflow" : "following"
+
+    behavior = get(runlog, colset, frame, :behavior)::UInt16
+
+    str_actual_contexts = ""
+    if (behavior & ContextClass.FREEFLOW) > 0
+        str_actual_contexts *= "freeflow"
+    end
+    if (behavior & ContextClass.FOLLOWING) > 0
+        if !isempty(str_actual_contexts)
+            str_actual_contexts *= ", "
+        end
+        str_actual_contexts *= "following"
+    end
+    if (behavior & ContextClass.LANECHANGE) > 0
+        if !isempty(str_actual_contexts)
+            str_actual_contexts *= ", "
+        end
+        str_actual_contexts *= "lanechange"
+    end
+    if isempty(str_actual_contexts)
+        str_actual_contexts = "NONE"
+    end
+
+    text_y = 15
+    text_y_jump = 20
+
+    if overlay.draw_velFy
+        add_instruction!( rendermodel, render_text, (@sprintf("v_lat = %.4f", velFy), 10, text_y, 15, abs(velFy) > 0.1 ? b : r), incameraframe=false)
+        text_y += text_y_jump
+    end
+    if overlay.draw_inv_timegap
+        add_instruction!( rendermodel, render_text, (@sprintf("inv_timegap_front = %.4f", inv_timegap_front), 10, text_y, 15, color_freeflow), incameraframe=false)
+        text_y += text_y_jump
+    end
+    if overlay.draw_Δv_front
+        add_instruction!( rendermodel, render_text, (@sprintf("Δv_front = %.4f", Δv_front), 10, text_y, 15, color_freeflow), incameraframe=false)
+        text_y += text_y_jump
+    end
+    if overlay.draw_inferred_context
+        add_instruction!( rendermodel, render_text, (str_inferred_context, 10, text_y, 15, COLOR_CAR_EGO), incameraframe=false)
+        text_y += text_y_jump
+    end
+    if overlay.draw_actual_contexts
+        add_instruction!( rendermodel, render_text, (str_actual_contexts, 10, text_y, 15, colorscheme["foreground"]), incameraframe=false)
+        text_y += text_y_jump
+    end
+
+    rendermodel
+end
+
+type TrajdataOverlay <: Overlay
+    trajdata::DataFrame
+end
+function render_overlay!(overlay::TrajdataOverlay,
+    rendermodel::RenderModel,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer,
+    )
+
+    trajdata = overlay.trajdata
+
+    # find frameind in trajdata
+    t = get(runlog, frame, :time)::Float64
+    t₀ = trajdata[1, :time]::Float64
+    frameind_in_trajdata = -1
+    for frameind in 1 : size(trajdata, 1)
+        if abs(trajdata[frameind, :time]::Float64 - t- t₀) < 0.05
+            frameind_in_trajdata = frameind
+            break
+        end
+    end
+
+    frameind_in_trajdata == -1 || render_scene!(rendermodel, trajdata, frameind_in_trajdata,
+                                                    color_ego=RGBA(COLOR_CAR_EGO.r*1.1, COLOR_CAR_EGO.g*0.9, COLOR_CAR_EGO.b*0.9, 0.5),
+                                                    color_oth=RGBA(COLOR_CAR_OTHER.r*0.9, COLOR_CAR_OTHER.g*1.1, COLOR_CAR_OTHER.b*1.1, 0.5))
+end
+
+######################
+
 Renderer.camera_set_pos!(rm::RenderModel, car::Vehicle) = camera_set_pos!(rm, convert(VecE2, car.pos))
 
 function render_trace!(
@@ -868,6 +988,8 @@ function plot_scene(
 
     camera_forward_offset::Float64=60.0, # [m]
     camerazoom::Real=6.5, # [pix/m]
+
+    overlays::AbstractVector{Overlay}=Overlay[],
     )
 
     s = CairoRGBSurface(canvas_width, canvas_height)
@@ -878,6 +1000,10 @@ function plot_scene(
     render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
     camera_setzoom!(rendermodel, camerazoom)
     set_camera_in_front_of_carid!(rendermodel, runlog, active_carid, frame, camera_forward_offset)
+
+    for overlay in overlays
+        render_overlay!(overlay, rendermodel, runlog, sn, frame, active_carid)
+    end
 
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
@@ -905,20 +1031,6 @@ function plot_scene(
     frameind = validfind2frameind(pdset, validfind)
     render_streetnet_roads!(rendermodel, sn)
     render_scene!(rendermodel, pdset, frameind, active_carid=active_carid)
-
-    # velFy = get(pdset, :velFy, active_carid, validfind)
-    # timegap_front = get(TIMEGAP_X_FRONT, basics, active_carid, validfind)
-    # d_v_front = get(V_X_FRONT, basics, active_carid, validfind)
-
-    # r = colorant"red"
-    # b = colorant"blue"
-    # color_freeflow = (timegap_front > 3.0 || d_v_front > 0.5) ? r : b
-    # str_context = abs(velFy) > 0.1 ? "lanechange" : (timegap_front > 3.0 || d_v_front > 0.5) ? "freeflow" : "following"
-
-    # add_instruction!( rendermodel, render_text, (@sprintf("v_lat = %.4f", velFy), 10, 15, 15, abs(velFy) > 0.1 ? b : r), incameraframe=false)
-    # add_instruction!( rendermodel, render_text, (@sprintf("timegap_front = %.4f", timegap_front), 10, 35, 15, color_freeflow), incameraframe=false)
-    # add_instruction!( rendermodel, render_text, (@sprintf("d_v_front = %.4f", d_v_front), 10, 55, 15, color_freeflow), incameraframe=false)
-    # add_instruction!( rendermodel, render_text, (str_context, 10, 75, 15, COLOR_CAR_EGO), incameraframe=false)
 
     camera_setzoom!(rendermodel, camerazoom)
     set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
@@ -953,49 +1065,6 @@ function plot_scene(
     s
 end
 
-function plot_scene_overlay_trajdata(
-    runlog::RunLog,
-    trajdata::DataFrame,
-    sn::StreetNetwork,
-    frame::Integer,
-    active_carid::Integer=RunLog.ID_EGO;
-
-    canvas_width::Integer=1100,
-    canvas_height::Integer=300,
-    rendermodel::RenderModel=RenderModel(),
-
-    camera_forward_offset::Float64=60.0, # [m]
-    camerazoom::Real=6.5, # [pix/m]
-    )
-
-    # find frameind in trajdata
-    t = get(runlog, frame, :time)::Float64
-    t₀ = trajdata[1, :time]::Float64
-    frameind_in_trajdata = -1
-    for frameind in 1 : size(trajdata, 1)
-        if abs(trajdata[frameind, :time]::Float64 - t- t₀) < 0.05
-            frameind_in_trajdata = frameind
-            break
-        end
-    end
-
-    s = CairoRGBSurface(canvas_width, canvas_height)
-    ctx = creategc(s)
-    clear_setup!(rendermodel)
-
-    render_streetnet_roads!(rendermodel, sn)
-    render_scene!(rendermodel, runlog, frame, active_carid=active_carid)
-
-    frameind_in_trajdata == -1 || render_scene!(rendermodel, trajdata, frameind_in_trajdata,
-                                                color_ego=RGBA(COLOR_CAR_EGO.r*1.1, COLOR_CAR_EGO.g*0.9, COLOR_CAR_EGO.b*0.9, 0.5),
-                                                color_oth=RGBA(COLOR_CAR_OTHER.r*0.9, COLOR_CAR_OTHER.g*1.1, COLOR_CAR_OTHER.b*1.1, 0.5))
-
-    camera_setzoom!(rendermodel, camerazoom)
-    set_camera_in_front_of_carid!(rendermodel, runlog, active_carid, frame, camera_forward_offset)
-
-    render(rendermodel, ctx, canvas_width, canvas_height)
-    s
-end
 function plot_scene_and_front_rear(
     runlog::RunLog,
     sn::StreetNetwork,
@@ -1102,6 +1171,7 @@ function plot_scene_and_footpoint(
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end
+
 
 function plot_traces(
     runlog::RunLog,
@@ -1343,6 +1413,8 @@ function plot_manipulable_runlog{I<:Integer}(
     camera_forward_offset::Real=0.0,
 
     frames::AbstractVector{I} = 1:nframes(runlog),
+
+    overlays::AbstractVector{Overlay} = Overlay[],
     )
 
     @manipulate for frame in frames
@@ -1352,32 +1424,8 @@ function plot_manipulable_runlog{I<:Integer}(
                    canvas_height=canvas_height,
                    rendermodel=rendermodel,
                    camera_forward_offset=camera_forward_offset,
-                   camerazoom=camerazoom)
-    end
-end
-function plot_manipulable_runlog_overlay_trajdata{I<:Integer}(
-    runlog::RunLog,
-    trajdata::DataFrame,
-    sn::StreetNetwork,
-    active_carid::Integer=RunLog.ID_EGO;
-
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=300, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    camera_forward_offset::Real=0.0,
-
-    frames::AbstractVector{I} = 1:nframes(runlog),
-    )
-
-    @manipulate for frame in frames
-
-        plot_scene_overlay_trajdata(runlog, trajdata, sn, frame, active_carid,
-                   canvas_width=canvas_width,
-                   canvas_height=canvas_height,
-                   rendermodel=rendermodel,
-                   camera_forward_offset=camera_forward_offset,
-                   camerazoom=camerazoom)
+                   camerazoom=camerazoom,
+                   overlays=overlays)
     end
 end
 function plot_manipulable_runlog_and_front_rear{I<:Integer}(

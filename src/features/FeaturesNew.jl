@@ -555,8 +555,8 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).x
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
 
     v_oth - v_ego
 end
@@ -569,8 +569,8 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).y
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).y
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).y
+    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).y
 
     v_oth - v_ego
 end
@@ -650,7 +650,7 @@ function Base.get(::Feature_Inv_Timegap_Front, runlog::RunLog, sn::StreetNetwork
         return NA_ALIAS
     end
 
-    v = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v = (get(runlog, colset, frame, :ratesF)::VecE2).x
 
     if v ≤ 0.0
         return 0.0
@@ -669,8 +669,8 @@ function Base.get(::Feature_Gaining_On_Front, runlog::RunLog, sn::StreetNetwork,
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).x
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
 
     convert(Float64, v_ego > v_oth)
 end
