@@ -1,6 +1,7 @@
 module FeaturesNew
 
 using LaTeXStrings
+using StreamStats
 
 using AutomotiveDrivingModels.CommonTypes
 using AutomotiveDrivingModels.Vec
@@ -18,13 +19,15 @@ using AutomotiveDrivingModels.StreetNetworks
 # export DIST_MERGE, DIST_SPLIT
 # export SUMO, IDM,
 # export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
-
-# INDREAR,  HAS_REAR,  D_X_REAR,  D_Y_REAR,  V_X_REAR,  V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  A_REQ_REAR,  TTC_REAR,  TIMEGAP_REAR, REAR_IS_GAINING
-
+# export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TURNRATE_REAR, ACC_REQ_REAR, INV_TTC_REAR, INV_TIMEGAP_REAR, REAR_IS_GAINING
 # export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 # export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
+# LEFT, RIGHT
+# TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
+# IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
 # export FutureAcceleration, FutureDesiredAngle
-# export Feature_IsClean
+# export Feature_IsClean, Feature_Past
+# export Feature_Mean_Over_History, Feature_Std_Over_Histroy, Feature_Max_Over_Histroy, Feature_Min_Over_Histroy
 # export NA_ALIAS
 
 # export
@@ -42,7 +45,7 @@ using AutomotiveDrivingModels.StreetNetworks
 # ----------------------------------
 # constants
 
-const NA_ALIAS = Inf
+const NA_ALIAS = NaN
 
 # ----------------------------------
 # types
@@ -62,6 +65,7 @@ const ACCEL_THRESHOLD = 5.0 # [m/s^2]
 symbol2feature(sym::Symbol) = SYMBOL_TO_FEATURE[sym]
 is_symbol_a_feature(sym::Symbol) = haskey(SYMBOL_TO_FEATURE, sym)
 allfeatures() = values(SYMBOL_TO_FEATURE)
+is_feature_na(v::Float64) = isnan(v)
 
 # ----------------------------------
 # create_feature_basics
@@ -296,7 +300,7 @@ end
 create_feature_basics( "EstimatedTimeToLaneCrossing", :est_ttcr, L"ttcr^\text{est}_y", Float64, L"s", 0.0, Inf, :can_na, na_replacement=10.0)
 function Base.get(::Feature_EstimatedTimeToLaneCrossing, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     ttcr_left = get(TIMETOCROSSING_LEFT, runlog, sn, colset, frame)
-    if !isinf(ttcr_left)
+    if !is_feature_na(ttcr_left)
         return ttcr_left
     end
     get(TIMETOCROSSING_RIGHT, runlog, sn, colset, frame)
@@ -561,8 +565,8 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
     v_oth - v_ego
 end
 
-create_feature_basics("Delta_V_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
-function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+create_feature_basics("Delta_V_Y_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Y_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
     if colset_front == COLSET_NULL
@@ -610,7 +614,7 @@ function Base.get(::Feature_Acc_Req_Front, runlog::RunLog, sn::StreetNetwork, co
 
     dv = get(DELTA_V_FRONT, runlog, sn, colset, frame)
 
-    if dv >= 0.0 # they are pulling away; we are good
+    if dv ≥ 0.0 # they are pulling away; we are good
         return NA_ALIAS
     end
 
@@ -631,7 +635,7 @@ function Base.get(::Feature_Inv_TTC_Front, runlog::RunLog, sn::StreetNetwork, co
 
     dv = get(DELTA_V_FRONT, runlog, sn, colset, frame)
 
-    if dv >= 0.0 # they are pulling away; we are good
+    if dv ≥ 0.0 # they are pulling away; we are good
         return NA_ALIAS
     end
 
@@ -673,6 +677,177 @@ function Base.get(::Feature_Gaining_On_Front, runlog::RunLog, sn::StreetNetwork,
     v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
 
     convert(Float64, v_ego > v_oth)
+end
+
+#############################################
+#
+# REAR
+#
+#############################################
+
+create_feature_basics("Has_Rear", :has_rear, L"\exists_\text{rear}", Bool, L"-", :no_na)
+function Base.get(::Feature_Has_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # true if there is a following vehicle
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    convert(Float64, colset_rear != COLSET_NULL)
+end
+
+create_feature_basics("Dist_Rear", :d_rear, L"d_x^\text{rear}", Float64, L"\metre", 0.0, Inf, :can_na, na_replacement=50.0)
+function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
+    @assert(!isnan(d_rear))
+
+    d_rear
+end
+
+create_feature_basics("D_Y_Rear", :d_y_rear, L"d_y^\text{rear}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)
+function Base.get(::Feature_D_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    dcl_ego = get(DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
+    dcl_oth = get(DIST_FROM_CENTERLINE, runlog, sn, colset_rear, frame)
+
+    dcl_ego - dcl_oth
+end
+
+create_feature_basics("Delta_V_Rear", :dv_x_rear, L"\Delta v_x^\text{rear}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).x
+
+    v_oth - v_ego
+end
+
+create_feature_basics("Delta_V_Y_Rear", :dv_y_rear, L"\Delta v_y^\text{rear}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).y
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).y
+
+    v_oth - v_ego
+end
+
+create_feature_basics("Yaw_Rear", :yaw_rear, L"\psi^\text{rear}", Float64, L"\radian", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Yaw_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    (get(runlog, colset_rear, frame, :frenet)::VecSE2).θ
+end
+
+create_feature_basics("Turnrate_Rear", :turnrate_rear, L"\dot{\psi}^\text{rear}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Turnrate_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    get(TURNRATE, runlog, sn, colset_rear, frame)
+end
+
+create_feature_basics("Acc_Req_Rear", :acc_req_rear, L"a_\text{req}^\text{rear}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Acc_Req_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # the const. acceleration required to avoid a collision assuming
+    # everyone drives with constant frenet-x velocity
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    dv = get(DELTA_V_REAR, runlog, sn, colset, frame)
+
+    if dv ≤ 0.0 # they are pulling away; we are good
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_REAR, runlog, sn, colset, frame)
+
+    dv*dv / (2dx)
+end
+
+create_feature_basics("Inv_TTC_Rear", :inv_ttc_rear, L"ttc_\text{inv}^\text{rear}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_TTC_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # the inverse time to collision with lead vehicle
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    dv = get(DELTA_V_REAR, runlog, sn, colset, frame)
+
+    if dv ≤ 0.0 # we are pulling away; we are good
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_REAR, runlog, sn, colset, frame)
+
+    dv / dx
+end
+
+create_feature_basics("Inv_Timegap_Rear", :inv_timegap_rear, L"timegap_\text{inv}^\text{rear}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_Timegap_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # the inverse timegap with lead vehicle
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+
+    if v ≤ 0.0
+        return 0.0
+    end
+
+    dx = get(DIST_REAR, runlog, sn, colset, frame)
+
+    v / dx
+end
+
+create_feature_basics("Rear_Is_Gaining", :gaining_on_rear, L"gaining^\text{rear}", Bool, L"-", :no_na)
+function Base.get(::Feature_Gaining_On_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
+    if colset_rear == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).x
+
+    convert(Float64, v_oth > v_ego)
 end
 
 #############################################
@@ -720,19 +895,193 @@ function Base.get(::Feature_FutureDesiredAngle, runlog::RunLog, sn::StreetNetwor
     end
 end
 
+#############################################
+#
+# Templated Features
+#
+#############################################
+
 immutable Feature_IsClean{target_symbol} <: AbstractFeature end
-units(       ::Feature_IsClean) = "-"
-isint(       ::Feature_IsClean) = true
-isbool(      ::Feature_IsClean) = true
-lowerbound(  ::Feature_IsClean) = 0.0
-upperbound(  ::Feature_IsClean) = 1.0
-couldna(     ::Feature_IsClean) = false
-Base.symbol( ::Feature_IsClean) = symbol("isclean_" * string(target_symbol))
-lsymbol(     ::Feature_IsClean) = L"\texttt{isclean}\left(" * lsymbol(symbol2feature(target_symbol)) * L"\right)"
+units(          ::Feature_IsClean) = "-"
+isint(          ::Feature_IsClean) = true
+isbool(         ::Feature_IsClean) = true
+lowerbound(     ::Feature_IsClean) = 0.0
+upperbound(     ::Feature_IsClean) = 1.0
+couldna(        ::Feature_IsClean) = false
+Base.symbol{F}( ::Feature_IsClean{F}) = symbol("isclean_" * string(F))
+lsymbol{F}(     ::Feature_IsClean{F}) = L"\texttt{isclean}\left(" * lsymbol(symbol2feature(F)) * L"\right)"
 function Base.get{F}(::Feature_IsClean{F}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     v = get(f, runlog, sn, colset, frame)::Float64
     convert(Float64, !isnan(v) && !isinf(v))
+end
+
+"""
+A past feature
+ target::Symbol - the symbol for the relevant feature
+ history::Int - number of frames previous to extract the feature for
+
+Will be NA if insufficient history
+"""
+immutable Feature_Past{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Past{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Past{F, H}) = isint(symbol2feature(F))
+isbool{F, H}(      ::Feature_Past{F, H}) = isbool(symbol2feature(F))
+lowerbound{F, H}(  ::Feature_Past{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Past{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Past)       = true
+Base.symbol{F, H}( ::Feature_Past{F, H}) = symbol(@sprintf("past_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Past{F, H}) = L"\texttt{past}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Past{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+
+    frame_past = frame - H
+    if frame_inbounds(runlog, frame_past)
+        id = colset2id(runlog, colset, frame)
+        colset_past = id2colset(runlog, id, frame_past)
+        v = get(f, runlog, sn, colset_past, frame_past)::Float64
+    else
+        v = NA_ALIAS
+    end
+
+    v
+end
+
+"""
+target::Symbol - the symbol for the relevant feature
+history::Int - number of frames previous to extract the feature for
+               (typically a multiple of N_FRAMES_PER_SIM_FRAME)
+"""
+immutable Feature_Mean_Over_History{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Mean_Over_History{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Mean_Over_History{F, H}) = false
+isbool{F, H}(      ::Feature_Mean_Over_History{F, H}) = false
+lowerbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Mean_Over_History)       = true
+Base.symbol{F, H}( ::Feature_Mean_Over_History{F, H}) = symbol(@sprintf("mean_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Mean_Over_History{F, H}) = L"\texttt{mean}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Mean_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Var()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    mean(var)
+end
+
+immutable Feature_Std_Over_Histroy{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Std_Over_Histroy{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Std_Over_Histroy{F, H}) = false
+isbool{F, H}(      ::Feature_Std_Over_Histroy{F, H}) = false
+lowerbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Std_Over_Histroy)       = true
+Base.symbol{F, H}( ::Feature_Std_Over_Histroy{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Std_Over_Histroy{F, H}) = L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Std_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Var()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    std(var)
+end
+
+immutable Feature_Max_Over_Histroy{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Max_Over_Histroy{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Max_Over_Histroy{F, H}) = false
+isbool{F, H}(      ::Feature_Max_Over_Histroy{F, H}) = false
+lowerbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Max_Over_Histroy)       = true
+Base.symbol{F, H}( ::Feature_Max_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Max_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Max_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Max()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    maximum(var)
+end
+
+immutable Feature_Min_Over_Histroy{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Min_Over_Histroy{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Min_Over_Histroy{F, H}) = false
+isbool{F, H}(      ::Feature_Min_Over_Histroy{F, H}) = false
+lowerbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Min_Over_Histroy)       = true
+Base.symbol{F, H}( ::Feature_Min_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Min_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+function Base.get{F, H}(::Feature_Min_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    f = symbol2feature(F)
+    id = colset2id(runlog, colset, frame)
+
+    var = StreamStats.Max()
+    for jump in -H : N_FRAMES_PER_SIM_FRAME : -1
+
+        frame_past = frame + jump
+
+        if frame_inbounds(runlog, frame_past)
+            colset_past = id2colset(runlog, id, frame_past)
+            v = get(f, runlog, sn, colset_past, frame_past)::Float64
+            if !is_feature_na(v)
+                update!(var, v)
+            end
+        end
+    end
+
+    if total == 0
+        return NA_ALIAS
+    end
+    minimum(var)
 end
 
 ############################################
