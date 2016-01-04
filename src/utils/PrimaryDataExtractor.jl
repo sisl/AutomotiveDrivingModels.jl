@@ -65,7 +65,7 @@ type PrimaryDataExtractionParams
         self.verbosity = 0
 
         self.threshold_percent_outliers_warn = 0.5
-        self.threshold_percent_outliers_error = 2.5
+        self.threshold_percent_outliers_error = 5.0
         self.threshold_lane_lateral_offset_ego = 2.5
         self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
         self.threshold_other_frame_gap = 5
@@ -292,19 +292,7 @@ function make_angle_continuous!( arr::DataVector{Float64} )
     end
     arr
 end
-function mod2pi_neg_pi_to_pi( θ::Float64 )
-    θ = mod2pi(θ)
-    if θ > π
-        θ -= 2π
-    end
-    θ
-end
-function mod2pi_neg_pi_to_pi!( arr::Vector{Float64} )
-    for i = 1 : length(arr)
-        arr[i] = mod2pi_neg_pi_to_pi(arr[i])
-    end
-    arr
-end
+
 
 function pad_linear(arr::Vector{Float64}, n_samples_each_side::Int)
     # NOTE(tim): extends both ends of arr using a two-point linear approximation
@@ -1033,7 +1021,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
         arr_smoothed = smooth(arr_time_on_freeway, arr_orig, smoothing_variance)
         df_ego[ego_car_on_freeway, variable] = remove_pad(arr_smoothed, params.padding_size)
     end
-    df_ego[ego_car_on_freeway, :posFyaw] = mod2pi_neg_pi_to_pi!(convert(Vector{Float64}, df_ego[ego_car_on_freeway, :posFyaw]))
+    df_ego[ego_car_on_freeway, :posFyaw] = _angle_to_range!(convert(Vector{Float64}, df_ego[ego_car_on_freeway, :posFyaw]), -π)
 
     # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego[:posFyaw]))))
     # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFx]))))
@@ -1880,7 +1868,7 @@ function _extract_runlog(
 
         inertial = VecSE2(trajdata_smoothed[frame_old, :posGx],
                           trajdata_smoothed[frame_old, :posGy],
-                          mod2pi_neg_pi_to_pi(trajdata_smoothed[frame_old, :yawG ]))
+                          _angle_to_range(trajdata_smoothed[frame_old, :yawG ], -π))
 
         proj = projections[frame_old]
         @assert(proj.successful)
@@ -1898,15 +1886,15 @@ function _extract_runlog(
         Δt = 0.25
 
         if frame_new > 1
-            θ₁ = trajdata_smoothed[frame_old-1, :yawG]
-            θ₂ = inertial.θ
-            Δt = RunLogs.get_elapsed_time(runlog, frame_new-1, frame_new)
+                θ₁ = _angle_to_range(trajdata_smoothed[frame_old-1, :yawG], -π)
+                θ₂ = inertial.θ
+                Δt = RunLogs.get_elapsed_time(runlog, frame_new-1, frame_new)
 
-        elseif frame_old < frame_hi
-            θ₁ = inertial.θ
-            θ₂ =trajdata_smoothed[frame_old+1, :yawG]
-            Δt = RunLogs.get_elapsed_time(runlog, frame_new, frame_new+1)
-        end
+            elseif frame_old < frame_hi
+                θ₁ = inertial.θ
+                θ₂ = _angle_to_range(trajdata_smoothed[frame_old+1, :yawG], -π)
+                Δt = RunLogs.get_elapsed_time(runlog, frame_new, frame_new+1)
+            end
 
         if θ₁ > 0.5π && θ₂ < -0.5π
             θ₁ -= 2π
@@ -2094,7 +2082,7 @@ function _extract_runlog(
 
                 inertial = VecSE2(data_smoothed[i, :posGx],
                                   data_smoothed[i, :posGy],
-                                  mod2pi_neg_pi_to_pi(data_smoothed[i, :yawG ]))
+                                  _angle_to_range(data_smoothed[i, :yawG ], -π))
 
                 proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
                 if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
@@ -2218,14 +2206,14 @@ function _extract_runlog(
             Δv_front = get(FeaturesNew.DELTA_V_FRONT, runlog, sn, colset, frame)
             d_cl = get(FeaturesNew.DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
 
-            behavior = ContextClass.NULL
-
             # freeflow and carfollow are mutually exclusive
-            is_in_freeflow = (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5)
+            is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 1.0)
             if is_in_freeflow
-                behavior |= ContextClass.FREEFLOW
-            else carfollow[frame]
-                behavior |= ContextClass.FOLLOWING
+                set_behavior_flag!(runlog, colset, frame, ContextClass.FREEFLOW)
+                @assert(!is_behavior_fag_set(runlog, colset, frame, ContextClass.FOLLOWING))
+            else
+                set_behavior_flag!(runlog, colset, frame, ContextClass.FOLLOWING)
+                @assert(!is_behavior_fag_set(runlog, colset, frame, ContextClass.FREEFLOW))
             end
 
             # lanechange can be set separately
@@ -2233,35 +2221,55 @@ function _extract_runlog(
                 # identifier lanechange
                 # move forward and back until |velFy| < 0.1
 
-                behavior |= ContextClass.LANECHANGE
+                set_behavior_flag!(runlog, colset, frame, ContextClass.LANECHANGE)
 
-                for frame_fut  in frame + 1 : RunLogs.nframes(runlog)
+                for frame_fut  in frame+1 : RunLogs.nframes(runlog)
                     colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
-                    velFy_fut = get(FeaturesNew.VELFT, runlog, sn, colset, frame_fut)
-                    if abs(velFy_fut) ≥ 0.1
+                    velFt_fut = get(FeaturesNew.VELFT, runlog, sn, colset, frame_fut)
+                    if abs(velFt_fut) ≥ 0.1
                         set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
                     else
                         break
                     end
                 end
 
-                for frame_past  in frame - 1 : -1 : 1
+                for frame_past  in frame-1 : -1 : 1
                     colset_past = RunLogs.id2colset(runlog, id, frame_past)
-                    velFy_past = get(FeaturesNew.VELFT, runlog, sn, colset, frame_past)
-                    if abs(velFy_past) ≥ 0.1
+                    velFt_past = get(FeaturesNew.VELFT, runlog, sn, colset_past, frame_past)
+                    if abs(velFt_past) ≥ 0.1
                         set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
                     else
                         break
                     end
                 end
             end
-
-            RunLogs.set!(runlog, colset, frame, :behavior, behavior)
+            d_cl_prev = d_cl
         end
     end
     # toc()
 
     runlog
+end
+
+function _angle_to_range(θ::Float64, low::Float64)
+    # ensures θ is within (low ≤ θ ≤ low + 2π)
+
+    if !isnan(θ) && !isinf(θ)
+        while θ < low
+            θ += 2π
+        end
+        while θ > low + 2π
+            θ -= 2π
+        end
+    end
+
+    θ
+end
+function _angle_to_range!( arr::Vector{Float64}, low::Float64)
+    for i = 1 : length(arr)
+        arr[i] = _angle_to_range(arr[i], low)
+    end
+    arr
 end
 
 function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::Integer)
@@ -2271,6 +2279,8 @@ function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::I
     θ₂ = get(runlog, colset₂, frame2, :inertial).θ
     @assert(!isnan(θ₁))
     @assert(!isnan(θ₂))
+    @assert(-π ≤ θ₁ ≤ π)
+    @assert(-π ≤ θ₂ ≤ π)
 
     # correct for wrap-around
 
@@ -2320,3 +2330,52 @@ function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::In
 end
 
 end # module
+
+#=
+learn!(b::BayesNet, d::DataFrame)
+    - b has been initialized with the appropriate variables, network structure, and CPD form
+    - BayesNetNode now contains {name, CPD, domain::Distribution}
+            - domain captures the Domain and associated characteristics of the CPD
+            - ex: Normal(0.0,1.0)
+                  Categorical([domain])
+                  Bernoulli()
+
+            for node in ordering
+                node_domain = node.domain
+                parent_domains = get_parent_domains() # vector of approrpiate type
+                node_data = dataset[node.name]
+                parent_data = list of DataArrays for the parent
+                CPD = fit_cpd(node_domain, parent_domains, node_data, parent_data)
+            end
+
+    - CPD provides:
+        fit_cpd(D, parent_domains)
+        distribution(CPD, Assignment)
+        rand <just a friendly overlay>
+        <don't need Domain>
+        <don't need provec for all, just Categorical>
+
+    - learning a CPD depends on CPD's domain and that of its parents
+        {all categorical} -> categorical is easy
+        {all continuous} -> gaussian can be interpreted as linear gaussian
+        {cat & continuous} -> gaussian can be a set of linear gaussians
+
+        fit_cpd(D::Categorical, parent_domains::AbstractVector{Categorical}, node_data::DataArray, parent_data::AbstractVector{DataArray})
+
+    - custom CPD relations can be obtained by overwriting fit_cpd(CPD, D, parent_domains)
+
+
+    bn = BayesNet()
+    add_node!(bn, BayesNetNode(:A, Bernoulli())) # create node, but do not init CPD
+    add_node!(bn, BayesNetNode(:B, Categorical([1.0, 0.0, 0.0]))) # create categorical with 3 entries
+    add_edge!(bn, :A, :B)
+
+    D = DataFrame(
+        A = [1, 2, 1, 2, 1],
+        B = [1, 2, 3, 1, 2]
+    )
+
+    learn!(bn, D)
+
+    Why is assignments not always a Dict{Symbol -> Any}?
+=#

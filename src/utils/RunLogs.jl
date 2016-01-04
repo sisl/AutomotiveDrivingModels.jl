@@ -466,10 +466,14 @@ end
 
 function set_behavior_flag!(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
     behavior = get(runlog, colset, frame, :behavior)::UInt16
-    if (behavior & flag) == 0
-        behavior |= flag
-        set!(runlog, colset, frame, :behavior, behavior)
-    end
+    behavior |= flag
+    set!(runlog, colset, frame, :behavior, behavior)
+    runlog
+end
+function clear_behavior_flag!(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
+    behavior = get(runlog, colset, frame, :behavior)::UInt16
+    behavior = (behavior & ~flag)
+    set!(runlog, colset, frame, :behavior, behavior)
     runlog
 end
 function is_behavior_fag_set(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)

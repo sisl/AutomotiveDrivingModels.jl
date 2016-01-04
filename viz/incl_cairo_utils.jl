@@ -47,8 +47,8 @@ function render_overlay!(overlay::TextStatsOverlay,
 
     r = colorant"red"
     b = colorant"blue"
-    color_freeflow = (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5) ? r : b
-    str_inferred_context = abs(velFy) > 0.1 ? "lanechange" : (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5) ? "freeflow" : "following"
+    color_freeflow = (isnan(inv_timegap_front) || inv_timegap_front > 1.0/3.0 || Δv_front > 1.0) ? r : b
+    str_inferred_context = abs(velFy) > 0.1 ? "lanechange" : (isnan(inv_timegap_front) || inv_timegap_front < 1.0/3.0 || Δv_front > 1.0) ? "freeflow" : "following"
 
     behavior = get(runlog, colset, frame, :behavior)::UInt16
 
@@ -95,6 +95,9 @@ function render_overlay!(overlay::TextStatsOverlay,
         add_instruction!( rendermodel, render_text, (str_actual_contexts, 10, text_y, 15, colorscheme["foreground"]), incameraframe=false)
         text_y += text_y_jump
     end
+
+    # add_instruction!( rendermodel, render_text, (@sprintf("inv_timegap_front = %.4f", inv_timegap_front), 10, text_y, 15, colorscheme["foreground"]), incameraframe=false)
+    # text_y += text_y_jump
 
     rendermodel
 end
@@ -2058,6 +2061,37 @@ function reel_pdset(
     end
 
     frames
+    # roll(frames, fps=fps) # write("output.gif", film)
+end
+function reel_runlog(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    active_carid::Integer=ID_EGO;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=300, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    camera_forward_offset::Real=0.0,
+    fps::Integer=40,
+
+    frames::AbstractVector{Int} = 1:nframes(runlog),
+    overlays::AbstractVector{Overlay} = Overlay[],
+    )
+
+    retval = Array(CairoSurface, length(frames))
+    for (roll_index, validfind) in enumerate(frames)
+
+        retval[roll_index] = plot_scene(runlog, sn, validfind, active_carid,
+                                        canvas_width=canvas_width,
+                                        canvas_height=canvas_height,
+                                        rendermodel=rendermodel,
+                                        camera_forward_offset=camera_forward_offset,
+                                        camerazoom=camerazoom,
+                                        overlays=overlays)
+    end
+
+    retval
     # roll(frames, fps=fps) # write("output.gif", film)
 end
 function reel_scenario_playthrough(
