@@ -559,8 +559,8 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).x
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
 
     v_oth - v_ego
 end
@@ -573,8 +573,8 @@ function Base.get(::Feature_Delta_V_Y_Front, runlog::RunLog, sn::StreetNetwork, 
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).y
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).y
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).y
+    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).y
 
     v_oth - v_ego
 end
@@ -654,7 +654,7 @@ function Base.get(::Feature_Inv_Timegap_Front, runlog::RunLog, sn::StreetNetwork
         return NA_ALIAS
     end
 
-    v = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v = (get(runlog, colset, frame, :ratesF)::VecE2).x
 
     if v ≤ 0.0
         return 0.0
@@ -673,8 +673,8 @@ function Base.get(::Feature_Gaining_On_Front, runlog::RunLog, sn::StreetNetwork,
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecSE2).x
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
 
     convert(Float64, v_ego > v_oth)
 end
@@ -837,7 +837,7 @@ function Base.get(::Feature_Inv_Timegap_Rear, runlog::RunLog, sn::StreetNetwork,
 end
 
 create_feature_basics("Rear_Is_Gaining", :gaining_on_rear, L"gaining^\text{rear}", Bool, L"-", :no_na)
-function Base.get(::Feature_Gaining_On_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+function Base.get(::Feature_Rear_Is_Gaining, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
     if colset_rear == COLSET_NULL
@@ -1090,14 +1090,60 @@ end
 #
 ############################################
 
-
 _fast_hypot(v::VecE2) = sqrt(v.x*v.x + v.y*v.y)
 _fast_hypot(v::VecSE2) = sqrt(v.x*v.x + v.y*v.y)
 
+# TODO(tim): move this to StreetNets
+function _get_dist_from_A_to_B(tagA::LaneTag, tagB::LaneTag, extindA::Float64, extindB::Float64, sn::StreetNetwork;
+    max_dist::Float64 = StreetNetworks.SATURATION_DISTANCE_BETWEEN
+    )
+
+    #=
+    Obtains the distance travelled along the lane centerline from (tagA, extindA) to (tagB, extindB)
+    Returns NaN if B is not found downstream from A
+    =#
+
+    lane = get_lane(sn, tagA)
+    search_dist = -Curves.curve_at(lane.curve, extindA).s
+    finished = false
+
+    while !finished
+
+        if lane.id == tagB
+            # in the same lane
+            s = Curves.curve_at(lane.curve, extindB).s
+            Δs = s + search_dist
+            return (Δs ≥ 0.0 && Δs ≤ max_dist) ? Δs : NaN
+        else
+            # not in the same lane, move downstream
+            if has_next_lane(sn, lane)
+                search_dist += lane.curve.s[end]
+                lane = next_lane(sn, lane)
+                finished = search_dist > max_dist
+            else
+                finished = true
+            end
+        end
+    end
+
+    NaN
+end
+
+# TODO(tim): move this to StreetNets
 function _get_dist_between(tagA::LaneTag, tagB::LaneTag, extindA::Float64, extindB::Float64, sn::StreetNetwork)
 
-    # returns NaN if not in the same lane
+    #=
+    Obtains the distance travelled along the lane centerline between (tagA, extindA) and (tagB, extindB)
+    Returns a positive value if it is found
+    Returns NaN if B is not found downstream from A
+    =#
 
+    retval = _get_dist_from_A_to_B(tagA, tagB, extindA, extindB, sn)
+    if isnan(retval)
+        retval = _get_dist_from_A_to_B(tagB, tagA, extindB, extindA, sn)
+    end
+
+    retval
 end
 function _get_dist_between(runlog::RunLog, sn::StreetNetwork, colset::UInt, colset_front::UInt, frame::Int)
 

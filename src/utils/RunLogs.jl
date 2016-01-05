@@ -34,6 +34,9 @@ export
     # Base.get                          # pull item from runlog
     set!,                               # set the entry in the runlog
 
+    set_behavior_flag!,                 # set the given flag
+    is_behavior_fag_set,                #
+
     idinframe,                          # whether the given id is in the frame
     idinframes,                         # whether the given id is in all the frames
 
@@ -131,8 +134,58 @@ immutable AgentDefinition
 end
 
 type RunLogHeader
-    map_name::AbstractString
-    driver_name::AbstractString
+    map_name::AbstractString # defaults to ???
+    driver_name::AbstractString # ∈ {???, Philipp}
+    date::Date # date of drive
+    quat_frame::Union{Type{UTM}, Type{ECEF}}
+        # the older maps are in UTM (default)
+        # the newer maps are in ECEF
+
+    function RunLogHeader(io::IO)
+
+        #=
+        Construct a RunLogHeader using a definition file
+        File contains lines: <entry> <value>
+        ex:
+
+            map_name detroit_v4
+            driver_name Philipp
+            date
+            quat_frame ECEF
+        =#
+
+        retval = new()
+
+        retval.map_name = "???"
+        retval.driver_name = "???"
+        retval.date = Date(0)
+        retval.quat_frame = UTM
+
+        for line in readlines(io)
+            m = match(r"^(\S)+ (\S)+$", line)
+            if isa(m, RegexMatch)
+                entry, value = split(m.match)
+                if entry == "map_name"
+                    retval.map_name = value
+                elseif entry == "driver_name"
+                    retval.driver_name = value
+                elseif entry == "date"
+                    retval.date = Date(value,"y-m-d")
+                elseif entry == "quat_frame"
+                    @assert(value == "UTM" || value == "ECEF")
+                    if value == "UTM"
+                        retval.quat_frame = UTM
+                    else
+                        retval.quat_frame = ECEF
+                    end
+                else
+                    warn("unknown RunLogHeader entry $entry in $line")
+                end
+            end
+        end
+
+        retval
+    end
 end
 
 type RunLog
@@ -323,11 +376,11 @@ function set!(runlog::RunLog, colset::UInt, frame::Integer, sym::Symbol, value::
     runlog.colsets[colset][frame, sym] = value
     runlog
 end
-function set!{I<:Integer}(runlog::RunLog, colset::UInt, frames::AbstractVector{I}, sym::Symbol, values::AbstractVector)
+function set!{I<:Integer}(runlog::RunLog, id::UInt, frames::AbstractVector{I}, sym::Symbol, values::AbstractVector)
 
-    df = runlog.colsets[colset]
     for (frame,value) in zip(frames, values)
-        df[frame, sym] = value
+        colset = id2colset(runlog, id, frame)
+        set!(runlog, colset, frame, sym, value)
     end
 
     runlog
@@ -409,6 +462,23 @@ function set!{I<:Integer}(runlog::RunLog, frames::AbstractVector{I}, sym::Symbol
     end
 
     runlog
+end
+
+function set_behavior_flag!(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
+    behavior = get(runlog, colset, frame, :behavior)::UInt16
+    behavior |= flag
+    set!(runlog, colset, frame, :behavior, behavior)
+    runlog
+end
+function clear_behavior_flag!(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
+    behavior = get(runlog, colset, frame, :behavior)::UInt16
+    behavior = (behavior & ~flag)
+    set!(runlog, colset, frame, :behavior, behavior)
+    runlog
+end
+function is_behavior_fag_set(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
+    behavior = get(runlog, colset, frame, :behavior)::UInt16
+    (behavior & flag) > 0
 end
 
 

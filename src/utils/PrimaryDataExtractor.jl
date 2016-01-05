@@ -9,6 +9,7 @@ using AutomotiveDrivingModels.Curves
 using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.RunLogs
+using AutomotiveDrivingModels.FeaturesNew
 
 import AutomotiveDrivingModels: CSVFileSet
 
@@ -16,6 +17,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "io", "filesystem_utils.jl"))
 
 export
     PrimaryDataExtractionParams,
+    load_header_trajdata_and_streetmap,
     extract_runlogs,
     gen_primary_data,
     gen_primary_data_no_smoothing
@@ -63,7 +65,7 @@ type PrimaryDataExtractionParams
         self.verbosity = 0
 
         self.threshold_percent_outliers_warn = 0.5
-        self.threshold_percent_outliers_error = 2.5
+        self.threshold_percent_outliers_error = 5.0
         self.threshold_lane_lateral_offset_ego = 2.5
         self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
         self.threshold_other_frame_gap = 5
@@ -290,19 +292,7 @@ function make_angle_continuous!( arr::DataVector{Float64} )
     end
     arr
 end
-function mod2pi_neg_pi_to_pi( θ::Float64 )
-    θ = mod2pi(θ)
-    if θ > π
-        θ -= 2π
-    end
-    θ
-end
-function mod2pi_neg_pi_to_pi!( arr::Vector{Float64} )
-    for i = 1 : length(arr)
-        arr[i] = mod2pi_neg_pi_to_pi(arr[i])
-    end
-    arr
-end
+
 
 function pad_linear(arr::Vector{Float64}, n_samples_each_side::Int)
     # NOTE(tim): extends both ends of arr using a two-point linear approximation
@@ -517,6 +507,24 @@ function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{
     retval
 end
 
+function load_header_trajdata_and_streetmap(csvfile::AbstractString)
+
+    header_file = splitext(csvfile)[1] * "_header.txt"
+    header_file_io = open(header_file, "r")
+    @assert(isfile(header_file))
+    header = RunLogHeader(header_file_io)
+    close(header_file_io)
+
+    streetnet_file =joinpath(STREETMAP_BASE, "streetmap_" * header.map_name*".jld")
+    sn = JLD.load(streetnet_file, "streetmap")
+
+    csvfile_io = open(csvfile)
+    trajdata = PrimaryDataExtractor.load_trajdata(csvfile_io, header)
+    close(csvfile_io)
+
+    (header, trajdata, sn)
+end
+
 function load_trajdata(csvfile::AbstractString)
 
     file = open(csvfile, "r")
@@ -570,49 +578,116 @@ function load_trajdata(csvfile::AbstractString)
 
     # replace quatx, quaty, quatz with rollG, pitchG, yawG
     # ----------------------------------------
+    rpy = zeros(size(df,1), 3)
+    for i = 1 : size(df,1)
+        QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
+        rpy_convert = convert(RPY, QUAT_ENU)
+        rpy[i,1] = rpy_convert.r
+        rpy[i,2] = rpy_convert.p
+        rpy[i,3] = rpy_convert.y
+    end
+    df[:quatx] = rpy[:,1]
+    df[:quaty] = rpy[:,2]
+    df[:quatz] = rpy[:,3]
+
+    rename!(df, :quatx, :rollG)
+    rename!(df, :quaty, :pitchG)
+    rename!(df, :quatz, :yawG)
+    delete!(df, :quatw)
+
+    # add a column for every id seen
+    # for each frame, list the car index it corresponds to or 0 if it is not in the frame
+    # ----------------------------------------
+    idset = Int[]
+    for i = 1 : size(df,1)
+        for carind = 0 : maxcarind
+            id = df[symbol(@sprintf("id_%d", carind))][i]
+            if !isa(id, NAtype) && !in( id, idset )
+                push!(idset, id)
+            end
+        end
+    end
+    for id in sort!(idset)
+        df[symbol(@sprintf("has_%d", id))] = -1*ones(size(df,1))
+    end
+    for frame = 1 : size(df,1)
+        for carind = 0 : maxcarind
+            carid = df[symbol(@sprintf("id_%d", carind))][frame]
+            if !isa(carid, NAtype)
+                df[symbol(@sprintf("has_%d", carid))][frame] = carind
+            end
+        end
+    end
+
+    df
+end
+function load_trajdata(io::IO, header::RunLogHeader)
+
+    lines = readlines(io)
+
+    n_cols = length(matchall(r",", lines[1]))+1
+
+    temp_name = tempname()*".csv"
+
+    # reexport with enough commas so we can read it in properly
+    # ----------------------------------------
+    file = open(temp_name, "w")
+    for (i,line) in enumerate(lines)
+
+        line = replace(line, "None", "Inf")
+
+        cols = length(matchall(r",", lines[i]))+1
+        @printf(file, "%s", lines[i][1:end-1]*(","^(n_cols-cols))*"\n" )
+    end
+    close(file)
+
+    df = readtable(temp_name)
+    rm(temp_name)
+
+    # rename the columns
+    # ----------------------------------------
     colnames = names(df)
-    if in(:quatw, colnames) && in(:quatx, colnames) && in(:quaty, colnames) && in(:quatz, colnames)
-        rpy = zeros(size(df,1), 3)
+    rename_scheme = ((:entry, :frame), (:timings, :time), (:control_node_status, :control_status), (:global_position_x, :posGx),
+        (:global_position_y, :posGy), (:global_position_z, :posGz), (:global_rotation_w, :quatw), (:global_rotation_x, :quatx),
+        (:global_rotation_y, :quaty), (:global_rotation_z, :quatz), (:odom_velocity_x, :velEx), (:odom_velocity_y, :velEy),
+        (:odom_velocity_z, :velEz), (:odom_acceleration_x, :accEx), (:odom_acceleration_y, :accEy), (:odom_acceleration_z, :accEz)) # , (:heading, :yawG)
+    for (source, target) in rename_scheme
+        if in(source, colnames)
+            rename!(df, source, target)
+        end
+    end
+
+    carind = 0
+    while haskey(df, symbol(@sprintf("car_id%d", carind)))
+
+        rename!(df, symbol(@sprintf("car_id%d",carind)), symbol(@sprintf("id_%d",    carind)))
+        rename!(df, symbol(@sprintf("ego_x%d", carind)), symbol(@sprintf("posEx_%d", carind)))
+        rename!(df, symbol(@sprintf("ego_y%d", carind)), symbol(@sprintf("posEy_%d", carind)))
+        rename!(df, symbol(@sprintf("v_x%d",   carind)), symbol(@sprintf("velEx_%d", carind)))
+        rename!(df, symbol(@sprintf("v_y%d",   carind)), symbol(@sprintf("velEy_%d", carind)))
+
+        carind += 1
+    end
+    maxcarind = carind - 1
+
+    # replace quatx, quaty, quatz with rollG, pitchG, yawG
+    # ----------------------------------------
+
+    rpy = zeros(size(df,1), 3)
+    if isa(header.quat_frame, Type{UTM})
         for i = 1 : size(df,1)
-            # QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
-            # rpy_convert = convert(RPY, QUAT_ENU)
-            # rpy[i,1] = rpy_convert.r
-            # rpy[i,2] = rpy_convert.p
-            # rpy[i,3] = rpy_convert.y
-
-            # -----
-
-            # find a forward-point in ECEF
-            # find pos in ECEF
-            # convert it to UTM
-            # find orientation in UTM
-
-            # POS_UTM = UTM(df[i, :posGx], df[i, :posGy], df[i, :posGz], 10) # TODO(tim): remove default zone of 10
-            # QUAT_ENU = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
-
-            # R = convert(Matrix{Float64}, QUAT_ENU)
-            # fp_enu = VecE3(R * [10.0,0.0,0.0])
-            # POS_LLA = convert(LatLonAlt, POS_UTM)
-            # FP_ENU = ENU(fp_enu.x, fp_enu.y, fp_enu.z)
-            # FP_ENU = ENU(FP_ENU.e, FP_ENU.n, FP_ENU.u)
-            # FP_ECEF = convert(ECEF, FP_ENU, POS_LLA)
-            # POS_ECEF = convert(ECEF, POS_LLA)
-            # FP_LLA = convert(LatLonAlt, FP_ECEF)
-            # FP_UTM = convert(UTM, FP_LLA)
-            # AXIS_UTM = FP_UTM - POS_UTM
-            # yaw = atan2(AXIS_UTM.n, AXIS_UTM.e)
-
-            # if i == 2261
-            #     println("POS: ", POS_UTM)
-            #     println("QUAT: ", QUAT_ENU)
-            #     println("YAW: ", rad2deg(yaw))
-            # end
-
-            # rpy[i,1] = NaN
-            # rpy[i,2] = NaN
-            # rpy[i,3] = yaw
-
-            # -----
+            quat_utm = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
+            rpy_convert = convert(RPY, quat_utm)
+            rpy[i,1] = rpy_convert.r
+            rpy[i,2] = rpy_convert.p
+            rpy[i,3] = rpy_convert.y
+        end
+    elseif isa(header.quat_frame, Type{ECEF})
+        for i = 1 : size(df,1)
+            #=
+            The newer runlogs have the quaternion in ECEF
+            They are rectified here
+            =#
 
             POS_UTM = UTM(df[i, :posGx], df[i, :posGy], df[i, :posGz], 10) # TODO(tim): remove default zone of 10
             QUAT_ECEF = Quat(df[i, :quatx], df[i, :quaty], df[i, :quatz], df[i, :quatw])
@@ -631,15 +706,17 @@ function load_trajdata(csvfile::AbstractString)
             rpy[i,2] = NaN
             rpy[i,3] = yaw
         end
-        df[:quatx] = rpy[:,1]
-        df[:quaty] = rpy[:,2]
-        df[:quatz] = rpy[:,3]
-
-        rename!(df, :quatx, :rollG)
-        rename!(df, :quaty, :pitchG)
-        rename!(df, :quatz, :yawG)
-        delete!(df, :quatw)
+    else
+        error("unrecognized header quat_frame type $(header.quat_frame)")
     end
+    df[:quatx] = rpy[:,1]
+    df[:quaty] = rpy[:,2]
+    df[:quatz] = rpy[:,3]
+
+    rename!(df, :quatx, :rollG)
+    rename!(df, :quaty, :pitchG)
+    rename!(df, :quatz, :yawG)
+    delete!(df, :quatw)
 
     # add a column for every id seen
     # for each frame, list the car index it corresponds to or 0 if it is not in the frame
@@ -944,7 +1021,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
         arr_smoothed = smooth(arr_time_on_freeway, arr_orig, smoothing_variance)
         df_ego[ego_car_on_freeway, variable] = remove_pad(arr_smoothed, params.padding_size)
     end
-    df_ego[ego_car_on_freeway, :posFyaw] = mod2pi_neg_pi_to_pi!(convert(Vector{Float64}, df_ego[ego_car_on_freeway, :posFyaw]))
+    df_ego[ego_car_on_freeway, :posFyaw] = _angle_to_range!(convert(Vector{Float64}, df_ego[ego_car_on_freeway, :posFyaw]), -π)
 
     # println("posFyaw: ", extrema(convert(Vector{Float64}, dropna(df_ego[:posFyaw]))))
     # println("velFx: ", extrema(convert(Vector{Float64}, dropna(df_ego[:velFx]))))
@@ -1791,7 +1868,7 @@ function _extract_runlog(
 
         inertial = VecSE2(trajdata_smoothed[frame_old, :posGx],
                           trajdata_smoothed[frame_old, :posGy],
-                          mod2pi_neg_pi_to_pi(trajdata_smoothed[frame_old, :yawG ]))
+                          _angle_to_range(trajdata_smoothed[frame_old, :yawG ], -π))
 
         proj = projections[frame_old]
         @assert(proj.successful)
@@ -1809,15 +1886,15 @@ function _extract_runlog(
         Δt = 0.25
 
         if frame_new > 1
-            θ₁ = trajdata_smoothed[frame_old-1, :yawG]
-            θ₂ = inertial.θ
-            Δt = RunLogs.get_elapsed_time(runlog, frame_new-1, frame_new)
+                θ₁ = _angle_to_range(trajdata_smoothed[frame_old-1, :yawG], -π)
+                θ₂ = inertial.θ
+                Δt = RunLogs.get_elapsed_time(runlog, frame_new-1, frame_new)
 
-        elseif frame_old < frame_hi
-            θ₁ = inertial.θ
-            θ₂ =trajdata_smoothed[frame_old+1, :yawG]
-            Δt = RunLogs.get_elapsed_time(runlog, frame_new, frame_new+1)
-        end
+            elseif frame_old < frame_hi
+                θ₁ = inertial.θ
+                θ₂ = _angle_to_range(trajdata_smoothed[frame_old+1, :yawG], -π)
+                Δt = RunLogs.get_elapsed_time(runlog, frame_new, frame_new+1)
+            end
 
         if θ₁ > 0.5π && θ₂ < -0.5π
             θ₁ -= 2π
@@ -2005,7 +2082,7 @@ function _extract_runlog(
 
                 inertial = VecSE2(data_smoothed[i, :posGx],
                                   data_smoothed[i, :posGy],
-                                  mod2pi_neg_pi_to_pi(data_smoothed[i, :yawG ]))
+                                  _angle_to_range(data_smoothed[i, :yawG ], -π))
 
                 proj = project_point_to_streetmap(inertial.x, inertial.y, sn)
                 if proj.successful && proj.sqdist < params.threshold_proj_sqdist_other
@@ -2084,6 +2161,7 @@ function _extract_runlog(
 
     # behavior for each vehicle
     # println("behavior for each vehicle: "); tic()
+
     if !isa(params.csvfileset, Void)
         # set the behavior using the CSVFileSet
 
@@ -2115,11 +2193,83 @@ function _extract_runlog(
             RunLogs.set!(runlog, colset, frame, :behavior, behavior)
         end
     else
-        # TODO: compute the behavior manually
+        # compute the behavior manually
+
+        id = ID_EGO
+        d_cl_prev = Inf
+
+        for frame in 1 : RunLogs.nframes(runlog)
+            colset = RunLogs.id2colset(runlog, id, frame)
+
+            velFy = get(FeaturesNew.VELFT, runlog, sn, colset, frame)
+            inv_timegap_front = get(FeaturesNew.INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
+            Δv_front = get(FeaturesNew.DELTA_V_FRONT, runlog, sn, colset, frame)
+            d_cl = get(FeaturesNew.DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
+
+            # freeflow and carfollow are mutually exclusive
+            is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 1.0)
+            if is_in_freeflow
+                set_behavior_flag!(runlog, colset, frame, ContextClass.FREEFLOW)
+                @assert(!is_behavior_fag_set(runlog, colset, frame, ContextClass.FOLLOWING))
+            else
+                set_behavior_flag!(runlog, colset, frame, ContextClass.FOLLOWING)
+                @assert(!is_behavior_fag_set(runlog, colset, frame, ContextClass.FREEFLOW))
+            end
+
+            # lanechange can be set separately
+            if frame > 1 && abs(d_cl - d_cl_prev) > 2.5
+                # identifier lanechange
+                # move forward and back until |velFy| < 0.1
+
+                set_behavior_flag!(runlog, colset, frame, ContextClass.LANECHANGE)
+
+                for frame_fut  in frame+1 : RunLogs.nframes(runlog)
+                    colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
+                    velFt_fut = get(FeaturesNew.VELFT, runlog, sn, colset, frame_fut)
+                    if abs(velFt_fut) ≥ 0.1
+                        set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
+                    else
+                        break
+                    end
+                end
+
+                for frame_past  in frame-1 : -1 : 1
+                    colset_past = RunLogs.id2colset(runlog, id, frame_past)
+                    velFt_past = get(FeaturesNew.VELFT, runlog, sn, colset_past, frame_past)
+                    if abs(velFt_past) ≥ 0.1
+                        set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
+                    else
+                        break
+                    end
+                end
+            end
+            d_cl_prev = d_cl
+        end
     end
     # toc()
 
     runlog
+end
+
+function _angle_to_range(θ::Float64, low::Float64)
+    # ensures θ is within (low ≤ θ ≤ low + 2π)
+
+    if !isnan(θ) && !isinf(θ)
+        while θ < low
+            θ += 2π
+        end
+        while θ > low + 2π
+            θ -= 2π
+        end
+    end
+
+    θ
+end
+function _angle_to_range!( arr::Vector{Float64}, low::Float64)
+    for i = 1 : length(arr)
+        arr[i] = _angle_to_range(arr[i], low)
+    end
+    arr
 end
 
 function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::Integer)
@@ -2129,6 +2279,8 @@ function _estimate_turnrate(runlog::RunLog, id::UInt, frame1::Integer, frame2::I
     θ₂ = get(runlog, colset₂, frame2, :inertial).θ
     @assert(!isnan(θ₁))
     @assert(!isnan(θ₂))
+    @assert(-π ≤ θ₁ ≤ π)
+    @assert(-π ≤ θ₂ ≤ π)
 
     # correct for wrap-around
 
@@ -2178,3 +2330,52 @@ function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::In
 end
 
 end # module
+
+#=
+learn!(b::BayesNet, d::DataFrame)
+    - b has been initialized with the appropriate variables, network structure, and CPD form
+    - BayesNetNode now contains {name, CPD, domain::Distribution}
+            - domain captures the Domain and associated characteristics of the CPD
+            - ex: Normal(0.0,1.0)
+                  Categorical([domain])
+                  Bernoulli()
+
+            for node in ordering
+                node_domain = node.domain
+                parent_domains = get_parent_domains() # vector of approrpiate type
+                node_data = dataset[node.name]
+                parent_data = list of DataArrays for the parent
+                CPD = fit_cpd(node_domain, parent_domains, node_data, parent_data)
+            end
+
+    - CPD provides:
+        fit_cpd(D, parent_domains)
+        distribution(CPD, Assignment)
+        rand <just a friendly overlay>
+        <don't need Domain>
+        <don't need provec for all, just Categorical>
+
+    - learning a CPD depends on CPD's domain and that of its parents
+        {all categorical} -> categorical is easy
+        {all continuous} -> gaussian can be interpreted as linear gaussian
+        {cat & continuous} -> gaussian can be a set of linear gaussians
+
+        fit_cpd(D::Categorical, parent_domains::AbstractVector{Categorical}, node_data::DataArray, parent_data::AbstractVector{DataArray})
+
+    - custom CPD relations can be obtained by overwriting fit_cpd(CPD, D, parent_domains)
+
+
+    bn = BayesNet()
+    add_node!(bn, BayesNetNode(:A, Bernoulli())) # create node, but do not init CPD
+    add_node!(bn, BayesNetNode(:B, Categorical([1.0, 0.0, 0.0]))) # create categorical with 3 entries
+    add_edge!(bn, :A, :B)
+
+    D = DataFrame(
+        A = [1, 2, 1, 2, 1],
+        B = [1, 2, 3, 1, 2]
+    )
+
+    learn!(bn, D)
+
+    Why is assignments not always a Dict{Symbol -> Any}?
+=#
