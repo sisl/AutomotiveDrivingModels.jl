@@ -51,6 +51,8 @@ export
     get_max_nactors,                    # maximum nactors over all frames in runlog
     get_colset_range,                   # range from 1 : nactors as a UInt
 
+    get_carids,                         # returns a set containing all ids
+
     get_first_vacant_colset,            # returns index of first vacant colset
     get_first_vacant_colset!,           # exands the number of colsets if necessary
     frames_contain_id,                  # returns true if all of the frames in the range contain the id
@@ -481,7 +483,6 @@ function is_behavior_fag_set(runlog::RunLog, colset::UInt, frame::Integer, flag:
     (behavior & flag) > 0
 end
 
-
 function idinframe(runlog::RunLog, id::UInt, frame::Integer)
     # whether the given id is in the frame
 
@@ -607,6 +608,17 @@ end
 function get_colset_range(runlog::RunLog, frame::Integer)
     n = nactors(runlog, frame)
     one(UInt) : convert(UInt, n)
+end
+
+function get_carids(runlog::RunLog)
+    # returns a set containing all ids
+    retval = Set{UInt}()
+    for frame in 1 : RunLogs.nframes(runlog)
+        for colset in get_colset_range(runlog, frame)
+            push!(retval, colset2id(runlog, colset, frame))
+        end
+    end
+    retval
 end
 
 # Base.show(runlog::RunLog) # this should just list some basic statics

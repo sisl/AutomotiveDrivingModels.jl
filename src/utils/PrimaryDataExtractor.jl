@@ -1085,7 +1085,7 @@ function gen_primary_data(trajdata::DataFrame, sn::StreetNetwork, params::Primar
 
     # --------------------------------------------------
 
-    carids = get_carids(trajdata) # a Set{Int} of carids
+    carids = Trajdata.get_carids(trajdata) # a Set{Int} of carids
     delete!(carids, CARID_EGO)
 
     dict_other_idmap = Dict{UInt32,UInt16}() # dict carid -> matind,  index for mat_other_indmap
@@ -1501,7 +1501,7 @@ function gen_primary_data_no_smoothing(trajdata::DataFrame, sn::StreetNetwork, p
     # --------------------------------------------------
 
     if isa(carids, Void)
-        carids = get_carids(trajdata) # a Set{Int} of carids
+        carids = Trajdata.get_carids(trajdata) # a Set{Int} of carids
         delete!(carids, CARID_EGO)
     end
 
@@ -1725,6 +1725,45 @@ function extract_runlogs(
     arr_time_padded = pad_linear(arr_time, params.padding_size)
     arr_time_resampled_padded = pad_linear(arr_time_resampled, params.padding_size)
 
+    # add new columns to trajdata for posGx and posGy
+    # to avoid the distortion obtained by smoothing ego first
+
+    max_carind = get_max_carind(trajdata)
+    for carind in 0 : max_carind
+        trajdata[symbol(@sprintf("posGx_%d", carind))] = fill(NaN, nrow(trajdata))
+        trajdata[symbol(@sprintf("posGy_%d", carind))] = fill(NaN, nrow(trajdata))
+        trajdata[symbol(@sprintf("velGx_%d", carind))] = fill(NaN, nrow(trajdata))
+        trajdata[symbol(@sprintf("velGy_%d", carind))] = fill(NaN, nrow(trajdata))
+    end
+
+    for frame in 1 : nrow(trajdata)
+        for carind in 0 : max_carind
+            if carind_exists(trajdata, carind, frame)
+
+                posEx_oth = getc(trajdata, "posEx", carind, frame)
+                posEy_oth = getc(trajdata, "posEy", carind, frame)
+
+                # NOTE(tim): velocity in the ego frame but pre-compensated for ego velocity
+                velEx_oth = getc(trajdata, "velEx", carind, frame)
+                velEy_oth = getc(trajdata, "velEy", carind, frame)
+
+                posGx_ego = trajdata[frame, :posGx]
+                posGy_ego = trajdata[frame, :posGy]
+                yawG_ego  = trajdata[frame, :yawG]
+
+                posGx_oth, posGy_oth = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego,
+                                                           posEx_oth, posEy_oth)
+                velGx_oth, velGy_oth = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx_oth, velEy_oth)
+
+                trajdata[frame, symbol(@sprintf("posGx_%d", carind))] = posGx_oth
+                trajdata[frame, symbol(@sprintf("posGy_%d", carind))] = posGy_oth
+                trajdata[frame, symbol(@sprintf("velGx_%d", carind))] = velGx_oth
+                trajdata[frame, symbol(@sprintf("velGy_%d", carind))] = velGy_oth
+            end
+        end
+    end
+
+    # create smoothed trajdata for ego
     trajdata_smoothed = DataFrame()
     trajdata[:yawG] = make_angle_continuous!(convert(Array{Float64}, trajdata[:yawG]))
     for (variable, RANSAC_fit_threshold, smoothing_variance) in
@@ -1927,7 +1966,7 @@ function _extract_runlog(
     const freeway_frameinds_raw = encompasing_indeces(freeway_frameinds, arr_time_resampled, arr_time)
 
     const CARID_EGO_ORIG = -1
-    trajdata_carids = get_carids(trajdata) # a Set{Int} of carids
+    trajdata_carids = Trajdata.get_carids(trajdata) # a Set{Int} of carids
     delete!(trajdata_carids, CARID_EGO_ORIG)
 
     for (i,trajdata_carid) in enumerate(trajdata_carids)
@@ -1965,15 +2004,34 @@ function _extract_runlog(
             # ------------------------------------------
             # run smoothing + interpolation
 
+            # map index to carind (-1 if no exist)
+            carinds_raw = map(i->Trajdata.carid2ind_or_negative_one_otherwise(trajdata, trajdata_carid, segment_frameinds[i]), 1:n_frames_in_seg)
+
             # whether car exists in frame
             car_exists = falses(n_frames_in_seg)
             car_exists[car_frameinds_raw[lo:hi]-car_frameinds_raw[lo]+1] = true
-            n_frames_exist = sum(car_exists)
 
-            # map index to carind (-1 if no exist)
-            carinds_raw = map(i->Trajdata.carid2ind_or_negative_one_otherwise(trajdata, trajdata_carid, segment_frameinds[i]), 1:n_frames_in_seg)
+            # remove frames where the car is basically stopped and ego is at highway speeds
+            for (i,frameind) in enumerate(segment_frameinds)
+
+                if car_exists[i]
+                    carind = carinds_raw[i]
+                    @assert(carind != -1)
+
+                    velGx_oth = getc(trajdata, "velGx", carind, frameind)
+                    velGy_oth = getc(trajdata, "velGy", carind, frameind)
+                    velG_oth = hypot(velGx_oth, velGy_oth)
+
+                    velEx_ego = trajdata[frameind, :velEx]
+                    velEy_ego = trajdata[frameind, :velEy]
+                    velG_ego = hypot(velEx_ego, velEy_ego)
+                    if velG_oth < 5.0 &&  velG_ego > 20.0
+                        car_exists[i] = false
+                    end
+                end
+            end
+
             time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
-
             time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:length(arr_time_resampled))
             time_resampled_ind_hi = time_resampled_ind_lo + findfirst(i->arr_time_resampled[i+1] > time_obs[end], (time_resampled_ind_lo+1):(length(arr_time_resampled)-1))
             @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
@@ -1985,12 +2043,14 @@ function _extract_runlog(
 
             # TODO(tim): can this be optimized with pre-allocation outside of the loop?
             # NOTE(tim): this assumes zero sideslip
+            n_frames_exist = sum(car_exists)
             data_obs = DataFrame(
                 posGx = DataArray(Float64, n_frames_exist),
                 posGy = DataArray(Float64, n_frames_exist),
                 yawG  = DataArray(Float64, n_frames_exist),
                 velBx = DataArray(Float64, n_frames_exist)
                 )
+
 
             total = 0
             for (i,frameind) in enumerate(segment_frameinds)
@@ -2000,32 +2060,25 @@ function _extract_runlog(
                     carind = carinds_raw[i]
                     @assert(carind != -1)
 
-                    posEx = getc(trajdata, "posEx", carind, frameind)
-                    posEy = getc(trajdata, "posEy", carind, frameind)
-                    velEx = getc(trajdata, "velEx", carind, frameind) # NOTE(tim): velocity in the ego frame but pre-compensated for ego velocity
-                    velEy = getc(trajdata, "velEy", carind, frameind)
+                    data_obs[total, :posGx] = getc(trajdata, "posGx", carind, frameind)
+                    data_obs[total, :posGy] = getc(trajdata, "posGy", carind, frameind)
 
-                    posGx_ego = trajdata[frameind, :posGx]
-                    posGy_ego = trajdata[frameind, :posGy]
-                    yawG_ego  = trajdata[frameind, :yawG]
-
-                    posGx, posGy = Trajdata.ego2global(posGx_ego, posGy_ego, yawG_ego, posEx, posEy)
-
-                    data_obs[total, :posGx] = posGx
-                    data_obs[total, :posGy] = posGy
-
-                    velGx, velGy = Trajdata.ego2global(0.0, 0.0, yawG_ego, velEx, velEy)
+                    velGx = getc(trajdata, "velGx", carind, frameind)
+                    velGy = getc(trajdata, "velGy", carind, frameind)
 
                     if hypot(velGx, velGy) > 3.0
                         yawG = atan2(velGy, velGx)
                     else
                         yawG = yawG_ego # to fix problem with very low velocities
                     end
-                    data_obs[total, :velBx] = hypot(velGx, velGy)
+
+                    velBx = hypot(velGx, velGy)
+                    data_obs[total, :velBx] = velBx
                     data_obs[total, :yawG]  = yawG
                 end
             end
             @assert(total == size(data_obs, 1))
+
             data_obs[:yawG] = make_angle_continuous!(convert(Vector{Float64}, data_obs[:yawG]))
 
             data_smoothed = DataFrame()
@@ -2330,52 +2383,3 @@ function _calc_subset_vector(validfind_regions::AbstractVector{Int}, nframes::In
 end
 
 end # module
-
-#=
-learn!(b::BayesNet, d::DataFrame)
-    - b has been initialized with the appropriate variables, network structure, and CPD form
-    - BayesNetNode now contains {name, CPD, domain::Distribution}
-            - domain captures the Domain and associated characteristics of the CPD
-            - ex: Normal(0.0,1.0)
-                  Categorical([domain])
-                  Bernoulli()
-
-            for node in ordering
-                node_domain = node.domain
-                parent_domains = get_parent_domains() # vector of approrpiate type
-                node_data = dataset[node.name]
-                parent_data = list of DataArrays for the parent
-                CPD = fit_cpd(node_domain, parent_domains, node_data, parent_data)
-            end
-
-    - CPD provides:
-        fit_cpd(D, parent_domains)
-        distribution(CPD, Assignment)
-        rand <just a friendly overlay>
-        <don't need Domain>
-        <don't need provec for all, just Categorical>
-
-    - learning a CPD depends on CPD's domain and that of its parents
-        {all categorical} -> categorical is easy
-        {all continuous} -> gaussian can be interpreted as linear gaussian
-        {cat & continuous} -> gaussian can be a set of linear gaussians
-
-        fit_cpd(D::Categorical, parent_domains::AbstractVector{Categorical}, node_data::DataArray, parent_data::AbstractVector{DataArray})
-
-    - custom CPD relations can be obtained by overwriting fit_cpd(CPD, D, parent_domains)
-
-
-    bn = BayesNet()
-    add_node!(bn, BayesNetNode(:A, Bernoulli())) # create node, but do not init CPD
-    add_node!(bn, BayesNetNode(:B, Categorical([1.0, 0.0, 0.0]))) # create categorical with 3 entries
-    add_edge!(bn, :A, :B)
-
-    D = DataFrame(
-        A = [1, 2, 1, 2, 1],
-        B = [1, 2, 3, 1, 2]
-    )
-
-    learn!(bn, D)
-
-    Why is assignments not always a Dict{Symbol -> Any}?
-=#

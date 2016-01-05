@@ -257,7 +257,7 @@ const CSVFILESETS = (
                 Int[], # free flow
                 ),
             CSVFileSet(RunLogs.ID_EGO,
-                "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-14-15-04-57_92_to_pagemill_manual_drive_planning_stripped-raw.csv"
+                "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-14-15-04-57_92_to_pagemill_manual_drive_planning_stripped-raw.csv",
                 "???",
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
@@ -266,7 +266,7 @@ const CSVFILESETS = (
                 Int[], # free flow
                 ),
             CSVFileSet(RunLogs.ID_EGO,
-                "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-22-13-50-09_280N_manual_drive_lane_changes_planning_stripped-raw.csv"
+                "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-22-13-50-09_280N_manual_drive_lane_changes_planning_stripped-raw.csv",
                 "???",
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
@@ -275,7 +275,7 @@ const CSVFILESETS = (
                 Int[], # free flow
                 ),
             CSVFileSet(RunLogs.ID_EGO,
-                "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-22-14-05-41_280S_manual_drive_lane_changes_planning_stripped-raw.csv"
+                "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-22-14-05-41_280S_manual_drive_lane_changes_planning_stripped-raw.csv",
                 "???",
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
