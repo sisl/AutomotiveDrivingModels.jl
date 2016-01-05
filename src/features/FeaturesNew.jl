@@ -500,9 +500,9 @@ function Base.get(::Feature_IDM, runlog::RunLog, sn::StreetNetwork, colset::UInt
     v_front = _fast_hypot(get(runlog, colset_front, frame, :ratesB)::VecSE2)
     Δv_front = v_front - v
     Δt = estimate_framerate(runlog)
-    T = get(TIMEGAP_FRONT, runlog, sn, colset, frame)::Float64
+    iT = get(INV_TIMEGAP_FRONT, runlog, sn, colset, frame)::Float64
 
-    d_des = dmn + T*v - (v*Δv_front) / (2*sqrt(a_max*d_comf))
+    d_des = dmn + v/iT - (v*Δv_front) / (2*sqrt(a_max*d_comf))
     a_idm = a_max * (1.0 - (v/v_max)^4 - (d_des/d_front)^2)
 
     return a_idm
@@ -703,7 +703,19 @@ function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset
     end
 
     d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
-    @assert(!isnan(d_rear))
+
+    # if isnan(d_rear)
+    #     println("colset: ", colset)
+    #     println("frame: ", frame)
+    #     println("id: ", colset2id(runlog, colset, frame))
+    #     println("colset_rear: ", colset_rear)
+    #     println("rear id: ", colset2id(runlog, colset_rear, frame))
+    #     println("rear front: ", get(runlog, colset_rear, frame, :colset_front))
+    # end
+
+    # TODO(tim): should this ever be NaN?
+
+    # @assert(!isnan(d_rear))
 
     d_rear
 end
@@ -730,8 +742,8 @@ function Base.get(::Feature_Delta_V_Rear, runlog::RunLog, sn::StreetNetwork, col
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
-    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).x
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecE2).x
 
     v_oth - v_ego
 end
@@ -744,8 +756,8 @@ function Base.get(::Feature_Delta_V_Y_Rear, runlog::RunLog, sn::StreetNetwork, c
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).y
-    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).y
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).y
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecE2).y
 
     v_oth - v_ego
 end
@@ -825,7 +837,7 @@ function Base.get(::Feature_Inv_Timegap_Rear, runlog::RunLog, sn::StreetNetwork,
         return NA_ALIAS
     end
 
-    v = (get(runlog, colset, frame, :ratesF)::VecSE2).x
+    v = (get(runlog, colset, frame, :ratesF)::VecE2).x
 
     if v ≤ 0.0
         return 0.0
@@ -844,8 +856,8 @@ function Base.get(::Feature_Rear_Is_Gaining, runlog::RunLog, sn::StreetNetwork, 
         return NA_ALIAS
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecSE2).x
-    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecSE2).x
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecE2).x
 
     convert(Float64, v_oth > v_ego)
 end
@@ -1109,17 +1121,15 @@ function _get_dist_from_A_to_B(tagA::LaneTag, tagB::LaneTag, extindA::Float64, e
 
     while !finished
 
-        if lane.id == tagB
-            # in the same lane
-            s = Curves.curve_at(lane.curve, extindB).s
-            Δs = s + search_dist
-            return (Δs ≥ 0.0 && Δs ≤ max_dist) ? Δs : NaN
+        if lane.id == tagB # in the same lane
+            Δs = search_dist + Curves.curve_at(lane.curve, extindB).s
+            return (0.0 ≤ Δs ≤ max_dist) ? Δs : NaN
         else
             # not in the same lane, move downstream
             if has_next_lane(sn, lane)
                 search_dist += lane.curve.s[end]
                 lane = next_lane(sn, lane)
-                finished = search_dist > max_dist
+                finished = (search_dist > max_dist)
             else
                 finished = true
             end
