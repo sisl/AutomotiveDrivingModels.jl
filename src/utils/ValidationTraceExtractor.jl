@@ -1073,7 +1073,6 @@ function pull_model_training_data{S<:AbstractString}(
                 # extract the frame
                 for f in extract_params.features
                     v = get(f, runlog, sn, colset, frame)::Float64
-                    @assert(!isnan(v))
                     dataframe[df_index, symbol(f)] = v
                     dataframe_nona[df_index, symbol(f)] = isinf(v) ?
                         FeaturesNew.replace_na(f)::Float64 : v

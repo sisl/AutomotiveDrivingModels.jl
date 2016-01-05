@@ -2089,7 +2089,7 @@ function _extract_runlog(
                     if hypot(velGx, velGy) > 3.0
                         yawG = atan2(velGy, velGx)
                     else
-                        yawG = yawG_ego # to fix problem with very low velocities
+                        yawG = trajdata[frameind, :yawG] # to fix problem with very low velocities
                     end
 
                     velBx = hypot(velGx, velGy)

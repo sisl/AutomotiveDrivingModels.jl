@@ -10,8 +10,8 @@ INDICATOR_SET2 = [
 
 behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 
-# behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
-# behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(DF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
+behaviorset["Random Forest"] = BehaviorTrainDefinition(GRF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
+behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(DF_TrainParams(indicators=INDICATOR_SET2, ntrees=3, max_tree_depth=3, n_PCA_features=5))
 behaviorset["Mixture Regression"] = BehaviorTrainDefinition(GMR_TrainParams(indicators=INDICATOR_SET2, n_components=3, max_n_indicators=2, n_PCA_features=5))
 
 # behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
