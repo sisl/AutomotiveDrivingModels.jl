@@ -20,7 +20,8 @@ export
     load_header_trajdata_and_streetmap,
     extract_runlogs,
     gen_primary_data,
-    gen_primary_data_no_smoothing
+    gen_primary_data_no_smoothing,
+    trajdata_csv_to_header_file
 
 type PrimaryDataExtractionParams
 
@@ -65,7 +66,7 @@ type PrimaryDataExtractionParams
         self.verbosity = 0
 
         self.threshold_percent_outliers_warn = 0.5
-        self.threshold_percent_outliers_error = 5.0
+        self.threshold_percent_outliers_error = 12.0
         self.threshold_lane_lateral_offset_ego = 2.5
         self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
         self.threshold_other_frame_gap = 5
@@ -507,9 +508,10 @@ function encompasing_indeces{I<:Integer}(inds::Vector{I}, sample_time_A::Vector{
     retval
 end
 
+trajdata_csv_to_header_file(csvfile::AbstractString) = splitext(csvfile)[1] * "_header.txt"
 function load_header_trajdata_and_streetmap(csvfile::AbstractString)
 
-    header_file = splitext(csvfile)[1] * "_header.txt"
+    header_file = trajdata_csv_to_header_file(csvfile)
     header_file_io = open(header_file, "r")
     @assert(isfile(header_file))
     header = RunLogHeader(header_file_io)
@@ -2031,7 +2033,26 @@ function _extract_runlog(
                 end
             end
 
-            time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
+            n_frames_exist = sum(car_exists)
+            if n_frames_exist < 5
+                if params.verbosity > 0
+                    print_with_color(:red, "skipping due to insufficient existing frame count ($n_frames_exist < 5\n")
+                end
+                continue
+            end
+
+            # time_obs = arr_time[car_frameinds_raw[lo:hi]] # actual measured time
+            time_obs = Array(Float64, n_frames_exist)
+            let
+                j = 0
+                for (i, frameind) in enumerate(segment_frameinds)
+                    if car_exists[i]
+                        j += 1
+                        time_obs[j] = arr_time[frameind] # actual measured time
+                    end
+                end
+            end
+
             time_resampled_ind_lo = findfirst(i->arr_time_resampled[i] ≥ time_obs[1], 1:length(arr_time_resampled))
             time_resampled_ind_hi = time_resampled_ind_lo + findfirst(i->arr_time_resampled[i+1] > time_obs[end], (time_resampled_ind_lo+1):(length(arr_time_resampled)-1))
             @assert(time_resampled_ind_lo != 0 && time_resampled_ind_hi != 0)
@@ -2043,14 +2064,13 @@ function _extract_runlog(
 
             # TODO(tim): can this be optimized with pre-allocation outside of the loop?
             # NOTE(tim): this assumes zero sideslip
-            n_frames_exist = sum(car_exists)
+
             data_obs = DataFrame(
                 posGx = DataArray(Float64, n_frames_exist),
                 posGy = DataArray(Float64, n_frames_exist),
                 yawG  = DataArray(Float64, n_frames_exist),
                 velBx = DataArray(Float64, n_frames_exist)
                 )
-
 
             total = 0
             for (i,frameind) in enumerate(segment_frameinds)
