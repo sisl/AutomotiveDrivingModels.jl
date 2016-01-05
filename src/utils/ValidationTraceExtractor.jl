@@ -1433,6 +1433,145 @@ function get_cross_validation_fold_assignment(
 
     FoldAssignment(frame_fold_assignment, pdsetsegment_fold_assignment, nfolds)
 end
+function get_cross_validation_fold_assignment(
+    nfolds::Int,
+    dset::ModelTrainingData2,
+    train_test_split::FoldAssignment,
+    )
+
+    #=
+    Want: to split the dataframe into k disjoint training sets of nearly the same size
+          and simultaneously split the runlog_segments into k disjoint sets of nearly the same size
+
+    Assumptions
+    - runlog_segments are all of the same history and horizon
+    - runlog_segments do not overlap
+
+    1) randomly divide runlog_segments into k roughly equally-sized groups
+    2) for each group, identify the corresponding frames
+    3) assign those frames to each training set
+    4) divide the remaining training frames among the training sets
+    =#
+
+    runlog_segments = dset.runlog_segments
+    dataframe = dset.dataframe
+    seg_start_to_index_in_dataframe = dset.seg_start_to_index_in_dataframe
+
+    frame_tv_assignment = train_test_split.frame_assignment
+    runlogseg_tv_assignment = train_test_split.seg_assignment
+
+    nframes = nrow(dataframe)
+    nrunlogsegments = length(runlog_segments)
+
+    nframes_assigned_to_training = 0
+    for v in frame_tv_assignment
+        if v == FOLD_TRAIN
+            nframes_assigned_to_training += 1
+        end
+    end
+
+    nrunlogsegments_assigned_to_training = 0
+    for v in runlogseg_tv_assignment
+        if v == FOLD_TRAIN
+            nrunlogsegments_assigned_to_training += 1
+        end
+    end
+
+    indeces_of_train_frames = Array(Int, nframes_assigned_to_training)
+    ind = 1
+    for (i,v) in enumerate(frame_tv_assignment)
+        if v == FOLD_TRAIN
+            indeces_of_train_frames[ind] = i
+            ind += 1
+        end
+    end
+
+    indeces_of_train_runlogsegs = Array(Int, nrunlogsegments_assigned_to_training)
+    ind = 1
+    for (i,v) in enumerate(runlogseg_tv_assignment)
+        if v == FOLD_TRAIN
+            indeces_of_train_runlogsegs[ind] = i
+            ind += 1
+        end
+    end
+
+    @assert(length(seg_start_to_index_in_dataframe) ≥ nrunlogsegments)
+
+    nrunlogsegments_per_fold = div(nrunlogsegments_assigned_to_training, nfolds)
+    nfolds_with_extra_runlogsegment = mod(nrunlogsegments_assigned_to_training, nfolds)
+
+    # println("nframes: ", nframes)
+    # println("nrunlogsegments: ", nrunlogsegments)
+    # println("nrunlogsegments_per_fold: ", nrunlogsegments_per_fold)
+    # println("nfolds_with_extra_runlogsegment: ", nfolds_with_extra_runlogsegment)
+
+    # NOTE(tim): will only set frames and segs that are marked TRAIN
+    frame_fold_assignment = zeros(Int, nframes)
+    runlogsegment_fold_assignment = zeros(Int, nrunlogsegments)
+
+    p = randperm(nrunlogsegments_assigned_to_training)
+    permind = 0
+    for f = 1 : nfolds
+        # println(runlogsegment_fold_assignment)
+        nrunlogsegments_in_fold = nrunlogsegments_per_fold + (f ≤ nfolds_with_extra_runlogsegment ? 1 : 0)
+        for i = 1 : nrunlogsegments_in_fold
+            permind += 1
+
+            runlogsegmentind = indeces_of_train_runlogsegs[p[permind]]
+            runlogsegment_fold_assignment[runlogsegmentind] = f
+
+            framestart = seg_start_to_index_in_dataframe[runlogsegmentind]
+            frameend = framestart + get_horizon(runlog_segments[runlogsegmentind])
+            frameind = framestart
+
+            for _ in framestart : N_FRAMES_PER_SIM_FRAME : frameend
+                @assert(frame_fold_assignment[frameind] == 0)
+                frame_fold_assignment[frameind] = f
+                frameind += 1
+            end
+        end
+    end
+
+    frame_fold_sizes = zeros(Int, nfolds)
+    nremaining_frames = 0
+    for frameind in 1 : nframes_assigned_to_training
+        if frame_fold_assignment[indeces_of_train_frames[frameind]] == 0
+            nremaining_frames += 1
+        else
+            frame_fold_sizes[frame_fold_assignment[indeces_of_train_frames[frameind]]] += 1
+        end
+    end
+
+    # println("nremaining_frames: ", nremaining_frames)
+    # println("frame_fold_sizes (before): ", frame_fold_sizes)
+
+    fold_priority = PriorityQueue{Int, Int}() # (fold, foldsize), min-ordered
+    for (fold,foldsize) in enumerate(frame_fold_sizes)
+        fold_priority[fold] = foldsize
+    end
+
+    remaining_frames = Array(Int, nremaining_frames)
+    rem_frame_count = 0
+    for frameind in 1 : nframes_assigned_to_training
+        if frame_fold_assignment[indeces_of_train_frames[frameind]] == 0
+            remaining_frames[rem_frame_count+=1] = indeces_of_train_frames[frameind]
+        end
+    end
+
+    if nremaining_frames > 0
+        p = randperm(nremaining_frames)
+        for rem_frame_ind in 1 : nremaining_frames
+            fold = dequeue!(fold_priority)
+            frame_fold_assignment[remaining_frames[p[rem_frame_ind]]] = fold
+            frame_fold_sizes[fold] += 1
+            fold_priority[fold] = frame_fold_sizes[fold]
+        end
+    end
+
+    # println("frame_fold_sizes (after): ", frame_fold_sizes)
+
+    FoldAssignment(frame_fold_assignment, runlogsegment_fold_assignment, nfolds)
+end
 function get_train_test_fold_assignment(
     fraction_test::Float64,
     dset::ModelTrainingData,
