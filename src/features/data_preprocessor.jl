@@ -351,6 +351,33 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     push!(chain.processors, dp)
     chain
 end
+function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataClamper}, max_n_stdevs_from_mean::Real)
+    # add a clamper to the chain
+    # This will train the clamper to clamp to the currently observed max and min
+    # - if max_n_stdevs_from_mean is set will use that instead
+    # - input is same as output, so chain.z does not change
+
+    n_features = size(X, 1)
+    @assert(!isnan(max_n_stdevs_from_mean))
+
+    lo = Array(Float64, n_features)
+    hi = Array(Float64, n_features)
+
+    for i in 1 : n_features
+
+        arr = X[i,:]
+        low, high = extrema(arr)
+        μ = mean(arr)
+        σ = stdm(arr, μ)
+
+        lo[i] = max(low, μ - max_n_stdevs_from_mean*σ)
+        hi[i] = min(high, μ + max_n_stdevs_from_mean*σ)
+    end
+
+    dp = DataClamper(chain.z, lo, hi)
+    push!(chain.processors, dp)
+    chain
+end
 function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{DataLinearTransform}, n_components::Int)
     # add a PCA transform to the chain
     # - has a new output, so reset the chain
@@ -363,11 +390,7 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     @assert(all(X != NaN))
     @assert(all(X != Inf))
 
-    println("svd, ", size(X))
-    tic()
-
     U, S, V = svd(X)
-    toc()
 
     A = U[1:n_components,:]
     b = zeros(Float64, n_components)
