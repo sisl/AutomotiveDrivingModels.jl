@@ -12,7 +12,8 @@ const TEXDIR = splitdir(TEXFILE)[1]
 const INCLUDE_FILE_BASE = "realworld"
 
 const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
-const SAVE_FILE_MODIFIER = "_subset_car_following"
+# const SAVE_FILE_MODIFIER = "_subset_car_following"
+const SAVE_FILE_MODIFIER = "_freeflow"
 const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/" * INCLUDE_FILE_BASE* "/"
 const METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * ".jld")
 const MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * SAVE_FILE_MODIFIER * ".jld")
@@ -482,18 +483,18 @@ end
 # println("done")
 # exit()
 
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
-end
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
-end
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
-end
-write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
-    create_tikzpicture_model_compare_rwse_legend(fh, names)
-end
+# write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
+# end
+# write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
+# end
+# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
+# end
+# write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
+#     create_tikzpicture_model_compare_rwse_legend(fh, names)
+# end
 
 
 println("done")

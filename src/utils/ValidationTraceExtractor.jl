@@ -1571,6 +1571,7 @@ function get_cross_validation_fold_assignment(
 
     FoldAssignment(frame_fold_assignment, runlogsegment_fold_assignment, nfolds)
 end
+
 function get_train_test_fold_assignment(
     fraction_test::Float64,
     dset::ModelTrainingData,
@@ -1635,6 +1636,7 @@ function get_train_test_fold_assignment(
 
     FoldAssignment(a_frame, a_seg, 2)
 end
+
 function get_fold_assignment_across_drives(dset::ModelTrainingData)
 
     #=
@@ -1669,14 +1671,8 @@ function get_fold_assignment_across_drives(dset::ModelTrainingData2)
 
     #=
     returns a FoldAssignment with one fold for each drive
-    Works by splitting over pdset_id's
+    Works by splitting over runlog_id's
     =#
-
-    # runlog_id
-    # frame_start
-    # frame_end
-
-    # seg_start_to_index_in_dataframe
 
     dataframe = dset.dataframe
     runlog_segments = dset.runlog_segments
@@ -1704,6 +1700,61 @@ function get_fold_assignment_across_drives(dset::ModelTrainingData2)
 
     FoldAssignment(a_frame, a_seg, length(runlog_id_to_fold))
 end
+function get_fold_assignment_across_drives(dset::ModelTrainingData2, nfolds::Int)
+
+    #=
+    returns a FoldAssignment with `nfolds` folds, where each drive is always entirely
+    assigned to a particular fold.
+    Attempts to split as evenly as possible (by number of traces).
+    Works by splitting over runlog_id's
+    =#
+
+    # runlog_id
+    # frame_start
+    # frame_end
+    # seg_start_to_index_in_dataframe
+
+    dataframe = dset.dataframe
+    runlog_segments = dset.runlog_segments
+
+    runlog_id_to_index = Dict{Int,Int}()
+    runlog_id_ntraces = Int[]
+
+    for (i, runlogseg) in enumerate(runlog_segments)
+
+        id = runlogseg.runlog_id
+
+        if !haskey(runlog_id_to_index, id)
+            runlog_id_to_index[id] = length(runlog_id_to_index) + 1
+            push!(runlog_id_ntraces, 1)
+        else
+            runlog_id_ntraces[runlog_id_to_index[id]] += 1
+        end
+    end
+
+    id_to_fold = multiprocessor_scheduling_longest_processing_time(runlog_id_ntraces, nfolds)
+
+    a_frame = zeros(Int, nrow(dataframe))
+    a_seg = zeros(Int, length(runlog_segments))
+
+    println(length(a_seg))
+
+    for (i, runlogseg) in enumerate(runlog_segments)
+
+        fold = id_to_fold[runlogseg.runlog_id]
+
+        a_seg[i] = fold
+
+        df_frame_start = dset.seg_start_to_index_in_dataframe[i]
+        df_frame_end = df_frame_start + runlogseg.frame_end - runlogseg.frame_start
+        for df_frame in df_frame_start : df_frame_end
+            a_frame[df_frame] = fold
+        end
+    end
+
+    FoldAssignment(a_frame, a_seg, nfolds)
+end
+
 function get_fold_assignment_across_traces(dset::ModelTrainingData)
 
     #=
@@ -1865,6 +1916,45 @@ function _subset_sum!(
     selected
 end
 
+"""
+Solves the Multiprocessor Scheduling problem using the Longest Processing Time algorithm
+
+    PROBLEM: (NP-hard)
+        Given:
+            - set of jobs, each with a length
+            - a number of processors
+        Find:
+            - divide the jobs among the processors such that none overlap
+              which minimizes the total processing time
+
+    ALGORITHM:
+        - sort the jobs by processing time
+        - assign them to the machine with the earliest end time so far
+        Achieves an upper bound of 4/3 - 1/(3m) of optimal
+
+    RETURNS:
+        assignments, ith index → machine for the ith job
+"""
+function multiprocessor_scheduling_longest_processing_time{R<:Real}(
+    jobs::AbstractVector{R},
+    m::Integer, # number of processors
+    )
+
+    # TODO: use a priority queue
+
+    @assert(m > 0)
+
+    durations = zeros(R, m)
+    assignments = Array(Int, length(jobs))
+
+    for i in sortperm(jobs, rev=true) # p[1] is the index of the longest job in `jobs`
+        best_index = indmin(durations)
+        durations[best_index] += jobs[i]
+        assignments[i] = best_index
+    end
+
+    assignments
+end
 
 
 end # end module
