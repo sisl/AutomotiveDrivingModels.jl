@@ -310,14 +310,14 @@ for (csvfileset_index, csvfileset) in enumerate(CSVFILESETS)
     csvfilebase = basename(csvfilename)
     csvfilebase_noext = splitext(csvfilebase)[1]
 
-    # header, trajdata, sn = load_header_trajdata_and_streetmap(csvfilename)
-    # # extract_params.csvfileset = csvfileset
-    # runlogs = extract_runlogs(trajdata, sn, extract_params, header)::AbstractVector{RunLog}
+    header, trajdata, sn = load_header_trajdata_and_streetmap(csvfilename)
+    # extract_params.csvfileset = csvfileset
+    runlogs = extract_runlogs(trajdata, sn, extract_params, header)::AbstractVector{RunLog}
 
-    # for (i,runlog) in enumerate(runlogs)
-    #     runlogname = joinpath(RUNLOG_OUTPUT_DIR, @sprintf("primarydata_%s_%d.jld", splitext(csvfilebase)[1], i))
-    #     JLD.save(runlogname, "runlog", runlog)
-    # end
+    for (i,runlog) in enumerate(runlogs)
+        runlogname = joinpath(RUNLOG_OUTPUT_DIR, @sprintf("primarydata_%s_%d.jld", splitext(csvfilebase)[1], i))
+        JLD.save(runlogname, "runlog", runlog)
+    end
 
     for runlog in runlogs
 

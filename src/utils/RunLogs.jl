@@ -668,8 +668,7 @@ function calc_front_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UI
 
     active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
     active_lane = get_lane(sn, active_lanetag)
-    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
-    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
+    dist = -(get(runlog, colset, frame, :footpoint)::CurvePt).s # [m] dist along curve from host inertial to base of footpoint
 
     # walk forwards along the lanetag until we find a car in it or reach max dist
     while true
@@ -683,13 +682,11 @@ function calc_front_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UI
             if lanetag_target == active_lanetag
 
                 footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
-                if footpoint_s_target > footpoint_s_host
 
-                    cand_dist = dist + footpoint_s_target - footpoint_s_host
-                    if cand_dist < best_dist
-                        best_dist = cand_dist
-                        best_colset = test_colset
-                    end
+                cand_dist = dist + footpoint_s_target
+                if 0.0 < cand_dist < best_dist
+                    best_dist = cand_dist
+                    best_colset = test_colset
                 end
             end
         end
@@ -701,7 +698,6 @@ function calc_front_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UI
         dist += active_lane.curve.s[end] # move full curve length
         active_lane = next_lane(sn, active_lane)
         active_lanetag = active_lane.id
-        footpoint_s_host = 0.0 # move to base of curve
     end
 
     best_colset
@@ -714,8 +710,7 @@ function calc_rear_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UIn
 
     active_lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
     active_lane = get_lane(sn, active_lanetag)
-    footpoint_s_host = (get(runlog, colset, frame, :footpoint)::CurvePt).s
-    dist = -footpoint_s_host # [m] dist along curve from host inertial to base of footpoint
+    dist = (get(runlog, colset, frame, :footpoint)::CurvePt).s # [m] dist along curve from host inertial to base of footpoint
 
     # walk forwards along the lanetag until we find a car in it or reach max dist
     while true
@@ -729,13 +724,10 @@ function calc_rear_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UIn
             if lanetag_target == active_lanetag
 
                 footpoint_s_target = (get(runlog, test_colset, frame, :footpoint)::CurvePt).s
-                if footpoint_s_target < footpoint_s_host
-
-                    cand_dist = dist + footpoint_s_host - footpoint_s_target
-                    if cand_dist < best_dist
-                        best_dist = cand_dist
-                        best_colset = test_colset
-                    end
+                cand_dist = dist - footpoint_s_target
+                if 0.0 < cand_dist < best_dist
+                    best_dist = cand_dist
+                    best_colset = test_colset
                 end
             end
         end
@@ -747,12 +739,12 @@ function calc_rear_vehicle_colset(runlog::RunLog, sn::StreetNetwork, colset::UIn
         active_lane = prev_lane(sn, active_lane)
         active_lanetag = active_lane.id
         dist += active_lane.curve.s[end] # move full length
-        footpoint_s_host = active_lane.curve.s[end] # move to end of curve
     end
 
     best_colset
 end
 
+# Test Code
 let
     function all_fields_are_bits(df::DataFrame)
         for j in 1:size(df,2)

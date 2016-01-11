@@ -704,19 +704,7 @@ function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset
 
     d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
 
-    # if isnan(d_rear)
-    #     println("colset: ", colset)
-    #     println("frame: ", frame)
-    #     println("id: ", colset2id(runlog, colset, frame))
-    #     println("colset_rear: ", colset_rear)
-    #     println("rear id: ", colset2id(runlog, colset_rear, frame))
-    #     println("rear front: ", get(runlog, colset_rear, frame, :colset_front))
-    # end
-
-    # TODO(tim): should this ever be NaN?
-
-    # @assert(!isnan(d_rear))
-
+    @assert(!isnan(d_rear))
     d_rear
 end
 
