@@ -483,18 +483,18 @@ end
 # println("done")
 # exit()
 
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
-# end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
+end
 # write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
 #     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
 # end
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
-# end
-# write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
-#     create_tikzpicture_model_compare_rwse_legend(fh, names)
-# end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
+    create_tikzpicture_model_compare_rwse_legend(fh, names)
+end
 
 
 println("done")

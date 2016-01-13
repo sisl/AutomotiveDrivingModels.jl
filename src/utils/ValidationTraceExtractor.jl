@@ -41,6 +41,7 @@ export
         merge_region_segments,
         calc_row_count_from_region_segments,
 
+        drop_fold!,
         get_cross_validation_fold_assignment,
         get_train_test_fold_assignment,
         get_fold_assignment_across_drives,
@@ -1192,6 +1193,17 @@ function is_in_fold(fold::Integer, fold_assignment::Integer, match_fold::Bool)
     (fold != 0) && (fold_assignment != 0) && # NOTE(tim): zero never matches
         ((match_fold && fold_assignment == fold) || (!match_fold && fold_assignment != fold))
 end
+function drop_fold!(a::FoldAssignment, fold::Integer)
+    for (i,v) in enumerate(a.frame_assignment)
+        if v == fold
+            a.frame_assignment[i] = 0
+        elseif v > fold
+            a.frame_assignment[i] -= 1
+        end
+    end
+    a.nfolds -= 1
+    a
+end
 
 function get_cross_validation_fold_assignment(
     nfolds::Int,
@@ -1737,11 +1749,9 @@ function get_fold_assignment_across_drives(dset::ModelTrainingData2, nfolds::Int
     a_frame = zeros(Int, nrow(dataframe))
     a_seg = zeros(Int, length(runlog_segments))
 
-    println(length(a_seg))
-
     for (i, runlogseg) in enumerate(runlog_segments)
 
-        fold = id_to_fold[runlogseg.runlog_id]
+        fold = id_to_fold[runlog_id_to_index[runlogseg.runlog_id]]
 
         a_seg[i] = fold
 

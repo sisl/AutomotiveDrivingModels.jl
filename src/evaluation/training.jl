@@ -57,6 +57,26 @@ type BehaviorTrainDefinition
     end
 end
 
+function Base.print(io::IO, traindef::BehaviorTrainDefinition)
+    println(io, "BehaviorTrainDefinition")
+    println(io, traindef.trainparams)
+    println(io, "hyperparams:")
+    for λ in traindef.hyperparams
+        @printf(io, "\t%-20s [", string(λ.sym)*":")
+        for (i,v) in enumerate(λ.range)
+            if i == λ.index_of_default
+                print(io, ">", v, "<")
+            else
+                print(io, v)
+            end
+            if i < length(λ.range)
+                print(io, ", ")
+            end
+        end
+        println(io, "]")
+    end
+end
+
 ###############################################################
 
 function train(
@@ -190,8 +210,10 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
     best_logl = -Inf # mean cross-validated log likelihood
     param_hash_set = Set{UInt}() # set of param hashes that have already been done
 
+    @printf("%40s %3s %6s %6s\n", "λ", "i", "logl", "logl*")
+
     t_start = time()
-    t_prev_printout = t_start
+    t_prev_printout = 0
     iteration_count = 0
     finished = false
     while !finished
@@ -225,7 +247,7 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
                     end
                     logl /= cross_validation_split.nfolds
 
-                    @printf("%3d %3d %6.4f %6.4f\n", param_index, i, logl, best_logl)
+                    @printf("%40s %3d %6.4f %6.4f\n", symbol(behavior_param.sym), i, logl, best_logl)
 
                     if logl > best_logl
                         best_logl = logl

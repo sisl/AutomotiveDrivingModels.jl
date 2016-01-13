@@ -17,6 +17,14 @@ type VehicleBehaviorGaussian <: AbstractVehicleBehavior
         new(Σ, [0.0,0.0])
     end
 end
+function Base.print(io::IO, SG::VehicleBehaviorGaussian)
+    println(io, "SG")
+    println(io, "\tμ:")
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.μ[1], SG.Σ.μ[2])
+    println(io, "\tΣ:")
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.Σ.mat[1,1], SG.Σ.Σ.mat[1,2])
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.Σ.mat[2,1], SG.Σ.Σ.mat[2,2])
+end
 
 type SG_TrainParams <: AbstractVehicleBehaviorTrainParams
     SG_TrainParams() = new()

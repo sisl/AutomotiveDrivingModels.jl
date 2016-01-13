@@ -704,8 +704,8 @@ function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset
 
     d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
 
-    @assert(!isnan(d_rear))
-    d_rear
+    # @assert(!isnan(d_rear))
+    # d_rear
 end
 
 create_feature_basics("D_Y_Rear", :d_y_rear, L"d_y^\text{rear}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)

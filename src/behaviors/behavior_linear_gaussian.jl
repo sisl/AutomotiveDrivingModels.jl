@@ -30,6 +30,18 @@ type VehicleBehaviorLinearGaussian <: AbstractVehicleBehavior
         new(F, A, μ∞, N, [0.0,0.0])
     end
 end
+function Base.print(io::IO, LG::VehicleBehaviorLinearGaussian)
+    println(io, "LG")
+    println(io, "\tindicator: ", symbol(LG.F))
+    println(io, "\tA: ")
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.A[1,1], LG.A[1,2])
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.A[2,1], LG.A[2,2])
+    println(io, "\tμ∞:")
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.μ∞[1], LG.μ∞[2])
+    println(io, "\tΣ:")
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.N.Σ.mat[1,1], LG.N.Σ.mat[1,2])
+    @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.N.Σ.mat[2,1], LG.N.Σ.mat[2,2])
+end
 
 type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
 
@@ -61,6 +73,11 @@ type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
 
         new(targets, indicators, ridge_regression_constant)
     end
+end
+function Base.print(io::IO, trainparams::LG_TrainParams)
+    println(io, "targets:    ", trainparams.targets)
+    println(io, "indicators: ", map(f->symbol(f), trainparams.indicators))
+    println(io, "λ:          ", trainparams.ridge_regression_constant)
 end
 
 type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
@@ -149,8 +166,8 @@ function _regress_on_feature!(behavior::VehicleBehaviorLinearGaussian, ϕ::Float
         behavior.N.μ[2] = behavior.μ∞[2]
     else
         A = behavior.A
-        behavior.N.μ[1] = A[1,1] + A[1,2] * ϕ
-        behavior.N.μ[2] = A[2,1] + A[2,2] * ϕ
+        behavior.N.μ[1] = A[1,1] + A[1,2]*ϕ
+        behavior.N.μ[2] = A[2,1] + A[2,2]*ϕ
     end
 
     behavior
@@ -357,6 +374,7 @@ function train(
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool,
+    verbosity::Int=0,
     )
 
     X = preallocated_data.X
@@ -372,12 +390,12 @@ function train(
         X, Y, training_data.dataframe, params.targets, params.indicators,
         fold, fold_assignment, match_fold)
 
-    # A = (ΦΦᵀ + γI)⁻¹ ΦUᵀ
-    # rₜ = yₜ - A⋅ϕ
-
     # U = Y, column-wise concatenation of output (actions) [o×n]
     # Φ = X, column-wise concatenation of predictor [p×n]
     # γ, ridge-regression constant
+
+    # A = UΦᵀ*(ΦΦᵀ + γI)⁻¹, [o×p]
+    # rₜ = yₜ - A⋅ϕ
 
     # Try each predictor and use the one that minimizes the loss
     # Loss: mean normed deviation between prediction and true value
@@ -395,12 +413,11 @@ function train(
     for i in 1 : size(X, 1) # for each feature
 
         fill!(μ∞, 0.0)
-        fill!(Σ, 0.0)
         n_inf = 0
         n_noninf = 0
 
         for j in 1 : ntrainframes
-            if !isinf(X[i, j])
+            if !isnan(X[i, j]) && !isinf(X[i,j])
                 n_noninf += 1
 
                 Φ[1,n_noninf] = 1.0
@@ -422,7 +439,7 @@ function train(
         _diagonal_shrinkage!(den)
         den[2,1] = den[1,2] # copy over symmetric component
 
-        A = (Φ*Y')/den
+        A = (Y*Φ')/den # [o×p]
 
         if n_inf > 0
             μ∞ ./= n_inf
@@ -433,10 +450,13 @@ function train(
         # ε = ∑(|rₜ|₂)²
 
         loss = 0.0
+        fill!(Σ, 0.0)
         for j in 1 : ntrainframes
-            if !isinf(X[i, j])
-                R_lat = Y[1,j] - (A[1,1] + A[1,2]*Φ[j])
-                R_lon = Y[2,j] - (A[2,1] + A[2,2]*Φ[j])
+            R_lat, R_lon = NaN, NaN
+            if !isnan(X[i, j]) && !isinf(X[i,j])
+                val = X[i, j]
+                R_lat = Y[1,j] - (A[1,1] + A[1,2]*val)
+                R_lon = Y[2,j] - (A[2,1] + A[2,2]*val)
             else
                 R_lat = Y[1,j] - μ∞[1]
                 R_lon = Y[2,j] - μ∞[2]
@@ -448,9 +468,9 @@ function train(
             Σ[2,2] += R_lon*R_lon
         end
         Σ[1,1] /= (ntrainframes-1)
-        Σ[2,1] /= (ntrainframes-1)
+        Σ[1,2] /= (ntrainframes-1)
         Σ[2,2] /= (ntrainframes-1)
-        Σ[1,2] = Σ[2,1] # copy over symmetric part
+        Σ[2,1] = Σ[1,2] # copy over symmetric part
 
         if loss < best_predictor_loss
             # store the model results
@@ -459,6 +479,19 @@ function train(
             copy!(best_μ∞, μ∞)
             copy!(best_A, A)
             copy!(best_Σ, Σ)
+        end
+
+        if verbosity > 0
+            # println("\tA: ")
+            # @printf("\t\t[%12.6f, %12.6f]\n", A[1,1], A[1,2])
+            # @printf("\t\t[%12.6f, %12.6f]\n", A[2,1], A[2,2])
+            # println("\tμ∞:")
+            # @printf("\t\t[%12.6f, %12.6f]\n", μ∞[1], μ∞[2])
+            # println("\tΣ:")
+            # @printf("\t\t[%12.6f, %12.6f]\n", Σ[1,1], Σ[1,2])
+            # @printf("\t\t[%12.6f, %12.6f]\n", Σ[2,1], Σ[2,2])
+
+            @printf("%-20s  %10.6f  %10.6f\n", string(symbol(params.indicators[i])), loss, best_predictor_loss)
         end
     end
 

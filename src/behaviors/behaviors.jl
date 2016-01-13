@@ -51,6 +51,7 @@ type ModelTargets{F<:Union{AbstractFeature, FeaturesNew.AbstractFeature}}
     lon::F
 end
 Base.eltype{F}(modeltarget::ModelTargets{F}) = F
+Base.print(io::IO, targets::ModelTargets) = print(io, (symbol(targets.lat), symbol(targets.lon)))
 
 function calc_action_loglikelihood(
     basics::FeatureExtractBasicsPdSet,
