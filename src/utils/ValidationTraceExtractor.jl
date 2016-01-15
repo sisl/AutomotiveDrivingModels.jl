@@ -238,7 +238,7 @@ function Base.(:(==))(a::RunLogSegment, b::RunLogSegment)
 end
 function Base.show(io::IO, seg::RunLogSegment)
     println(io, "RunLogSegment")
-    @printf(io, "\trunlog_id:   %d\n", seg.pdset_id)
+    @printf(io, "\trunlog_id:   %d\n", seg.runlog_id)
     @printf(io, "\tcarid:       %d\n", seg.carid)
     @printf(io, "\tframe_start: %d\n", seg.frame_start)
     @printf(io, "\tframe_end:   %d\n", seg.frame_end)

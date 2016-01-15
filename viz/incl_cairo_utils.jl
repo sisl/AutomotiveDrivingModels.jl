@@ -1,3 +1,5 @@
+# include(Pkg.dir("AutomotiveDrivingModels", "viz", "incl_cairo_utils.jl"))
+
 using AutomotiveDrivingModels
 
 using Cairo
@@ -5,8 +7,15 @@ using Interact
 using Reel
 Reel.set_output_type("gif")
 
-# include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl")); using .Renderer
-# include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl")); using .ColorScheme
+if !isdefined(:Renderer)
+    include(Pkg.dir("AutomotiveDrivingModels", "viz", "Renderer.jl"))
+end
+if !isdefined(:ColorScheme)
+    include(Pkg.dir("AutomotiveDrivingModels", "viz", "ColorScheme.jl"))
+end
+
+using .Renderer
+using .ColorScheme
 
 colorscheme = getcolorscheme("monokai")
 
@@ -1407,7 +1416,7 @@ end
 function plot_manipulable_runlog{I<:Integer}(
     runlog::RunLog,
     sn::StreetNetwork,
-    active_carid::Integer=RunLog.ID_EGO;
+    active_carid::Integer=RunLogs.ID_EGO;
 
     canvas_width::Integer=1100, # [pix]
     canvas_height::Integer=300, # [pix]
@@ -1421,7 +1430,6 @@ function plot_manipulable_runlog{I<:Integer}(
     )
 
     @manipulate for frame in frames
-
         plot_scene(runlog, sn, frame, active_carid,
                    canvas_width=canvas_width,
                    canvas_height=canvas_height,

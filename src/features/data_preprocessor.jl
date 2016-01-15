@@ -308,7 +308,7 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
 
     for i in 1 : n_features
 
-        streamstats = StreamStats.Var()
+        streamstats = StreamStats.Variance()
 
         for j in 1 : n_frames
             v = X[i,j]

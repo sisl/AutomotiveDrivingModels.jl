@@ -1154,12 +1154,25 @@ function _get_dist_between(runlog::RunLog, sn::StreetNetwork, colset::UInt, cols
 end
 
 function _get_lane(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
-    get_lane(sn, get(runlog, colset, frame, :lanetag)::LaneTag)
+    lanetag = get(runlog, colset, frame, :lanetag)::LaneTag
+    if has_lane(sn, lanetag)
+        get_lane(sn, lanetag)
+    else
+        # project
+        pos = get(runlog, colset, frame, :inertial)::VecSE2
+        proj = project_point_to_streetmap(pos.x, pos.y, sn)
+        @assert(proj.successful)
+        proj.lane
+    end
 end
 function _get_node(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     lane = _get_lane(runlog, sn, colset, frame)
-    extind = get(runlog, colset, frame, :extind)::Float64
-    sn.nodes[closest_node_to_extind(sn, lane, extind)::Int]
+    # if lane != LANETAG_NULL
+        extind = get(runlog, colset, frame, :extind)::Float64
+        sn.nodes[closest_node_to_extind(sn, lane, extind)::Int]
+    # else
+    #     STREETNODE_NULL
+    # end
 end
 
 

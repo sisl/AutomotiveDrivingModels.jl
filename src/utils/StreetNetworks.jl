@@ -37,6 +37,7 @@ export rndf2streetnetwork, curves2streetnetwork, curves2rndf
 export generate_straight_nlane_streetmap
 
 export LaneID, WaypointID, LaneTag
+# export LANETAG_NULL, STREETNODE_NULL
 
 # ===============================================================================
 
@@ -142,6 +143,11 @@ type StreetNetwork
 		new(nodes, tile_dict, graph)
 	end
 end
+
+# const LANETAG_NULL = LaneTag(typemax(Int),typemax(Int),typemax(Int),typemax(Int))
+# const STREETNODE_NULL = StreetNode(WaypointID(typemax(UInt), typemax(UInt), typemax(UInt)),
+# 	                               VecE3(NaN,NaN,NaN), NaN, NaN, NaN, NaN, NaN,
+# 	                               typemax(Int), typemax(Int), NaN, NaN)
 
 function Base.deepcopy(lane::StreetLane)
 	StreetLane(

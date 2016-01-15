@@ -52,47 +52,47 @@ function simulate!(
     runlog
 end
 
-function simulate!(
-    basics          :: FeatureExtractBasicsPdSet,
-    behavior        :: AbstractVehicleBehavior,
-    carid           :: Int,
-    validfind_start :: Int,
-    validfind_end   :: Int;
-    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
-    n_euler_steps   :: Int = 2
-    )
+# function simulate!(
+#     basics          :: FeatureExtractBasicsPdSet,
+#     behavior        :: AbstractVehicleBehavior,
+#     carid           :: Int,
+#     validfind_start :: Int,
+#     validfind_end   :: Int;
+#     pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
+#     n_euler_steps   :: Int = 2
+#     )
 
-    for validfind in validfind_start : pdset_frames_per_sim_frame : validfind_end-1
-        carind = carid2ind(basics.pdset, carid, validfind)
-        action_lat, action_lon = select_action(basics, behavior, carind, validfind)
-        propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
-                   pdset_frames_per_sim_frame, n_euler_steps)
-    end
+#     for validfind in validfind_start : pdset_frames_per_sim_frame : validfind_end-1
+#         carind = carid2ind(basics.pdset, carid, validfind)
+#         action_lat, action_lon = select_action(basics, behavior, carind, validfind)
+#         propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
+#                    pdset_frames_per_sim_frame, n_euler_steps)
+#     end
 
-    basics
-end
-function simulate!(
-    basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
-    validfind_start :: Int,
-    validfind_end   :: Int;
-    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
-    n_euler_steps   :: Int = 2
-    )
+#     basics
+# end
+# function simulate!(
+#     basics          :: FeatureExtractBasicsPdSet,
+#     behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
+#     validfind_start :: Int,
+#     validfind_end   :: Int;
+#     pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
+#     n_euler_steps   :: Int = 2
+#     )
 
-    for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
-        for (behavior,carid) in behavior_pairs
-            if !isa(behavior, VehicleBehaviorNone)
-                carind = carid2ind(basics.pdset, carid, validfind)
-                action_lat, action_lon = select_action(basics, behavior, carind, validfind)
-                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
-                          pdset_frames_per_sim_frame, n_euler_steps)
-            end
-        end
-    end
+#     for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
+#         for (behavior,carid) in behavior_pairs
+#             if !isa(behavior, VehicleBehaviorNone)
+#                 carind = carid2ind(basics.pdset, carid, validfind)
+#                 action_lat, action_lon = select_action(basics, behavior, carind, validfind)
+#                 propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
+#                           pdset_frames_per_sim_frame, n_euler_steps)
+#             end
+#         end
+#     end
 
-    basics
-end
+#     basics
+# end
 
 function simulate_but_terminate_if_collision!(
     basics          :: FeatureExtractBasicsPdSet,
