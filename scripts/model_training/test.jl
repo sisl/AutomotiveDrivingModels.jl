@@ -139,9 +139,12 @@ for dset_filepath_modifier in (
     for (i,ind) in enumerate(foldinds)
 
         seg = dset.runlog_segments[ind]
-        frame_start = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
-        runlog_sim = deepcopy(runlogs_original[seg.runlog_id], frame_start, seg.frame_end)
-        frame_starts_sim[i] = clamp(seg.frame_start-DEFAULT_TRACE_HISTORY, 1, DEFAULT_TRACE_HISTORY+1)
+
+        where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+        where_to_start_simulating_from_runlog_sim = seg.frame_start - where_to_start_copying_from_original_runlog + 1
+
+        runlog_sim = deepcopy(runlogs_original[seg.runlog_id], where_to_start_copying_from_original_runlog, seg.frame_end)
+        frame_starts_sim[i] = where_to_start_simulating_from_runlog_sim
 
         for k in 1 : nmodels
             for j in 1 : N_SIMULATIONS_PER_TRACE
@@ -165,7 +168,7 @@ for dset_filepath_modifier in (
         println("fold ", fold, " / ", cv_split_outer.nfolds)
 
         # create an inner split where we remove the current fold
-        cv_split_inner = drop_fold(deepcopy(cv_split_outer), fold)
+        cv_split_inner = drop_fold!(deepcopy(cv_split_outer), fold)
         @assert(cv_split_inner.nfolds > 0)
 
         ##############
@@ -217,13 +220,15 @@ for dset_filepath_modifier in (
                 if cv_split_outer.seg_assignment[i] == fold # in test
                     # simulate
                     seg = dset.runlog_segments[i]
-                    frame_start = frame_starts_sim[i]
-                    frame_end = frame_start + seg.frame_end - seg.frame_start
+                    seg_duration = seg.frame_end - seg.frame_start
+                    where_to_start_simulating_from_runlog_sim = frame_starts_sim[i]
+                    where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
 
                     for l in 1 : N_SIMULATIONS_PER_TRACE
                         runlog = arr_runlogs_for_simulation[k][i, l]
                         sn = streetnets[runlog.header.map_name]
-                        simulate!(runlog, sn, behavior, seg.carid, frame_start, frame_end)
+                        simulate!(runlog, sn, behavior, seg.carid,
+                            where_to_start_simulating_from_runlog_sim, where_to_end_simulating_from_runlog_sim)
                     end
                 end
             end

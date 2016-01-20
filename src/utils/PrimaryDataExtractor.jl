@@ -1715,6 +1715,30 @@ function extract_runlogs(
 
     _assert_valid_primarydata_extraction_params(params)
 
+    # by default extract all frames
+    if isempty(params.frameinds)
+        params.frameinds = [1,size(trajdata,1)]
+    end
+
+    retval = RunLog[]
+    for i in 1 : 2 : length(params.frameinds)
+        frameind_lo = params.frameinds[i]
+        frameind_hi = params.frameinds[i+1]
+        if frameind_hi < frameind_lo + 100
+            warn("Runlog with frameind range $frameind_lo : $frameind_hi is not worth extracting")
+        else
+            append!(retval, _extract_runlogs(trajdata[,:], sn, params, runlogheader))
+        end
+    end
+    retval
+
+function _extract_runlogs(
+    trajdata::DataFrame,
+    sn::StreetNetwork,
+    params::PrimaryDataExtractionParams,
+    runlogheader::RunLogHeader
+    )
+
     # initial ego smoothing and outlier removal
     # -----------------------------------------
 
@@ -1815,34 +1839,6 @@ function extract_runlogs(
             meets_lane_lateral_offset_criterion = abs(d) < params.threshold_lane_lateral_offset_ego
             meets_lane_angle_criterion = abs(θ) < params.threshold_lane_angle_ego
             ego_car_on_freeway[frame] = meets_lane_lateral_offset_criterion && meets_lane_angle_criterion
-        end
-    end
-
-    # adjust ego_car_on_freeway based on given frameinds
-    # ----------------------------------------
-    if !isempty(params.frameinds)
-
-        orig_index = 1
-        t_lo = arr_time[params.frameinds[orig_index]]
-        t_hi = arr_time[params.frameinds[orig_index+1]]
-
-        for sample_index = 1 : n_resamples
-            t = arr_time_resampled[sample_index]
-
-            if t > t_hi
-                orig_index += 2
-                if orig_index < length(params.frameinds)
-                    t_lo = arr_time[params.frameinds[orig_index]]
-                    t_hi = arr_time[params.frameinds[orig_index+1]]
-                else
-                    t_lo = Inf
-                    t_hi = Inf
-                end
-            end
-
-            if t < t_lo
-                ego_car_on_freeway[sample_index] = false
-            end
         end
     end
 

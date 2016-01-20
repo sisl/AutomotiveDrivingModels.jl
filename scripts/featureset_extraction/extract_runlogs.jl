@@ -142,6 +142,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/philippruns_20150324/philippdrive01_2015-03-24-15-21-12-raw.csv",
                 "280_pagemill_to_92",
+                Int[],
                 [128,297,475,673,3520,3671,4363,4559,5724,5833,6816,6937,7086,7343,7650,7765,8102,8283,8826,9333,9922,10095],
                 [2641,2833,3790,3981,5026,5255,10184,10321],
                 [9816,9921],
@@ -151,6 +152,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/philippruns_20150324/philippdrive03_2015-03-24-15-37-18-raw.csv",
                 "280_pagemill_to_92", # 16
+                Int[],
                 [1182,1386,1425,1562,1657,1826,3331,3568,4929,5238,5691,5840,5899,6112,7913,8040,8407,8532],
                 [3191,3330,3785,3974,4027,4212,6275,6778,8111,8278],
                 [7712,7888,8533,8722],
@@ -160,6 +162,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/philippruns_20150324/philippdrive04_2015-03-24-15-47-10-raw.csv",
                 "280_pagemill_to_92",
+                Int[],
                 [811,944,945,1148],
                 Int[],
                 Int[],
@@ -169,6 +172,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/philippruns_20150324/philippdrive05_2015-03-24-15-48-42-raw.csv",
                 "280_pagemill_to_92",
+                Int[],
                 [149,314,628,934,1571,1683,2819,3032,3107,3308],
                 Int[],
                 Int[],
@@ -178,6 +182,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/philippruns_20150324/philippdrive07_2015-03-24-15-57-42-raw.csv",
                 "280_pagemill_to_92",
+                Int[],
                 [31,138,965,1176,1481,1668,2753,2936,4135,4350,4351,4530,4672,4880,5271,5516,5856,6026,6195,6412,7775,7938,8519,8608],
                 Int[],
                 [6989,7156],
@@ -241,6 +246,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/source4/2015-02-05-14-03-40_driving_style_data_martin-raw.csv",
                 "280_pagemill_to_92",
+                Int[],
                 Int[553,682,2636,2821], # lanechange normal
                 Int[762,915,4717,4926], # lanechanges postpass
                 Int[1599,1716,2340,2549,3472,3611,4455,4611], # lanechanges arbitrary
@@ -251,6 +257,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-14-14-39-22_planning_stripped-raw.csv",
                 "???",
+                [12206,17301], # only extract these frames
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
                 Int[], # lanechanges arbitrary
@@ -260,6 +267,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-14-15-04-57_92_to_pagemill_manual_drive_planning_stripped-raw.csv",
                 "???",
+                [1499,2578,2747,6168], # only extract these frames
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
                 Int[], # lanechanges arbitrary
@@ -269,6 +277,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-22-13-50-09_280N_manual_drive_lane_changes_planning_stripped-raw.csv",
                 "???",
+                [1105, 7030, 8324, 8681, 10041, 12700], # only extract these frames
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
                 Int[], # lanechanges arbitrary
@@ -278,6 +287,7 @@ const CSVFILESETS = (
             CSVFileSet(RunLogs.ID_EGO,
                 "/media/tim/DATAPART1/Data/Bosch/source5/2015-12-22-14-05-41_280S_manual_drive_lane_changes_planning_stripped-raw.csv",
                 "???",
+                [1,1518,1949,3123,5399,12802], # only extract these frames
                 Int[], # lanechange normal
                 Int[], # lanechanges postpass
                 Int[], # lanechanges arbitrary
@@ -312,6 +322,7 @@ for (csvfileset_index, csvfileset) in enumerate(CSVFILESETS)
 
     header, trajdata, sn = load_header_trajdata_and_streetmap(csvfilename)
     # extract_params.csvfileset = csvfileset
+    extract_params.frameinds = csvfileset.only_extract_these_frame_ranges
     runlogs = extract_runlogs(trajdata, sn, extract_params, header)::AbstractVector{RunLog}
 
     for (i,runlog) in enumerate(runlogs)

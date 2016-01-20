@@ -10,6 +10,7 @@ export
     RootWeightedSquareError,
 
     LoglikelihoodMetric,
+    MedianLoglikelihoodMetric,
     BaggedMetricResult,
 
     get_score,
@@ -345,6 +346,50 @@ function get_frame_score(::Type{LoglikelihoodMetric},
     end
 end
 get_score(metric::LoglikelihoodMetric) = metric.logl
+
+#########################################################################################################
+# MedianLoglikelihoodMetric
+
+type MedianLoglikelihoodMetric <: BehaviorFrameMetric
+    # median log likelihood of dataset frames on model
+    logl::Float64
+end
+function extract(::Type{MedianLoglikelihoodMetric},
+    dset::ModelTrainingData2,
+    behavior::AbstractVehicleBehavior,
+    assignment::FoldAssignment,
+    fold::Int,
+    match_fold::Bool,
+    )
+
+    logl_arr = Array(Float64, calc_fold_size(fold, assignment.frame_assignment, match_fold))
+    logl_arr_index = 0
+    for frameind in 1 : nrow(dset.dataframe)
+        if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
+            logl_arr_index += 1
+            if trains_with_nona(behavior)
+                logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+            else
+                logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+            end
+        end
+    end
+    MedianLoglikelihoodMetric(median(logl_arr))
+end
+extract(::Type{MedianLoglikelihoodMetric}, frame_scores::AbstractVector{Float64}) = MedianLoglikelihoodMetric(median(frame_scores))
+function get_frame_score(::Type{MedianLoglikelihoodMetric},
+    dset::ModelTrainingData2,
+    behavior::AbstractVehicleBehavior,
+    frameind::Int,
+    )
+
+    if trains_with_nona(behavior)
+        calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+    else
+        calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+    end
+end
+get_score(metric::MedianLoglikelihoodMetric) = metric.logl
 
 ########################################################################################################
 # Bagging

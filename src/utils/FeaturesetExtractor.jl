@@ -33,6 +33,8 @@ type CSVFileSet
     csvfile :: AbstractString
     streetmapbasename :: AbstractString
 
+    only_extract_these_frame_ranges::Vector{Int}
+
     lanechanges_normal    :: Vector{Int}
     lanechanges_postpass  :: Vector{Int}
     lanechanges_arbitrary :: Vector{Int}

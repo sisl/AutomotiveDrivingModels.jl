@@ -112,83 +112,6 @@ end
 
 function optimize_hyperparams_cyclic_coordinate_ascent!(
     traindef::BehaviorTrainDefinition,
-    dset::ModelTrainingData,
-    preallocated_data::AbstractVehicleBehaviorPreallocatedData,
-    cross_validation_split::FoldAssignment,
-    )
-
-    hyperparams = traindef.hyperparams
-    trainparams = traindef.trainparams
-
-    if isempty(hyperparams) # nothing varies
-        return traindef
-    end
-
-    n_varying_params = length(hyperparams)
-    param_indeces = Array(Int, n_varying_params)
-    for i in 1 : n_varying_params
-        param_indeces[i] = hyperparams[i].index_of_default
-    end
-
-    best_logl = -Inf # mean cross-validated log likelihood
-    param_hash_set = Set{UInt}() # set of param hashes that have already been done
-
-    t_start = time()
-    t_prev_printout = t_start
-    iteration_count = 0
-    finished = false
-    while !finished
-
-        iteration_count += 1
-        has_improved = false
-
-        if (time() - t_prev_printout) > 5.0
-            println("optimize_hyperparams_cyclic_coordinate_ascent iteration ", iteration_count, "  et: ", time() - t_start)
-            t_prev_printout = time()
-        end
-
-        for (param_index, behavior_param) in enumerate(hyperparams)
-
-            sym = behavior_param.sym
-            best_param_val = getfield(trainparams, sym) # current one
-
-            for (i, v) in enumerate(behavior_param.range)
-                param_indeces[param_index] = i
-
-                param_hash = hash(param_indeces)
-                if !in(param_hash, param_hash_set)
-                    push!(param_hash_set, param_hash)
-
-                    setfield!(trainparams, sym, v)
-
-                    logl = 0.0
-                    for fold in 1 : cross_validation_split.nfolds
-                        model = train(dset, preallocated_data, trainparams, fold, cross_validation_split, false)
-                        logl += extract(LoglikelihoodMetric, dset, model, cross_validation_split, fold, true).logl
-                    end
-                    logl /= cross_validation_split.nfolds
-
-                    @printf("%3d %3d %6.4f %6.4f\n", param_index, i, logl, best_logl)
-
-                    if logl > best_logl
-                        best_logl = logl
-                        best_param_val = v
-                        has_improved = true
-                    end
-                end
-            end
-
-            # reset to best param val
-            setfield!(trainparams, sym, best_param_val)
-        end
-
-        finished = !has_improved # terminate if we never improved
-    end
-
-    traindef
-end
-function optimize_hyperparams_cyclic_coordinate_ascent!(
-    traindef::BehaviorTrainDefinition,
     dset::ModelTrainingData2,
     preallocated_data::AbstractVehicleBehaviorPreallocatedData,
     cross_validation_split::FoldAssignment,
@@ -203,8 +126,11 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
 
     n_varying_params = length(hyperparams)
     param_indeces = Array(Int, n_varying_params)
-    for i in 1 : n_varying_params
-        param_indeces[i] = hyperparams[i].index_of_default
+    for (param_index, λ) in enumerate(hyperparams)
+        param_indeces[param_index] = λ.index_of_default
+        sym = λ.sym
+        val = λ.range[λ.index_of_default]
+        setfield!(trainparams, sym, val)
     end
 
     best_logl = -Inf # mean cross-validated log likelihood
@@ -226,12 +152,12 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
             t_prev_printout = time()
         end
 
-        for (param_index, behavior_param) in enumerate(hyperparams)
+        for (param_index, λ) in enumerate(hyperparams)
 
-            sym = behavior_param.sym
+            sym = λ.sym
             best_param_val = getfield(trainparams, sym) # current one
 
-            for (i, v) in enumerate(behavior_param.range)
+            for (i, v) in enumerate(λ.range)
                 param_indeces[param_index] = i
 
                 param_hash = hash(param_indeces)
@@ -243,11 +169,11 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
                     logl = 0.0
                     for fold in 1 : cross_validation_split.nfolds
                         model = train(dset, preallocated_data, trainparams, fold, cross_validation_split, false)
-                        logl += extract(LoglikelihoodMetric, dset, model, cross_validation_split, fold, true).logl
+                        logl += extract(MedianLoglikelihoodMetric, dset, model, cross_validation_split, fold, true).logl
                     end
                     logl /= cross_validation_split.nfolds
 
-                    @printf("%40s %3d %6.4f %6.4f\n", symbol(behavior_param.sym), i, logl, best_logl)
+                    @printf("%40s %3d %6.4f %6.4f\n", string(λ.sym), i, logl, best_logl)
 
                     if logl > best_logl
                         best_logl = logl
