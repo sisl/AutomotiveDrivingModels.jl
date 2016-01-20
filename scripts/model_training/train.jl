@@ -13,11 +13,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 # METRICS
 ################################
 
-metric_types_test_frames = [LoglikelihoodMetric]
-metric_types_test_frames_bagged = [LoglikelihoodMetric]
-metric_types_train_frames = [LoglikelihoodMetric]
-metric_types_train_frames_bagged = [LoglikelihoodMetric]
-
 metric_types_test_traces = [
                             EmergentKLDivMetric{symbol(SPEED)},
                             EmergentKLDivMetric{symbol(D_CL)},
@@ -189,6 +184,12 @@ for dset_filepath_modifier in (
                 sym = λ.sym
                 val = getfield(train_def.trainparams, sym)
                 ind = findfirst(λ.range, val)
+                if ind == 0
+                    println("sym: ", sym)
+                    println("range: ", λ.range)
+                    println("val: ", val)
+                end
+                @assert(ind != 0)
                 hyperparam_count[i, ind] += 1
             end
         end
@@ -299,10 +300,10 @@ for dset_filepath_modifier in (
             end
         end
 
-        metrics_sets_test_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_test))]
-        metrics_sets_train_frames[k] = BehaviorFrameMetric[LoglikelihoodMetric(mean(arr_logl_train))]
-        metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
-        metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(LoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
+        metrics_sets_test_frames[k] = BehaviorFrameMetric[MedianLoglikelihoodMetric(median(arr_logl_test))]
+        metrics_sets_train_frames[k] = BehaviorFrameMetric[MedianLoglikelihoodMetric(median(arr_logl_train))]
+        metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(MedianLoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
+        metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(MedianLoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
 
         # TRACES
 

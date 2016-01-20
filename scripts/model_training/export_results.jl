@@ -13,7 +13,7 @@ const INCLUDE_FILE_BASE = "realworld"
 
 const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
 # const SAVE_FILE_MODIFIER = "_subset_car_following"
-const SAVE_FILE_MODIFIER = "_freeflow"
+const SAVE_FILE_MODIFIER = "_following" # "_freeflow"
 const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/" * INCLUDE_FILE_BASE* "/"
 const METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * ".jld")
 const MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * SAVE_FILE_MODIFIER * ".jld")
@@ -430,6 +430,7 @@ end
 
 # println(keys(JLD.load(METRICS_OUTPUT_FILE)))
 
+println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
 preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network"]
 
 names = JLD.load(METRICS_OUTPUT_FILE, "model_names")
