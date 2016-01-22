@@ -62,10 +62,27 @@ const ACCEL_THRESHOLD = 5.0 # [m/s^2]
 # ----------------------------------
 # feature functions
 
-symbol2feature(sym::Symbol) = SYMBOL_TO_FEATURE[sym]
 is_symbol_a_feature(sym::Symbol) = haskey(SYMBOL_TO_FEATURE, sym)
 allfeatures() = values(SYMBOL_TO_FEATURE)
 is_feature_na(v::Float64) = isnan(v)
+function symbol2feature(sym::Symbol)
+    if !haskey(SYMBOL_TO_FEATURE, sym)
+        str = string(sym)
+        if startswith(str, "isclean_")
+            target = symbol(str[9:end])
+            println("IsClean target: ", target)
+            SYMBOL_TO_FEATURE[sym] = Feature_IsClean{target}()
+        elseif ismatch(r"^past_(\d)+_", str)
+            history = parse(Int, match(r"(\d)+", str).match)
+            len_of_header = length(match(r"^past_(\d)+_", str).match)
+            target = symbol(str[len_of_header+1:end])
+            println("Past history, target: ", history, "  ", target)
+            SYMBOL_TO_FEATURE[sym] = Feature_Past{target, history}()
+        end
+    end
+
+    SYMBOL_TO_FEATURE[sym]
+end
 
 # ----------------------------------
 # create_feature_basics
@@ -856,7 +873,7 @@ end
 #
 #############################################
 
-create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na)
+create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_FutureAcceleration, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # TODO(tim): should we be using AccBx to propagate the model?
@@ -872,7 +889,7 @@ function Base.get(::Feature_FutureAcceleration, runlog::RunLog, sn::StreetNetwor
         NA_ALIAS
     end
 end
-create_feature_basics( "FutureDesiredAngle", :f_des_angle, L"\phi^{\text{des}}", Float64, L"\radian", -convert(Float64, π), convert(Float64, π), :can_na)
+create_feature_basics( "FutureDesiredAngle", :f_des_angle, L"\phi^{\text{des}}", Float64, L"\radian", -convert(Float64, π), convert(Float64, π), :can_na, na_replacement=0.0)
 function Base.get(::Feature_FutureDesiredAngle, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer;
     KP_DESIRED_ANGLE::Float64=1.0
     )
@@ -932,6 +949,7 @@ upperbound{F, H}(  ::Feature_Past{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Past)       = true
 Base.symbol{F, H}( ::Feature_Past{F, H}) = symbol(@sprintf("past_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Past{F, H}) = L"\texttt{past}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Past{F, H}) = replace_na(symbol2feature(F))
 function Base.get{F, H}(::Feature_Past{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
 
@@ -961,6 +979,7 @@ upperbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = upperbound(symbol2featur
 couldna(           ::Feature_Mean_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Mean_Over_History{F, H}) = symbol(@sprintf("mean_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Mean_Over_History{F, H}) = L"\texttt{mean}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Mean_Over_History{F, H}) = replace_na(symbol2feature(F))
 function Base.get{F, H}(::Feature_Mean_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
@@ -994,6 +1013,7 @@ upperbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = upperbound(symbol2feature
 couldna(           ::Feature_Std_Over_Histroy)       = true
 Base.symbol{F, H}( ::Feature_Std_Over_Histroy{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Std_Over_Histroy{F, H}) = L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Std_Over_Histroy{F, H}) = replace_na(symbol2feature(F))
 function Base.get{F, H}(::Feature_Std_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
@@ -1027,6 +1047,7 @@ upperbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = upperbound(symbol2feature
 couldna(           ::Feature_Max_Over_Histroy)       = true
 Base.symbol{F, H}( ::Feature_Max_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Max_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Max_Over_Histroy{F, H}) = replace_na(symbol2feature(F))
 function Base.get{F, H}(::Feature_Max_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
@@ -1060,6 +1081,7 @@ upperbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = upperbound(symbol2feature
 couldna(           ::Feature_Min_Over_Histroy)       = true
 Base.symbol{F, H}( ::Feature_Min_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Min_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Min_Over_Histroy{F, H}) = replace_na(symbol2feature(F))
 function Base.get{F, H}(::Feature_Min_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)

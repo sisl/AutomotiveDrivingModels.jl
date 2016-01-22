@@ -56,6 +56,32 @@ type DataClamper <: DataPreprocessor
     x::Vector{Float64}
     f_lo::Vector{Float64}
     f_hi::Vector{Float64}
+
+    function DataClamper(
+        x::Vector{Float64}
+        f_lo::Vector{Float64}
+        f_hi::Vector{Float64}
+        )
+        new(x, f_lo, f_hi)
+    end
+    function DataClamper(X::Matrix{Float64}, x::Vector{Float64} = Array(Float64, size(X, 1))) # X is [nfeatures × n]
+
+        n_features = size(X, 1)
+
+        lo = Array(Float64, n_features)
+        hi = Array(Float64, n_features)
+
+        for i in 1 : n_features
+
+            arr = X[i,:]
+            low, high = extrema(arr)
+
+            lo[i] = low
+            hi[i] = high
+        end
+
+        new(x, lo, hi)
+    end
 end
 type DataLinearTransform <: DataPreprocessor
     x::Vector{Float64} # input
@@ -357,24 +383,7 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
     # - if max_n_stdevs_from_mean is set will use that instead
     # - input is same as output, so chain.z does not change
 
-    n_features = size(X, 1)
-    @assert(!isnan(max_n_stdevs_from_mean))
-
-    lo = Array(Float64, n_features)
-    hi = Array(Float64, n_features)
-
-    for i in 1 : n_features
-
-        arr = X[i,:]
-        low, high = extrema(arr)
-        μ = mean(arr)
-        σ = stdm(arr, μ)
-
-        lo[i] = max(low, μ - max_n_stdevs_from_mean*σ)
-        hi[i] = min(high, μ + max_n_stdevs_from_mean*σ)
-    end
-
-    dp = DataClamper(chain.z, lo, hi)
+    dp = DataClamper(X, chain.z)
     push!(chain.processors, dp)
     chain
 end
