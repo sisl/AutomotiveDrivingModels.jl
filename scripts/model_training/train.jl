@@ -33,14 +33,14 @@ metric_types_test_traces = [
                             RootWeightedSquareError{symbol(D_CL), 3.0},
                             RootWeightedSquareError{symbol(D_CL), 3.5},
                             RootWeightedSquareError{symbol(D_CL), 4.0},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 0.5},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 1.0},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 1.5},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 2.0},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 2.5},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 3.0},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 3.5},
-                            # RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 4.0},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 0.5},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 1.0},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 1.5},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 2.0},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 2.5},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 3.0},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 3.5},
+                            RootWeightedSquareError{symbol(FeaturesNew.INV_TIMEGAP_FRONT), 4.0},
                            ]
 metric_types_test_traces_bagged = [
                                    EmergentKLDivMetric{symbol(SPEED)},
@@ -250,19 +250,19 @@ for dset_filepath_modifier in (
         if !isempty(train_def.hyperparams)
             for (j,λ) in enumerate(train_def.hyperparams)
                 most_freqent_index = indmax(counts[j,:])
-                @printf("\t%-15s %s\n", string(λ.sym)*": ", string(λ.range[most_freqent_index]))
+                @printf("\t%-25s %s\n", string(λ.sym)*": ", string(λ.range[most_freqent_index]))
             end
 
             print("λ:  ")
             for λ in train_def.hyperparams
-                @printf("%15s", string(λ.sym))
+                @printf("%25s", string(λ.sym))
             end
             print("\n")
 
             for i in 1 : size(counts, 2)
                 @printf("%2d ", i)
                 for (j,λ) in enumerate(train_def.hyperparams)
-                    @printf("%15d", counts[j,i])
+                    @printf("%25d", counts[j,i])
                 end
                 println("")
             end

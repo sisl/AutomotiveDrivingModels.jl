@@ -334,9 +334,9 @@ function pull_target_matrix!{F}(
     Y
 end
 
-function copy_matrix_fold!(
-    dest::Matrix{Float64}, # [nframes × p]
-    src::Matrix{Float64}, # [p × nframes]
+function copy_matrix_fold!{A}(
+    dest::Matrix{A}, # [nframes × p]
+    src::Matrix{A}, # [p × nframes]
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool,
@@ -357,15 +357,15 @@ function copy_matrix_fold!(
 
     dest
 end
-function copy_matrix_fold(
-    X::Matrix{Float64}, # [p × nframes]
+function copy_matrix_fold{A}(
+    X::Matrix{A}, # [p × nframes]
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool,
     )
 
     nframes = calc_fold_size(fold, fold_assignment.frame_assignment, match_fold)
-    X2 = Array(Float64, nframes, size(X, 1)) # NOTE: transposed from YX
+    X2 = Array(A, nframes, size(X, 1)) # NOTE: transposed from YX
 
     copy_matrix_fold!(X2, X, fold, fold_assignment, match_fold)
 

@@ -6,12 +6,12 @@ using DynamicBayesianNetworkBehaviors
 push!(LOAD_PATH, "/home/tim/Documents/wheelerworkspace/UtilityCode/")
 using LaTeXeXport
 
-const TEXFILE = "/home/tim/Documents/papers/2016_ITS_car_behaviors_wheeler/its_car_behaviors.tex"
+const TEXFILE = "/home/tim/Documents/papers/2016_its_car_behaviors_wheeler/its_car_behaviors.tex"
 const TEXDIR = splitdir(TEXFILE)[1]
 
 const INCLUDE_FILE_BASE = "realworld"
 
-const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
+const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "densely dashdotted", "solid"]
 # const SAVE_FILE_MODIFIER = "_subset_car_following"
 const SAVE_FILE_MODIFIER = "_following" # "_freeflow"
 const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/" * INCLUDE_FILE_BASE* "/"
@@ -74,7 +74,7 @@ function create_tikzpicture_model_compare_logl{S<:AbstractString, B<:BehaviorFra
 
     for (i,name) in enumerate(names)
 
-        μ, Δ = _grab_score_and_confidence(LoglikelihoodMetric, metrics_straight[i],
+        μ, Δ = _grab_score_and_confidence(MedianLoglikelihoodMetric, metrics_straight[i],
                                           metrics_bagged[i])
 
         color_letter = string('A' + i - 1)
@@ -131,7 +131,7 @@ end
 function create_tikzpicture_model_compare_rwse_mean{S<:AbstractString}(io::IO,
     metrics_sets::Vector{Vector{BehaviorTraceMetric}},
     names::Vector{S},
-    F::AbstractFeature,
+    sym::Symbol,
     )
 
     #=
@@ -160,9 +160,9 @@ function create_tikzpicture_model_compare_rwse_mean{S<:AbstractString}(io::IO,
         color = "color" * string('A' + i - 1)
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
-        @printf(io, "\t(0,0.0) ")
-        for horizon in [0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0]
-            rwse = get_score(_grab_metric(RootWeightedSquareError{symbol(F), horizon}, metrics_sets[i]))
+        print(io, "\t")
+        for horizon in [1.0,1.5,2.0,2.5,3.0,3.5,4.0] # 0.0,0.5,
+            rwse = horizon == 0.0 ? 0.0 : get_score(_grab_metric(RootWeightedSquareError{sym, horizon}, metrics_sets[i]))
             @printf(io, "(%.3f,%.4f) ", horizon, rwse)
         end
         @printf(io, "};\n")
@@ -274,7 +274,7 @@ function create_table_validation_across_context_classes{S<:AbstractString, T<:Ab
         best_model_index = 0
         best_model_score = -Inf
         for i in 1 : nmodels
-            logl_μ, logl_Δ = _grab_score_and_confidence(LoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
+            logl_μ, logl_Δ = _grab_score_and_confidence(MedianLoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
                                                         context_class["metrics_sets_test_frames_bagged"][i])
             if logl_μ ≥ best_model_score
                 best_model_score, best_model_index = logl_μ, i
@@ -283,7 +283,7 @@ function create_table_validation_across_context_classes{S<:AbstractString, T<:Ab
 
         @printf(io, " %-11s ", "\\"*context_class_name)
         for i in 1 : nmodels
-            logl_μ, logl_Δ = _grab_score_and_confidence(LoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
+            logl_μ, logl_Δ = _grab_score_and_confidence(MedianLoglikelihoodMetric, context_class["metrics_sets_test_frames"][i],
                                                         context_class["metrics_sets_test_frames_bagged"][i])
             metric_string = @sprintf("%.2f+-%.2f", logl_μ, logl_Δ)
             if i == best_model_index
@@ -431,9 +431,10 @@ end
 # println(keys(JLD.load(METRICS_OUTPUT_FILE)))
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
-preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network"]
+preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
 names = JLD.load(METRICS_OUTPUT_FILE, "model_names")
+println("names: ", names)
 metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
 metrics_sets_test_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames_bagged")
 metrics_sets_train_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_train_frames")
@@ -485,13 +486,15 @@ end
 # exit()
 
 write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, SPEED)
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, symbol(SPEED))
 end
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, TIMEGAP_X_FRONT)
-# end
+if SAVE_FILE_MODIFIER == "_following"
+    write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
+        create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, symbol(FeaturesNew.INV_TIMEGAP_FRONT))
+    end
+end
 write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, D_CL)
+    create_tikzpicture_model_compare_rwse_mean(fh, metrics_sets_test_traces, names, symbol(D_CL))
 end
 write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
     create_tikzpicture_model_compare_rwse_legend(fh, names)

@@ -1,3 +1,5 @@
+VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
+
 module AutomotiveDrivingModels
 
 using Reexport
@@ -10,8 +12,7 @@ using StreamStats
 @reexport using LaTeXStrings
 @reexport using LightGraphs
 
-include("utils/vec/Vec.jl")
-@reexport using .Vec
+@reexport using Vec
 
 include("utils/CommonTypes.jl")
 @reexport using .CommonTypes

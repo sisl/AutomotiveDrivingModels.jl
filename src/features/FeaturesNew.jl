@@ -336,12 +336,12 @@ function Base.get(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork,
     end
 end
 
-create_feature_basics( "N_Lane_Right", :n_lane_right, L"n^\text{lane}_r", Int, "-", 0.0, 10.0, :no_na)
+create_feature_basics( "N_Lane_Right", :n_lane_right, L"n^\text{lane}_r", Int, "-", 0.0, 4.0, :no_na)
 function Base.get(::Feature_N_Lane_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     node = _get_node(runlog, sn, colset, frame)
     convert(Float64, node.n_lanes_right)
 end
-create_feature_basics( "N_Lane_Left", :n_lane_left, L"n^\text{lane}_l", Int, "-", 0.0, 10.0, :no_na)
+create_feature_basics( "N_Lane_Left", :n_lane_left, L"n^\text{lane}_l", Int, "-", 0.0, 4.0, :no_na)
 function Base.get(::Feature_N_Lane_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     node = _get_node(runlog, sn, colset, frame)
     convert(Float64, node.n_lanes_left)
@@ -477,8 +477,13 @@ function Base.get(::Feature_SUMO, runlog::RunLog, sn::StreetNetwork, colset::UIn
         return NA_ALIAS
     end
 
-    d_front = _get_dist_between(runlog, sn, colset, colset_front, frame)
-    @assert(!isnan(d_front))
+    d_front = NaN
+    try
+        d_front = _get_dist_between(runlog, sn, colset, colset_front, frame)
+        @assert(!isnan(d_front))
+    catch
+        return NA_ALIAS
+    end
 
     v = _fast_hypot(get(runlog, colset, frame, :ratesB)::VecSE2)
     v_front = _fast_hypot(get(runlog, colset_front, frame, :ratesB)::VecSE2)
@@ -510,8 +515,13 @@ function Base.get(::Feature_IDM, runlog::RunLog, sn::StreetNetwork, colset::UInt
         return NA_ALIAS
     end
 
-    d_front = _get_dist_between(runlog, sn, colset, colset_front, frame)
-    @assert(!isnan(d_front))
+    d_front = NaN
+    try
+        d_front = _get_dist_between(runlog, sn, colset, colset_front, frame)
+        @assert(!isnan(d_front))
+    catch
+        return NA_ALIAS
+    end
 
     v = _fast_hypot(get(runlog, colset, frame, :ratesB)::VecSE2)
     v_front = _fast_hypot(get(runlog, colset_front, frame, :ratesB)::VecSE2)
@@ -548,8 +558,14 @@ function Base.get(::Feature_Dist_Front, runlog::RunLog, sn::StreetNetwork, colse
         return NA_ALIAS
     end
 
-    d_front = _get_dist_between(runlog, sn, colset, colset_front, frame)
-    @assert(!isnan(d_front))
+    d_front = NaN
+    try
+        d_front = _get_dist_between(runlog, sn, colset, colset_front, frame)
+        @assert(!isnan(d_front))
+    catch
+        return NA_ALIAS
+    end
+
 
     d_front
 end
@@ -719,9 +735,17 @@ function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset
         return NA_ALIAS
     end
 
-    d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
+    d_rear = NaN
+    try
+        d_rear = _get_dist_between(runlog, sn, colset, colset_front, frame)
+        @assert(!isnan(d_rear))
+    catch
+        return NA_ALIAS
+    end
 
-    # @assert(!isnan(d_rear))
+    d_rear
+
+    #
     # d_rear
 end
 

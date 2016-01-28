@@ -11,7 +11,9 @@ export
     DataClamper,
     DataLinearTransform,
     DataSubset,
-    ChainedDataProcessor
+    ChainedDataProcessor,
+
+    get_clamper_subset
 
 ##############################
 
@@ -58,9 +60,16 @@ type DataClamper <: DataPreprocessor
     f_hi::Vector{Float64}
 
     function DataClamper(
-        x::Vector{Float64}
-        f_lo::Vector{Float64}
-        f_hi::Vector{Float64}
+        f_lo::Vector{Float64},
+        f_hi::Vector{Float64},
+        )
+        @assert(length(f_lo) == length(f_hi))
+        new(Array(Float64, length(f_lo)), f_lo, f_hi)
+    end
+    function DataClamper(
+        x::Vector{Float64},
+        f_lo::Vector{Float64},
+        f_hi::Vector{Float64},
         )
         new(x, f_lo, f_hi)
     end
@@ -154,6 +163,12 @@ function Base.deepcopy(chain::ChainedDataProcessor, extractor_new::FeatureSubset
     =#
 
     _deepcopy(chain, extractor_new.x)
+end
+
+function get_clamper_subset(clamper::DataClamper, indeces::AbstractVector{Int}, x::Vector{Float64}=Array(Float64, length(indeces)))
+    f_lo = clamper.f_lo[indeces]
+    f_hi = clamper.f_hi[indeces]
+    DataClamper(x, f_lo, f_hi)
 end
 
 function process!(dp::DataNaReplacer)

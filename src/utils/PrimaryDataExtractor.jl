@@ -66,7 +66,7 @@ type PrimaryDataExtractionParams
         self.verbosity = 0
 
         self.threshold_percent_outliers_warn = 0.5
-        self.threshold_percent_outliers_error = 12.0
+        self.threshold_percent_outliers_error = 14.0
         self.threshold_lane_lateral_offset_ego = 2.5
         self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
         self.threshold_other_frame_gap = 5
@@ -1727,11 +1727,11 @@ function extract_runlogs(
         if frameind_hi < frameind_lo + 100
             warn("Runlog with frameind range $frameind_lo : $frameind_hi is not worth extracting")
         else
-            append!(retval, _extract_runlogs(trajdata[,:], sn, params, runlogheader))
+            append!(retval, _extract_runlogs(trajdata[frameind_lo:frameind_hi,:], sn, params, runlogheader))
         end
     end
     retval
-
+end
 function _extract_runlogs(
     trajdata::DataFrame,
     sn::StreetNetwork,

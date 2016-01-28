@@ -7,7 +7,8 @@ const N_FOLDS = 5
 const CONFIDENCE_LEVEL = 0.95
 const MAX_CV_OPT_TIME_PER_MODEL = 60.0 # [s]
 
-const SIM_SEC_PER_FRAME      = 5*DEFAULT_FRAME_PER_SEC # NOTE(tim): currently this must be an even multiple of DEFAULT_FRAME_PER_SEC
+const PDSET_FRAMES_PER_SIM_FRAME = 5
+const SIM_SEC_PER_FRAME      = PDSET_FRAMES_PER_SIM_FRAME*DEFAULT_SEC_PER_FRAME
 const SIM_HORIZON_IN_SECONDS = 4.0
 const SIM_HISTORY_IN_FRAMES  = 8
 
@@ -22,11 +23,10 @@ const EVALUATION_DIR = let
     end
 end
 
-# const RUNLOG_DIR = joinpath(EVALUATION_DIR, "runlogs")
+const RUNLOG_DIR = joinpath(EVALUATION_DIR, "runlogs")
 # const PDSET_DIR = joinpath(EVALUATION_DIR, "pdsets")
 # const CSVFILESETS = [JLD.load(joinpath(EVALUATION_DIR, "csvfilesets.jld"), "csvfilesets")...]::Vector{CSVFileSet}
 
-const PDSET_FRAMES_PER_SIM_FRAME = round(Int, SIM_SEC_PER_FRAME/DEFAULT_FRAME_PER_SEC, RoundNearestTiesUp)
 const SIM_HORIZON_IN_FRAMES = round(Int, SIM_HORIZON_IN_SECONDS/SIM_SEC_PER_FRAME, RoundNearestTiesUp)
 const NFRAMES_TOTAL = SIM_HORIZON_IN_FRAMES + SIM_HISTORY_IN_FRAMES
 const FRAMESKIP_BETWEEN_EXTRACTED_SCENES = 1
@@ -37,6 +37,8 @@ const INDICATOR_SET2 = [
                     FeaturesNew.MARKERDIST_LEFT, FeaturesNew.MARKERDIST_RIGHT,
                     FeaturesNew.TIMETOCROSSING_LEFT, FeaturesNew.TIMETOCROSSING_RIGHT, FeaturesNew.ESTIMATEDTIMETOLANECROSSING, FeaturesNew.A_REQ_STAYINLANE,
                     FeaturesNew.N_LANE_LEFT, FeaturesNew.N_LANE_RIGHT, FeaturesNew.HAS_LANE_RIGHT, FeaturesNew.HAS_LANE_LEFT, FeaturesNew.LANECURVATURE,
+                    FeaturesNew.Feature_Past{:f_accel, 1}(), FeaturesNew.Feature_Past{:f_accel, 2}(), FeaturesNew.Feature_Past{:f_accel, 3}(),
+                    FeaturesNew.Feature_Past{:f_des_angle, 1}(), FeaturesNew.Feature_Past{:f_des_angle, 2}(), FeaturesNew.Feature_Past{:f_des_angle, 3}(),
                 ]
 
 # const TARGET_SET = ModelTargets{AbstractFeature}(FUTUREDESIREDANGLE_250MS, FUTUREACCELERATION_250MS)
