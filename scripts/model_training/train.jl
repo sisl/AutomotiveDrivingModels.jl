@@ -88,23 +88,23 @@ for dset_filepath_modifier in (
     println(dset_filepath_modifier)
 
     METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * ".jld")
-    MODEL_OUTPUT_JLD_FILE = joinpath(EVALUATION_DIR, "validation_models" * dset_filepath_modifier * ".jld")
     DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset2" * dset_filepath_modifier * ".jld")
 
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
 
     preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
-    for (behavior_name, train_def) in behaviorset
-        preallocated_data_dict[behavior_name] = preallocate_learning_data(dset, train_def.trainparams)
+    for (model_name, train_def) in behaviorset
+        preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
     end
 
     hyperparam_counts = Dict{AbstractString, Matrix{Int}}()
-    for (behavior_name, train_def) in behaviorset
+    for model_name in model_names
+        train_def = behaviorset[model_name]
         if !isempty(train_def.hyperparams)
             max_range = maximum([length(λ) for λ in train_def.hyperparams])
-            hyperparam_counts[behavior_name] = zeros(length(train_def.hyperparams), max_range)
+            hyperparam_counts[model_name] = zeros(length(train_def.hyperparams), max_range)
         else
-            hyperparam_counts[behavior_name] = zeros(1, 1)
+            hyperparam_counts[model_name] = zeros(1, 1)
         end
     end
 
@@ -169,17 +169,17 @@ for dset_filepath_modifier in (
         ##############
 
         print("\toptimizing hyperparameters\n"); tic()
-        for (behavior_name, train_def) in behaviorset
-            println(behavior_name)
-            preallocated_data = preallocated_data_dict[behavior_name]
+        for (model_name, train_def) in behaviorset
+            println(model_name)
+            preallocated_data = preallocated_data_dict[model_name]
             AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
                     train_def, dset, preallocated_data, cv_split_inner)
         end
         toc()
 
         # update the count
-        for (behavior_name, train_def) in behaviorset
-            hyperparam_count = hyperparam_counts[behavior_name]
+        for (model_name, train_def) in behaviorset
+            hyperparam_count = hyperparam_counts[model_name]
             for (i, λ) in enumerate(train_def.hyperparams)
                 sym = λ.sym
                 val = getfield(train_def.trainparams, sym)
@@ -201,8 +201,8 @@ for dset_filepath_modifier in (
         # println("MODELS: ", models)
 
         print("\tcomputing likelihoods  "); tic()
-        for (i,behavior_name) in enumerate(model_names)
-            behavior = models[behavior_name]
+        for (i,model_name) in enumerate(model_names)
+            behavior = models[model_name]
             for frameind in 1 : nframes
                 if trains_with_nona(behavior)
                     frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
@@ -213,10 +213,10 @@ for dset_filepath_modifier in (
         end
 
         println("\tsimulating"); tic()
-        for (k,behavior_name) in enumerate(model_names)
-            behavior = models[behavior_name]
+        for (k,model_name) in enumerate(model_names)
+            behavior = models[model_name]
 
-            print("\t\t", behavior_name, "  "); tic()
+            print("\t\t", model_name, "  "); tic()
             for i in 1 : ntraces
                 if cv_split_outer.seg_assignment[i] == fold # in test
                     # simulate
@@ -240,40 +240,7 @@ for dset_filepath_modifier in (
 
     #########################################################
 
-    println("Hyperparam Statistics: ")
-    for (behavior_name, train_def) in behaviorset
-
-        counts = hyperparam_counts[behavior_name]
-
-        println(behavior_name)
-
-        if !isempty(train_def.hyperparams)
-            for (j,λ) in enumerate(train_def.hyperparams)
-                most_freqent_index = indmax(counts[j,:])
-                @printf("\t%-25s %s\n", string(λ.sym)*": ", string(λ.range[most_freqent_index]))
-            end
-
-            print("λ:  ")
-            for λ in train_def.hyperparams
-                @printf("%25s", string(λ.sym))
-            end
-            print("\n")
-
-            for i in 1 : size(counts, 2)
-                @printf("%2d ", i)
-                for (j,λ) in enumerate(train_def.hyperparams)
-                    @printf("%25d", counts[j,i])
-                end
-                println("")
-            end
-        else
-            print("NONE")
-        end
-        println("\n")
-    end
-
-
-    #########################################################
+    print_hyperparam_statistics(STDOUT, behaviorset, hyperparam_counts)
 
     print("Exctracting frame stats  "); tic()
 
@@ -284,7 +251,7 @@ for dset_filepath_modifier in (
     metrics_sets_test_traces = Array(Vector{BehaviorTraceMetric}, nmodels)
     metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, nmodels)
 
-    for k in 1:nmodels
+    for (k, model_name) in enumerate(model_names)
         print("\tmodel: ", k, "  "); tic()
 
         arr_logl_test = Float64[]
@@ -306,7 +273,6 @@ for dset_filepath_modifier in (
         metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(MedianLoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
 
         # TRACES
-
         retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
         retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
         for (i,M) in enumerate(metric_types_test_traces)
@@ -323,6 +289,31 @@ for dset_filepath_modifier in (
 
         metrics_sets_test_traces[k] = retval_straight
         metrics_sets_test_traces_bagged[k] = retval_bagged
+
+        model_output_name = replace(lowercase(model_name), " ", "_")
+        model_results_path_jld = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".jld")
+        JLD.save(model_results_path_jld,
+             "model_name",                      model_name,
+             "metrics_set_test_frames",         metrics_sets_test_frames[k],
+             "metrics_set_test_frames_bagged",  metrics_sets_test_frames_bagged[k],
+             "metrics_set_train_frames",        metrics_sets_train_frames[k],
+             "metrics_set_train_frames_bagged", metrics_sets_train_frames_bagged[k],
+             "metrics_set_test_traces",         metrics_sets_test_traces[k],
+             "metrics_set_test_traces_bagged",  metrics_sets_test_traces_bagged[k],
+            )
+
+        model_results_path_txt = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".txt")
+
+        open(model_results_path_txt, "w") do fh
+            println("")
+
+            train_def = behaviorset[model_name]
+            counts = hyperparam_counts[model_name]
+            print_hyperparam_statistics(fh, model_name, train_def, counts)
+            println(fh)
+            @printf(fh, "LOGL TEST: %6.3f ± %6.3f\n", get_score(metrics_sets_test_frames[k][1]), metrics_sets_test_frames_bagged[k][1].confidence_bound)
+            @printf(fh, "LOGL TEST: %6.3f ± %6.3f\n", get_score(metrics_sets_train_frames[k][1]), metrics_sets_train_frames_bagged[k][1].confidence_bound)
+        end
 
         toc()
     end
@@ -349,15 +340,15 @@ for dset_filepath_modifier in (
     println("metrics_sets_test_traces_bagged: ")
     println(metrics_sets_test_traces_bagged)
 
-    JLD.save(METRICS_OUTPUT_FILE,
-             "model_names",                      model_names,
-             "metrics_sets_test_frames",         metrics_sets_test_frames,
-             "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
-             "metrics_sets_train_frames",        metrics_sets_train_frames,
-             "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
-             "metrics_sets_test_traces",         metrics_sets_test_traces,
-             "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
-            )
+    # JLD.save(METRICS_OUTPUT_FILE,
+    #          "model_names",                      model_names,
+    #          "metrics_sets_test_frames",         metrics_sets_test_frames,
+    #          "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
+    #          "metrics_sets_train_frames",        metrics_sets_train_frames,
+    #          "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
+    #          "metrics_sets_test_traces",         metrics_sets_test_traces,
+    #          "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
+    #         )
 end
 
 # println("DONE")

@@ -426,22 +426,30 @@ function create_table_validation_across_context_classes{S<:AbstractString, T<:Ab
     print(io, "\\end{tabular}\n")
 end
 
-# behaviorset = JLD.load(MODEL_OUTPUT_JLD_FILE, "behaviorset")
-
-# println(keys(JLD.load(METRICS_OUTPUT_FILE)))
-
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
 preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
-names = JLD.load(METRICS_OUTPUT_FILE, "model_names")
-println("names: ", names)
-metrics_sets_test_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames")
-metrics_sets_test_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_frames_bagged")
-metrics_sets_train_frames = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_train_frames")
-metrics_sets_train_frames_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_train_frames_bagged")
-metrics_sets_test_traces = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces")
-metrics_sets_test_traces_bagged = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_test_traces_bagged")
-# metrics_sets_cv = JLD.load(METRICS_OUTPUT_FILE, "metrics_sets_cv")
+names = AbstractString[]
+metrics_sets_test_frames = Array(Vector{BehaviorFrameMetric}, 0)
+metrics_sets_train_frames = Array(Vector{BehaviorFrameMetric}, 0)
+metrics_sets_test_frames_bagged = Array(Vector{BaggedMetricResult}, 0)
+metrics_sets_train_frames_bagged = Array(Vector{BaggedMetricResult}, 0)
+metrics_sets_test_traces = Array(Vector{BehaviorTraceMetric}, 0)
+metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, 0)
+
+for model_name in preferred_name_order
+    model_output_name = replace(lowercase(model_name), " ", "_")
+    model_results_path_jld = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * "_" * model_output_name * ".jld")
+    data = JLD.load(model_results_path_jld)
+
+    push!(names,                            data["model_name"])
+    push!(metrics_sets_test_frames,         data["metrics_set_test_frames"])
+    push!(metrics_sets_test_frames_bagged,  data["metrics_set_test_frames_bagged"])
+    push!(metrics_sets_train_frames,        data["metrics_set_train_frames"])
+    push!(metrics_sets_train_frames_bagged, data["metrics_set_train_frames_bagged"])
+    push!(metrics_sets_test_traces,         data["metrics_set_test_traces"])
+    push!(metrics_sets_test_traces_bagged,  data["metrics_set_test_traces_bagged"])
+end
 
 perm = Array(Int, length(names))
 let
