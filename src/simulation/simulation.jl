@@ -94,40 +94,40 @@ end
 #     basics
 # end
 
-function simulate_but_terminate_if_collision!(
-    basics          :: FeatureExtractBasicsPdSet,
-    behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
-    validfind_start :: Int,
-    validfind_end   :: Int;
+# function simulate_but_terminate_if_collision!(
+#     basics          :: FeatureExtractBasicsPdSet,
+#     behavior_pairs  :: Vector{Tuple{AbstractVehicleBehavior,Int}}, # (behavior, carid)
+#     validfind_start :: Int,
+#     validfind_end   :: Int;
 
-    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
-    n_euler_steps   :: Int = 2,
-    carA            :: Vehicle = Vehicle(),
-    carB            :: Vehicle = Vehicle(),
-    cornersCarA     :: FourCorners=FourCorners(),
-    cornersCarB     :: FourCorners=FourCorners(),
-    )
+#     pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME,
+#     n_euler_steps   :: Int = 2,
+#     carA            :: Vehicle = Vehicle(),
+#     carB            :: Vehicle = Vehicle(),
+#     cornersCarA     :: FourCorners=FourCorners(),
+#     cornersCarB     :: FourCorners=FourCorners(),
+#     )
 
-    # Returns whether or not a collison occurred
-    # NOTE(tim): assumes no collision in current frame
+#     # Returns whether or not a collison occurred
+#     # NOTE(tim): assumes no collision in current frame
 
-    for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
-        for (behavior,carid) in behavior_pairs
-            if !isa(behavior, VehicleBehaviorNone)
-                action_lat, action_lon = select_action(basics, behavior, carid, validfind)
-                propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
-                          pdset_frames_per_sim_frame, n_euler_steps)
-            end
-        end
+#     for validfind in validfind_start : pdset_frames_per_sim_frame: validfind_end-1
+#         for (behavior,carid) in behavior_pairs
+#             if !isa(behavior, VehicleBehaviorNone)
+#                 action_lat, action_lon = select_action(basics, behavior, carid, validfind)
+#                 propagate!(basics.pdset, basics.sn, validfind, carid, action_lat, action_lon,
+#                           pdset_frames_per_sim_frame, n_euler_steps)
+#             end
+#         end
 
-        if has_intersection(basics.pdset, validfind+1, validfind+pdset_frames_per_sim_frame,
-                            carA, carB, cornersCarA, cornersCarB)
-            return true
-        end
-    end
+#         if has_intersection(basics.pdset, validfind+1, validfind+pdset_frames_per_sim_frame,
+#                             carA, carB, cornersCarA, cornersCarB)
+#             return true
+#         end
+#     end
 
-    false
-end
+#     false
+# end
 
 # TODO(tim): make this a functuion on the target feature?
 get_input_acceleration(action_lon::Float64) = action_lon

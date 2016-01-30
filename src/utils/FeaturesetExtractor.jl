@@ -164,70 +164,70 @@ function identify_lane_changes!(
 
     validfind_is_lanechange
 end
-function identify_freeflow!(
-    validfind_is_freeflow::AbstractVector{Bool},
-    validfind_contains_carid::AbstractVector{Bool},
-    basics::FeatureExtractBasicsPdSet,
-    carid::Integer
-    )
+# function identify_freeflow!(
+#     validfind_is_freeflow::AbstractVector{Bool},
+#     validfind_contains_carid::AbstractVector{Bool},
+#     basics::FeatureExtractBasicsPdSet,
+#     carid::Integer
+#     )
 
-    #=
-    Labels each frame as freeflow or not (ie, carfollow), based on:
-     - front timegap > threshold
-     - front vehicle faster by threshold
-    =#
+#     #=
+#     Labels each frame as freeflow or not (ie, carfollow), based on:
+#      - front timegap > threshold
+#      - front vehicle faster by threshold
+#     =#
 
-    @assert(length(validfind_is_freeflow) == length(validfind_contains_carid))
+#     @assert(length(validfind_is_freeflow) == length(validfind_contains_carid))
 
-    for (validfind, contains_carid) in enumerate(validfind_contains_carid)
-        if contains_carid
-            carind = carid2ind(basics.pdset, carid, validfind)
-            validfind_is_freeflow[validfind] = Features._get(SUBSET_FREE_FLOW, basics, carind, validfind)
-        else
-            validfind_is_freeflow[validfind] = false
-        end
-    end
+#     for (validfind, contains_carid) in enumerate(validfind_contains_carid)
+#         if contains_carid
+#             carind = carid2ind(basics.pdset, carid, validfind)
+#             validfind_is_freeflow[validfind] = Features._get(SUBSET_FREE_FLOW, basics, carind, validfind)
+#         else
+#             validfind_is_freeflow[validfind] = false
+#         end
+#     end
 
-    validfind_is_freeflow
-end
+#     validfind_is_freeflow
+# end
 
-function extract_csvfile_set(
-    carid::Integer,
-    csvfile::AbstractString,
-    streetmapbasename::AbstractString,
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    validfind_contains_carid::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
-    validfind_is_lanechange::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
-    validfind_is_freeflow::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
-    )
+# function extract_csvfile_set(
+#     carid::Integer,
+#     csvfile::AbstractString,
+#     streetmapbasename::AbstractString,
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     validfind_contains_carid::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
+#     validfind_is_lanechange::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
+#     validfind_is_freeflow::AbstractVector{Bool}=falses(nvalidfinds(pdset)),
+#     )
 
-    # grab all frames with vehicle
-    Trajdata._get_validfinds_containing_carid!(validfind_contains_carid, pdset, carid)
+#     # grab all frames with vehicle
+#     Trajdata._get_validfinds_containing_carid!(validfind_contains_carid, pdset, carid)
 
-    # identify all continuous segments
-    segments = extract_continuous_segments(validfind_contains_carid)
+#     # identify all continuous segments
+#     segments = extract_continuous_segments(validfind_contains_carid)
 
-    # identify all lane changes
-    lanechange_validfinds = extract_all_lanechanges(pdset, sn, carid, validfind_contains_carid)
-    identify_lane_changes!(validfind_is_lanechange, validfind_contains_carid,
-                           lanechange_validfinds, pdset, carid)
+#     # identify all lane changes
+#     lanechange_validfinds = extract_all_lanechanges(pdset, sn, carid, validfind_contains_carid)
+#     identify_lane_changes!(validfind_is_lanechange, validfind_contains_carid,
+#                            lanechange_validfinds, pdset, carid)
 
-    # identify all free flow frames
-    identify_freeflow!(validfind_is_freeflow, validfind_contains_carid, FeatureExtractBasicsPdSet(pdset, sn), carid)
+#     # identify all free flow frames
+#     identify_freeflow!(validfind_is_freeflow, validfind_contains_carid, FeatureExtractBasicsPdSet(pdset, sn), carid)
 
-    lanechanges_normal = extract_continuous_segments(validfind_is_lanechange)
-    lanechanges_postpass = Int[]
-    lanechanges_arbitrary = Int[]
-    carfollow = extract_continuous_segments(!validfind_is_freeflow & validfind_contains_carid)
-    freeflow = extract_continuous_segments(validfind_is_freeflow)
+#     lanechanges_normal = extract_continuous_segments(validfind_is_lanechange)
+#     lanechanges_postpass = Int[]
+#     lanechanges_arbitrary = Int[]
+#     carfollow = extract_continuous_segments(!validfind_is_freeflow & validfind_contains_carid)
+#     freeflow = extract_continuous_segments(validfind_is_freeflow)
 
-    CSVFileSet(carid, csvfile, streetmapbasename,
-                             lanechanges_normal,
-                             lanechanges_postpass,
-                             lanechanges_arbitrary,
-                             carfollow, freeflow)
-end
+#     CSVFileSet(carid, csvfile, streetmapbasename,
+#                              lanechanges_normal,
+#                              lanechanges_postpass,
+#                              lanechanges_arbitrary,
+#                              carfollow, freeflow)
+# end
 function extract_csvfile_sets(
     csvfile::AbstractString,
     streetmapbasename::AbstractString,
@@ -399,75 +399,75 @@ function create_dataframe_with_feature_columns{F<:AbstractFeature}(features::Abs
     end
     df
 end
-function does_violate_filter{F<:AbstractFeature}(filters::AbstractVector{F}, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
-    for f in filters
-        if isapprox(get(f, basics, carind, validfind), 0.0)
-            return true
-        end
-    end
-    false
-end
+# function does_violate_filter{F<:AbstractFeature}(filters::AbstractVector{F}, basics::FeatureExtractBasicsPdSet, carind::Int, validfind::Int)
+#     for f in filters
+#         if isapprox(get(f, basics, carind, validfind), 0.0)
+#             return true
+#         end
+#     end
+#     false
+# end
 
-function gen_featureset_from_regions{F<:AbstractFeature, G<:AbstractFeature}(
-    carid::Integer,
-    basics::FeatureExtractBasicsPdSet,
-    validfind_regions::AbstractVector{Int}, # array where subsequent pairs are validfinds of the particular behavior ([1,10,20,30]) means 1->10 and 20->30 are that behavior
-    features::Vector{F},
-    filters::Vector{G}=AbstractFeature[] # list of boolean features; if true the car is kept
-    )
+# function gen_featureset_from_regions{F<:AbstractFeature, G<:AbstractFeature}(
+#     carid::Integer,
+#     basics::FeatureExtractBasicsPdSet,
+#     validfind_regions::AbstractVector{Int}, # array where subsequent pairs are validfinds of the particular behavior ([1,10,20,30]) means 1->10 and 20->30 are that behavior
+#     features::Vector{F},
+#     filters::Vector{G}=AbstractFeature[] # list of boolean features; if true the car is kept
+#     )
 
-    estimated_row_count = calc_row_count_from_region_segments(validfind_regions)
-    df = create_dataframe_with_feature_columns(features, estimated_row_count)
+#     estimated_row_count = calc_row_count_from_region_segments(validfind_regions)
+#     df = create_dataframe_with_feature_columns(features, estimated_row_count)
 
-    row_index = 0
-    region_index_lo = 1
-    while region_index_lo < length(validfind_regions)
-        for validfind in validfind_regions[region_index_lo] : validfind_regions[region_index_lo+1]
-            carind = carid2ind_or_negative_two_otherwise(basics.pdset, carid, validfind)
-            if carind != -2 && !does_violate_filter(filters, basics, carind, validfind)
+#     row_index = 0
+#     region_index_lo = 1
+#     while region_index_lo < length(validfind_regions)
+#         for validfind in validfind_regions[region_index_lo] : validfind_regions[region_index_lo+1]
+#             carind = carid2ind_or_negative_two_otherwise(basics.pdset, carid, validfind)
+#             if carind != -2 && !does_violate_filter(filters, basics, carind, validfind)
 
-                row_index += 1
-                for f in features
-                    value = get(f, basics, carind, validfind)::Float64
-                    df[row_index, symbol(f)] = value
-                end
-                df[row_index, :validfind] = validfind
-            end
-        end
+#                 row_index += 1
+#                 for f in features
+#                     value = get(f, basics, carind, validfind)::Float64
+#                     df[row_index, symbol(f)] = value
+#                 end
+#                 df[row_index, :validfind] = validfind
+#             end
+#         end
 
-        region_index_lo += 2
-    end
+#         region_index_lo += 2
+#     end
 
-    # NOTE(tim): drop any extra rows
-    df[1:row_index,:]
-end
-function gen_featureset_from_validfinds{F <: AbstractFeature, G <: AbstractFeature}(
-    carid::Integer,
-    basics::FeatureExtractBasicsPdSet,
-    validfinds::AbstractVector{Int64},
-    features::Vector{F},
-    filters::Vector{G}=AbstractFeature[] # list of boolean features; if true the car is kept
-    )
+#     # NOTE(tim): drop any extra rows
+#     df[1:row_index,:]
+# end
+# function gen_featureset_from_validfinds{F <: AbstractFeature, G <: AbstractFeature}(
+#     carid::Integer,
+#     basics::FeatureExtractBasicsPdSet,
+#     validfinds::AbstractVector{Int64},
+#     features::Vector{F},
+#     filters::Vector{G}=AbstractFeature[] # list of boolean features; if true the car is kept
+#     )
 
-    estimated_row_count = length(validfinds)
-    df = create_dataframe_with_feature_columns(features, estimated_row_count)
+#     estimated_row_count = length(validfinds)
+#     df = create_dataframe_with_feature_columns(features, estimated_row_count)
 
-    row_index = 0
-    for validfind in validfinds
-        carind = carid2ind_or_negative_two_otherwise(basics.pdset, carid, validfind)
-        if carind != -2 && !does_violate_filter(filters, basics, carind, validfind)
+#     row_index = 0
+#     for validfind in validfinds
+#         carind = carid2ind_or_negative_two_otherwise(basics.pdset, carid, validfind)
+#         if carind != -2 && !does_violate_filter(filters, basics, carind, validfind)
 
-            row_index += 1
-            for f in features
-                value = get(f, basics, carind, validfind)::Float64
-                df[row_index, symbol(f)] = value
-            end
-            df[row_index, :validfind] = Float64(validfind)
-        end
-    end
+#             row_index += 1
+#             for f in features
+#                 value = get(f, basics, carind, validfind)::Float64
+#                 df[row_index, symbol(f)] = value
+#             end
+#             df[row_index, :validfind] = Float64(validfind)
+#         end
+#     end
 
-    # NOTE(tim): drop any extra rows
-    df[1:row_index,:]
-end
+#     # NOTE(tim): drop any extra rows
+#     df[1:row_index,:]
+# end
 
 end # module

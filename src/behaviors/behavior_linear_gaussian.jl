@@ -9,25 +9,27 @@ using PDMats
 
 type VehicleBehaviorLinearGaussian <: AbstractVehicleBehavior
 
-    F::Union{AbstractFeature, FeaturesNew.AbstractFeature} # the predictor
+    F::AbstractFeature # the predictor
     A::Matrix{Float64} # the autoregression matrix (2×2), μ = A⋅ϕ
     μ∞::Vector{Float64} # used for Inf values (length 2)
     N::MvNormal # with action vector (accel, turnrate) (Σ is const)
 
+    targets::ModelTargets
     action::Vector{Float64} # the action, preallocated
 
     function VehicleBehaviorLinearGaussian(
-        F::Union{AbstractFeature, FeaturesNew.AbstractFeature},
+        F::AbstractFeature,
         A::Matrix{Float64},
         μ∞::Vector{Float64},
         N::MvNormal,
+        targets::ModelTargets
         )
 
         @assert(size(A, 1) == 2)
         @assert(size(A, 2) == 2)
         @assert(length(μ∞) == 2)
 
-        new(F, A, μ∞, N, [0.0,0.0])
+        new(F, A, μ∞, N, targets, [0.0,0.0])
     end
 end
 function Base.print(io::IO, LG::VehicleBehaviorLinearGaussian)
@@ -46,12 +48,12 @@ end
 type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
 
     targets::ModelTargets
-    indicators::Union{Vector{AbstractFeature}, Vector{FeaturesNew.AbstractFeature}}
+    indicators::Vector{AbstractFeature}
 
     ridge_regression_constant::Float64
 
     function LG_TrainParams(;
-        targets::ModelTargets = ModelTargets{AbstractFeature}(FUTUREDESIREDANGLE_250MS, FUTUREACCELERATION_250MS),
+        targets::ModelTargets = ModelTargets(Features.FUTUREDESIREDANGLE, Features.FUTUREACCELERATION),
         indicators = [
                     POSFY, YAW, SPEED, DELTA_SPEED_LIMIT, VELFX, VELFY, SCENEVELFX, TURNRATE,
                     D_CL, D_ML, D_MR, TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT,
@@ -64,12 +66,6 @@ type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
         )
 
         @assert(0.0 ≤ ridge_regression_constant ≤ 1.0)
-
-        if eltype(indicators) <: FeaturesNew.AbstractFeature
-            targets = ModelTargets{FeaturesNew.AbstractFeature}(
-                            FeaturesNew.FUTUREDESIREDANGLE,
-                            FeaturesNew.FUTUREACCELERATION)
-        end
 
         new(targets, indicators, ridge_regression_constant)
     end
@@ -120,12 +116,6 @@ type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     end
 end
 function preallocate_learning_data(
-    dset::ModelTrainingData,
-    params::LG_TrainParams)
-
-    LG_PreallocatedData(dset, params)
-end
-function preallocate_learning_data(
     dset::ModelTrainingData2,
     params::LG_TrainParams)
 
@@ -173,23 +163,6 @@ function _regress_on_feature!(behavior::VehicleBehaviorLinearGaussian, ϕ::Float
     behavior
 end
 function select_action(
-    basics::FeatureExtractBasicsPdSet,
-    behavior::VehicleBehaviorLinearGaussian,
-    carind::Int,
-    validfind::Int
-    )
-
-    ϕ = get(behavior.F, basics, carind, validfind)::Float64
-    _regress_on_feature!(behavior, ϕ)
-
-    Distributions._rand!(behavior.N, behavior.action)
-
-    action_lat = behavior.action[1]
-    action_lon = behavior.action[2]
-
-    (action_lat, action_lon)
-end
-function select_action(
     behavior::VehicleBehaviorLinearGaussian,
     runlog::RunLog,
     sn::StreetNetwork,
@@ -209,28 +182,6 @@ function select_action(
 end
 
 function calc_action_loglikelihood(
-    ::FeatureExtractBasicsPdSet,
-    behavior::VehicleBehaviorLinearGaussian,
-    carind::Int,
-    validfind::Int,
-    action_lat::Float64,
-    action_lon::Float64
-    )
-
-    #=
-    Compute the log-likelihood of the action taken during a single frame
-    given the VehicleBehaviorLinearGaussian.
-    =#
-
-    ϕ = get(behavior.F, basics, carind, validfind)::Float64
-    _regress_on_feature!(behavior, ϕ)
-
-    behavior.action[1] = action_lat
-    behavior.action[2] = action_lon
-
-    logpdf(behavior.N, behavior.action)
-end
-function calc_action_loglikelihood(
     behavior::VehicleBehaviorLinearGaussian,
     features::DataFrame,
     frameind::Integer,
@@ -240,133 +191,14 @@ function calc_action_loglikelihood(
     ϕ = features[frameind, symbol(behavior.F)]::Float64
     _regress_on_feature!(behavior, ϕ)
 
-    if isa(behavior.F, Vector{AbstractFeature})
-        behavior.action[1] = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
-        behavior.action[2] = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
-    else
-        behavior.action[1] = features[frameind, symbol(FeaturesNew.FUTUREDESIREDANGLE)]::Float64
-        behavior.action[2] = features[frameind, symbol(FeaturesNew.FUTUREACCELERATION)]::Float64
-    end
+    behavior.action[1] = features[frameind, symbol(behavior.targets.lat)]::Float64
+    behavior.action[2] = features[frameind, symbol(behavior.targets.lon)]::Float64
 
     logpdf(behavior.N, behavior.action)
 end
 
 trains_with_nona(::Type{VehicleBehaviorLinearGaussian}) = false
 trains_with_nona(::VehicleBehaviorLinearGaussian) = false
-function train(
-    training_data::ModelTrainingData,
-    preallocated_data::LG_PreallocatedData,
-    params::LG_TrainParams,
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
-    )
-
-    X = preallocated_data.X
-    Y = preallocated_data.Y
-    Φ = preallocated_data.Φ
-    μ∞ = preallocated_data.μ∞
-    best_μ∞ = preallocated_data.best_μ∞
-    best_A = preallocated_data.best_A
-    best_Σ = preallocated_data.best_Σ
-    γ = params.ridge_regression_constant
-
-    ntrainframes = pull_design_and_target_matrices!(
-        X, Y, training_data.dataframe, params.targets, params.indicators,
-        fold, fold_assignment, match_fold)
-
-    # A = (ΦΦᵀ + γI)⁻¹ ΦUᵀ
-    # rₜ = yₜ - A⋅ϕ
-
-    # U = Y, column-wise concatenation of output (actions) [o×n]
-    # Φ = X, column-wise concatenation of predictor [p×n]
-    # γ, ridge-regression constant
-
-    # Try each predictor and use the one that minimizes the loss
-    # Loss: mean normed deviation between prediction and true value
-
-    best_predictor_index = 1
-    best_predictor_loss = Inf # want to minimize
-
-    fill!(best_μ∞, 0.0)
-    fill!(best_A, 0.0)
-    fill!(best_Σ, 0.0)
-
-    Γ = [γ 0.0; 0.0 γ]
-    Σ = Array(Float64, 2, 2)
-
-    for i in 1 : size(X, 1) # for each feature
-
-        fill!(μ∞, 0.0)
-        fill!(Σ, 0.0)
-        n_inf = 0
-        n_noninf = 0
-
-        for j in 1 : ntrainframes
-            if !isinf(X[i, j])
-                n_noninf += 1
-
-                Φ[1,n_noninf] = 1.0
-                Φ[2,n_noninf] = X[i, j]
-            else
-                n_inf += 1
-                μ∞[1] += Y[1, j]
-                μ∞[2] += Y[2, j]
-            end
-        end
-
-        for j in n_noninf + 1 : size(Φ, 2)
-            Φ[1,j] = 0.0
-            Φ[2,j] = 0.0
-        end
-
-        # solve the regression problem
-        den = Φ*Φ' + Γ
-        _diagonal_shrinkage!(den)
-        den[2,1] = den[1,2] # copy over symmetric component
-
-        A = (Φ*Y')/den
-
-        if n_inf > 0
-            μ∞ ./= n_inf
-        end
-
-        # compute the loss from the residual vectors and Σ
-        # rₜ = yₜ - A⋅ϕ
-        # ε = ∑(|rₜ|₂)²
-
-        loss = 0.0
-        for j in 1 : ntrainframes
-            if !isinf(X[i, j])
-                R_lat = Y[1,j] - (A[1,1] + A[1,2]*Φ[j])
-                R_lon = Y[2,j] - (A[2,1] + A[2,2]*Φ[j])
-            else
-                R_lat = Y[1,j] - μ∞[1]
-                R_lon = Y[2,j] - μ∞[2]
-            end
-            loss += R_lat*R_lat + R_lon*R_lon
-
-            Σ[1,1] += R_lat*R_lat
-            Σ[1,2] += R_lat*R_lon
-            Σ[2,2] += R_lon*R_lon
-        end
-        Σ[1,1] /= (ntrainframes-1)
-        Σ[2,1] /= (ntrainframes-1)
-        Σ[2,2] /= (ntrainframes-1)
-        Σ[1,2] = Σ[2,1] # copy over symmetric part
-
-        if loss < best_predictor_loss
-            # store the model results
-            best_predictor_loss = loss
-            best_predictor_index = i
-            copy!(best_μ∞, μ∞)
-            copy!(best_A, A)
-            copy!(best_Σ, Σ)
-        end
-    end
-
-    VehicleBehaviorLinearGaussian(params.indicators[best_predictor_index], best_A, best_μ∞, MvNormal([0.0,0.0], PDMat(best_Σ)))
-end
 function train(
     training_data::ModelTrainingData2,
     preallocated_data::LG_PreallocatedData,
@@ -495,5 +327,5 @@ function train(
         end
     end
 
-    VehicleBehaviorLinearGaussian(params.indicators[best_predictor_index], best_A, best_μ∞, MvNormal([0.0,0.0], PDMat(best_Σ)))
+    VehicleBehaviorLinearGaussian(params.indicators[best_predictor_index], best_A, best_μ∞, MvNormal([0.0,0.0], PDMat(best_Σ)), params.targets)
 end

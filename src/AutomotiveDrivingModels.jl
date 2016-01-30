@@ -1,4 +1,4 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
+# VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
 
 module AutomotiveDrivingModels
 
@@ -32,9 +32,6 @@ include("utils/RunLogs.jl")
 include("features/Features.jl")
 @reexport using .Features
 
-include("features/FeaturesNew.jl")
-@reexport using .FeaturesNew
-
 include("utils/FeaturesetExtractor.jl")
 @reexport using .FeaturesetExtractor
 
@@ -53,20 +50,20 @@ include("behaviors/behaviors.jl")
 
 include("io/io.jl")
 
-include("simulation/candidate_trajectories.jl")
-include("simulation/scenarios.jl")
+# include("simulation/candidate_trajectories.jl")
+# include("simulation/scenarios.jl")
 include("simulation/simulation.jl")
 
 include("evaluation/sim_param_calibration.jl")
 include("evaluation/sim_metrics.jl")
-include("evaluation/risk_estimation.jl")
+# include("evaluation/risk_estimation.jl")
 include("evaluation/training.jl")
 
-include("behaviors/drive_straight.jl")
+# include("behaviors/drive_straight.jl")
 include("behaviors/behavior_perfect.jl")
 include("behaviors/behavior_gaussian.jl")
 include("behaviors/behavior_linear_gaussian.jl")
 
-include("policies/risk_estimation_policy.jl")
+# include("policies/risk_estimation_policy.jl")
 
 end # module

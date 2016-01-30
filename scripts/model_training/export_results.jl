@@ -39,6 +39,12 @@ function _grab_confidence(T::DataType, metrics::Vector{BaggedMetricResult})
     end
     confidence
 end
+function _grab_extrema(T::DataType, metrics::Vector{BaggedMetricResult})
+    j = findfirst(m-> m.M <: T, metrics)
+    lo = metrics[j].min
+    hi = metrics[j].max
+    (lo,hi)
+end
 function _grab_score_and_confidence{B<:BehaviorMetric}(
     T::DataType,
     metrics::Vector{B},
@@ -49,6 +55,17 @@ function _grab_score_and_confidence{B<:BehaviorMetric}(
     Δ = _grab_confidence(T, metrics_bagged)
 
     (μ, Δ)
+end
+function _grab_score_and_extrema{B<:BehaviorMetric}(
+    T::DataType,
+    metrics::Vector{B},
+    metrics_bagged::Vector{BaggedMetricResult},
+    )
+
+    μ = _grab_score(T, metrics)
+    lo,hi = _grab_extrema(T, metrics_bagged)
+
+    (μ, lo, hi)
 end
 function _convert_to_short_name(name::AbstractString)
     retval = ""
@@ -74,13 +91,12 @@ function create_tikzpicture_model_compare_logl{S<:AbstractString, B<:BehaviorFra
 
     for (i,name) in enumerate(names)
 
-        μ, Δ = _grab_score_and_confidence(MedianLoglikelihoodMetric, metrics_straight[i],
-                                          metrics_bagged[i])
+        μ, lo, hi = _grab_score_and_extrema(MedianLoglikelihoodMetric, metrics_straight[i], metrics_bagged[i])
 
         color_letter = string('A' + i - 1)
 
         println(io, "\\addplot[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit, error bar style={line width=1.5pt}, error mark options={rotate=90, mark size=4pt, line width=1pt}]")
-        @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, Δ, Δ)
+        @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, hi-μ, lo-μ)
     end
 end
 function create_tikzpicture_model_compare_kldiv_barplot{S<:AbstractString}(io::IO,
@@ -427,7 +443,7 @@ function create_table_validation_across_context_classes{S<:AbstractString, T<:Ab
 end
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
-preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
+preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Bayesian Network", "Linear Bayesian"] # "Mixture Regression",
 
 names = AbstractString[]
 metrics_sets_test_frames = Array(Vector{BehaviorFrameMetric}, 0)
@@ -440,6 +456,7 @@ metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, 0)
 for model_name in preferred_name_order
     model_output_name = replace(lowercase(model_name), " ", "_")
     model_results_path_jld = joinpath(EVALUATION_DIR, "validation_results" * SAVE_FILE_MODIFIER * "_" * model_output_name * ".jld")
+
     data = JLD.load(model_results_path_jld)
 
     push!(names,                            data["model_name"])

@@ -9,7 +9,7 @@ using AutomotiveDrivingModels.Curves
 using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.RunLogs
-using AutomotiveDrivingModels.FeaturesNew
+using AutomotiveDrivingModels.Features
 
 import AutomotiveDrivingModels: CSVFileSet
 
@@ -2270,10 +2270,10 @@ function _extract_runlog(
         for frame in 1 : RunLogs.nframes(runlog)
             colset = RunLogs.id2colset(runlog, id, frame)
 
-            velFy = get(FeaturesNew.VELFT, runlog, sn, colset, frame)
-            inv_timegap_front = get(FeaturesNew.INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
-            Δv_front = get(FeaturesNew.DELTA_V_FRONT, runlog, sn, colset, frame)
-            d_cl = get(FeaturesNew.DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
+            velFy = get(VELFT, runlog, sn, colset, frame)
+            inv_timegap_front = get(INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
+            Δv_front = get(DELTA_V_FRONT, runlog, sn, colset, frame)
+            d_cl = get(DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
 
             # freeflow and carfollow are mutually exclusive
             is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 1.0)
@@ -2294,7 +2294,7 @@ function _extract_runlog(
 
                 for frame_fut  in frame+1 : RunLogs.nframes(runlog)
                     colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
-                    velFt_fut = get(FeaturesNew.VELFT, runlog, sn, colset, frame_fut)
+                    velFt_fut = get(VELFT, runlog, sn, colset, frame_fut)
                     if abs(velFt_fut) ≥ 0.1
                         set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
                     else
@@ -2304,7 +2304,7 @@ function _extract_runlog(
 
                 for frame_past  in frame-1 : -1 : 1
                     colset_past = RunLogs.id2colset(runlog, id, frame_past)
-                    velFt_past = get(FeaturesNew.VELFT, runlog, sn, colset_past, frame_past)
+                    velFt_past = get(VELFT, runlog, sn, colset_past, frame_past)
                     if abs(velFt_past) ≥ 0.1
                         set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
                     else

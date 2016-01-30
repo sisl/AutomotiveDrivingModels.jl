@@ -1,4 +1,4 @@
-module FeaturesNew
+module Features
 
 using LaTeXStrings
 using StreamStats
@@ -12,35 +12,36 @@ using AutomotiveDrivingModels.StreetNetworks
 # ----------------------------------
 # exports
 
-# export AbstractFeature
-# export POSFYAW, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT, SCENE_SPEED_DIFFERENCE
-# export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY
-# export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
-# export DIST_MERGE, DIST_SPLIT
-# export SUMO, IDM,
-# export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
-# export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TURNRATE_REAR, ACC_REQ_REAR, INV_TTC_REAR, INV_TIMEGAP_REAR, REAR_IS_GAINING
-# export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
-# export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
-# LEFT, RIGHT
-# TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
-# IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
-# export FutureAcceleration, FutureDesiredAngle
-# export Feature_IsClean, Feature_Past
-# export Feature_Mean_Over_History, Feature_Std_Over_Histroy, Feature_Max_Over_Histroy, Feature_Min_Over_Histroy
-# export NA_ALIAS
+export AbstractFeature
+export POSFYAW, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT, SCENE_SPEED_DIFFERENCE
+export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY
+export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
+export DIST_MERGE, DIST_SPLIT
+export SUMO, IDM
+export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
+export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TURNRATE_REAR, ACC_REQ_REAR, INV_TTC_REAR, INV_TIMEGAP_REAR, REAR_IS_GAINING
+export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
+export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
+# export LEFT, RIGHT
+# export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
+# export IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
+export FutureAcceleration, FutureDesiredAngle
+export Feature_IsClean, Feature_Past
+export Feature_Mean_Over_History, Feature_Std_Over_History, Feature_Max_Over_History, Feature_Min_Over_History
 
-# export
-#     symbol2feature,
-#     is_symbol_a_feature,
-#     allfeatures,
-#     units,
-#     isint,
-#     isbool,
-#     upperbound,
-#     lowerbound,
-#     couldna,
-#     lsymbol
+export
+    NA_ALIAS,
+
+    symbol2feature,
+    is_symbol_a_feature,
+    allfeatures,
+    units,
+    isint,
+    isbool,
+    upperbound,
+    lowerbound,
+    couldna,
+    lsymbol
 
 # ----------------------------------
 # constants
@@ -1028,17 +1029,17 @@ function Base.get{F, H}(::Feature_Mean_Over_History{F, H}, runlog::RunLog, sn::S
     mean(var)
 end
 
-immutable Feature_Std_Over_Histroy{target, history} <: AbstractFeature end
-units{F, H}(       ::Feature_Std_Over_Histroy{F, H}) = units(symbol2feature(F))
-isint{F, H}(       ::Feature_Std_Over_Histroy{F, H}) = false
-isbool{F, H}(      ::Feature_Std_Over_Histroy{F, H}) = false
-lowerbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
-upperbound{F, H}(  ::Feature_Std_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
-couldna(           ::Feature_Std_Over_Histroy)       = true
-Base.symbol{F, H}( ::Feature_Std_Over_Histroy{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Std_Over_Histroy{F, H}) = L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Std_Over_Histroy{F, H}) = replace_na(symbol2feature(F))
-function Base.get{F, H}(::Feature_Std_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+immutable Feature_Std_Over_History{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Std_Over_History{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Std_Over_History{F, H}) = false
+isbool{F, H}(      ::Feature_Std_Over_History{F, H}) = false
+lowerbound{F, H}(  ::Feature_Std_Over_History{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Std_Over_History{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Std_Over_History)       = true
+Base.symbol{F, H}( ::Feature_Std_Over_History{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Std_Over_History{F, H}) = L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Std_Over_History{F, H}) = replace_na(symbol2feature(F))
+function Base.get{F, H}(::Feature_Std_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
 
@@ -1062,17 +1063,17 @@ function Base.get{F, H}(::Feature_Std_Over_Histroy{F, H}, runlog::RunLog, sn::St
     std(var)
 end
 
-immutable Feature_Max_Over_Histroy{target, history} <: AbstractFeature end
-units{F, H}(       ::Feature_Max_Over_Histroy{F, H}) = units(symbol2feature(F))
-isint{F, H}(       ::Feature_Max_Over_Histroy{F, H}) = false
-isbool{F, H}(      ::Feature_Max_Over_Histroy{F, H}) = false
-lowerbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
-upperbound{F, H}(  ::Feature_Max_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
-couldna(           ::Feature_Max_Over_Histroy)       = true
-Base.symbol{F, H}( ::Feature_Max_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Max_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Max_Over_Histroy{F, H}) = replace_na(symbol2feature(F))
-function Base.get{F, H}(::Feature_Max_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+immutable Feature_Max_Over_History{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Max_Over_History{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Max_Over_History{F, H}) = false
+isbool{F, H}(      ::Feature_Max_Over_History{F, H}) = false
+lowerbound{F, H}(  ::Feature_Max_Over_History{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Max_Over_History{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Max_Over_History)       = true
+Base.symbol{F, H}( ::Feature_Max_Over_History{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Max_Over_History{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Max_Over_History{F, H}) = replace_na(symbol2feature(F))
+function Base.get{F, H}(::Feature_Max_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
 
@@ -1096,17 +1097,17 @@ function Base.get{F, H}(::Feature_Max_Over_Histroy{F, H}, runlog::RunLog, sn::St
     maximum(var)
 end
 
-immutable Feature_Min_Over_Histroy{target, history} <: AbstractFeature end
-units{F, H}(       ::Feature_Min_Over_Histroy{F, H}) = units(symbol2feature(F))
-isint{F, H}(       ::Feature_Min_Over_Histroy{F, H}) = false
-isbool{F, H}(      ::Feature_Min_Over_Histroy{F, H}) = false
-lowerbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = lowerbound(symbol2feature(F))
-upperbound{F, H}(  ::Feature_Min_Over_Histroy{F, H}) = upperbound(symbol2feature(F))
-couldna(           ::Feature_Min_Over_Histroy)       = true
-Base.symbol{F, H}( ::Feature_Min_Over_Histroy{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Min_Over_Histroy{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Min_Over_Histroy{F, H}) = replace_na(symbol2feature(F))
-function Base.get{F, H}(::Feature_Min_Over_Histroy{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+immutable Feature_Min_Over_History{target, history} <: AbstractFeature end
+units{F, H}(       ::Feature_Min_Over_History{F, H}) = units(symbol2feature(F))
+isint{F, H}(       ::Feature_Min_Over_History{F, H}) = false
+isbool{F, H}(      ::Feature_Min_Over_History{F, H}) = false
+lowerbound{F, H}(  ::Feature_Min_Over_History{F, H}) = lowerbound(symbol2feature(F))
+upperbound{F, H}(  ::Feature_Min_Over_History{F, H}) = upperbound(symbol2feature(F))
+couldna(           ::Feature_Min_Over_History)       = true
+Base.symbol{F, H}( ::Feature_Min_Over_History{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Min_Over_History{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+replace_na{F, H}(::Feature_Min_Over_History{F, H}) = replace_na(symbol2feature(F))
+function Base.get{F, H}(::Feature_Min_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
 

@@ -2,28 +2,13 @@ export
     BehaviorParameter,
     BehaviorTrainDefinition,
 
-    # CVFoldResults,
-    # ModelCrossValidationResults,
-    # CrossValidationResults,
-
     optimize_hyperparams_cyclic_coordinate_ascent!,
     pull_design_and_target_matrices!,
     pull_target_matrix!,
     copy_matrix_fold!,
-    copy_matrix_fold
-    # cross_validate
+    copy_matrix_fold,
 
-    # add_behavior!(behaviorset, GindeleRandomForestBehavior, "Random Forest")
-    # model_trainparams["Random Forest"] = GRF_TrainParams(indicators=INDICATOR_SET)
-    # model_hyperparams["Random Forest"] = [
-    #         BehaviorParameter(:ntrees, 1:10:51, 3),
-    #         BehaviorParameter(:max_tree_depth, 1:20, 5),
-    #         # BehaviorParameter(:min_samples_split, 10:10:50, 3),
-    #         # BehaviorParameter(:min_samples_leaves, [2,4,10,20,50], 3),
-    #         # BehaviorParameter(:min_split_improvement, [10.0, 5.0, 1.0,0.5,0.1,0.0], 3),
-    #         # BehaviorParameter(:partial_sampling, [0.5,0.6,0.7,0.8,0.9,0.95,1.0], 5),
-    #         # BehaviorParameter(:n_split_tries, [10,25,50,100,200,500,1000], 5),
-    #     ]
+    print_hyperparam_statistics
 
 ###############################################################
 
@@ -195,12 +180,12 @@ end
 
 ####################################################
 
-function pull_design_and_target_matrices!{F}(
+function pull_design_and_target_matrices!(
     X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
     Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
     trainingframes::DataFrame,
-    targets::ModelTargets{F},
-    indicators::Vector{F},
+    targets::ModelTargets,
+    indicators::Vector{AbstractFeature},
     )
 
     #=
@@ -238,12 +223,12 @@ function pull_design_and_target_matrices!{F}(
 
     nothing
 end
-function pull_design_and_target_matrices!{F}(
+function pull_design_and_target_matrices!(
     X::Matrix{Float64}, # column-wise concatenation of predictor (features) [p×n]
     Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
     trainingframes::DataFrame,
-    targets::ModelTargets{F},
-    indicators::Vector{F},
+    targets::ModelTargets,
+    indicators::Vector{AbstractFeature},
     fold::Int,
     fold_assignment::FoldAssignment,
     match_fold::Bool;
@@ -298,11 +283,11 @@ function pull_design_and_target_matrices!{F}(
 
     return m
 end
-function pull_target_matrix!{F}(
+function pull_target_matrix!(
     Y::Matrix{Float64}, # column-wise concatenation of output (actions) [o×n]
     trainingframes::DataFrame,
-    targets::ModelTargets{F},
-    indicators::Vector{F},
+    targets::ModelTargets,
+    indicators::Vector{AbstractFeature},
     )
 
     #=
@@ -370,4 +355,52 @@ function copy_matrix_fold{A}(
     copy_matrix_fold!(X2, X, fold, fold_assignment, match_fold)
 
     X2 # [nframes × p]
+end
+
+function print_hyperparam_statistics(
+    io::IO,
+    model_name::AbstractString,
+    train_def::BehaviorTrainDefinition,
+    hyperparam_counts::Matrix{Int},
+    )
+
+    println(io, model_name)
+
+    if !isempty(train_def.hyperparams)
+        for (j,λ) in enumerate(train_def.hyperparams)
+            most_freqent_index = indmax(hyperparam_counts[j,:])
+            @printf(io, "\t%-25s %s\n", string(λ.sym)*": ", string(λ.range[most_freqent_index]))
+        end
+
+        print(io, "index:  ")
+        for λ in train_def.hyperparams
+            @printf(io, "%25s", string(λ.sym))
+        end
+        print(io, "\n")
+
+        for i in 1 : size(hyperparam_counts, 2)
+            @printf(io, "%-6d  ", i)
+            for (j,λ) in enumerate(train_def.hyperparams)
+                @printf(io, "%25d", hyperparam_counts[j,i])
+            end
+            println(io, "")
+        end
+    else
+        print("NONE")
+    end
+end
+function print_hyperparam_statistics(
+    io::IO,
+    behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
+    hyperparam_counts::Dict{AbstractString, Matrix{Int}},
+    )
+
+    println(io, "Hyperparam Statistics: ")
+    for (model_name, train_def) in behaviorset
+        counts = hyperparam_counts[model_name]
+        print_hyperparam_statistics(io, model_name, train_def, counts)
+        println("\n")
+    end
+
+    nothing
 end

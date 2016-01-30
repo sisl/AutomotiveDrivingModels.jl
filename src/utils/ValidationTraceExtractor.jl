@@ -11,7 +11,6 @@ using AutomotiveDrivingModels.Trajdata
 using AutomotiveDrivingModels.RunLogs
 using AutomotiveDrivingModels.StreetNetworks
 using AutomotiveDrivingModels.Features
-using AutomotiveDrivingModels.FeaturesNew
 using AutomotiveDrivingModels.FeaturesetExtractor
 # using AutomotiveDrivingModels.Curves # TODO: remove this
 
@@ -42,13 +41,15 @@ export
         calc_row_count_from_region_segments,
 
         drop_fold!,
+        assign_all_non_test_to_train!,
+        calc_fold_size,
+        calc_fold_inds!,
+        is_in_fold,
+
         get_cross_validation_fold_assignment,
         get_train_test_fold_assignment,
         get_fold_assignment_across_drives,
         get_fold_assignment_across_traces,
-        calc_fold_size,
-        calc_fold_inds!,
-        is_in_fold,
 
 
         load_pdsets,
@@ -193,16 +194,16 @@ type DatasetExtractParams
     id_target         :: UInt
     behavior_to_match :: UInt16 # all frames must have (behavior & behavior_to_match) > 1
     behavior_to_avoid :: UInt16 # all frames must have (behavior & behavior_to_avoid) == 0
-    features          :: Vector{FeaturesNew.AbstractFeature}
-    filters           :: Vector{FeaturesNew.AbstractFeature}
+    features          :: Vector{AbstractFeature}
+    filters           :: Vector{AbstractFeature}
     seg               :: RunLogSegmentExtractParameters
 
     function DatasetExtractParams(
         behavior_to_match::UInt16,
         behavior_to_avoid::UInt16,
-        features::Vector{FeaturesNew.AbstractFeature},
+        features::Vector{AbstractFeature},
         seg::RunLogSegmentExtractParameters;
-        filters::Vector{FeaturesNew.AbstractFeature} = Array(FeaturesNew.AbstractFeature, 0),
+        filters::Vector{AbstractFeature} = Array(AbstractFeature, 0),
         id_target::UInt = ID_EGO,
         )
 
@@ -480,158 +481,158 @@ function _calc_subsets_based_on_csvfileset(csvfileset::CSVFileSet, nframes::Int)
     df
 end
 
-function _control_input_exists_at_each_point(
-    basics::FeatureExtractBasicsPdSet,
-    carid::Integer,
-    validfind_start::Integer,
-    validfind_end::Integer,
-    frames_per_sim::Integer,
-    )
+# function _control_input_exists_at_each_point(
+#     basics::FeatureExtractBasicsPdSet,
+#     carid::Integer,
+#     validfind_start::Integer,
+#     validfind_end::Integer,
+#     frames_per_sim::Integer,
+#     )
 
-    for validfind = validfind_start : frames_per_sim : validfind_end
+#     for validfind = validfind_start : frames_per_sim : validfind_end
 
-        carind = carid2ind(basics.pdset, carid, validfind)
+#         carind = carid2ind(basics.pdset, carid, validfind)
 
-        afut = get(FUTUREACCELERATION_250MS, basics, carind, validfind)
-        if isnan(afut) || isinf(afut)
-            return false
-        end
-        desang = get(FUTUREDESIREDANGLE_250MS, basics, carind, validfind)
-        if isnan(desang) || isinf(desang)
-            return false
-        end
-    end
-    true
-end
+#         afut = get(FUTUREACCELERATION_250MS, basics, carind, validfind)
+#         if isnan(afut) || isinf(afut)
+#             return false
+#         end
+#         desang = get(FUTUREDESIREDANGLE_250MS, basics, carind, validfind)
+#         if isnan(desang) || isinf(desang)
+#             return false
+#         end
+#     end
+#     true
+# end
 
-function pull_pdset_segments(
-    extract_params::OrigHistobinExtractParameters,
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    carid::Int,
-    pdset_id::Integer,
-    streetnet_id::Integer,
-    validfinds::Vector{Int};
-    max_dist::Float64 = 5000.0, # max_dist used in frenet_distance_between_points() [m]
-    basics::FeatureExtractBasicsPdSet = FeatureExtractBasicsPdSet(pdset, sn),
-    )
+# function pull_pdset_segments(
+#     extract_params::OrigHistobinExtractParameters,
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     carid::Int,
+#     pdset_id::Integer,
+#     streetnet_id::Integer,
+#     validfinds::Vector{Int};
+#     max_dist::Float64 = 5000.0, # max_dist used in frenet_distance_between_points() [m]
+#     basics::FeatureExtractBasicsPdSet = FeatureExtractBasicsPdSet(pdset, sn),
+#     )
 
-    #=
-    Returns pdset_segments::PdsetSegments[],
-        where each segment has length 0 -> SIM_HORIZON,
-        they do not overlap over 0 : SIM_HORIZON,
-        but the history SIM_HISTORY does exist.
-    The control input must exist at every frame.
+#     #=
+#     Returns pdset_segments::PdsetSegments[],
+#         where each segment has length 0 -> SIM_HORIZON,
+#         they do not overlap over 0 : SIM_HORIZON,
+#         but the history SIM_HISTORY does exist.
+#     The control input must exist at every frame.
 
-    Various conditions, as given in extract_params, must be true as well.
-    =#
+#     Various conditions, as given in extract_params, must be true as well.
+#     =#
 
-    const PDSET_FRAMES_PER_SIM_FRAME = extract_params.pdset_frames_per_sim_frame
-    const SIM_HORIZON         = extract_params.sim_horizon
-    const SIM_HISTORY         = extract_params.sim_history
+#     const PDSET_FRAMES_PER_SIM_FRAME = extract_params.pdset_frames_per_sim_frame
+#     const SIM_HORIZON         = extract_params.sim_horizon
+#     const SIM_HISTORY         = extract_params.sim_history
 
-    const TARGET_SPEED        = extract_params.target_speed
-    const N_SIM_FRAMES        = total_framecount(extract_params)
+#     const TARGET_SPEED        = extract_params.target_speed
+#     const N_SIM_FRAMES        = total_framecount(extract_params)
 
-    @assert(SIM_HISTORY ≥ 1)
-    @assert(SIM_HORIZON ≥ 0)
+#     @assert(SIM_HISTORY ≥ 1)
+#     @assert(SIM_HORIZON ≥ 0)
 
-    pdset_segments = PdsetSegment[]
-    num_validfind_indeces = length(validfinds)
+#     pdset_segments = PdsetSegment[]
+#     num_validfind_indeces = length(validfinds)
 
-    validfind_index = 0
-    while validfind_index < num_validfind_indeces
+#     validfind_index = 0
+#     while validfind_index < num_validfind_indeces
 
-        validfind_index += 1
+#         validfind_index += 1
 
-        validfind = validfinds[validfind_index]
-        validfind_start = convert(Int, jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
-        validfind_end   = convert(Int, jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
+#         validfind = validfinds[validfind_index]
+#         validfind_start = convert(Int, jumpframe(pdset, validfind, -(SIM_HISTORY-1) * PDSET_FRAMES_PER_SIM_FRAME))
+#         validfind_end   = convert(Int, jumpframe(pdset, validfind,   SIM_HORIZON    * PDSET_FRAMES_PER_SIM_FRAME))
 
-        # println(validfind_start, "  ", validfind, "  ", validfind_end)
-        # println(validfind_start != 0, "  ", validfind_end != 0)
-        # println(are_validfinds_continuous(pdset, validfind_start, validfind_end))
-        # println(_calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets))
+#         # println(validfind_start, "  ", validfind, "  ", validfind_end)
+#         # println(validfind_start != 0, "  ", validfind_end != 0)
+#         # println(are_validfinds_continuous(pdset, validfind_start, validfind_end))
+#         # println(_calc_frames_pass_subsets(pdset, sn, CARIND_EGO, validfind, validfind_end, extract_params.subsets, df_subsets))
 
-        if validfind_start == 0 || validfind_end == 0
-            # println(validfind_index, " failed start or end")
-            continue
-        end
+#         if validfind_start == 0 || validfind_end == 0
+#             # println(validfind_index, " failed start or end")
+#             continue
+#         end
 
-        # ensure all points are within validfinds
-        all_points_are_in_validfinds = true
-        vi = 1
-        for v in validfind_start : PDSET_FRAMES_PER_SIM_FRAME : validfind_end
-            while vi < num_validfind_indeces && validfinds[vi] < v
-                vi += 1
-            end
-            if validfinds[vi] != v
-                all_points_are_in_validfinds = false
-                break
-            end
-        end
+#         # ensure all points are within validfinds
+#         all_points_are_in_validfinds = true
+#         vi = 1
+#         for v in validfind_start : PDSET_FRAMES_PER_SIM_FRAME : validfind_end
+#             while vi < num_validfind_indeces && validfinds[vi] < v
+#                 vi += 1
+#             end
+#             if validfinds[vi] != v
+#                 all_points_are_in_validfinds = false
+#                 break
+#             end
+#         end
 
-        if all_points_are_in_validfinds &&
-           are_validfinds_continuous(pdset, validfind_start, validfind_end)
+#         if all_points_are_in_validfinds &&
+#            are_validfinds_continuous(pdset, validfind_start, validfind_end)
 
-            carind = carid2ind(pdset, carid, validfind)
-            posFy     =      get(pdset, :posFy,   carind, validfind)::Float64
-            ϕ         =      get(pdset, :posFyaw, carind, validfind)::Float64
-            d_cl      =      get(pdset, :d_cl,    carind, validfind)::Float64
-            v_orig    =      get(SPEED,     basics, carind, validfind)::Float64
-            ω         =      get(TURNRATE,  basics, carind, validfind)::Float64
-            a         =      get(ACC,       basics, carind, validfind)::Float64
-            has_front =  convert(Bool, get(HAS_FRONT, basics, carind, validfind)::Float64)
-            d_x_front =      get(D_X_FRONT, basics, carind, validfind)::Float64
-            d_y_front =      get(D_Y_FRONT, basics, carind, validfind)::Float64
-            v_x_front =      get(V_X_FRONT, basics, carind, validfind)::Float64
-            nll       =  convert(Int, get(N_LANE_L,  basics, carind, validfind)::Float64)
-            nlr       =  convert(Int, get(N_LANE_R,  basics, carind, validfind)::Float64)
+#             carind = carid2ind(pdset, carid, validfind)
+#             posFy     =      get(pdset, :posFy,   carind, validfind)::Float64
+#             ϕ         =      get(pdset, :posFyaw, carind, validfind)::Float64
+#             d_cl      =      get(pdset, :d_cl,    carind, validfind)::Float64
+#             v_orig    =      get(SPEED,     basics, carind, validfind)::Float64
+#             ω         =      get(TURNRATE,  basics, carind, validfind)::Float64
+#             a         =      get(ACC,       basics, carind, validfind)::Float64
+#             has_front =  convert(Bool, get(HAS_FRONT, basics, carind, validfind)::Float64)
+#             d_x_front =      get(D_X_FRONT, basics, carind, validfind)::Float64
+#             d_y_front =      get(D_Y_FRONT, basics, carind, validfind)::Float64
+#             v_x_front =      get(V_X_FRONT, basics, carind, validfind)::Float64
+#             nll       =  convert(Int, get(N_LANE_L,  basics, carind, validfind)::Float64)
+#             nlr       =  convert(Int, get(N_LANE_R,  basics, carind, validfind)::Float64)
 
-            if  abs(d_cl)                ≤ extract_params.tol_d_cl &&
-                abs(ϕ)                   ≤ extract_params.tol_yaw &&
-                abs(ω)                   ≤ extract_params.tol_turnrate &&
-                abs(a)                   ≤ extract_params.tol_accel &&
-                abs(v_orig-TARGET_SPEED) ≤ extract_params.tol_speed &&
-                d_x_front                ≤ extract_params.tol_d_x_front &&
-                abs(d_y_front)           ≤ extract_params.tol_d_y_front &&
-                v_x_front                ≤ extract_params.tol_d_v_front #&&
-                #(nll + nlr) > 0
+#             if  abs(d_cl)                ≤ extract_params.tol_d_cl &&
+#                 abs(ϕ)                   ≤ extract_params.tol_yaw &&
+#                 abs(ω)                   ≤ extract_params.tol_turnrate &&
+#                 abs(a)                   ≤ extract_params.tol_accel &&
+#                 abs(v_orig-TARGET_SPEED) ≤ extract_params.tol_speed &&
+#                 d_x_front                ≤ extract_params.tol_d_x_front &&
+#                 abs(d_y_front)           ≤ extract_params.tol_d_y_front &&
+#                 v_x_front                ≤ extract_params.tol_d_v_front #&&
+#                 #(nll + nlr) > 0
 
-                carind_start = carid2ind(pdset, carid, validfind_start)
-                carind_end = carid2ind(pdset, carid, validfind_end)
-                posGxA = get(pdset, :posGx, carind_start, validfind_start)
-                posGyA = get(pdset, :posGy, carind_start, validfind_start)
-                posGxB = get(pdset, :posGx, carind_end, validfind_end)
-                posGyB = get(pdset, :posGy, carind_end, validfind_end)
+#                 carind_start = carid2ind(pdset, carid, validfind_start)
+#                 carind_end = carid2ind(pdset, carid, validfind_end)
+#                 posGxA = get(pdset, :posGx, carind_start, validfind_start)
+#                 posGyA = get(pdset, :posGy, carind_start, validfind_start)
+#                 posGxB = get(pdset, :posGx, carind_end, validfind_end)
+#                 posGyB = get(pdset, :posGy, carind_end, validfind_end)
 
-                # NOTE(tim): may be NAN if we cross from a lane that terminates into a new lane that doesn't
-                #            In this case we cannot compute the frenet (Δx, Δy) unless we do something special
-                #            like extrapolate the missing lane (which is iffy)
-                (Δx, Δy) = frenet_distance_between_points(sn, posGxA, posGyA, posGxB, posGyB, max_dist)
+#                 # NOTE(tim): may be NAN if we cross from a lane that terminates into a new lane that doesn't
+#                 #            In this case we cannot compute the frenet (Δx, Δy) unless we do something special
+#                 #            like extrapolate the missing lane (which is iffy)
+#                 (Δx, Δy) = frenet_distance_between_points(sn, posGxA, posGyA, posGxB, posGyB, max_dist)
 
-                # if isnan(Δx)
-                    # @printf("posA: %15.6f, %15.6f\n", posGxA, posGyA)
-                    # @printf("posB: %15.6f, %15.6f\n", posGxB, posGyB)
-                    # println("proj: ", project_point_to_streetmap(posGxA, posGyA, sn))
-                    # println("proj: ", project_point_to_streetmap(posGxB, posGyB, sn))
-                # end
+#                 # if isnan(Δx)
+#                     # @printf("posA: %15.6f, %15.6f\n", posGxA, posGyA)
+#                     # @printf("posB: %15.6f, %15.6f\n", posGxB, posGyB)
+#                     # println("proj: ", project_point_to_streetmap(posGxA, posGyA, sn))
+#                     # println("proj: ", project_point_to_streetmap(posGxB, posGyB, sn))
+#                 # end
 
-                if !isnan(Δx)
-                    push!(pdset_segments, PdsetSegment(pdset_id, streetnet_id, carid, validfind, validfind_end))
-                    validfind_next = validfind_end + max(extract_params.frameskip_between_extracted_scenes * PDSET_FRAMES_PER_SIM_FRAME - 1, 0)
-                    while validfind_index < num_validfind_indeces && validfinds[validfind_index] < validfind_next
-                        validfind_index += 1
-                    end
-                end
-            end
-        end
-    end
+#                 if !isnan(Δx)
+#                     push!(pdset_segments, PdsetSegment(pdset_id, streetnet_id, carid, validfind, validfind_end))
+#                     validfind_next = validfind_end + max(extract_params.frameskip_between_extracted_scenes * PDSET_FRAMES_PER_SIM_FRAME - 1, 0)
+#                     while validfind_index < num_validfind_indeces && validfinds[validfind_index] < validfind_next
+#                         validfind_index += 1
+#                     end
+#                 end
+#             end
+#         end
+#     end
 
-    # println(pdset_segments)
+#     # println(pdset_segments)
 
-    pdset_segments
-end
+#     pdset_segments
+# end
 
 function is_strictly_monotonically_increasing(vec::AbstractVector{Int})
     if isempty(vec)
@@ -721,126 +722,126 @@ function calc_row_count_from_region_segments(validfind_regions::AbstractVector{I
     estimated_row_count
 end
 
-function pull_pdset_segments_and_dataframe(
-    extract_params  :: OrigHistobinExtractParameters,
-    csvfileset      :: CSVFileSet,
-    pdset           :: PrimaryDataset,
-    sn              :: StreetNetwork,
-    pdset_id        :: Integer,
-    streetnet_id    :: Integer,
-    features::Vector{AbstractFeature},
-    filters::Vector{AbstractFeature};
-    pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME
-    )
+# function pull_pdset_segments_and_dataframe(
+#     extract_params  :: OrigHistobinExtractParameters,
+#     csvfileset      :: CSVFileSet,
+#     pdset           :: PrimaryDataset,
+#     sn              :: StreetNetwork,
+#     pdset_id        :: Integer,
+#     streetnet_id    :: Integer,
+#     features::Vector{AbstractFeature},
+#     filters::Vector{AbstractFeature};
+#     pdset_frames_per_sim_frame::Int=N_FRAMES_PER_SIM_FRAME
+#     )
 
-    basics = FeatureExtractBasicsPdSet(pdset, sn)
+#     basics = FeatureExtractBasicsPdSet(pdset, sn)
 
-    ########################################################################################################
-    # pull all of the validfinds that pass the filters
+#     ########################################################################################################
+#     # pull all of the validfinds that pass the filters
 
-    subsets_based_on_csvfileset = _calc_subsets_based_on_csvfileset(csvfileset, nvalidfinds(pdset))
-    validfinds = filter(1 : nvalidfinds(pdset)) do validfind
-                    carind = carid2ind(pdset, csvfileset.carid, validfind)
-                    _calc_frame_passes_subsets(pdset, sn, carind, validfind, extract_params.subsets, subsets_based_on_csvfileset) &&
-                        !does_violate_filter(filters, basics, carind, validfind)
-                 end
-
-
-    ########################################################################################################
-    # pull all of the pdset_segments that lie within validfinds
-    pdset_segments = pull_pdset_segments(extract_params, pdset, sn, csvfileset.carid,
-                                         pdset_id, streetnet_id, validfinds,
-                                         basics=basics)
-
-    ########################################################################################################
-    # now only extract feature frames for each pdset_segment, at intervals of pdset_frames_per_sim_frame
-    # and valid frames spaced by pdset_frames_per_sim_frame
-
-    # 0 -> do not use
-    # 1 -> is potentially valid
-    # 2 -> extracted me
-    sample_from_frame = zeros(Int, nvalidfinds(pdset))
-
-    # mark all validfind frames as potentially valid
-    for validfind in validfinds
-        sample_from_frame[validfind] = 1
-    end
-
-    # mark all frames from segments for extraction
-    for seg in pdset_segments
-
-        for Δ in seg.validfind_end+1 : seg.validfind_end+pdset_frames_per_sim_frame-1
-            sample_from_frame[Δ] = 0 # forward buffer not extracted
-        end
-        for Δ in seg.validfind_start-1 : -1 : seg.validfind_start-pdset_frames_per_sim_frame+1
-            sample_from_frame[Δ] = 0 # backward buffer not extracted
-        end
-
-        for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
-            @assert(sample_from_frame[validfind]==1)
-            sample_from_frame[validfind] = 2
-            for Δ in 1 : pdset_frames_per_sim_frame-1
-                sample_from_frame[validfind+Δ] = 0 # in-between ones should not be used
-            end
-        end
-    end
-
-    # mark all remaining potential frames as extractable with buffer in-between
-    for validfind in 1 : length(sample_from_frame)
-        if sample_from_frame[validfind] == 1
-            sample_from_frame[validfind] = 2 # extract it
-            for Δ in 1 : pdset_frames_per_sim_frame-1
-                sample_from_frame[validfind+Δ] = 0 # in-between ones should not be used
-            end
-        end
-    end
-
-    validfinds_to_extract = find(sample_from_frame)
-
-    ########################################################################################################
-    # extract dataframe on those frames
-
-    dataframe = gen_featureset_from_validfinds(csvfileset.carid, basics, validfinds_to_extract, features, filters)
-    dataframe[:pdset_id] = fill(pdset_id, nrow(dataframe)) # add a column for pdset_id
-
-    ########################################################################################################
-    # build dataframe_nona
-
-    dataframe_nona = deepcopy(dataframe)
-    for sym in names(dataframe_nona)
-        if is_symbol_a_feature(sym)
-            F = symbol2feature(sym)
-            for (i,v) in enumerate(dataframe_nona[sym])
-                @assert(!isnan(v))
-                if isinf(v)
-                    validfind = validfinds[i]
-                    carind = carid2ind(pdset, csvfileset.carid, validfind)
-                    dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
-                end
-            end
-        end
-    end
-
-    ########################################################################################################
-    # reconstruct startframes
+#     subsets_based_on_csvfileset = _calc_subsets_based_on_csvfileset(csvfileset, nvalidfinds(pdset))
+#     validfinds = filter(1 : nvalidfinds(pdset)) do validfind
+#                     carind = carid2ind(pdset, csvfileset.carid, validfind)
+#                     _calc_frame_passes_subsets(pdset, sn, carind, validfind, extract_params.subsets, subsets_based_on_csvfileset) &&
+#                         !does_violate_filter(filters, basics, carind, validfind)
+#                  end
 
 
-    startframes = Array(Int, length(pdset_segments))
-    startframe = 1
-    for (i,seg) in enumerate(pdset_segments)
-        while validfinds_to_extract[startframe] != seg.validfind_start
-            startframe += 1
-        end
-        startframes[i] = startframe
-    end
+#     ########################################################################################################
+#     # pull all of the pdset_segments that lie within validfinds
+#     pdset_segments = pull_pdset_segments(extract_params, pdset, sn, csvfileset.carid,
+#                                          pdset_id, streetnet_id, validfinds,
+#                                          basics=basics)
 
-    # println("nvalidfinds: ", nvalidfinds(pdset))
-    # println("pdset_segments: ", pdset_segments)
-    # println("startframes: ", startframes)
-    # println("dataframe:", dataframe)
+#     ########################################################################################################
+#     # now only extract feature frames for each pdset_segment, at intervals of pdset_frames_per_sim_frame
+#     # and valid frames spaced by pdset_frames_per_sim_frame
 
-    (pdset_segments, dataframe, dataframe_nona, startframes)
-end
+#     # 0 -> do not use
+#     # 1 -> is potentially valid
+#     # 2 -> extracted me
+#     sample_from_frame = zeros(Int, nvalidfinds(pdset))
+
+#     # mark all validfind frames as potentially valid
+#     for validfind in validfinds
+#         sample_from_frame[validfind] = 1
+#     end
+
+#     # mark all frames from segments for extraction
+#     for seg in pdset_segments
+
+#         for Δ in seg.validfind_end+1 : seg.validfind_end+pdset_frames_per_sim_frame-1
+#             sample_from_frame[Δ] = 0 # forward buffer not extracted
+#         end
+#         for Δ in seg.validfind_start-1 : -1 : seg.validfind_start-pdset_frames_per_sim_frame+1
+#             sample_from_frame[Δ] = 0 # backward buffer not extracted
+#         end
+
+#         for validfind in seg.validfind_start : pdset_frames_per_sim_frame : seg.validfind_end
+#             @assert(sample_from_frame[validfind]==1)
+#             sample_from_frame[validfind] = 2
+#             for Δ in 1 : pdset_frames_per_sim_frame-1
+#                 sample_from_frame[validfind+Δ] = 0 # in-between ones should not be used
+#             end
+#         end
+#     end
+
+#     # mark all remaining potential frames as extractable with buffer in-between
+#     for validfind in 1 : length(sample_from_frame)
+#         if sample_from_frame[validfind] == 1
+#             sample_from_frame[validfind] = 2 # extract it
+#             for Δ in 1 : pdset_frames_per_sim_frame-1
+#                 sample_from_frame[validfind+Δ] = 0 # in-between ones should not be used
+#             end
+#         end
+#     end
+
+#     validfinds_to_extract = find(sample_from_frame)
+
+#     ########################################################################################################
+#     # extract dataframe on those frames
+
+#     dataframe = gen_featureset_from_validfinds(csvfileset.carid, basics, validfinds_to_extract, features, filters)
+#     dataframe[:pdset_id] = fill(pdset_id, nrow(dataframe)) # add a column for pdset_id
+
+#     ########################################################################################################
+#     # build dataframe_nona
+
+#     dataframe_nona = deepcopy(dataframe)
+#     for sym in names(dataframe_nona)
+#         if is_symbol_a_feature(sym)
+#             F = symbol2feature(sym)
+#             for (i,v) in enumerate(dataframe_nona[sym])
+#                 @assert(!isnan(v))
+#                 if isinf(v)
+#                     validfind = validfinds[i]
+#                     carind = carid2ind(pdset, csvfileset.carid, validfind)
+#                     dataframe_nona[i,sym] = replace_na(F, basics, carind, validfind)
+#                 end
+#             end
+#         end
+#     end
+
+#     ########################################################################################################
+#     # reconstruct startframes
+
+
+#     startframes = Array(Int, length(pdset_segments))
+#     startframe = 1
+#     for (i,seg) in enumerate(pdset_segments)
+#         while validfinds_to_extract[startframe] != seg.validfind_start
+#             startframe += 1
+#         end
+#         startframes[i] = startframe
+#     end
+
+#     # println("nvalidfinds: ", nvalidfinds(pdset))
+#     # println("pdset_segments: ", pdset_segments)
+#     # println("startframes: ", startframes)
+#     # println("dataframe:", dataframe)
+
+#     (pdset_segments, dataframe, dataframe_nona, startframes)
+# end
 function _pull_model_training_data(
     extract_params::OrigHistobinExtractParameters,
     csvfilesets::Vector{CSVFileSet},
@@ -1034,7 +1035,7 @@ function pull_model_training_data{S<:AbstractString}(
 
                 if  (behavior & extract_params.behavior_to_match) > 0 &&
                     (behavior & extract_params.behavior_to_avoid) == 0 &&
-                    findfirst(f->FeaturesNew.get(f, runlog, sn, colset, frame) != 1.0, extract_params.filters) == 0
+                    findfirst(f->get(f, runlog, sn, colset, frame) != 1.0, extract_params.filters) == 0
 
                     tot_n_frames += 1
                     pass[frame] = true
@@ -1052,7 +1053,7 @@ function pull_model_training_data{S<:AbstractString}(
     # dataframe = create_dataframe_with_feature_columns(extract_params.features, tot_n_frames)
     dataframe = DataFrame()
     for f in extract_params.features
-        dataframe[FeaturesNew.symbol(f)] = DataArray(Float64, tot_n_frames)
+        dataframe[symbol(f)] = DataArray(Float64, tot_n_frames)
     end
 
     dataframe_nona = deepcopy(dataframe)
@@ -1073,10 +1074,10 @@ function pull_model_training_data{S<:AbstractString}(
 
                 # extract the frame
                 for f in extract_params.features
-                    v = FeaturesNew.get(f, runlog, sn, colset, frame)::Float64
+                    v = get(f, runlog, sn, colset, frame)::Float64
                     dataframe[df_index, symbol(f)] = v
                     dataframe_nona[df_index, symbol(f)] = isinf(v) ?
-                        FeaturesNew.replace_na(f)::Float64 : v
+                        replace_na(f)::Float64 : v
                 end
             end
         end
@@ -1128,6 +1129,9 @@ end
 #            Fold Assignment           #
 ########################################
 
+const FOLD_TRAIN = 1
+const FOLD_TEST = 2
+
 type FoldAssignment
     # assigns each frame and pdsetseg to
     # an integer fold
@@ -1164,10 +1168,27 @@ type FoldAssignment
         new(frame_assignment, seg_assignment, nfolds)
     end
 end
-const FOLD_TRAIN = 1
-const FOLD_TEST = 2
 
 Base.deepcopy(a::FoldAssignment) = FoldAssignment(deepcopy(a.frame_assignment), deepcopy(a.seg_assignment), a.nfolds)
+function Base.show(io::IO, a::FoldAssignment)
+    println(io, "FoldAssignment")
+    @printf(io, "\tstored nfolds:   %d\n", a.nfolds)
+    @printf(io, "\tnframes:         %d\n", length(a.frame_assignment))
+    @printf(io, "\tnsegs:           %d\n", length(a.seg_assignment))
+    @printf(io, "fold       nframes        nsegs\n")
+    for fold in sort!(unique(vcat(a.frame_assignment, a.seg_assignment)))
+        if fold == 0
+            continue
+        end
+        @printf(io, "%5d    %10d  %10d\n", fold, calc_fold_size(fold, a.frame_assignment, true),
+                                                 calc_fold_size(fold, a.seg_assignment, true))
+    end
+    @printf(io, "%5d    %10d  %10d\n", 0, sum(v->v ≤ 0, a.frame_assignment), sum(v->v ≤ 0, a.seg_assignment))
+end
+
+calc_num_folds_frames(a::FoldAssignment) = sum(v->v > 0, unique(a.frame_assignment))
+calc_num_folds_segs(a::FoldAssignment) = sum(v->v > 0, unique(a.seg_assignment))
+calc_num_folds(a::FoldAssignment) = sum(v->v > 0, unique(vcat(a.frame_assignment, a.seg_assignment)))
 
 function calc_fold_size{I<:Integer}(fold::Integer, fold_assignment::AbstractArray{I}, match_fold::Bool)
     fold_size = 0
@@ -1202,6 +1223,22 @@ function drop_fold!(a::FoldAssignment, fold::Integer)
         end
     end
     a.nfolds -= 1
+    a
+end
+function assign_all_non_test_to_train!(a::FoldAssignment)
+
+    for (j,v) in enumerate(a.frame_assignment)
+        if 0 < v && v != FOLD_TEST
+            a.frame_assignment[j] = FOLD_TRAIN
+        end
+    end
+    for (j,v) in enumerate(a.seg_assignment)
+        if 0 < v && v != FOLD_TEST
+            a.seg_assignment[j] = FOLD_TRAIN
+        end
+    end
+    a.nfolds = 2
+
     a
 end
 
@@ -1532,7 +1569,7 @@ function get_cross_validation_fold_assignment(
             runlogsegment_fold_assignment[runlogsegmentind] = f
 
             framestart = seg_start_to_index_in_dataframe[runlogsegmentind]
-            frameend = framestart + get_horizon(runlog_segments[runlogsegmentind])
+            frameend = framestart + get_nframes(runlog_segments[runlogsegmentind])
             frameind = framestart
 
             for _ in framestart : N_FRAMES_PER_SIM_FRAME : frameend
@@ -1556,7 +1593,7 @@ function get_cross_validation_fold_assignment(
     # println("nremaining_frames: ", nremaining_frames)
     # println("frame_fold_sizes (before): ", frame_fold_sizes)
 
-    fold_priority = PriorityQueue{Int, Int}() # (fold, foldsize), min-ordered
+    fold_priority = PriorityQueue{Int, Int, Base.Order.ForwardOrdering}() # (fold, foldsize), min-ordered
     for (fold,foldsize) in enumerate(frame_fold_sizes)
         fold_priority[fold] = foldsize
     end

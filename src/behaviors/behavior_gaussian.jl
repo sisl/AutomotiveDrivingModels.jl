@@ -4,17 +4,25 @@ export
 
 # The vehicle drives following a multivariable Gaussian noise over accel & turnrate
 type VehicleBehaviorGaussian <: AbstractVehicleBehavior
+
+    targets::ModelTargets
     Σ::MvNormal # with action vector (accel, turnrate)
 
     # preallocated memory
     action::Vector{Float64}
 
-    function VehicleBehaviorGaussian(σ_lat::Float64, σ_lon::Float64, σ_correlation::Float64=0.0)
-        new(MvNormal([σ_lat σ_correlation; σ_correlation σ_lon]), [0.0,0.0])
+    function VehicleBehaviorGaussian(σ_lat::Float64, σ_lon::Float64, σ_correlation::Float64=0.0;
+        targets::ModelTargets = ModelTargets(Features.FUTUREDESIREDANGLE, Features.FUTUREACCELERATION),
+        )
+
+        new(targets, MvNormal([σ_lat σ_correlation; σ_correlation σ_lon]), [0.0,0.0])
     end
-    function VehicleBehaviorGaussian(Σ::MvNormal)
+    function VehicleBehaviorGaussian(Σ::MvNormal;
+        targets::ModelTargets = ModelTargets(Features.FUTUREDESIREDANGLE, Features.FUTUREACCELERATION),
+        )
+
         @assert(length(Σ) == 2)
-        new(Σ, [0.0,0.0])
+        new(targets, Σ, [0.0,0.0])
     end
 end
 function Base.print(io::IO, SG::VehicleBehaviorGaussian)
@@ -38,32 +46,12 @@ type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     SG_PreallocatedData(dset::ModelTrainingData2, params::SG_TrainParams) = new()
 end
 function preallocate_learning_data(
-    dset::ModelTrainingData,
-    params::SG_TrainParams)
-
-    SG_PreallocatedData(dset, params)
-end
-function preallocate_learning_data(
     dset::ModelTrainingData2,
     params::SG_TrainParams)
 
     SG_PreallocatedData(dset, params)
 end
 
-function select_action(
-    basics::FeatureExtractBasicsPdSet,
-    behavior::VehicleBehaviorGaussian,
-    carind::Int,
-    validfind::Int
-    )
-
-    Distributions._rand!(behavior.Σ, behavior.action)
-
-    action_lat = behavior.action[1]
-    action_lon = behavior.action[2]
-
-    (action_lat, action_lon)
-end
 function select_action(
     behavior::VehicleBehaviorGaussian,
     runlog::RunLog,
@@ -81,73 +69,18 @@ function select_action(
 end
 
 function calc_action_loglikelihood(
-    ::FeatureExtractBasicsPdSet,
-    behavior::VehicleBehaviorGaussian,
-    ::Int,
-    ::Int,
-    action_lat::Float64,
-    action_lon::Float64
-    )
-
-    #=
-    Compute the log-likelihood of the action taken during a single frame
-    given the VehicleBehaviorGaussian.
-    =#
-
-    behavior.action[1] = action_lat
-    behavior.action[2] = action_lon
-
-    logpdf(behavior.Σ, behavior.action)
-end
-function calc_action_loglikelihood(
     behavior::VehicleBehaviorGaussian,
     features::DataFrame,
     frameind::Integer,
     )
 
-    if haskey(features, symbol(FUTUREDESIREDANGLE_250MS))
-        behavior.action[1] = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
-        behavior.action[2] = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
-    else
-        behavior.action[1] = features[frameind, symbol(FeaturesNew.FUTUREDESIREDANGLE)]::Float64
-        behavior.action[2] = features[frameind, symbol(FeaturesNew.FUTUREACCELERATION)]::Float64
-    end
+
+    behavior.action[1] = features[frameind, symbol(behavior.targets.lat)]::Float64
+    behavior.action[2] = features[frameind, symbol(behavior.targets.lon)]::Float64
 
     logpdf(behavior.Σ, behavior.action)
 end
 
-function train(
-    training_data::ModelTrainingData,
-    preallocated_data::SG_PreallocatedData,
-    params::SG_TrainParams,
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
-    )
-
-    trainingframes = training_data.dataframe_nona
-    nframes = size(trainingframes, 1)
-
-    total = 0
-    trainingmatrix = Array(Float64, 2, nframes)
-    for i = 1 : nframes
-
-        # TODO(tim): shouldn't use hard-coded symbols
-        action_lat = trainingframes[i, :f_des_angle_250ms]
-        action_lon = trainingframes[i, :f_accel_250ms]
-
-        if !isnan(action_lat) && !isnan(action_lon) &&
-           !isinf(action_lat) && !isinf(action_lon)
-
-            total += 1
-            trainingmatrix[1, total] = action_lat
-            trainingmatrix[2, total] = action_lon
-        end
-    end
-    trainingmatrix = trainingmatrix[:, 1:total]
-
-    VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
-end
 function train(
     training_data::ModelTrainingData2,
     preallocated_data::SG_PreallocatedData,
@@ -165,8 +98,8 @@ function train(
     for i = 1 : nframes
 
         # TODO(tim): shouldn't use hard-coded symbols
-        action_lat = trainingframes[i, symbol(FeaturesNew.FUTUREDESIREDANGLE)]
-        action_lon = trainingframes[i, symbol(FeaturesNew.FUTUREACCELERATION)]
+        action_lat = trainingframes[i, symbol(Features.FUTUREDESIREDANGLE)]
+        action_lon = trainingframes[i, symbol(Features.FUTUREACCELERATION)]
 
         if !isnan(action_lat) && !isnan(action_lon) &&
            !isinf(action_lat) && !isinf(action_lon)
