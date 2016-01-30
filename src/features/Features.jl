@@ -41,6 +41,7 @@ export
     upperbound,
     lowerbound,
     couldna,
+    replace_na,
     lsymbol
 
 # ----------------------------------
@@ -704,14 +705,14 @@ create_feature_basics("Gaining_On_Front", :gaining_on_front, L"gaining^\text{fro
 function Base.get(::Feature_Gaining_On_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
-    if colset_front == COLSET_NULL
-        return NA_ALIAS
+    retval = false
+    if colset_front != COLSET_NULL
+        v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+        v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
+        retval = v_ego > v_oth
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
-    v_oth = (get(runlog, colset_front, frame, :ratesF)::VecE2).x
-
-    convert(Float64, v_ego > v_oth)
+    convert(Float64, retval)
 end
 
 #############################################
@@ -879,18 +880,18 @@ function Base.get(::Feature_Inv_Timegap_Rear, runlog::RunLog, sn::StreetNetwork,
     v / dx
 end
 
-create_feature_basics("Rear_Is_Gaining", :gaining_on_rear, L"gaining^\text{rear}", Bool, L"-", :no_na)
+create_feature_basics("Rear_Is_Gaining", :gaining_on_rear, L"gaining^\text{rear}", Bool, L"-", :can_na, na_replacement=0.0)
 function Base.get(::Feature_Rear_Is_Gaining, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
-    if colset_rear == COLSET_NULL
-        return NA_ALIAS
+    retval = false
+    if colset_rear != COLSET_NULL
+        v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+        v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecE2).x
+        retval = v_oth > v_ego
     end
 
-    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
-    v_oth = (get(runlog, colset_rear, frame, :ratesF)::VecE2).x
-
-    convert(Float64, v_oth > v_ego)
+    convert(Float64, retval)
 end
 
 #############################################
@@ -973,7 +974,13 @@ upperbound{F, H}(  ::Feature_Past{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Past)       = true
 Base.symbol{F, H}( ::Feature_Past{F, H}) = symbol(@sprintf("past_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Past{F, H}) = L"\texttt{past}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Past{F, H}) = replace_na(symbol2feature(F))
+function replace_na{F, H}(::Feature_Past{F, H})
+    try
+        replace_na(symbol2feature(F))
+    catch
+        0.0
+    end
+end
 function Base.get{F, H}(::Feature_Past{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
 
@@ -1003,7 +1010,13 @@ upperbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = upperbound(symbol2featur
 couldna(           ::Feature_Mean_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Mean_Over_History{F, H}) = symbol(@sprintf("mean_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Mean_Over_History{F, H}) = L"\texttt{mean}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Mean_Over_History{F, H}) = replace_na(symbol2feature(F))
+function replace_na{F, H}(::Feature_Mean_Over_History{F, H})
+    try
+        replace_na(symbol2feature(F))
+    catch
+        0.0
+    end
+end
 function Base.get{F, H}(::Feature_Mean_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
@@ -1037,7 +1050,13 @@ upperbound{F, H}(  ::Feature_Std_Over_History{F, H}) = upperbound(symbol2feature
 couldna(           ::Feature_Std_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Std_Over_History{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Std_Over_History{F, H}) = L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Std_Over_History{F, H}) = replace_na(symbol2feature(F))
+function replace_na{F, H}(::Feature_Std_Over_History{F, H})
+    try
+        replace_na(symbol2feature(F))
+    catch
+        0.0
+    end
+end
 function Base.get{F, H}(::Feature_Std_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
@@ -1071,7 +1090,13 @@ upperbound{F, H}(  ::Feature_Max_Over_History{F, H}) = upperbound(symbol2feature
 couldna(           ::Feature_Max_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Max_Over_History{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Max_Over_History{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Max_Over_History{F, H}) = replace_na(symbol2feature(F))
+function replace_na{F, H}(::Feature_Max_Over_History{F, H})
+    try
+        replace_na(symbol2feature(F))
+    catch
+        0.0
+    end
+end
 function Base.get{F, H}(::Feature_Max_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
@@ -1105,7 +1130,13 @@ upperbound{F, H}(  ::Feature_Min_Over_History{F, H}) = upperbound(symbol2feature
 couldna(           ::Feature_Min_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Min_Over_History{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
 lsymbol{F, H}(     ::Feature_Min_Over_History{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
-replace_na{F, H}(::Feature_Min_Over_History{F, H}) = replace_na(symbol2feature(F))
+function replace_na{F, H}(::Feature_Min_Over_History{F, H})
+    try
+        replace_na(symbol2feature(F))
+    catch
+        0.0
+    end
+end
 function Base.get{F, H}(::Feature_Min_Over_History{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
     id = colset2id(runlog, colset, frame)
