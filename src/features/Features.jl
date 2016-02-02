@@ -25,7 +25,7 @@ export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 # export LEFT, RIGHT
 # export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
 # export IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
-export FutureAcceleration, FutureDesiredAngle
+export FUTUREACCELERATION, FUTUREDESIREDANGLE
 export Feature_IsClean, Feature_Past
 export Feature_Mean_Over_History, Feature_Std_Over_History, Feature_Max_Over_History, Feature_Min_Over_History
 
@@ -34,6 +34,7 @@ export
 
     symbol2feature,
     is_symbol_a_feature,
+    is_feature_na,
     allfeatures,
     units,
     isint,
@@ -81,6 +82,30 @@ function symbol2feature(sym::Symbol)
             target = symbol(str[len_of_header+1:end])
             println("Past history, target: ", history, "  ", target)
             SYMBOL_TO_FEATURE[sym] = Feature_Past{target, history}()
+        elseif ismatch(r"^mean_(\d)+_", str)
+            history = parse(Int, match(r"(\d)+", str).match)
+            len_of_header = length(match(r"^mean_(\d)+_", str).match)
+            target = symbol(str[len_of_header+1:end])
+            println("Mean over history, target: ", history, "  ", target)
+            SYMBOL_TO_FEATURE[sym] = Feature_Mean_Over_History{target, history}()
+        elseif ismatch(r"^std_(\d)+_", str)
+            history = parse(Int, match(r"(\d)+", str).match)
+            len_of_header = length(match(r"^std_(\d)+_", str).match)
+            target = symbol(str[len_of_header+1:end])
+            println("Std over history, target: ", history, "  ", target)
+            SYMBOL_TO_FEATURE[sym] = Feature_Std_Over_History{target, history}()
+        elseif ismatch(r"^max_(\d)+_", str)
+            history = parse(Int, match(r"(\d)+", str).match)
+            len_of_header = length(match(r"^max_(\d)+_", str).match)
+            target = symbol(str[len_of_header+1:end])
+            println("Max over history, target: ", history, "  ", target)
+            SYMBOL_TO_FEATURE[sym] = Feature_Max_Over_History{target, history}()
+        elseif ismatch(r"^min_(\d)+_", str)
+            history = parse(Int, match(r"(\d)+", str).match)
+            len_of_header = length(match(r"^min_(\d)+_", str).match)
+            target = symbol(str[len_of_header+1:end])
+            println("Min over history, target: ", history, "  ", target)
+            SYMBOL_TO_FEATURE[sym] = Feature_Min_Over_History{target, history}()
         end
     end
 
@@ -1088,8 +1113,8 @@ isbool{F, H}(      ::Feature_Max_Over_History{F, H}) = false
 lowerbound{F, H}(  ::Feature_Max_Over_History{F, H}) = lowerbound(symbol2feature(F))
 upperbound{F, H}(  ::Feature_Max_Over_History{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Max_Over_History)       = true
-Base.symbol{F, H}( ::Feature_Max_Over_History{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Max_Over_History{F, H}) = L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+Base.symbol{F, H}( ::Feature_Max_Over_History{F, H}) = symbol(@sprintf("max_%d_%s", H, string(F)))
+lsymbol{F, H}(     ::Feature_Max_Over_History{F, H}) = L"\texttt{max}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
 function replace_na{F, H}(::Feature_Max_Over_History{F, H})
     try
         replace_na(symbol2feature(F))

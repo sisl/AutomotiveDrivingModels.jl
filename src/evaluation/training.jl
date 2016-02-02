@@ -21,10 +21,47 @@ type BehaviorParameter
         @assert(!isempty(range))
         @assert(index_of_default > 0)
         @assert(index_of_default ≤ length(range))
+
+        if eltype(range) <: Real
+            range = sort!(collect(range))
+        end
+
         new(sym, range, index_of_default)
     end
 end
 
+function Base.rand(p::BehaviorParameter)
+
+    r = p.range
+
+    if eltype(r) <: AbstractFloat && typeof(r) <: Vector
+
+        # sample a bin and then lin-sample within bin
+
+        nbins = length(r)-1
+        i = rand(1:nbins)
+        lo, hi = r[i], r[i+1]
+
+        @assert(!isnan(lo))
+        @assert(!isnan(hi))
+        @assert(!isinf(lo))
+        @assert(!isinf(hi))
+
+        rand()*(hi - lo) + lo # sample uniform from
+    elseif eltype(r) <: Integer && typeof(r) <: Vector
+
+        # sample a bin and then lin-sample within bin
+
+        nbins = length(r)-1
+        i = rand(1:nbins)
+        lo, hi = r[i], r[i+1]
+        rand(lo:hi)
+    else
+        # sample uniform from range
+        i = rand(1:length(r))
+        r[i]
+    end
+end
 Base.length(p::BehaviorParameter) = length(p.range)
 
 ###############################################################
@@ -42,6 +79,13 @@ type BehaviorTrainDefinition
     end
 end
 
+function Base.rand!(traindef::BehaviorTrainDefinition)
+    for λ in traindef.hyperparams
+        val = rand(λ)
+        setfield!(traindef.trainparams, λ.sym, val)
+    end
+    traindef
+end
 function Base.print(io::IO, traindef::BehaviorTrainDefinition)
     println(io, "BehaviorTrainDefinition")
     println(io, traindef.trainparams)

@@ -13,6 +13,8 @@ export
     DataSubset,
     ChainedDataProcessor,
 
+    observe!,
+    process!,
     get_clamper_subset
 
 ##############################
@@ -182,7 +184,7 @@ function process!(dp::DataNaReplacer)
     for (i,f) in enumerate(dp.indicators)
         val = x[i]
         if isnan(val) || isinf(val)
-            val = FeaturesNew.replace_na(f)::Float64
+            val = replace_na(f)::Float64
         end
         x[i] = val
     end
@@ -359,7 +361,12 @@ function Base.push!(chain::ChainedDataProcessor, X::Matrix{Float64}, ::Type{Data
         end
 
         μ[i] = mean(streamstats)
-        σ[i] = sqrt(streamstats.v_hat)
+        σ[i] = sqrt(streamstats.v_hat + 1e-12)
+
+        @assert(!isnan(μ[i]))
+        @assert(!isinf(μ[i]))
+        @assert(!isnan(σ[i]))
+        @assert(!isinf(σ[i]))
     end
 
     # z = (x - μ)/σ

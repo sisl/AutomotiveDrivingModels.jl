@@ -24,10 +24,10 @@ if !isdir(SAVE_DIR)
     mkdir(SAVE_DIR)
 end
 
-features = union(collect(FeaturesNew.allfeatures()), INDICATOR_SET2)
+features = union(collect(allfeatures()), INDICATOR_SET2)
 
-filters = FeaturesNew.AbstractFeature[FeaturesNew.Feature_IsClean{:f_accel}(),
-                                      FeaturesNew.Feature_IsClean{:f_des_angle}()]
+filters = AbstractFeature[Feature_IsClean{:f_accel}(),
+                          Feature_IsClean{:f_des_angle}()]
 
 runlog_extract_params = RunLogSegmentExtractParameters(SIM_HORIZON_IN_FRAMES, SIM_HISTORY_IN_FRAMES,
                                                        FRAMESKIP_BETWEEN_EXTRACTED_SCENES, PDSET_FRAMES_PER_SIM_FRAME)

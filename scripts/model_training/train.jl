@@ -1,6 +1,6 @@
 using AutomotiveDrivingModels
-# using RandomForestBehaviors
-# using DynamicBayesianNetworkBehaviors
+using RandomForestBehaviors
+using DynamicBayesianNetworkBehaviors
 
 ##############################
 # PARAMETERS
@@ -16,7 +16,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 metric_types_test_traces = [
                             EmergentKLDivMetric{symbol(SPEED)},
                             EmergentKLDivMetric{symbol(POSFT)},
-                            # EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
+                            # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
                             RootWeightedSquareError{symbol(SPEED), 0.5},
                             RootWeightedSquareError{symbol(SPEED), 1.0},
                             RootWeightedSquareError{symbol(SPEED), 1.5},
@@ -45,7 +45,7 @@ metric_types_test_traces = [
 metric_types_test_traces_bagged = [
                                    EmergentKLDivMetric{symbol(SPEED)},
                                    EmergentKLDivMetric{symbol(POSFT)},
-                                   # EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)},
+                                   # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
                                    # RootWeightedSquareError{symbol(SPEED), 0.5},
                                    # RootWeightedSquareError{symbol(SPEED), 1.0},
                                    # RootWeightedSquareError{symbol(SPEED), 1.5},
@@ -62,14 +62,14 @@ metric_types_test_traces_bagged = [
                                    # RootWeightedSquareError{symbol(POSFT), 3.0},
                                    # RootWeightedSquareError{symbol(POSFT), 3.5},
                                    # RootWeightedSquareError{symbol(POSFT), 4.0},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 0.5},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.0},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 1.5},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.0},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 2.5},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.0},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 3.5},
-                                   # RootWeightedSquareError{symbol(TIMEGAP_X_FRONT), 4.0},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 0.5},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.0},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.5},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.0},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.5},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.0},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.5},
+                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
                                   ]
 
 ################################
@@ -91,11 +91,6 @@ for dset_filepath_modifier in (
     DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset2" * dset_filepath_modifier * ".jld")
 
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
-
-    preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
-    for (model_name, train_def) in behaviorset
-        preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
-    end
 
     hyperparam_counts = Dict{AbstractString, Matrix{Int}}()
     for model_name in model_names
@@ -193,6 +188,13 @@ for dset_filepath_modifier in (
                 hyperparam_count[i, ind] += 1
             end
         end
+
+        print("\t\tpreallocating data   "); tic()
+        preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
+        for (model_name, train_def) in behaviorset
+            preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
+        end
+        toc()
 
         print("\ttraining models  "); tic()
         models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_outer)

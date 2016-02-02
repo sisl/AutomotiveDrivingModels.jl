@@ -3,9 +3,10 @@ using DataFrames
 push!(LOAD_PATH, "/home/tim/Documents/wheelerworkspace/UtilityCode/")
 using LaTeXeXport
 
-const TEXFILE = "/home/tim/Documents/wheelerworkspace/Papers/2015_ITS_RiskEstimation/2015_IEEE_ITS_riskest.tex"
+const TEXFILE = "/home/tim/Documents/papers/2016_its_car_behaviors_wheeler/its_car_behaviors.tex"
 const TEXDIR = splitdir(TEXFILE)[1]
-const RESULTS_DF_EXPERIMENT_1 = "/home/tim/.julia/v0.3/AutomotiveDrivingModels/scripts/varying_data_amount/results/data_vs_performance_metrics.csv"
+
+const RESULTS_DIR = Pkg.dir("AutomotiveDrivingModels", "scripts", "varying_data_amount", "results")
 const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
 
 function _convert_to_short_name(name::AbstractString)
@@ -15,7 +16,7 @@ function _convert_to_short_name(name::AbstractString)
     end
     retval
 end
-function _export_legend{S<:String}(io::IO, modelnames::Vector{S})
+function _export_legend{S<:AbstractString}(io::IO, modelnames::Vector{S})
     # \legend{GF, SV, RF, DF, BN}
 
     print(io, "\\legend{")
@@ -27,7 +28,7 @@ function _export_legend{S<:String}(io::IO, modelnames::Vector{S})
     end
     print(io, "}\n")
 end
-function create_tikzpicture_experiment_1{S<:String}(io::IO, df::DataFrame, modelnames::Vector{S})
+function create_tikzpicture_experiment_1{S<:AbstractString}(io::IO, df::DataFrame, modelnames::Vector{S})
 
     #=
     This outputs, for each model by order of names:
@@ -51,16 +52,16 @@ function create_tikzpicture_experiment_1{S<:String}(io::IO, df::DataFrame, model
 
         for p in percentages
             logl = 0.0
-            nframes = 0
+            nfound = 0
             for j in 1 : nrow(df)
                 if df[j, :dataset_percentage] == p &&
                    df[j, :model_name] == name
 
-                   logl += df[j, :logl_test] * df[j, :nframes]
-                   nframes += df[j, :nframes]
+                   logl += df[j, :logl_test]
+                   nfound += 1
                 end
             end
-            logl /= nframes
+            logl /= nfound
 
             @printf(io, "(%.4f,%.4f) ", p, logl)
         end
@@ -69,7 +70,7 @@ function create_tikzpicture_experiment_1{S<:String}(io::IO, df::DataFrame, model
 
     _export_legend(io, map(_convert_to_short_name, modelnames))
 end
-# function create_tikzpicture_experiment_4{S<:String}(io::IO, df::DataFrame, model::Vector{S})
+# function create_tikzpicture_experiment_4{S<:AbstractString}(io::IO, df::DataFrame, model::Vector{S})
 
 #     #=
 #     This outputs a csv file for the given model name
@@ -114,13 +115,25 @@ end
 #     _export_legend(io, map(_convert_to_short_name, modelnames))
 # end
 
-df_exp1 = readtable(RESULTS_DF_EXPERIMENT_1)
+modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Bayesian Network", "Linear Bayesian"] # "Mixture Regression"
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Gaussian Mixture Regression", "Bayesian Network"]
+df_exp1 = DataFrame()
+for model_name in modelnames
+
+    model_output_name = replace(lowercase(model_name), " ", "_")
+    inpath = joinpath(RESULTS_DIR, "data_vs_performance_metrics_" * model_output_name * ".csv")
+    df = readtable(inpath)
+
+    if isempty(df_exp1)
+        df_exp1 = df
+    else
+        append!(df_exp1, df)
+    end
+end
 
 fh = STDOUT
-# write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
+write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
     create_tikzpicture_experiment_1(fh, df_exp1, modelnames)
-# end
+end
 
 println("DONE EXPORTING RESULTS")
