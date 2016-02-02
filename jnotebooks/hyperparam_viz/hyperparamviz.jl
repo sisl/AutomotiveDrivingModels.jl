@@ -17,24 +17,33 @@ end
 load_hyperparam_log(file::AbstractString) = readtable(joinpath(INPUT_DIR, file))
 get_hyperparam_names(df::DataFrame) = map(str->symbol(str), names(df)[7:end])
 get_target_names(df::DataFrame) = map(str->symbol(str), names(df)[1:6])
+get_L2_rwse_arr(df::DataFrame) = (df[:rwse_speed_4].^2 + df[:rwse_posft_4].^2).^0.5
+
 
 ##########
 
 _sym_to_latex_string(sym::Symbol) = replace(string(sym), "_", " ")
 
 function print_log_statistics(df::DataFrame)
-    @printf("n entries:             %20d\n", nrow(df))
+
+    L2_rwse = get_L2_rwse_arr(df)
+    best_row = indmin(L2_rwse)
+
+    @printf("n entries:             %20s  %6d\n\n", " ", nrow(df))
     @printf("max mean logl train:   %20.6f  %6d\n", maximum(df[:mean_logl_train]), indmax(df[:mean_logl_train]))
     @printf("max mean logl test:    %20.6f  %6d\n", maximum(df[:mean_logl_test]), indmax(df[:mean_logl_test]))
     @printf("max median logl train: %20.6f  %6d\n", maximum(df[:median_logl_train]), indmax(df[:median_logl_train]))
     @printf("max median logl test:  %20.6f  %6d\n", maximum(df[:median_logl_test]), indmax(df[:median_logl_test]))
     @printf("min rwse speed 4sec:   %20.6f  %6d\n", minimum(df[:rwse_speed_4]), indmin(df[:rwse_speed_4]))
     @printf("min rwse posFt 4sec:   %20.6f  %6d\n", minimum(df[:rwse_posft_4]), indmin(df[:rwse_posft_4]))
+    @printf("min L2 rwse:           %20.6f  %6d\n", minimum(L2_rwse), best_row)
     println("")
 
-    println("hyperparameters:")
+
+
+    @printf("\t%30s  %20s  %20s  %20s\n", "hyperparameters", "min value", "max value", "best param to min L2 rwse")
     for λ in get_hyperparam_names(df)
-        @printf("\t%20s  %20.6f  %20.6f\n", λ, minimum(df[λ]), maximum(df[λ]))
+        @printf("\t%30s  %20.6f  %20.6f  %20.6f\n", λ, minimum(df[λ]), maximum(df[λ]), df[best_row, λ])
     end
 end
 
