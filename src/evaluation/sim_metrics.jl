@@ -109,7 +109,6 @@ type RootWeightedSquareError{feature_symbol, horizon} <: BehaviorTraceMetric
 end
 
 get_score(metric::RootWeightedSquareError) = metric.rwse
-
 function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
     runlog_segments::Vector{RunLogSegment},
     runlogs_original::Vector{RunLog},
@@ -135,7 +134,11 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
 
         for (j,frame) in enumerate(seg.frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.frame_end)
             colset = RunLogs.id2colset(runlog, carid, frame)
-            v_true_arr[j] = get(F, runlog, sn, colset, frame)
+            v = get(F, runlog, sn, colset, frame)
+            if is_feature_na(v)
+                v = replace_na(F)
+            end
+            v_true_arr[j] = v
         end
 
         frame_start = frame_starts_sim[i]
@@ -152,6 +155,9 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
                     v_true = v_true_arr[k]
                     colset = RunLogs.id2colset(runlog, carid, frame)
                     v_montecarlo = get(F, runlog, sn, colset, frame)
+                    if is_feature_na(v_montecarlo)
+                        v_montecarlo = replace_na(F)
+                    end
 
                     Δ = v_true - v_montecarlo
                     running_sum += Δ*Δ
@@ -161,6 +167,7 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
     end
 
     NM = n_monte_carlo_samples * length(foldinds)
+
     RootWeightedSquareError{Fsym, H}(sqrt(running_sum / NM))
 end
 

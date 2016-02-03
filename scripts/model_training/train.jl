@@ -92,6 +92,13 @@ for dset_filepath_modifier in (
 
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
 
+    print("\t\tpreallocating data   "); tic()
+    preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
+    for (model_name, train_def) in behaviorset
+        preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
+    end
+    toc()
+
     hyperparam_counts = Dict{AbstractString, Matrix{Int}}()
     for model_name in model_names
         train_def = behaviorset[model_name]
@@ -188,13 +195,6 @@ for dset_filepath_modifier in (
                 hyperparam_count[i, ind] += 1
             end
         end
-
-        print("\t\tpreallocating data   "); tic()
-        preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
-        for (model_name, train_def) in behaviorset
-            preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
-        end
-        toc()
 
         print("\ttraining models  "); tic()
         models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_outer)

@@ -108,6 +108,13 @@ for dset_filepath_modifier in (
 
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
 
+    print("\t\tpreallocating data   "); tic()
+    preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
+    for (model_name, train_def) in behaviorset
+        preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
+    end
+    toc()
+
     hyperparam_dataframes = Dict{AbstractString, DataFrame}()
     for model_name in model_names
         train_def = behaviorset[model_name]
@@ -182,7 +189,7 @@ for dset_filepath_modifier in (
         n_iter += 1
 
         println("ITERATION: ", n_iter)
-        println("ELAPSED TIME: ", time() - t_start)
+        println("TOTAL ELAPSED TIME: ", time() - t_start)
 
 
         # sample new training params
@@ -199,13 +206,6 @@ for dset_filepath_modifier in (
             @assert(cv_split_inner.nfolds > 0)
 
             ##############
-
-            print("\t\tpreallocating data   "); tic()
-            preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
-            for (model_name, train_def) in behaviorset
-                preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
-            end
-            toc()
 
             print("\t\ttraining models   "); tic()
             models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_inner)

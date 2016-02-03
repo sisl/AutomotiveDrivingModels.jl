@@ -709,7 +709,6 @@ create_feature_basics("Inv_Timegap_Front", :inv_timegap_front, L"timegap_\text{i
 function Base.get(::Feature_Inv_Timegap_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the inverse timegap with lead vehicle
-
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
     if colset_front == COLSET_NULL
         return NA_ALIAS
