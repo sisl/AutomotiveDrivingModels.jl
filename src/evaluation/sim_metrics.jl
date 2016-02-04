@@ -3,12 +3,12 @@ export
     BehaviorFrameMetric,
     BehaviorTraceMetric,
 
-    # HistobinMetric,
-    # TraceMetricSet,
-    # AggregateTraceMetrics,
     EmergentKLDivMetric,
     RootWeightedSquareError,
 
+    SumSquareJerk,
+    JerkSignInversions,
+    LagOneAutocorrelation,
     LoglikelihoodMetric,
     MedianLoglikelihoodMetric,
     BaggedMetricResult,
@@ -73,10 +73,9 @@ function extract{Fsym}(::Type{EmergentKLDivMetric{Fsym}},
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
 
     for i in bagged_selection
-        ind = foldinds[i]
 
         # real-world
-        seg = runlog_segments[ind]
+        seg = runlog_segments[i]
         carid = seg.carid
         runlog = runlogs_original[seg.runlog_id]
         sn = streetnets[runlog.header.map_name]
@@ -125,9 +124,9 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
 
     running_sum = 0.0
-    for (i, ind) in enumerate(bagged_selection)
+    for i in bagged_selection
 
-        seg = runlog_segments[ind]
+        seg = runlog_segments[i]
         carid = seg.carid
         runlog = runlogs_original[seg.runlog_id]
         sn = streetnets[runlog.header.map_name]
@@ -169,6 +168,162 @@ function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
     NM = n_monte_carlo_samples * length(foldinds)
 
     RootWeightedSquareError{Fsym, H}(sqrt(running_sum / NM))
+end
+
+#########################################################################################################
+# SumSquareJerk
+
+type SumSquareJerk <: BehaviorTraceMetric
+    score::Float64
+end
+
+get_score(metric::SumSquareJerk) = metric.score
+function extract(::Type{SumSquareJerk},
+    runlog_segments::Vector{RunLogSegment},
+    runlogs_original::Vector{RunLog},
+    runlogs_for_simulation::Matrix{RunLog},
+    frame_starts_sim::Vector{Int},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    foldinds::Vector{Int},
+    bagged_selection::Vector{Int},
+    )
+
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    running_sum = 0.0
+    for i in bagged_selection
+
+        seg = runlog_segments[i]
+        carid = seg.carid
+        runlog = runlogs_original[seg.runlog_id]
+        sn = streetnets[runlog.header.map_name]
+
+        frame_start = frame_starts_sim[i]
+        frame_end = frame_start + seg.frame_end - seg.frame_start
+
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[i, j]
+
+            for (k,frame) in enumerate(frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end)
+
+                Δt = (frame - frame_start)*DEFAULT_SEC_PER_FRAME
+
+                colset = RunLogs.id2colset(runlog, carid, frame)
+                jerk = get(JERK, runlog, sn, colset, frame)
+                @assert(!isnan(jerk) && !isinf(jerk))
+
+                running_sum += jerk*jerk
+            end
+        end
+    end
+
+    NM = n_monte_carlo_samples * length(foldinds)
+    SumSquareJerk(running_sum/NM)
+end
+
+#########################################################################################################
+# JerkSignInversions
+
+type JerkSignInversions <: BehaviorTraceMetric
+    score::Float64
+end
+
+get_score(metric::JerkSignInversions) = metric.score
+function extract(::Type{JerkSignInversions},
+    runlog_segments::Vector{RunLogSegment},
+    runlogs_original::Vector{RunLog},
+    runlogs_for_simulation::Matrix{RunLog},
+    frame_starts_sim::Vector{Int},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    foldinds::Vector{Int},
+    bagged_selection::Vector{Int},
+    )
+
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    running_sum = 0.0
+    for i in bagged_selection
+
+        seg = runlog_segments[i]
+        carid = seg.carid
+        runlog = runlogs_original[seg.runlog_id]
+        sn = streetnets[runlog.header.map_name]
+
+        frame_start = frame_starts_sim[i]
+        frame_end = frame_start + seg.frame_end - seg.frame_start
+
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[i, j]
+
+            jerk_prev = 0.0
+            for (k,frame) in enumerate(frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end)
+
+                colset = RunLogs.id2colset(runlog, carid, frame)
+
+                jerk = get(JERK, runlog, sn, colset, frame)
+                is_jerk_inversion = abs(sign(jerk) - sign(jerk_prev)) > 1.5
+                running_sum += is_jerk_inversion
+                jerk_prev = jerk
+            end
+        end
+    end
+
+    NM = n_monte_carlo_samples * length(foldinds)
+    JerkSignInversions(running_sum/NM)
+end
+
+#########################################################################################################
+# LagOneAutocorrelation
+
+type LagOneAutocorrelation <: BehaviorTraceMetric
+    score::Float64
+end
+
+_lag_one_autocorrelation(x::Vector{Float64}) = cor(x[2:end], x[1:end-1])
+
+get_score(metric::LagOneAutocorrelation) = metric.score
+function extract(::Type{LagOneAutocorrelation},
+    runlog_segments::Vector{RunLogSegment},
+    runlogs_original::Vector{RunLog},
+    runlogs_for_simulation::Matrix{RunLog},
+    frame_starts_sim::Vector{Int},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    foldinds::Vector{Int},
+    bagged_selection::Vector{Int},
+    )
+
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    running_sum = 0.0
+    for i in bagged_selection
+
+        seg = runlog_segments[i]
+        carid = seg.carid
+        runlog = runlogs_original[seg.runlog_id]
+        sn = streetnets[runlog.header.map_name]
+
+        frame_start = frame_starts_sim[i]
+        frame_end = frame_start + seg.frame_end - seg.frame_start
+
+        frame_range = frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end
+        jerk_arr = Array(Float64, length(frame_range))
+
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[i, j]
+
+            for (k,frame) in enumerate(frame_range)
+                colset = RunLogs.id2colset(runlog, carid, frame)
+                jerk_arr[k] = get(JERK, runlog, sn, colset, frame)
+                @assert(!isinf(jerk_arr[k]))
+                @assert(!isnan(jerk_arr[k]))
+            end
+
+            running_sum += _lag_one_autocorrelation(jerk_arr)
+        end
+    end
+
+    NM = n_monte_carlo_samples * length(foldinds)
+    LagOneAutocorrelation(running_sum/NM)
 end
 
 #########################################################################################################

@@ -7,7 +7,7 @@ const TEXFILE = "/home/tim/Documents/papers/2016_its_car_behaviors_wheeler/its_c
 const TEXDIR = splitdir(TEXFILE)[1]
 
 const RESULTS_DIR = Pkg.dir("AutomotiveDrivingModels", "scripts", "varying_data_amount", "results")
-const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "solid"]
+const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "densely dashdotted", "solid"]
 
 function _convert_to_short_name(name::AbstractString)
     retval = ""
@@ -115,7 +115,7 @@ end
 #     _export_legend(io, map(_convert_to_short_name, modelnames))
 # end
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Bayesian Network", "Linear Bayesian"] # "Mixture Regression"
+modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
 df_exp1 = DataFrame()
 for model_name in modelnames

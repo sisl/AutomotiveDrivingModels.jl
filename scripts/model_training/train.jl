@@ -14,9 +14,12 @@ include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 ################################
 
 metric_types_test_traces = [
-                            EmergentKLDivMetric{symbol(SPEED)},
-                            EmergentKLDivMetric{symbol(POSFT)},
+                            # EmergentKLDivMetric{symbol(SPEED)},
+                            # EmergentKLDivMetric{symbol(POSFT)},
                             # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
+                            SumSquareJerk,
+                            JerkSignInversions,
+                            LagOneAutocorrelation,
                             RootWeightedSquareError{symbol(SPEED), 0.5},
                             RootWeightedSquareError{symbol(SPEED), 1.0},
                             RootWeightedSquareError{symbol(SPEED), 1.5},
@@ -43,8 +46,11 @@ metric_types_test_traces = [
                             RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
                            ]
 metric_types_test_traces_bagged = [
-                                   EmergentKLDivMetric{symbol(SPEED)},
-                                   EmergentKLDivMetric{symbol(POSFT)},
+                                    SumSquareJerk,
+                                    JerkSignInversions,
+                                    LagOneAutocorrelation,
+                                   # EmergentKLDivMetric{symbol(SPEED)},
+                                   # EmergentKLDivMetric{symbol(POSFT)},
                                    # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
                                    # RootWeightedSquareError{symbol(SPEED), 0.5},
                                    # RootWeightedSquareError{symbol(SPEED), 1.0},

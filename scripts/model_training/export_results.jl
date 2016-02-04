@@ -208,6 +208,77 @@ function create_tikzpicture_model_compare_kldiv_barplot{S<:AbstractString}(io::I
     end
     print(io, "}\n")
 end
+function create_tikzpicture_model_compare_smoothness(io::IO, data::ContextClassData)
+    #=
+    This outputs, for each model by order of names:
+
+    \addplot [colorA,fill=colorA!60,error bars/.cd,y dir=both,y explicit]
+        coordinates{
+        (Sum Square,         0.3363)+=(0,0.1299)-=(0,0.1299)
+        (Autocorrelation,    0.8469)+=(0,0.2164)-=(0,0.2164)
+        (Sign Inversions,    0.2325)+=(0,0.1156)-=(0,0.1156)
+      };
+
+    ...
+
+    \legend{SG, LG, RF, DF, MR, BN, LB}
+    =#
+
+    names = data.names
+
+    max_SSJ = -Inf
+    max_LOA = -Inf
+    max_JSI = -Inf
+    min_SSJ = Inf
+    min_LOA = Inf
+    min_JSI = Inf
+
+    for i in 1 : length(names)
+
+        SSJ_stuff = _grab_score_and_extrema(SumSquareJerk,         data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        LOA_stuff = _grab_score_and_extrema(LagOneAutocorrelation, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        JSI_stuff = _grab_score_and_extrema(JerkSignInversions,    data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+
+        max_SSJ = max(max_SSJ, SSJ_stuff[3])
+        max_LOA = max(max_LOA, LOA_stuff[3])
+        max_JSI = max(max_JSI, JSI_stuff[3])
+        min_SSJ = min(min_SSJ, SSJ_stuff[2])
+        min_LOA = min(min_LOA, LOA_stuff[2])
+        min_JSI = min(min_JSI, JSI_stuff[2])
+    end
+
+    ΔSSJ = max_SSJ - min_SSJ
+    ΔLOA = max_LOA - min_LOA
+    ΔJSI = max_JSI - min_JSI
+
+    for i in 1 : length(names)
+
+        SSJ_stuff = _grab_score_and_extrema(SumSquareJerk,         data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        LOA_stuff = _grab_score_and_extrema(LagOneAutocorrelation, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        JSI_stuff = _grab_score_and_extrema(JerkSignInversions,    data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+
+        println("SSJ_stuff: ", SSJ_stuff)
+        println("LOA_stuff: ", LOA_stuff)
+        println("JSI_stuff: ", JSI_stuff)
+
+        color = "color" * string('A' + i - 1)
+        print(io, "\\addplot [", color, ",fill=", color, "!60,error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
+        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sum Square,",      (SSJ_stuff[1]-min_SSJ)/ΔSSJ, (SSJ_stuff[3]-SSJ_stuff[1])/ΔSSJ, (SSJ_stuff[2]-SSJ_stuff[3])/ΔSSJ)
+        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Autocorrelation,", (LOA_stuff[1]-min_LOA)/ΔLOA, (LOA_stuff[3]-LOA_stuff[1])/ΔLOA, (LOA_stuff[2]-LOA_stuff[3])/ΔLOA)
+        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sign Inversions,", (JSI_stuff[1]-min_JSI)/ΔJSI, (JSI_stuff[3]-JSI_stuff[1])/ΔJSI, (JSI_stuff[2]-JSI_stuff[3])/ΔJSI)
+        @printf(io, "\t};\n")
+    end
+
+    print(io, "\\legend{")
+    for (i,name) in enumerate(names)
+
+        print(io, _convert_to_short_name(name))
+        if i != length(names)
+            print(io, ", ")
+        end
+    end
+    print(io, "}\n")
+end
 function create_tikzpicture_model_compare_rwse_mean(io::IO, data::ContextClassData, sym::Symbol)
     # metrics_sets::Vector{Vector{BehaviorTraceMetric}},
     # names::Vector{S},
@@ -496,6 +567,11 @@ preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "
 data = ContextClassData(SAVE_FILE_MODIFIER, preferred_name_order)
 
 fh = STDOUT
+write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+    create_tikzpicture_model_compare_smoothness(fh, data)
+end
+exit()
+
 write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
     create_tikzpicture_model_compare_logl(fh, data, false)
 end

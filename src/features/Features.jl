@@ -14,7 +14,7 @@ using AutomotiveDrivingModels.StreetNetworks
 
 export AbstractFeature
 export POSFYAW, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT, SCENE_SPEED_DIFFERENCE
-export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY
+export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY, JERK
 export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
 export DIST_MERGE, DIST_SPLIT
 export SUMO, IDM
@@ -479,6 +479,23 @@ function Base.get(::Feature_AccFt, runlog::RunLog, sn::StreetNetwork, colset::UI
         past = get(VELFT, runlog, sn, colset, frame-1)::Float64
         curr_t = get(runlog, frame,   :time)::Float64
         past_t = get(runlog, frame-1, :time)::Float64
+        (curr - past) / (past_t - curr_t)
+    else
+        0.0
+    end
+end
+create_feature_basics("Jerk", :jerk, L"j", Float64, L"\metre\per\second\cubed", -Inf, Inf, :no_na)
+function Base.get(::Feature_Jerk, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    # NOTE(tim): defaults to 0.0 if there is no previous frame
+
+    frameskip = N_FRAMES_PER_SIM_FRAME
+
+    if frame_inbounds(runlog, frame-frameskip)
+        curr = get(ACC, runlog, sn, colset, frame)::Float64
+        past = get(ACC, runlog, sn, colset, frame-frameskip)::Float64
+        curr_t = get(runlog, frame,           :time)::Float64
+        past_t = get(runlog, frame-frameskip, :time)::Float64
         (curr - past) / (past_t - curr_t)
     else
         0.0
