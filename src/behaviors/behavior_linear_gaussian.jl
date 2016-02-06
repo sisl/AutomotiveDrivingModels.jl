@@ -86,20 +86,6 @@ type LG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
     best_A::Matrix{Float64}
     best_Σ::Matrix{Float64}
 
-    function LG_PreallocatedData(dset::ModelTrainingData, params::LG_TrainParams)
-
-        nframes = size(dset.dataframe, 1)
-        p = length(params.indicators)
-        X = Array(Float64, p, nframes)
-        Y = Array(Float64, 2, nframes)
-        Φ = Array(Float64, 2, nframes)
-        μ∞ = Array(Float64, 2)
-        best_μ∞ = Array(Float64, 2)
-        best_A = Array(Float64, 2, 2)
-        best_Σ = Array(Float64, 2, 2)
-
-        new(X, Y, Φ, μ∞, best_μ∞, best_A, best_Σ)
-    end
     function LG_PreallocatedData(dset::ModelTrainingData2, params::LG_TrainParams)
 
         nframes = size(dset.dataframe, 1)
@@ -196,6 +182,24 @@ function calc_action_loglikelihood(
 
     logpdf(behavior.N, behavior.action)
 end
+function calc_action_loglikelihood(
+    behavior::VehicleBehaviorLinearGaussian,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    colset::UInt,
+    frame::Int,
+    action_lat::Float64,
+    action_lon::Float64,
+    )
+
+    ϕ = get(behavior.F, runlog, sn, colset, frame)::Float64
+    _regress_on_feature!(behavior, ϕ)
+
+    behavior.action[1] = action_lat
+    behavior.action[2] = action_lon
+
+    logpdf(behavior.N, behavior.action)
+end
 
 trains_with_nona(::Type{VehicleBehaviorLinearGaussian}) = false
 trains_with_nona(::VehicleBehaviorLinearGaussian) = false
@@ -203,10 +207,7 @@ function train(
     training_data::ModelTrainingData2,
     preallocated_data::LG_PreallocatedData,
     params::LG_TrainParams,
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
-    verbosity::Int=0,
+    frame::FoldSet,
     )
 
     X = preallocated_data.X
@@ -218,9 +219,7 @@ function train(
     best_Σ = preallocated_data.best_Σ
     γ = params.ridge_regression_constant
 
-    ntrainframes = pull_design_and_target_matrices!(
-        X, Y, training_data.dataframe, params.targets, params.indicators,
-        fold, fold_assignment, match_fold)
+    ntrainframes = pull_design_and_target_matrices!( X, Y, training_data.dataframe, params.targets, params.indicators, frame)
 
     # U = Y, column-wise concatenation of output (actions) [o×n]
     # Φ = X, column-wise concatenation of predictor [p×n]
@@ -313,7 +312,7 @@ function train(
             copy!(best_Σ, Σ)
         end
 
-        if verbosity > 0
+        # if verbosity > 0
             # println("\tA: ")
             # @printf("\t\t[%12.6f, %12.6f]\n", A[1,1], A[1,2])
             # @printf("\t\t[%12.6f, %12.6f]\n", A[2,1], A[2,2])
@@ -323,8 +322,8 @@ function train(
             # @printf("\t\t[%12.6f, %12.6f]\n", Σ[1,1], Σ[1,2])
             # @printf("\t\t[%12.6f, %12.6f]\n", Σ[2,1], Σ[2,2])
 
-            @printf("%-20s  %10.6f  %10.6f\n", string(symbol(params.indicators[i])), loss, best_predictor_loss)
-        end
+        #     @printf("%-20s  %10.6f  %10.6f\n", string(symbol(params.indicators[i])), loss, best_predictor_loss)
+        # end
     end
 
     VehicleBehaviorLinearGaussian(params.indicators[best_predictor_index], best_A, best_μ∞, MvNormal([0.0,0.0], PDMat(best_Σ)), params.targets)

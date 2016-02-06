@@ -110,21 +110,6 @@ end
 
 function train(
     behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
-    dset::ModelTrainingData,
-    preallocated_data_dict::Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData},
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    )
-
-    retval = Dict{AbstractString,AbstractVehicleBehavior}()
-    for (behavior_name, train_def) in behaviorset
-        preallocated_data = preallocated_data_dict[behavior_name]
-        retval[behavior_name] = train(dset, preallocated_data, train_def.trainparams, fold, fold_assignment, false)
-    end
-    retval
-end
-function train(
-    behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
     dset::ModelTrainingData2,
     preallocated_data_dict::Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData},
     fold::Int,
@@ -134,11 +119,11 @@ function train(
     retval = Dict{AbstractString,AbstractVehicleBehavior}()
     for (behavior_name, train_def) in behaviorset
         preallocated_data = preallocated_data_dict[behavior_name]
-        retval[behavior_name] = train(dset, preallocated_data, train_def.trainparams, fold, fold_assignment, false)
+        foldset = FoldSet(fold_assignment, fold, false, :frame)
+        retval[behavior_name] = train(dset, preallocated_data, train_def.trainparams, foldset)
     end
     retval
 end
-
 function optimize_hyperparams_cyclic_coordinate_ascent!(
     traindef::BehaviorTrainDefinition,
     dset::ModelTrainingData2,
@@ -197,8 +182,9 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
 
                     logl = 0.0
                     for fold in 1 : cross_validation_split.nfolds
-                        model = train(dset, preallocated_data, trainparams, fold, cross_validation_split, false)
-                        logl += extract(MedianLoglikelihoodMetric, dset, model, cross_validation_split, fold, true).logl
+                        foldset = FoldSet(cross_validation_split, fold, false, :frame)
+                        model = train(dset, preallocated_data, trainparams, foldset)
+                        logl += extract(MedianLoglikelihoodMetric, dset, model, foldset).logl
                     end
                     logl /= cross_validation_split.nfolds
 
@@ -273,9 +259,7 @@ function pull_design_and_target_matrices!(
     trainingframes::DataFrame,
     targets::ModelTargets,
     indicators::Vector{AbstractFeature},
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool;
+    foldset::FoldSet, # :frame
     )
 
     #=
@@ -289,30 +273,26 @@ function pull_design_and_target_matrices!(
 
     n = size(trainingframes, 1)
 
-    @assert(length(fold_assignment.frame_assignment) == n)
     @assert(size(X,1) == length(indicators))
     @assert(size(X,2) == n)
     @assert(size(Y,1) == 2)
     @assert(size(Y,2) == n)
 
     m = 0
-    for row in 1 : n
-        if is_in_fold(fold, fold_assignment.frame_assignment[row], match_fold)
+    for frame in foldset
+        m += 1
+        action_lat = trainingframes[frame, sym_lat]
+        action_lon = trainingframes[frame, sym_lon]
 
-            m += 1
-            action_lat = trainingframes[row, sym_lat]
-            action_lon = trainingframes[row, sym_lon]
+        Y[1, m] = action_lat
+        Y[2, m] = action_lon
 
-            Y[1, m] = action_lat
-            Y[2, m] = action_lon
+        @assert(!isinf(action_lat))
+        @assert(!isinf(action_lon))
 
-            @assert(!isinf(action_lat))
-            @assert(!isinf(action_lon))
-
-            for (j,feature) in enumerate(indicators)
-                v = trainingframes[row, symbol(feature)]
-                X[j, m] = v
-            end
+        for (j,feature) in enumerate(indicators)
+            v = trainingframes[frame, symbol(feature)]
+            X[j, m] = v
         end
     end
 
@@ -366,19 +346,15 @@ end
 function copy_matrix_fold!{A}(
     dest::Matrix{A}, # [nframes × p]
     src::Matrix{A}, # [p × nframes]
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
+    foldset::FoldSet, # :frame
     )
 
     i = 0
-    for (frame, fold_a) in enumerate(fold_assignment.frame_assignment)
-        if is_in_fold(fold, fold_a, match_fold)
-            i += 1
+    for frame in foldset
+        i += 1
 
-            for j in 1 : size(src, 1)
-                dest[i,j] = src[j,frame]
-            end
+        for j in 1 : size(src, 1)
+            dest[i,j] = src[j,frame]
         end
     end
 
@@ -388,15 +364,12 @@ function copy_matrix_fold!{A}(
 end
 function copy_matrix_fold{A}(
     X::Matrix{A}, # [p × nframes]
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
+    foldset::FoldSet,
     )
 
-    nframes = calc_fold_size(fold, fold_assignment.frame_assignment, match_fold)
+    nframes = length(foldset)
     X2 = Array(A, nframes, size(X, 1)) # NOTE: transposed from YX
-
-    copy_matrix_fold!(X2, X, fold, fold_assignment, match_fold)
+    copy_matrix_fold!(X2, X, foldset)
 
     X2 # [nframes × p]
 end

@@ -42,7 +42,7 @@ abstract AbstractVehicleBehaviorTrainParams # parameters defined for training th
 =#
 
 abstract AbstractVehicleBehaviorPreallocatedData
-preallocate_learning_data(dset::ModelTrainingData, params::AbstractVehicleBehaviorTrainParams) = error("preallocate_learning_data not implemented for ")
+preallocate_learning_data(dset::ModelTrainingData2, params::AbstractVehicleBehaviorTrainParams) = error("preallocate_learning_data not implemented for ")
 
 ###############################################################
 
@@ -56,12 +56,10 @@ trains_with_nona(::AbstractVehicleBehavior) = true
 trains_with_nona{B<:AbstractVehicleBehavior}(::Type{B}) = true
 train{B<:AbstractVehicleBehavior}(::Type{B}, ::DataFrame) = error("train not implemented for $B")
 train(
-    ::ModelTrainingData,
+    ::ModelTrainingData2,
     a::AbstractVehicleBehaviorPreallocatedData,
     b::AbstractVehicleBehaviorTrainParams,
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
+    foldset::FoldSet,
     ) =  error("train not implemented for $(typeof(a)) and $(typeof(b))")
 
 ###############################################################

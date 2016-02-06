@@ -1,4 +1,7 @@
 export
+    EvaluationData,
+    allocate_runlogs_for_simulation,
+
     BehaviorMetric,
     BehaviorFrameMetric,
     BehaviorTraceMetric,
@@ -30,73 +33,97 @@ export
     calc_aggregate_metrics,
     calc_mean_cross_validation_metrics,
 
-    compute_metric_summary_table
+    compute_metric_summary_table,
+
+    calc_trace_likelihood
+
+#########################################################################################################
+# EvaluationData
+
+type EvaluationData
+    segments::Vector{RunLogSegment}                     # dset.runlog_segments
+    runlogs::Vector{RunLog}                             # runlogs_original = load_runlogs(dset)
+    streetnets::Dict{AbstractString, StreetNetwork}     # load_streetnets(runlogs_original)
+    frame_starts_sim::Vector{Int}                       # new frame_start for the truncated arr_runlogs_for_simulation
+
+    function EvaluationData(dset::ModelTrainingData2)
+
+        segments = dset.runlog_segments
+        runlogs = load_runlogs(dset)
+        streetnets = load_streetnets(runlogs)
+
+        nsegments = length(segments)
+        frame_starts_sim = Array(Int, nsegments) # new frame_start for the truncated arr_runlogs_for_simulation
+        for (i, seg) in enumerate(segments)
+            where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+            frame_starts_sim[i] = seg.frame_start - where_to_start_copying_from_original_runlog + 1 # where_to_start_simulating_from_runlog_sim
+        end
+
+        retval = new()
+        retval.segments = segments
+        retval.runlogs = runlogs
+        retval.streetnets = streetnets
+        retval.frame_starts_sim = frame_starts_sim
+        retval
+    end
+end
+
+get_nsegments(evaldata::EvaluationData) = length(evaldata.segments)
+function allocate_runlogs_for_simulation(evaldata::EvaluationData, nmodels::Int, nsimulations_per_trace::Int)
+
+    # arr_runlogs_for_simulation::Vector{Matrix{RunLog}}  # nmodels × [ntraces × N_SIMULATIONS_PER_TRACE]
+
+    nsegments = get_nsegments(evaldata)
+    arr_runlogs_for_simulation = Array(Matrix{RunLog}, nmodels)
+    for k in 1 : nmodels
+        arr_runlogs_for_simulation[k] = Array(RunLog, nsegments, nsimulations_per_trace)
+    end
+    for (i, seg) in enumerate(evaldata.segments)
+
+        where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+
+        runlog_sim = deepcopy(evaldata.runlogs[seg.runlog_id], where_to_start_copying_from_original_runlog, seg.frame_end)
+        for k in 1 : nmodels
+            for j in 1 : nsimulations_per_trace
+                arr_runlogs_for_simulation[k][i,j] = deepcopy(runlog_sim)
+            end
+        end
+    end
+
+    arr_runlogs_for_simulation
+end
+
+function simulate!(
+    behavior::AbstractVehicleBehavior,
+    evaldata::EvaluationData,
+    runlogs_for_simulation::Matrix{RunLog},
+    foldset::FoldSet, # :seg
+    )
+
+    for seg_index in foldset
+        # simulate
+        seg = evaldata.segments[seg_index]
+        seg_duration = seg.frame_end - seg.frame_start
+        where_to_start_simulating_from_runlog_sim = evaldata.frame_starts_sim[seg_index]
+        where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
+
+        for l in 1 : size(runlogs_for_simulation, 2)
+            runlog = runlogs_for_simulation[seg_index, l]
+            sn = evaldata.streetnets[runlog.header.map_name]
+            simulate!(runlog, sn, behavior, seg.carid,
+                      where_to_start_simulating_from_runlog_sim,
+                      where_to_end_simulating_from_runlog_sim)
+        end
+    end
+
+    runlogs_for_simulation
+end
+
+#########################################################################################################
 
 abstract BehaviorMetric
 abstract BehaviorFrameMetric <: BehaviorMetric
 abstract BehaviorTraceMetric <: BehaviorMetric
-
-#########################################################################################################
-# EmergentKLDivMetric
-
-type EmergentKLDivMetric{feature_symbol} <: BehaviorTraceMetric
-    kldiv::Float64
-end
-
-const KLDIV_METRIC_NBINS = 10
-const KLDIV_METRIC_DISC_DICT = Dict(
-        symbol(SPEED) => LinearDiscretizer(collect(linspace(0.0,35.0,KLDIV_METRIC_NBINS)), Int),
-        symbol(INV_TIMEGAP_FRONT) => LinearDiscretizer(collect(linspace(0.0,10.0,KLDIV_METRIC_NBINS)), Int),
-        symbol(POSFT) => LinearDiscretizer(collect(linspace(-3.0,3.0,KLDIV_METRIC_NBINS)), Int),
-    )
-
-
-get_score(metric::EmergentKLDivMetric) = metric.kldiv
-
-function extract{Fsym}(::Type{EmergentKLDivMetric{Fsym}},
-    runlog_segments::Vector{RunLogSegment},
-    runlogs_original::Vector{RunLog},
-    runlogs_for_simulation::Matrix{RunLog},
-    frame_starts_sim::Vector{Int},
-    streetnets::Dict{AbstractString, StreetNetwork},
-    foldinds::Vector{Int},
-    bagged_selection::Vector{Int},
-    kldiv_metric_nbins::Int = KLDIV_METRIC_NBINS,
-    )
-
-    F = symbol2feature(Fsym)
-    disc = KLDIV_METRIC_DISC_DICT[Fsym]
-
-    counts_orig = zeros(Int, kldiv_metric_nbins) # NOTE(tim): no prior counts
-    counts_sim  = ones(Int, kldiv_metric_nbins)  # NOTE(tim): uniform Dirichlet prior
-
-    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
-
-    for i in bagged_selection
-
-        # real-world
-        seg = runlog_segments[i]
-        carid = seg.carid
-        runlog = runlogs_original[seg.runlog_id]
-        sn = streetnets[runlog.header.map_name]
-
-        colset = RunLogs.id2colset(runlog, carid, seg.frame_end)
-        v = get(F, runlog, sn, colset, seg.frame_end)::Float64
-        counts_orig[encode(disc, v)] += 1
-
-        # sim
-        frame_end = frame_starts_sim[i] + seg.frame_end - seg.frame_start
-
-        for j = 1 : n_monte_carlo_samples
-            runlog = runlogs_for_simulation[i, j]
-            colset = RunLogs.id2colset(runlog, carid, frame_end)
-            v = get(F, runlog, sn, colset, frame_end)::Float64
-            counts_sim[encode(disc, v)] += 1
-        end
-    end
-
-    EmergentKLDivMetric{Fsym}(calc_kl_div_categorical(counts_orig, counts_sim))
-end
 
 #########################################################################################################
 # RootWeightedSquareError
@@ -109,63 +136,55 @@ end
 
 get_score(metric::RootWeightedSquareError) = metric.rwse
 function extract{Fsym, H}(::Type{RootWeightedSquareError{Fsym, H}},
-    runlog_segments::Vector{RunLogSegment},
-    runlogs_original::Vector{RunLog},
+    evaldata::EvaluationData,
     runlogs_for_simulation::Matrix{RunLog},
-    frame_starts_sim::Vector{Int},
-    streetnets::Dict{AbstractString, StreetNetwork},
-    foldinds::Vector{Int},
-    bagged_selection::Vector{Int},
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
     )
 
-    F = symbol2feature(Fsym)
+    @assert(length(seg_indeces) == length(bagsamples))
 
-    v_true_arr = Array(Float64, 100)
+    F = symbol2feature(Fsym)
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+    frame_skip = round(Int, H/DEFAULT_SEC_PER_FRAME)
 
     running_sum = 0.0
-    for i in bagged_selection
+    for i in bagsamples
 
-        seg = runlog_segments[i]
+        seg_index = seg_indeces[i]
+        seg = evaldata.segments[seg_index]
         carid = seg.carid
-        runlog = runlogs_original[seg.runlog_id]
-        sn = streetnets[runlog.header.map_name]
+        runlog = evaldata.runlogs[seg.runlog_id]
+        sn = evaldata.streetnets[runlog.header.map_name]
 
-        for (j,frame) in enumerate(seg.frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : seg.frame_end)
-            colset = RunLogs.id2colset(runlog, carid, frame)
-            v = get(F, runlog, sn, colset, frame)
-            if is_feature_na(v)
-                v = replace_na(F)
-            end
-            v_true_arr[j] = v
+        frame = seg.frame_start + frame_skip
+        @assert(frame ≤ seg.frame_end)
+
+        # pull true value
+        colset = RunLogs.id2colset(runlog, carid, frame)
+        v_true = get(F, runlog, sn, colset, frame)
+        if is_feature_na(v_true)
+            v_true = replace_na(F)
         end
 
-        frame_start = frame_starts_sim[i]
-        frame_end = frame_start + seg.frame_end - seg.frame_start
-
+        frame = evaldata.frame_starts_sim[seg_index] + frame_skip
         for j = 1 : n_monte_carlo_samples
-            runlog = runlogs_for_simulation[i, j]
 
-            for (k,frame) in enumerate(frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end)
+            runlog = runlogs_for_simulation[seg_index, j]
 
-                Δt = (frame - frame_start)*DEFAULT_SEC_PER_FRAME
-
-                if Δt ≤ H
-                    v_true = v_true_arr[k]
-                    colset = RunLogs.id2colset(runlog, carid, frame)
-                    v_montecarlo = get(F, runlog, sn, colset, frame)
-                    if is_feature_na(v_montecarlo)
-                        v_montecarlo = replace_na(F)
-                    end
-
-                    Δ = v_true - v_montecarlo
-                    running_sum += Δ*Δ
-                end
+            # pull MC result
+            colset = RunLogs.id2colset(runlog, carid, frame)
+            v_montecarlo = get(F, runlog, sn, colset, frame)
+            if is_feature_na(v_montecarlo)
+                v_montecarlo = replace_na(F)
             end
+
+            Δ = v_true - v_montecarlo
+            running_sum += Δ*Δ
         end
     end
 
-    NM = n_monte_carlo_samples * length(foldinds)
+    NM = n_monte_carlo_samples * length(seg_indeces)
 
     RootWeightedSquareError{Fsym, H}(sqrt(running_sum / NM))
 end
@@ -179,45 +198,55 @@ end
 
 get_score(metric::SumSquareJerk) = metric.score
 function extract(::Type{SumSquareJerk},
-    runlog_segments::Vector{RunLogSegment},
-    runlogs_original::Vector{RunLog},
-    runlogs_for_simulation::Matrix{RunLog},
-    frame_starts_sim::Vector{Int},
-    streetnets::Dict{AbstractString, StreetNetwork},
-    foldinds::Vector{Int},
-    bagged_selection::Vector{Int},
+    seg::RunLogSegment,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Int,
     )
+
+    frame_end = frame_start + seg.frame_end - seg.frame_start
+
+    running_sum = 0.0
+    for frame in frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end
+
+        Δt = (frame - frame_start)*DEFAULT_SEC_PER_FRAME
+
+        colset = RunLogs.id2colset(runlog, seg.carid, frame)
+        jerk = get(JERK, runlog, sn, colset, frame)
+        @assert(!isnan(jerk) && !isinf(jerk))
+
+        running_sum += jerk*jerk
+    end
+    running_sum
+end
+function extract(::Type{SumSquareJerk},
+    evaldata::EvaluationData,
+    runlogs_for_simulation::Matrix{RunLog},
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
+    )
+
+    @assert(length(seg_indeces) == length(bagsamples))
 
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
 
     running_sum = 0.0
-    for i in bagged_selection
+    for i in bagsamples
 
-        seg = runlog_segments[i]
+        seg_index = seg_indeces[i]
+        seg = evaldata.segments[seg_index]
         carid = seg.carid
-        runlog = runlogs_original[seg.runlog_id]
-        sn = streetnets[runlog.header.map_name]
-
-        frame_start = frame_starts_sim[i]
-        frame_end = frame_start + seg.frame_end - seg.frame_start
+        runlog = evaldata.runlogs[seg.runlog_id]
+        sn = evaldata.streetnets[runlog.header.map_name]
+        frame_start = evaldata.frame_starts_sim[seg_index]
 
         for j = 1 : n_monte_carlo_samples
-            runlog = runlogs_for_simulation[i, j]
-
-            for (k,frame) in enumerate(frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end)
-
-                Δt = (frame - frame_start)*DEFAULT_SEC_PER_FRAME
-
-                colset = RunLogs.id2colset(runlog, carid, frame)
-                jerk = get(JERK, runlog, sn, colset, frame)
-                @assert(!isnan(jerk) && !isinf(jerk))
-
-                running_sum += jerk*jerk
-            end
+            runlog = runlogs_for_simulation[seg_index, j]
+            running_sum += extract(SumSquareJerk, seg, runlog, sn, frame_start)
         end
     end
 
-    NM = n_monte_carlo_samples * length(foldinds)
+    NM = n_monte_carlo_samples * length(bagsamples)
     SumSquareJerk(running_sum/NM)
 end
 
@@ -230,45 +259,55 @@ end
 
 get_score(metric::JerkSignInversions) = metric.score
 function extract(::Type{JerkSignInversions},
-    runlog_segments::Vector{RunLogSegment},
-    runlogs_original::Vector{RunLog},
-    runlogs_for_simulation::Matrix{RunLog},
-    frame_starts_sim::Vector{Int},
-    streetnets::Dict{AbstractString, StreetNetwork},
-    foldinds::Vector{Int},
-    bagged_selection::Vector{Int},
+    seg::RunLogSegment,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Int,
     )
+
+    frame_end = frame_start + seg.frame_end - seg.frame_start
+
+    running_sum = 0.0
+    jerk_prev = 0.0
+    for frame in frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end
+
+        colset = RunLogs.id2colset(runlog, seg.carid, frame)
+
+        jerk = get(JERK, runlog, sn, colset, frame)
+        is_jerk_inversion = abs(sign(jerk) - sign(jerk_prev)) > 1.5
+        running_sum += is_jerk_inversion
+        jerk_prev = jerk
+    end
+    running_sum
+end
+function extract(::Type{JerkSignInversions},
+    evaldata::EvaluationData,
+    runlogs_for_simulation::Matrix{RunLog},
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
+    )
+
+    @assert(length(seg_indeces) == length(bagsamples))
 
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
 
     running_sum = 0.0
-    for i in bagged_selection
+    for i in bagsamples
 
-        seg = runlog_segments[i]
+        seg_index = seg_indeces[i]
+        seg = evaldata.segments[seg_index]
         carid = seg.carid
-        runlog = runlogs_original[seg.runlog_id]
-        sn = streetnets[runlog.header.map_name]
-
-        frame_start = frame_starts_sim[i]
-        frame_end = frame_start + seg.frame_end - seg.frame_start
+        runlog = evaldata.runlogs[seg.runlog_id]
+        sn = evaldata.streetnets[runlog.header.map_name]
+        frame_start = evaldata.frame_starts_sim[seg_index]
 
         for j = 1 : n_monte_carlo_samples
-            runlog = runlogs_for_simulation[i, j]
-
-            jerk_prev = 0.0
-            for (k,frame) in enumerate(frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end)
-
-                colset = RunLogs.id2colset(runlog, carid, frame)
-
-                jerk = get(JERK, runlog, sn, colset, frame)
-                is_jerk_inversion = abs(sign(jerk) - sign(jerk_prev)) > 1.5
-                running_sum += is_jerk_inversion
-                jerk_prev = jerk
-            end
+            runlog = runlogs_for_simulation[seg_index, j]
+            running_sum += extract(JerkSignInversions, seg, runlog, sn, frame_start)
         end
     end
 
-    NM = n_monte_carlo_samples * length(foldinds)
+    NM = n_monte_carlo_samples * length(bagsamples)
     JerkSignInversions(running_sum/NM)
 end
 
@@ -283,46 +322,54 @@ _lag_one_autocorrelation(x::Vector{Float64}) = cor(x[2:end], x[1:end-1])
 
 get_score(metric::LagOneAutocorrelation) = metric.score
 function extract(::Type{LagOneAutocorrelation},
-    runlog_segments::Vector{RunLogSegment},
-    runlogs_original::Vector{RunLog},
-    runlogs_for_simulation::Matrix{RunLog},
-    frame_starts_sim::Vector{Int},
-    streetnets::Dict{AbstractString, StreetNetwork},
-    foldinds::Vector{Int},
-    bagged_selection::Vector{Int},
+    seg::RunLogSegment,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Int,
     )
+
+    frame_end = frame_start + seg.frame_end - seg.frame_start
+
+    frame_range = frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end
+    jerk_arr = Array(Float64, length(frame_range))
+
+    running_sum = 0.0
+    for (k,frame) in enumerate(frame_range)
+        colset = RunLogs.id2colset(runlog, seg.carid, frame)
+        jerk_arr[k] = get(JERK, runlog, sn, colset, frame)
+        @assert(!isinf(jerk_arr[k]))
+        @assert(!isnan(jerk_arr[k]))
+    end
+    _lag_one_autocorrelation(jerk_arr)
+end
+function extract(::Type{LagOneAutocorrelation},
+    evaldata::EvaluationData,
+    runlogs_for_simulation::Matrix{RunLog},
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
+    )
+
+    @assert(length(seg_indeces) == length(bagsamples))
 
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
 
     running_sum = 0.0
-    for i in bagged_selection
+    for i in bagsamples
 
-        seg = runlog_segments[i]
+        seg_index = seg_indeces[i]
+        seg = evaldata.segments[seg_index]
         carid = seg.carid
-        runlog = runlogs_original[seg.runlog_id]
-        sn = streetnets[runlog.header.map_name]
-
-        frame_start = frame_starts_sim[i]
-        frame_end = frame_start + seg.frame_end - seg.frame_start
-
-        frame_range = frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end
-        jerk_arr = Array(Float64, length(frame_range))
+        runlog = evaldata.runlogs[seg.runlog_id]
+        sn = evaldata.streetnets[runlog.header.map_name]
+        frame_start = evaldata.frame_starts_sim[seg_index]
 
         for j = 1 : n_monte_carlo_samples
-            runlog = runlogs_for_simulation[i, j]
-
-            for (k,frame) in enumerate(frame_range)
-                colset = RunLogs.id2colset(runlog, carid, frame)
-                jerk_arr[k] = get(JERK, runlog, sn, colset, frame)
-                @assert(!isinf(jerk_arr[k]))
-                @assert(!isnan(jerk_arr[k]))
-            end
-
-            running_sum += _lag_one_autocorrelation(jerk_arr)
+            runlog = runlogs_for_simulation[seg_index, j]
+            running_sum += extract(LagOneAutocorrelation, seg, runlog, sn, frame_start)
         end
     end
 
-    NM = n_monte_carlo_samples * length(foldinds)
+    NM = n_monte_carlo_samples * length(bagsamples)
     LagOneAutocorrelation(running_sum/NM)
 end
 
@@ -336,21 +383,20 @@ end
 function extract(::Type{LoglikelihoodMetric},
     dset::ModelTrainingData2,
     behavior::AbstractVehicleBehavior,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool,
+    foldset::FoldSet,
     )
 
     logl = 0.0
     nframes = 0
-    for frameind in 1 : nrow(dset.dataframe)
-        if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
+    if trains_with_nona(behavior)
+        for frameind in foldset
             nframes += 1
-            if trains_with_nona(behavior)
-                logl += calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-            else
-                logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-            end
+            logl += calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+        end
+    else
+        for frameind in foldset
+            nframes += 1
+            logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
         end
     end
     LoglikelihoodMetric(logl/nframes)
@@ -380,21 +426,21 @@ end
 function extract(::Type{MedianLoglikelihoodMetric},
     dset::ModelTrainingData2,
     behavior::AbstractVehicleBehavior,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool,
+    foldset::FoldSet,
     )
 
-    logl_arr = Array(Float64, calc_fold_size(fold, assignment.frame_assignment, match_fold))
+    logl_arr = Array(Float64, length(foldset))
     logl_arr_index = 0
-    for frameind in 1 : nrow(dset.dataframe)
-        if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
+
+    if trains_with_nona(behavior)
+        for frameind in foldset
             logl_arr_index += 1
-            if trains_with_nona(behavior)
-                logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-            else
-                logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-            end
+            logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
+        end
+    else
+        for frameind in foldset
+            logl_arr_index += 1
+            logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
         end
     end
     MedianLoglikelihoodMetric(median(logl_arr))
@@ -414,6 +460,126 @@ function get_frame_score(::Type{MedianLoglikelihoodMetric},
 end
 get_score(metric::MedianLoglikelihoodMetric) = metric.logl
 
+#########################################################################################################
+# EmergentKLDivMetric
+
+type EmergentKLDivMetric{feature_symbol} <: BehaviorTraceMetric
+    kldiv::Float64
+end
+
+const KLDIV_METRIC_NBINS = 10
+const KLDIV_METRIC_DISC_DICT = Dict(
+        symbol(SPEED)                 => LinearDiscretizer(collect(linspace( 0.0,35.0, KLDIV_METRIC_NBINS+1)), Int),
+        symbol(INV_TIMEGAP_FRONT)     => LinearDiscretizer(collect(linspace( 0.0,10.0, KLDIV_METRIC_NBINS+1)), Int),
+        symbol(POSFT)                 => LinearDiscretizer(collect(linspace(-3.0, 3.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0,50.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(JerkSignInversions)    => LinearDiscretizer(collect(linspace( 0.0,15.0,                 15+1)), Int),
+        string(LagOneAutocorrelation) => LinearDiscretizer(collect(linspace(-1.0, 1.0, KLDIV_METRIC_NBINS+1)), Int),
+    )
+
+
+get_score(metric::EmergentKLDivMetric) = metric.kldiv
+function extract{Fsym<:Symbol}(::Type{EmergentKLDivMetric{Fsym}},
+    evaldata::EvaluationData,
+    runlogs_for_simulation::Matrix{RunLog},
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
+    )
+
+    @assert(length(seg_indeces) == length(bagsamples))
+
+    F = symbol2feature(Fsym)
+    disc = KLDIV_METRIC_DISC_DICT[Fsym]
+    counts_orig = zeros(Int, nlabels(disc)) # NOTE(tim): no prior counts
+    counts_sim  = ones(Int, nlabels(disc))  # NOTE(tim): uniform Dirichlet prior
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    for i in bagsamples
+
+        seg_index = seg_indeces[i]
+        seg = evaldata.segments[seg_index]
+        carid = seg.carid
+        runlog = evaldata.runlogs[seg.runlog_id]
+        sn = evaldata.streetnets[runlog.header.map_name]
+
+        colset = RunLogs.id2colset(runlog, carid, seg.frame_end)
+        v = get(F, runlog, sn, colset, seg.frame_end)::Float64
+        counts_orig[encode(disc, v)] += 1
+
+        # sim
+        frame_end = evaldata.frame_starts_sim[seg_index] + seg.frame_end - seg.frame_start
+
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[seg_index, j]
+            colset = RunLogs.id2colset(runlog, carid, frame_end)
+            v = get(F, runlog, sn, colset, frame_end)::Float64
+            counts_sim[encode(disc, v)] += 1
+        end
+    end
+
+    EmergentKLDivMetric{Fsym}(calc_kl_div_categorical(counts_orig, counts_sim))
+end
+function extract{tracemetric <: BehaviorTraceMetric}(::Type{EmergentKLDivMetric{tracemetric}},
+    evaldata::EvaluationData,
+    runlogs_for_simulation::Matrix{RunLog},
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
+    )
+
+    @assert(length(seg_indeces) == length(bagsamples))
+
+    disc = KLDIV_METRIC_DISC_DICT[string(tracemetric)]
+    counts_orig = zeros(Int, nlabels(disc)) # NOTE(tim): no prior counts
+    counts_sim  = ones(Int, nlabels(disc))  # NOTE(tim): uniform Dirichlet prior
+    n_monte_carlo_samples = size(runlogs_for_simulation, 2)
+
+    # lo_realworld = Inf
+    # hi_realworld = -Inf
+    # lo_sim = Inf
+    # hi_sim = -Inf
+
+    for i in bagsamples
+
+        seg_index = seg_indeces[i]
+        seg = evaldata.segments[seg_index]
+        runlog = evaldata.runlogs[seg.runlog_id]
+        sn = evaldata.streetnets[runlog.header.map_name]
+
+        # real-world on just this trace
+        v = extract(tracemetric, seg, runlog, sn, seg.frame_start)
+        if isnan(v)
+            v = 0.0
+        end
+        counts_orig[encode(disc, v)] += 1
+
+        # lo_realworld = min(lo_realworld, v)
+        # hi_realworld = max(hi_realworld, v)
+
+        frame_start = evaldata.frame_starts_sim[seg_index]
+        for j = 1 : n_monte_carlo_samples
+            runlog = runlogs_for_simulation[seg_index, j]
+            v = extract(tracemetric, seg, runlog, sn, frame_start)
+            if isnan(v)
+                v = 0.0
+            end
+
+            # lo_sim = min(lo_sim, v)
+            # hi_sim = max(hi_sim, v)
+
+            counts_sim[encode(disc, v)] += 1
+        end
+    end
+
+    # println("tracemetric: ", tracemetric)
+    # println("\tcounts orig: ", counts_orig)
+    # println("\tcounts sim:  ",  counts_sim)
+    # println("\trange real:  ", lo_realworld, "  ", hi_realworld)
+    # println("\trange sim:   ", lo_sim, "  ", hi_sim)
+    # println("\tkldiv:       ",  calc_kl_div_categorical(counts_orig, counts_sim))
+
+    EmergentKLDivMetric{tracemetric}(calc_kl_div_categorical(counts_orig, counts_sim))
+end
+
 ########################################################################################################
 # Bagging
 
@@ -421,6 +587,8 @@ const DEFAULT_CONFIDENCE_LEVEL = 0.95
 const DEFAULT_N_BAGGING_SAMPLES = 10
 
 function _bagged_mean_sample(v::AbstractVector{Float64}, m::Int=length(v), bag_range::UnitRange{Int}=1:m)
+
+    # compute the mean of a bagged subset of v
 
     x = 0.0
     for i in 1 : m
@@ -430,25 +598,21 @@ function _bagged_mean_sample(v::AbstractVector{Float64}, m::Int=length(v), bag_r
 end
 function _bagged_sample(
     M::DataType,
-    runlog_segments::Vector{RunLogSegment},
-    runlogs_original::Vector{RunLog},
+    evaldata::EvaluationData,
     runlogs_for_simulation::Matrix{RunLog},
-    frame_starts_sim::Vector{Int},
-    streetnets::Dict{AbstractString, StreetNetwork},
-    foldinds::Vector{Int},
-    bagged_selection::Vector{Int}, # preallocated memory - of same length as foldinds
-    m::Int=length(foldinds),
+    seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+    bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
+    m::Int=length(seg_indeces),
     bag_range::UnitRange{Int}=1:m
     )
 
-    @assert(length(bagged_selection) == length(foldinds))
+    @assert(length(bagsamples) == length(seg_indeces))
 
     for i in 1 : m
-        bagged_selection[i] = rand(bag_range)
+        bagsamples[i] = rand(bag_range)
     end
 
-    get_score(extract(M, runlog_segments, runlogs_original, runlogs_for_simulation,
-                      frame_starts_sim, streetnets, foldinds, bagged_selection))
+    get_score(extract(M, evaldata, runlogs_for_simulation, seg_indeces, bagsamples))
 end
 
 
@@ -499,26 +663,21 @@ immutable BaggedMetricResult
 
         new(M, μ, σ, lo, hi, n_bagging_samples, confidence_bound, confidence_level)
     end
-    function BaggedMetricResult{B<:BehaviorTraceMetric}(
-        ::Type{B},
-        runlog_segments::Vector{RunLogSegment},
-        runlogs_original::Vector{RunLog},
+    function BaggedMetricResult{M<:BehaviorTraceMetric}(
+        ::Type{M},
+        evaldata::EvaluationData,
         runlogs_for_simulation::Matrix{RunLog},
-        frame_starts_sim::Vector{Int},
-        streetnets::Dict{AbstractString, StreetNetwork},
-        foldinds::Vector{Int},
-        bagged_selection::Vector{Int}, # preallocated memory - of same length as foldinds
+        seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
+        bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
         n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES,
         confidence_level::Float64=DEFAULT_CONFIDENCE_LEVEL,
         )
 
         z = 1.41421356237*erfinv(confidence_level)
-        m = length(foldinds)
+        m = length(seg_indeces)
         bag_range = 1 : m
 
-        μ = _bagged_sample(B, runlog_segments, runlogs_original, runlogs_for_simulation,
-                           frame_starts_sim, streetnets, foldinds,
-                           bagged_selection, m, bag_range)
+        μ = _bagged_sample(M, evaldata, runlogs_for_simulation, seg_indeces, bagsamples, m, bag_range)
         ν = 0.0 # running variance sum (variance = Sₖ/(k-1))
         lo = Inf
         hi = -Inf
@@ -526,9 +685,7 @@ immutable BaggedMetricResult
         for k in 2 : n_bagging_samples
 
             # take a bagged sample
-            x = _bagged_sample(B, runlog_segments, runlogs_original, runlogs_for_simulation,
-                               frame_starts_sim, streetnets, foldinds,
-                               bagged_selection, m, bag_range)
+            x = _bagged_sample(M, evaldata, runlogs_for_simulation, seg_indeces, bagsamples, m, bag_range)
 
             # update running stats
             μ₂ = μ + (x - μ)/k
@@ -543,116 +700,8 @@ immutable BaggedMetricResult
 
         confidence_bound = z * σ / sqrt(n_bagging_samples)
 
-        new(B, μ, σ, lo, hi, n_bagging_samples, confidence_bound, confidence_level)
+        new(M, μ, σ, lo, hi, n_bagging_samples, confidence_bound, confidence_level)
     end
-end
-
-########################################################################################################
-# Frame Metric Extraction
-
-function extract_frame_scores!{B<:BehaviorFrameMetric}(
-    ::Type{B},
-    frame_scores::Vector{Float64}, # preallocated memory, to be filled
-    frameinds::Vector{Int}, # lists the indeces which are to be used
-
-    behavior::AbstractVehicleBehavior,
-    dset::ModelTrainingData,
-    )
-
-    for (i,frameind) in enumerate(frameinds)
-        frame_scores[i] = get_frame_score(B, dset, behavior, frameind)
-    end
-
-    frame_scores
-end
-function extract_frame_metrics(
-    metric_types_frame::Vector{DataType},
-    metric_types_frame_bagged::Vector{DataType},
-
-    behavior::AbstractVehicleBehavior,
-    dset::ModelTrainingData,
-
-    frame_scores::Vector{Float64},
-    foldinds::Vector{Int},
-
-    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
-    confidence_level::Float64=0.95,
-    )
-
-    #=
-    Returns
-        Vector{BehaviorFrameMetric} over metric_types_frame
-        Vector{BaggedMetricResult} over metric_types_frame_bagged
-    =#
-
-    retval_straight = Array(BehaviorFrameMetric, length(metric_types_frame))
-    retval_bagged = Array(BaggedMetricResult, length(metric_types_frame_bagged))
-
-    done_bagged = falses(length(metric_types_frame_bagged))
-
-    j = 0
-    for (i,M) in enumerate(metric_types_frame)
-        extract_frame_scores!(M, frame_scores, foldinds, behavior, dset)
-        retval_straight[i] = extract(M, frame_scores)
-        k = findfirst(metric_types_frame_bagged, M)
-        if k != 0
-            j += 1
-            retval_bagged[j] = BaggedMetricResult(M, frame_scores, n_bagging_samples, confidence_level)
-            done_bagged[k] = true
-        end
-    end
-
-    for (b, M) in zip(done_bagged, metric_types_frame_bagged)
-        if !b
-            j += 1
-            extract_frame_scores!(M, frame_scores, foldinds, behavior, dset)
-            retval_bagged[j] = BaggedMetricResult(M, frame_scores, n_bagging_samples, confidence_level)
-        end
-    end
-
-    (retval_straight, retval_bagged)
-end
-function extract_frame_metrics{B<:AbstractVehicleBehavior}(
-    metric_types_frame::Vector{DataType},
-    metric_types_frame_bagged::Vector{DataType},
-
-    behaviors::Vector{B},
-    dset::ModelTrainingData,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool,
-
-    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
-    confidence_level::Float64=0.95,
-    )
-
-    #=
-    Returns
-        Vector{Vector{BehaviorFrameMetric}} over behaviors, then metric_types_frame
-        Vector{Vector{BaggedMetricResult}} over behaviors, then metric_types_frame_bagged
-    =#
-
-    @assert(n_bagging_samples > 1)
-
-    # allocate memory
-    n = calc_fold_size(fold, assignment.frame_assignment, match_fold)
-    frame_scores = Array(Float64, n) # preallocated memory, to be filled
-    foldinds = calc_fold_inds!(Array(Int, n), fold, assignment.frame_assignment, match_fold)
-
-    retval_straight = Array(Vector{BehaviorFrameMetric}, length(behaviors))
-    retval_bagged = Array(Vector{BaggedMetricResult}, length(behaviors))
-
-    for (i,b) in enumerate(behaviors)
-        (c,d) = extract_frame_metrics(
-                        metric_types_frame, metric_types_frame_bagged,
-                        b, dset, frame_scores, foldinds,
-                        n_bagging_samples, confidence_level,
-                        )
-        retval_straight[i] = c
-        retval_bagged[i] = d
-    end
-
-    (retval_straight, retval_bagged)
 end
 
 #########################################################################################################
@@ -660,291 +709,6 @@ end
 
 const DEFAULT_N_SIMULATIONS_PER_TRACE = 5
 const DEFAULT_TRACE_HISTORY = 2*DEFAULT_FRAME_PER_SEC
-
-function extract_trace_metrics{B<:AbstractVehicleBehavior}(
-    metric_types_trace::Vector{DataType},
-    metric_types_trace_bagged::Vector{DataType},
-
-    behaviors::Vector{B},
-    dset::ModelTrainingData,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool,
-
-    pdsets_original::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-
-    n_simulations_per_trace::Int=DEFAULT_N_SIMULATIONS_PER_TRACE,
-    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
-    confidence_level::Float64=DEFAULT_CONFIDENCE_LEVEL,
-    trace_history::Int=DEFAULT_TRACE_HISTORY,
-    )
-
-    #=
-    Returns
-        Vector{Vector{BehaviorTraceMetric}} over behaviors, then metric_types_trace
-        Vector{Vector{BaggedMetricResult}} over behaviors, then metric_types_trace_bagged
-    =#
-
-    @assert(n_simulations_per_trace > 0)
-    @assert(n_bagging_samples > 1)
-
-    # allocate memory
-    n = calc_fold_size(fold, assignment.seg_assignment, match_fold)
-    foldinds = calc_fold_inds!(Array(Int, n), fold, assignment.seg_assignment, match_fold)
-    bagged_selection = Array(Int, n)
-
-    # make pdset copies that are only as large as needed (contain history and horizon from pdsets_original)
-    pdsets_for_simulation = Array(PrimaryDataset, n, n_simulations_per_trace)
-    validfind_starts_sim = Array(Int, n) # new validfind_start for the truncated pdsets_for_simulation
-
-    for (i,ind) in enumerate(foldinds)
-        seg = dset.pdset_segments[ind]
-        validfind_start = max(1, seg.validfind_start - DEFAULT_TRACE_HISTORY)
-        pdset_sim = deepcopy(pdsets_original[seg.pdset_id], validfind_start, seg.validfind_end)
-        validfind_starts_sim[i] = clamp(seg.validfind_start-DEFAULT_TRACE_HISTORY, 1, DEFAULT_TRACE_HISTORY+1)
-
-        # print(seg.validfind_start, "  ", validfind_start, "  ", validfind_starts_sim[i], "   ")
-        # print(pdsets_original[seg.pdset_id].df_ego[validfind2frameind(pdsets_original[seg.pdset_id], seg.validfind_start),:posGx], "   ")
-        # print(pdset_sim.df_ego[validfind2frameind(pdset_sim, validfind_starts_sim[i]), :posGx], "   ")
-        # print(pdsets_original[seg.pdset_id].df_ego[validfind2frameind(pdsets_original[seg.pdset_id], seg.validfind_end),:posGx], "   ")
-        # println(pdset_sim.df_ego[validfind2frameind(pdset_sim, validfind_starts_sim[i] + seg.validfind_end - seg.validfind_start), :posGx])
-
-        pdsets_for_simulation[i,1] = pdset_sim
-        for j in 2 : n_simulations_per_trace
-            pdsets_for_simulation[i,j] = deepcopy(pdset_sim)
-        end
-    end
-
-    retval_straight = Array(Vector{BehaviorTraceMetric}, length(behaviors))
-    retval_bagged = Array(Vector{BaggedMetricResult}, length(behaviors))
-
-    for (i,b) in enumerate(behaviors)
-        (c,d) = extract_trace_metrics(
-                        metric_types_trace, metric_types_trace_bagged,
-                        b, dset, pdsets_original,
-                        pdsets_for_simulation, validfind_starts_sim,
-                        streetnets, foldinds, bagged_selection,
-                        n_bagging_samples, confidence_level,
-                        )
-        retval_straight[i] = c
-        retval_bagged[i] = d
-    end
-
-    (retval_straight, retval_bagged)
-end
-
-
-#########################################################################################################
-# BaggedMetric
-
-
-function extract_bagged_metrics(
-    metric_types_frame_test::Vector{DataType},
-
-    behavior::AbstractVehicleBehavior,
-    dset::ModelTrainingData,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool;
-
-    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
-    confidence_level::Float64=0.95,
-    )
-
-    @assert(n_bagging_samples > 1)
-
-    nrows = nrow(dset.dataframe)
-    n_metrics = length(metric_types_frame_test)
-    frame_scores = Array(Float64, nrows, n_metrics)
-    nvalid_frames = 0
-
-    for frameind in 1 : nrows
-        if is_in_fold(fold, assignment.frame_assignment[frameind], match_fold)
-            nvalid_frames += 1
-            for (j,metric_type) in enumerate(metric_types_frame_test)
-                frame_scores[nvalid_frames, j] = get_frame_score(metric_type, dset, behavior, frameind)
-            end
-        end
-    end
-
-    z = 1.41421356237*erfinv(confidence_level)
-    bag_range = 1 : nvalid_frames
-    bootstrap_scores = zeros(Float64, n_bagging_samples)
-    retval = Array(BaggedMetricResult, n_metrics)
-    for (j,metric_type) in enumerate(metric_types_frame_test)
-
-        for i in 1 : n_bagging_samples
-            for k in bag_range
-                row_index = rand(bag_range)
-                bootstrap_scores[i] += frame_scores[row_index, j]
-            end
-            bootstrap_scores[i] /= nvalid_frames
-        end
-
-        μ = mean(bootstrap_scores)
-        σ = stdm(bootstrap_scores, μ)
-
-        confidence_bound = z * σ / sqrt(n_bagging_samples)
-
-        retval[j] = BaggedMetricResult(metric_type, μ, σ, confidence_bound, confidence_level, n_bagging_samples)
-    end
-
-    retval
-end
-function extract_bagged_metrics{B<:AbstractVehicleBehavior}(
-    metric_types_frame_test::Vector{DataType},
-
-    behaviors::Vector{B},
-    dset::ModelTrainingData,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool;
-
-    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
-    confidence_level::Float64=0.95,
-    )
-
-    @assert(n_bagging_samples > 1)
-
-    retval = Array(Vector{BaggedMetricResult}, length(behaviors))
-    for (i,b) in enumerate(behaviors)
-        retval[i] = extract_bagged_metrics(
-                            metric_types_frame_test, b, dset, assignment,
-                            fold, match_fold, n_bagging_samples=n_bagging_samples,
-                            confidence_level=confidence_level
-                            )
-    end
-    retval
-end
-function extract_bagged_metrics_from_traces{B<:AbstractVehicleBehavior}(
-    metric_types_trace_test::Vector{DataType},
-    behaviors::Vector{B},
-
-    pdsets_original::Vector{PrimaryDataset},
-    pdsets_for_simulation::Vector{PrimaryDataset},
-    streetnets::Vector{StreetNetwork},
-    pdset_segments::Vector{PdsetSegment},
-
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool; # true for CV where we test on withheld data
-
-    n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES, # number of bootstrap aggregated samples to take from data to eval on
-    confidence_level::Float64=0.95,
-    )
-
-    @assert(n_bagging_samples > 1)
-
-    ntraces = length(pdset_segments)
-    n_metrics = length(metric_types_trace_test)
-    n_models = length(behaviors)
-
-    retval = Array(Vector{BaggedMetricResult}, n_models)
-    if isempty(metric_types_trace_test)
-        for i in 1 : length(retval)
-            retval[i] = BaggedMetricResult[]
-        end
-        return retval
-    end
-
-    # select samples
-    n_valid_samples = calc_fold_size(fold, assignment.seg_assignment, match_fold)
-
-    # calc mapping from bagged index to pdset index
-    valid_sample_indeces = Array(Int, n_valid_samples)
-    fold_count = 0
-    for (i,a) in enumerate(assignment.seg_assignment)
-        if is_in_fold(fold, a, match_fold)
-            fold_count += 1
-            valid_sample_indeces[fold_count] = i
-        end
-    end
-
-    bagged_assignment = FoldAssignment(Int[], ones(Int, n_valid_samples), 1) # take 'em all
-    bagged_pdset_segments = Array(PdsetSegment, n_valid_samples)
-
-    bootstrap_scores = Array(Float64, n_bagging_samples, n_metrics, n_models)
-    sample_range = 1:n_valid_samples
-    for i = 1 : n_bagging_samples
-
-        # sample a bagged set
-        for k = 1 : n_valid_samples
-            bagged_pdset_segments[k] = pdset_segments[valid_sample_indeces[rand(sample_range)]]
-        end
-
-        # compute metrics for all behaviors ::Vector{Vector{BehaviorTraceMetric}}
-        metrics = extract_metrics_from_traces(metric_types_trace_test, behaviors,
-                        pdsets_original, pdsets_for_simulation, streetnets, bagged_pdset_segments,
-                        bagged_assignment, 1, true)
-
-        # compute scores on those traces
-        for k in 1 : n_models
-            metric_list = metrics[k+1] # skip the realworld result
-            for (j,metric) in enumerate(metric_list)
-                bootstrap_scores[i,j,k] = get_score(metric)
-            end
-        end
-    end
-
-    # compute bagged metrics
-    z = 1.41421356237*erfinv(confidence_level)
-    for k in 1 : n_models
-        retval_list = Array(BaggedMetricResult, n_metrics)
-        for (j,metric_type) in enumerate(metric_types_trace_test)
-            μ = mean(bootstrap_scores[:,j,k])
-            σ = stdm(bootstrap_scores[:,j,k], μ)
-            confidence_bound = z * σ / sqrt(n_bagging_samples)
-            retval_list[j] = BaggedMetricResult(metric_type, μ, σ, confidence_bound,
-                                                confidence_level, n_bagging_samples)
-        end
-        retval[k] = retval_list
-    end
-
-    retval
-end
-
-#########################################################################################################
-
-function extract_metrics(
-    metric_types::Vector{DataType}, # each type should be a BehaviorMetric
-    dset::ModelTrainingData,
-    behavior::AbstractVehicleBehavior,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool,
-    )
-
-    retval = Array(BehaviorFrameMetric, length(metric_types))
-    for (i,metric_type) in enumerate(metric_types)
-        retval[i] = extract(metric_type, dset, behavior, assignment, fold, match_fold)
-    end
-    retval
-end
-function extract_metrics{B<:AbstractVehicleBehavior}(
-    metric_types::Vector{DataType},
-    models::Vector{B},
-    dset::ModelTrainingData,
-    assignment::FoldAssignment,
-    fold::Int,
-    match_fold::Bool,
-    )
-
-    retval = Array(Vector{BehaviorFrameMetric}, length(models))
-
-    if isempty(metric_types)
-        for i = 1 : length(models)
-            retval[i] = BehaviorMetric[]
-        end
-        return retval
-    end
-
-
-    for (i,model) in enumerate(models)
-        retval[i] = extract_metrics(metric_types, dset, model, assignment, fold, match_fold)
-    end
-    retval
-end
 
 #########################################################################################################
 
@@ -1068,4 +832,32 @@ function calc_mean_cross_validation_metrics(aggmetric_set::Vector{Dict{Symbol,An
     end
 
     retval
+end
+
+########
+
+function calc_trace_likelihood(
+    runlogs::Vector{RunLog},
+    streetnets::Dict{AbstractString, StreetNetwork},
+    seg::RunLogSegment,
+    behavior::AbstractVehicleBehavior;
+    id::UInt=ID_EGO,
+    )
+
+    runlog = runlogs[seg.runlog_id]
+    sn = streetnets[runlog.header.map_name]
+
+    seg_duration = seg.frame_end - seg.frame_start
+
+    logl = 0.0
+    for frame in seg.frame_start : seg.frame_end
+        colset = id2colset(runlog, id, frame)
+
+        # TODO - fix specific action
+        action_lat = get(FUTUREDESIREDANGLE, runlog, sn, colset, frame)
+        action_lon = get(FUTUREACCELERATION, runlog, sn, colset, frame)
+
+        logl += calc_action_loglikelihood(behavior, runlog, sn, colset, frame, action_lat, action_lon)
+    end
+    logl
 end

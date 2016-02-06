@@ -42,7 +42,6 @@ type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
 
     # TODO(tim): use this
 
-    SG_PreallocatedData(dset::ModelTrainingData, params::SG_TrainParams) = new()
     SG_PreallocatedData(dset::ModelTrainingData2, params::SG_TrainParams) = new()
 end
 function preallocate_learning_data(
@@ -80,14 +79,27 @@ function calc_action_loglikelihood(
 
     logpdf(behavior.Σ, behavior.action)
 end
+function calc_action_loglikelihood(
+    behavior::VehicleBehaviorGaussian,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    colset::UInt,
+    frame::Int,
+    action_lat::Float64,
+    action_lon::Float64,
+    )
+
+    behavior.action[1] = action_lat
+    behavior.action[2] = action_lon
+
+    logpdf(behavior.Σ, behavior.action)
+end
 
 function train(
     training_data::ModelTrainingData2,
     preallocated_data::SG_PreallocatedData,
     params::SG_TrainParams,
-    fold::Int,
-    fold_assignment::FoldAssignment,
-    match_fold::Bool,
+    foldset::FoldSet,
     )
 
     trainingframes = training_data.dataframe_nona
@@ -95,11 +107,11 @@ function train(
 
     total = 0
     trainingmatrix = Array(Float64, 2, nframes)
-    for i = 1 : nframes
+    for frame in foldset
 
         # TODO(tim): shouldn't use hard-coded symbols
-        action_lat = trainingframes[i, symbol(Features.FUTUREDESIREDANGLE)]
-        action_lon = trainingframes[i, symbol(Features.FUTUREACCELERATION)]
+        action_lat = trainingframes[frame, symbol(Features.FUTUREDESIREDANGLE)]
+        action_lon = trainingframes[frame, symbol(Features.FUTUREACCELERATION)]
 
         if !isnan(action_lat) && !isnan(action_lon) &&
            !isinf(action_lat) && !isinf(action_lon)

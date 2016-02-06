@@ -28,23 +28,20 @@ function _export_legend{S<:AbstractString}(io::IO, modelnames::Vector{S})
     end
     print(io, "}\n")
 end
-function create_tikzpicture_experiment_1{S<:AbstractString}(io::IO, df::DataFrame, modelnames::Vector{S})
+function create_tikzpicture_experiment_1(io::IO, dfs::Dict{AbstractString, DataFrame})
 
     #=
     This outputs, for each model by order of names:
 
     \addplot[colorE, dotted, thick, mark=none] coordinates{
         (0.0100,3472.2196) (0.0167,3179.6420) (0.0278,6060.3558) (0.0464,6231.8598) (0.0774,7445.1712) (0.1292,8600.2229) (0.2154,8947.1872) (0.3594,9629.5129) (0.5995,9900.6706) (1.0000,9782.7516) };
-
-    And for the legend:
-
-
     =#
 
-    percentages = sort(unique(convert(Vector{Float64}, df[:dataset_percentage])))
+    for (i, tup) in enumerate(dfs)
 
-    for (i,name) in enumerate(modelnames)
+        name, df = tup
 
+        percentages = sort(unique(convert(Vector{Float64}, df[:dataset_percentage])))
         color = "color" * string('A' + i - 1)
 
         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
@@ -70,70 +67,23 @@ function create_tikzpicture_experiment_1{S<:AbstractString}(io::IO, df::DataFram
 
     _export_legend(io, map(_convert_to_short_name, modelnames))
 end
-# function create_tikzpicture_experiment_4{S<:AbstractString}(io::IO, df::DataFrame, model::Vector{S})
+function create_tikzpicture_experiment(io::IO, dfs::Dict{AbstractString, DataFrame})
 
-#     #=
-#     This outputs a csv file for the given model name
-
-#     x y z logl
-#     0.0 0.0 1.0 0.0034743774733111514
-#     0.0 0.25 0.75 0.015673856116184083
-#     0.0 0.5 0.5 0.012098485065977549
-
-#     And for the legend:
-
-
-#     =#
-
-#     percentages = sort(unique(convert(Vector{Float64}, df[:dataset_percentage])))
-
-#     for (i,name) in enumerate(modelnames)
-
-#         color = "color" * string('A' + i - 1)
-
-#         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
-#         @printf(io, "\t")
-
-#         for p in percentages
-#             logl = 0.0
-#             nframes = 0
-#             for j in 1 : nrow(df)
-#                 if df[j, :dataset_percentage] == p &&
-#                    df[j, :model_name] == name
-
-#                    logl += df[j, :logl_test] * df[j, :nframes]
-#                    nframes += df[j, :nframes]
-#                 end
-#             end
-#             logl /= nframes
-
-#             @printf(io, "(%.4f,%.4f) ", p, logl)
-#         end
-#         println(io, "};")
-#     end
-
-#     _export_legend(io, map(_convert_to_short_name, modelnames))
-# end
+end
 
 modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
-df_exp1 = DataFrame()
+dfs = Dict{AbstractString, DataFrame}()
 for model_name in modelnames
 
     model_output_name = replace(lowercase(model_name), " ", "_")
     inpath = joinpath(RESULTS_DIR, "data_vs_performance_metrics_" * model_output_name * ".csv")
-    df = readtable(inpath)
-
-    if isempty(df_exp1)
-        df_exp1 = df
-    else
-        append!(df_exp1, df)
-    end
+    dfs[model_name] = readtable(inpath)
 end
 
 fh = STDOUT
-write_to_texthook(TEXFILE, "varydata-experiment-1") do fh
-    create_tikzpicture_experiment_1(fh, df_exp1, modelnames)
+write_to_texthook(TEXFILE, "varydata-experiment-logl") do fh
+    create_tikzpicture_experiment_1(fh, dfs)
 end
 
 println("DONE EXPORTING RESULTS")

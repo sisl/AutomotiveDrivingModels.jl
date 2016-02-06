@@ -1,8 +1,8 @@
-export 
+export
         ParamsHistobin,
 
         calc_trace_deviation,
-        
+
         allocate_empty_histobin,
         update_histobin!,
         calc_histobin,
@@ -25,7 +25,7 @@ type ParamsHistobin
 end
 
 function calc_trace_deviation(pdset::PrimaryDataset, sn::StreetNetwork, seg::PdsetSegment)
-    
+
     initial_carind = carid2ind(pdset, seg.carid, seg.validfind_start)
     velFx = get(pdset, :velFx, initial_carind, seg.validfind_start)
     velFy = get(pdset, :velFy, initial_carind, seg.validfind_start)
@@ -61,7 +61,7 @@ function calc_trace_deviation(pdset::PrimaryDataset, sn::StreetNetwork, seg::Pds
         println(project_point_to_streetmap(posGx_B, posGy_B, sn))
     end
     @assert(!isnan(Δt))
-    
+
     (Δt, Δd)
 end
 
@@ -92,22 +92,17 @@ function calc_histobin(
     streetnets::Vector{StreetNetwork},
     pdset_segments::Vector{PdsetSegment},
     histobin_params::ParamsHistobin,
-    fold::Integer,
-    pdsetseg_fold_assignment::Vector{Int},
-    match_fold::Bool
+    foldset::FoldSet, # :seg
     )
 
     histobin = allocate_empty_histobin(histobin_params)
 
-    for (fold_assignment, seg) in zip(pdsetseg_fold_assignment, pdset_segments)
-
-        if is_in_fold(fold, fold_assignment, match_fold)
-
-            update_histobin!(histobin, 
-                             pdsets[seg.pdset_id], 
-                             streetnets[seg.streetnet_id],
-                             seg, histobin_params)
-        end
+    for index in foldset
+        seg = pdset_segments[index]
+        update_histobin!(histobin,
+                         pdsets[seg.pdset_id],
+                         streetnets[seg.streetnet_id],
+                         seg, histobin_params)
     end
 
     histobin
@@ -122,8 +117,8 @@ function calc_histobin(
     histobin = allocate_empty_histobin(histobin_params)
 
     for seg in pdset_segments
-        update_histobin!(histobin, 
-                         pdsets[seg.pdset_id], 
+        update_histobin!(histobin,
+                         pdsets[seg.pdset_id],
                          streetnets[seg.streetnet_id],
                          seg, histobin_params)
     end
@@ -147,7 +142,7 @@ function calc_histobin(Δt_arr::Vector{Float64}, Δy_arr::Vector{Float64}, histo
 end
 
 function KL_divergence_categorical(histobinA::Matrix{Float64}, histobinB::Matrix{Float64})
-    
+
     Ap = histobinA ./ sum(histobinA)
     Bp = histobinB ./ sum(histobinB)
 
@@ -181,7 +176,7 @@ end
 #     history         :: Int,
 #     target_histobin :: Matrix{Float64},
 #     histobin_params :: ParamsHistobin,
-#     simparams       :: SimParams,    
+#     simparams       :: SimParams,
 #     KLdiv_method    :: Symbol; # ∈ :Dirichlet, :Categorical
 #     verbosity       :: Int = 0
 #     )
@@ -226,7 +221,7 @@ end
 #             toc()
 #             tic()
 #         end
-        
+
 #         for coordinate = 1 : n_params
 #             if verbosity > 1
 #                 println("\tcoordinate ", coordinate)
@@ -239,14 +234,14 @@ end
 
 #                 if !in(newparams, params_tried)
 #                     push!(params_tried, newparams)
-                    
+
 #                     egobehavior.simparams_lat.sampling_scheme  = param_options[1][newparams[1]]
 #                     egobehavior.simparams_lon.sampling_scheme  = param_options[3][newparams[3]]
 #                     egobehavior.simparams_lat.smoothing        = param_options[2][newparams[2]][1]
 #                     egobehavior.simparams_lat.smoothing_counts = param_options[2][newparams[2]][2]
 #                     egobehavior.simparams_lon.smoothing        = param_options[4][newparams[4]][1]
 #                     egobehavior.simparams_lon.smoothing_counts = param_options[4][newparams[4]][2]
-                    
+
 #                     simulate!(simlogs, behaviors, road, history, simparams)
 #                     # TODO(tim): compute histobin directly
 #                     (Δt_arr, Δy_arr) = calc_traceset_deviations(simlogs, history)

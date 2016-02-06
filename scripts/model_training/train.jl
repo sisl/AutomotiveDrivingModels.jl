@@ -17,9 +17,12 @@ metric_types_test_traces = [
                             # EmergentKLDivMetric{symbol(SPEED)},
                             # EmergentKLDivMetric{symbol(POSFT)},
                             # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
-                            SumSquareJerk,
-                            JerkSignInversions,
-                            LagOneAutocorrelation,
+                            # SumSquareJerk,
+                            # JerkSignInversions,
+                            # LagOneAutocorrelation,
+                            EmergentKLDivMetric{SumSquareJerk},
+                            EmergentKLDivMetric{JerkSignInversions},
+                            EmergentKLDivMetric{LagOneAutocorrelation},
                             RootWeightedSquareError{symbol(SPEED), 0.5},
                             RootWeightedSquareError{symbol(SPEED), 1.0},
                             RootWeightedSquareError{symbol(SPEED), 1.5},
@@ -36,19 +39,30 @@ metric_types_test_traces = [
                             RootWeightedSquareError{symbol(POSFT), 3.0},
                             RootWeightedSquareError{symbol(POSFT), 3.5},
                             RootWeightedSquareError{symbol(POSFT), 4.0},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 0.5},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.0},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.5},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.0},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.5},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.0},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.5},
-                            RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 0.5},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.0},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.5},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.0},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.5},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.0},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.5},
+                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 0.5},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 1.0},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 1.5},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 2.0},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 2.5},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 3.0},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 3.5},
+                            RootWeightedSquareError{symbol(DIST_FRONT), 4.0},
                            ]
 metric_types_test_traces_bagged = [
-                                    SumSquareJerk,
-                                    JerkSignInversions,
-                                    LagOneAutocorrelation,
+                                   # SumSquareJerk,
+                                   # JerkSignInversions,
+                                   # LagOneAutocorrelation,
+                                   EmergentKLDivMetric{SumSquareJerk},
+                                   EmergentKLDivMetric{JerkSignInversions},
+                                   EmergentKLDivMetric{LagOneAutocorrelation},
                                    # EmergentKLDivMetric{symbol(SPEED)},
                                    # EmergentKLDivMetric{symbol(POSFT)},
                                    # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
@@ -96,7 +110,17 @@ for dset_filepath_modifier in (
     METRICS_OUTPUT_FILE = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * ".jld")
     DATASET_JLD_FILE = joinpath(EVALUATION_DIR, "dataset2" * dset_filepath_modifier * ".jld")
 
+    print("loading dataset  "); tic()
     dset = JLD.load(DATASET_JLD_FILE, "model_training_data")::ModelTrainingData2
+    toc()
+
+    print("loading evaluation data  "); tic()
+    evaldata = EvaluationData(dset)
+    toc()
+
+    print("allocating runlogs for simulation  "); tic()
+    arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata, nmodels, N_SIMULATIONS_PER_TRACE)
+    toc()
 
     print("\t\tpreallocating data   "); tic()
     preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
@@ -116,46 +140,11 @@ for dset_filepath_modifier in (
         end
     end
 
-    print("loading sim resources "); tic()
-    runlogs_original = load_runlogs(dset)
-    streetnets = load_streetnets(runlogs_original)
-    toc()
-
     cv_split_outer = get_fold_assignment_across_drives(dset, N_FOLDS)
 
     nframes = nrow(dset.dataframe)
-    ntraces = length(cv_split_outer.seg_assignment)
+    ntraces = length(dset.runlog_segments)
     frame_logls = Array(Float64, nframes, ntraces, nmodels) # logl for each frame under each run (we can back out TRAIN and TEST)
-
-    foldinds = collect(1:ntraces)
-    bagged_selection = collect(1:ntraces)
-
-    # make pdset copies that are only as large as needed
-    # (contain history and horizon from runlogs_original)
-    println("preallocating memory for traces"); tic()
-
-    arr_runlogs_for_simulation = Array(Matrix{RunLog}, nmodels)
-    frame_starts_sim = Array(Int, ntraces) # new frame_start for the truncated arr_runlogs_for_simulation
-    for k in 1 : nmodels
-        arr_runlogs_for_simulation[k] = Array(RunLog, ntraces, N_SIMULATIONS_PER_TRACE)
-    end
-    for (i,ind) in enumerate(foldinds)
-
-        seg = dset.runlog_segments[ind]
-
-        where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
-        where_to_start_simulating_from_runlog_sim = seg.frame_start - where_to_start_copying_from_original_runlog + 1
-
-        runlog_sim = deepcopy(runlogs_original[seg.runlog_id], where_to_start_copying_from_original_runlog, seg.frame_end)
-        frame_starts_sim[i] = where_to_start_simulating_from_runlog_sim
-
-        for k in 1 : nmodels
-            for j in 1 : N_SIMULATIONS_PER_TRACE
-                arr_runlogs_for_simulation[k][i,j] = deepcopy(runlog_sim)
-            end
-        end
-    end
-    toc()
 
     ######################################
     # TRAIN A MODEL FOR EACH FOLD USING CV
@@ -193,7 +182,7 @@ for dset_filepath_modifier in (
                 val = getfield(train_def.trainparams, sym)
                 ind = findfirst(λ.range, val)
                 if ind == 0
-                    println("sym: ", sym)
+                    println("sym: ", sym) # DEBUG
                     println("range: ", λ.range)
                     println("val: ", val)
                 end
@@ -221,26 +210,12 @@ for dset_filepath_modifier in (
         end
 
         println("\tsimulating"); tic()
+        foldset = FoldSet(cv_split_outer, fold, true, :seg)
         for (k,model_name) in enumerate(model_names)
             behavior = models[model_name]
 
             print("\t\t", model_name, "  "); tic()
-            for i in 1 : ntraces
-                if cv_split_outer.seg_assignment[i] == fold # in test
-                    # simulate
-                    seg = dset.runlog_segments[i]
-                    seg_duration = seg.frame_end - seg.frame_start
-                    where_to_start_simulating_from_runlog_sim = frame_starts_sim[i]
-                    where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
-
-                    for l in 1 : N_SIMULATIONS_PER_TRACE
-                        runlog = arr_runlogs_for_simulation[k][i, l]
-                        sn = streetnets[runlog.header.map_name]
-                        simulate!(runlog, sn, behavior, seg.carid,
-                            where_to_start_simulating_from_runlog_sim, where_to_end_simulating_from_runlog_sim)
-                    end
-                end
-            end
+            simulate!(behavior, evaldata, arr_runlogs_for_simulation[k], foldset)
             toc()
         end
         toc()
@@ -250,7 +225,10 @@ for dset_filepath_modifier in (
 
     print_hyperparam_statistics(STDOUT, behaviorset, hyperparam_counts)
 
-    print("Exctracting frame stats  "); tic()
+    print("Exctracting metrics  "); tic()
+
+    seg_indeces = collect(1:ntraces) # list of traces
+    bagsamples = collect(1:ntraces) # should tell me what foldind to use
 
     metrics_sets_test_frames = Array(Vector{BehaviorFrameMetric}, nmodels)
     metrics_sets_train_frames = Array(Vector{BehaviorFrameMetric}, nmodels)
@@ -284,14 +262,10 @@ for dset_filepath_modifier in (
         retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
         retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
         for (i,M) in enumerate(metric_types_test_traces)
-            retval_straight[i] = extract(M, dset.runlog_segments,
-                                         runlogs_original, arr_runlogs_for_simulation[k], frame_starts_sim,
-                                         streetnets, foldinds, bagged_selection)
+            retval_straight[i] = extract(M, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples)
             if i ≤ length(retval_bagged)
-                retval_bagged[i] = BaggedMetricResult(M, dset.runlog_segments,
-                                             runlogs_original, arr_runlogs_for_simulation[k], frame_starts_sim,
-                                             streetnets, foldinds, bagged_selection,
-                                             N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
+                retval_bagged[i] = BaggedMetricResult(M, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples,
+                                                      N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
             end
         end
 

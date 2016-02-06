@@ -224,38 +224,17 @@ function create_tikzpicture_model_compare_smoothness(io::IO, data::ContextClassD
     \legend{SG, LG, RF, DF, MR, BN, LB}
     =#
 
+
     names = data.names
 
-    max_SSJ = -Inf
-    max_LOA = -Inf
-    max_JSI = -Inf
-    min_SSJ = Inf
-    min_LOA = Inf
-    min_JSI = Inf
-
     for i in 1 : length(names)
 
-        SSJ_stuff = _grab_score_and_extrema(SumSquareJerk,         data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
-        LOA_stuff = _grab_score_and_extrema(LagOneAutocorrelation, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
-        JSI_stuff = _grab_score_and_extrema(JerkSignInversions,    data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        println("name: ", names[i])
+        println(data.metrics_sets_test_traces_bagged[i])
 
-        max_SSJ = max(max_SSJ, SSJ_stuff[3])
-        max_LOA = max(max_LOA, LOA_stuff[3])
-        max_JSI = max(max_JSI, JSI_stuff[3])
-        min_SSJ = min(min_SSJ, SSJ_stuff[2])
-        min_LOA = min(min_LOA, LOA_stuff[2])
-        min_JSI = min(min_JSI, JSI_stuff[2])
-    end
-
-    ΔSSJ = max_SSJ - min_SSJ
-    ΔLOA = max_LOA - min_LOA
-    ΔJSI = max_JSI - min_JSI
-
-    for i in 1 : length(names)
-
-        SSJ_stuff = _grab_score_and_extrema(SumSquareJerk,         data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
-        LOA_stuff = _grab_score_and_extrema(LagOneAutocorrelation, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
-        JSI_stuff = _grab_score_and_extrema(JerkSignInversions,    data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        SSJ_stuff = _grab_score_and_confidence(EmergentKLDivMetric{SumSquareJerk},         data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        LOA_stuff = _grab_score_and_confidence(EmergentKLDivMetric{LagOneAutocorrelation}, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+        JSI_stuff = _grab_score_and_confidence(EmergentKLDivMetric{JerkSignInversions},    data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
 
         println("SSJ_stuff: ", SSJ_stuff)
         println("LOA_stuff: ", LOA_stuff)
@@ -263,9 +242,9 @@ function create_tikzpicture_model_compare_smoothness(io::IO, data::ContextClassD
 
         color = "color" * string('A' + i - 1)
         print(io, "\\addplot [", color, ",fill=", color, "!60,error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
-        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sum Square,",      (SSJ_stuff[1]-min_SSJ)/ΔSSJ, (SSJ_stuff[3]-SSJ_stuff[1])/ΔSSJ, (SSJ_stuff[2]-SSJ_stuff[3])/ΔSSJ)
-        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Autocorrelation,", (LOA_stuff[1]-min_LOA)/ΔLOA, (LOA_stuff[3]-LOA_stuff[1])/ΔLOA, (LOA_stuff[2]-LOA_stuff[3])/ΔLOA)
-        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sign Inversions,", (JSI_stuff[1]-min_JSI)/ΔJSI, (JSI_stuff[3]-JSI_stuff[1])/ΔJSI, (JSI_stuff[2]-JSI_stuff[3])/ΔJSI)
+        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sum Square,",      SSJ_stuff[1], SSJ_stuff[2], min(SSJ_stuff[1], SSJ_stuff[2]))
+        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Autocorrelation,", LOA_stuff[1], LOA_stuff[2], min(LOA_stuff[1], LOA_stuff[2]))
+        @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sign Inversions,", JSI_stuff[1], JSI_stuff[2], min(JSI_stuff[1], JSI_stuff[2]))
         @printf(io, "\t};\n")
     end
 
@@ -356,7 +335,7 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
     KL divergence (speed)          & \freeflow   & 0.25+-0.08           & \bfseries 0.13+-0.02 & 0.13+-0.05           & 0.17+-0.04           & 0.17+-0.08           \\
                                    & \following  & 0.34+-0.13           & 0.47+-0.11           & \bfseries 0.34+-0.12 & \bfseries 0.34+-0.12 & 0.47+-0.13           \\
                                    & \lanechange & 0.45+-0.18           & \bfseries 0.12+-0.09 & 0.45+-0.18           & 0.45+-0.18           & 0.45+-0.18           \\
-    KL divergence (timegap)        & \freeflow   & 0.40+-0.08           & \bfseries 0.26+-0.08 & 0.31+-0.08           & 0.26+-0.09           & 0.40+-0.09           \\
+    KL divergence (headway)        & \freeflow   & 0.40+-0.08           & \bfseries 0.26+-0.08 & 0.31+-0.08           & 0.26+-0.09           & 0.40+-0.09           \\
                                    & \following  & \bfseries 0.39+-0.15 & 0.92+-0.21           & 0.57+-0.21           & 0.40+-0.21           & 1.32+-0.20           \\
                                    & \lanechange & 1.23+-0.39           & 1.23+-0.39           & \bfseries 0.36+-0.20 & 2.66+-0.32           & 1.23+-0.38           \\
     KL divergence (lane offset)    & \freeflow   & 0.63+-0.11           & 0.85+-0.17           & 0.93+-0.13           & 0.63+-0.15           & \bfseries 0.55+-0.17 \\
@@ -404,7 +383,8 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
         for i in 1 : nmodels
             logl_μ, logl_Δ = _grab_score_and_confidence(MedianLoglikelihoodMetric, data.metrics_sets_test_frames[i],
                                                         data.metrics_sets_test_frames_bagged[i])
-            metric_string = @sprintf("%.2f+-%.2f", logl_μ, logl_Δ)
+            # metric_string = @sprintf("%.2f+-%.2f", logl_μ, logl_Δ)
+            metric_string = @sprintf("%.2f", logl_μ)
             if i == best_model_index
                 metric_string = "\\bfseries " * metric_string
             end
@@ -513,7 +493,7 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
 
     horizon = 4.0
 
-    for (sym, name, unit) in [(symbol(SPEED), "speed", "m/s"), (symbol(INV_TIMEGAP_FRONT), "inverse timegap", "1/s"), (:posFt, "lane offset", "m")]
+    for (sym, name, unit) in [(symbol(SPEED), "speed", "m/s"), (symbol(DIST_FRONT), "headway", "m"), (:posFt, "lane offset", "m")]
 
         metric = RootWeightedSquareError{sym, horizon}
 
@@ -522,7 +502,7 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
         for context_class_name in context_class_names
 
 
-            if sym == symbol(INV_TIMEGAP_FRONT) && context_class_name != "following"
+            if sym == symbol(DIST_FRONT) && context_class_name != "following"
                 continue
             end
 
@@ -567,41 +547,40 @@ preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "
 data = ContextClassData(SAVE_FILE_MODIFIER, preferred_name_order)
 
 fh = STDOUT
-write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+# write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
     create_tikzpicture_model_compare_smoothness(fh, data)
-end
-exit()
+# end
 
-write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    create_tikzpicture_model_compare_logl(fh, data, false)
-end
-write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
-    create_tikzpicture_model_compare_logl(fh, data, true)
-end
+# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+#     create_tikzpicture_model_compare_logl(fh, data, false)
+# end
+# write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+#     create_tikzpicture_model_compare_logl(fh, data, true)
+# end
 
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(SPEED))
-end
+# write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(SPEED))
+# end
 if SAVE_FILE_MODIFIER == "_following"
-    write_to_texthook(TEXFILE, "model-compare-rwse-mean-tau") do fh
-        create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(INV_TIMEGAP_FRONT))
+    write_to_texthook(TEXFILE, "model-compare-rwse-mean-headway-distance") do fh
+        create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(DIST_FRONT))
     end
 end
-write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-    create_tikzpicture_model_compare_rwse_mean(fh, data, :posFt)
-end
-write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
-    create_tikzpicture_model_compare_rwse_legend(fh, data)
-end
+# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+#     create_tikzpicture_model_compare_rwse_mean(fh, data, :posFt)
+# end
+# write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
+#     create_tikzpicture_model_compare_rwse_legend(fh, data)
+# end
 
-context_class_data = Dict{AbstractString, ContextClassData}()
-context_class_names = ["freeflow", "following", "lanechange"]
-for context_class_name in context_class_names
-    context_class_data[context_class_name] = ContextClassData("_" * context_class_name, preferred_name_order)
-end
+# context_class_data = Dict{AbstractString, ContextClassData}()
+# context_class_names = ["freeflow", "following", "lanechange"]
+# for context_class_name in context_class_names
+#     context_class_data[context_class_name] = ContextClassData("_" * context_class_name, preferred_name_order)
+# end
 
-write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
-    create_table_validation_across_context_classes(fh, context_class_data, context_class_names, preferred_name_order)
-end
+# write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
+#     create_table_validation_across_context_classes(fh, context_class_data, context_class_names, preferred_name_order)
+# end
 
 println("DONE EXPORTING RESULTS TO TEX")
