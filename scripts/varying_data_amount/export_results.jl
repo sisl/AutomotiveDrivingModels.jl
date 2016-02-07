@@ -64,14 +64,46 @@ function create_tikzpicture_experiment_1(io::IO, dfs::Dict{AbstractString, DataF
         end
         println(io, "};")
     end
-
-    _export_legend(io, map(_convert_to_short_name, modelnames))
 end
-function create_tikzpicture_experiment(io::IO, dfs::Dict{AbstractString, DataFrame})
+function create_tikzpicture_experiment(io::IO, dfs::Dict{AbstractString, DataFrame}, target::Symbol)
+    #=
+    This outputs, for each model by order of names:
+
+    \addplot[colorE, dotted, thick, mark=none] coordinates{
+        (0.0100,3472.2196) (0.0167,3179.6420) (0.0278,6060.3558) (0.0464,6231.8598) (0.0774,7445.1712) (0.1292,8600.2229) (0.2154,8947.1872) (0.3594,9629.5129) (0.5995,9900.6706) (1.0000,9782.7516) };
+    =#
+
+    for (i, tup) in enumerate(dfs)
+
+        name, df = tup
+
+        percentages = sort(unique(convert(Vector{Float64}, df[:dataset_percentage])))
+        color = "color" * string('A' + i - 1)
+
+        @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
+        @printf(io, "\t")
+
+        for p in percentages
+            logl = 0.0
+            nfound = 0
+            for j in 1 : nrow(df)
+                if df[j, :dataset_percentage] == p &&
+                   df[j, :model_name] == name
+
+                   logl += df[j, target]
+                   nfound += 1
+                end
+            end
+            logl /= nfound
+
+            @printf(io, "(%.4f,%.4f) ", logl, p)
+        end
+        println(io, "};")
+    end
 
 end
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
+modelnames = ["Static Gaussian", "Linear Gaussian", "Linear Bayesian"] #, "Dynamic Forest", "Random Forest", "Mixture Regression", "Bayesian Network"
 
 dfs = Dict{AbstractString, DataFrame}()
 for model_name in modelnames
@@ -83,7 +115,15 @@ end
 
 fh = STDOUT
 write_to_texthook(TEXFILE, "varydata-experiment-logl") do fh
-    create_tikzpicture_experiment_1(fh, dfs)
+    create_tikzpicture_experiment(fh, dfs, :logl_test)
 end
+write_to_texthook(TEXFILE, "varydata-experiment-rwse") do fh
+    create_tikzpicture_experiment(fh, dfs, :rwse_dcl_test)
+    _export_legend(fh, map(_convert_to_short_name, modelnames))
+end
+write_to_texthook(TEXFILE, "varydata-experiment-smoothness") do fh
+    create_tikzpicture_experiment(fh, dfs, :smooth_sumsquare)
+end
+
 
 println("DONE EXPORTING RESULTS")

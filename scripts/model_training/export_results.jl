@@ -12,6 +12,7 @@ const TEXDIR = splitdir(TEXFILE)[1]
 const INCLUDE_FILE_BASE = "realworld"
 
 const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "densely dashdotted", "solid"]
+const PATTERNS = ["horizontal lines", "vertical lines", "north east lines", "north west lines", "grid", "crosshatch", "dots", "crosshatch dots", "fivepointed stars", "sixpointed stars", "bricks"]
 # const SAVE_FILE_MODIFIER = "_subset_car_following"
 const SAVE_FILE_MODIFIER = "_following" # "_freeflow"
 const EVALUATION_DIR = "/media/tim/DATAPART1/PublicationData/2015_TrafficEvolutionModels/" * INCLUDE_FILE_BASE* "/"
@@ -229,19 +230,14 @@ function create_tikzpicture_model_compare_smoothness(io::IO, data::ContextClassD
 
     for i in 1 : length(names)
 
-        println("name: ", names[i])
-        println(data.metrics_sets_test_traces_bagged[i])
-
         SSJ_stuff = _grab_score_and_confidence(EmergentKLDivMetric{SumSquareJerk},         data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
         LOA_stuff = _grab_score_and_confidence(EmergentKLDivMetric{LagOneAutocorrelation}, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
         JSI_stuff = _grab_score_and_confidence(EmergentKLDivMetric{JerkSignInversions},    data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
 
-        println("SSJ_stuff: ", SSJ_stuff)
-        println("LOA_stuff: ", LOA_stuff)
-        println("JSI_stuff: ", JSI_stuff)
-
         color = "color" * string('A' + i - 1)
-        print(io, "\\addplot [", color, ",fill=", color, "!60,error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
+        pattern = PATTERNS[mod(i,2)+3] # up left or down left
+
+        print(io, "\\addplot [", color, ",fill=", color, "!60, postaction={pattern=", pattern, ", pattern color=white}, error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
         @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sum Square,",      SSJ_stuff[1], SSJ_stuff[2], min(SSJ_stuff[1], SSJ_stuff[2]))
         @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Autocorrelation,", LOA_stuff[1], LOA_stuff[2], min(LOA_stuff[1], LOA_stuff[2]))
         @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "Sign Inversions,", JSI_stuff[1], JSI_stuff[2], min(JSI_stuff[1], JSI_stuff[2]))
@@ -547,9 +543,9 @@ preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "
 data = ContextClassData(SAVE_FILE_MODIFIER, preferred_name_order)
 
 fh = STDOUT
-# write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
     create_tikzpicture_model_compare_smoothness(fh, data)
-# end
+end
 
 # write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
 #     create_tikzpicture_model_compare_logl(fh, data, false)
