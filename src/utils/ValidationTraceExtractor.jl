@@ -783,6 +783,14 @@ function Base.length(foldset::FoldSet)
     end
     len
 end
+function Base.collect(foldset::FoldSet)
+    len = length(foldset)
+    retval = Array(Int, len)
+    for (i,j) in enumerate(foldset)
+        retval[i] = j
+    end
+    retval
+end
 
 #########################################
 

@@ -170,17 +170,17 @@ test_pdset_for_common_problems(pdset)
 @test gete(pdset, :frame, 2) == 2
 @test gete(pdset, :frame, 3) == 3
 
-@test !idinframe(pdset, CARID_EGO, 0)
-@test  idinframe(pdset, CARID_EGO, 1)
-@test  idinframe(pdset, CARID_EGO, 2)
-@test  idinframe(pdset, CARID_EGO, 3)
-@test !idinframe(pdset, CARID_EGO, 4)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, CARID_EGO, 0)
+@test  AutomotiveDrivingModels.RunLogs.idinframe(pdset, CARID_EGO, 1)
+@test  AutomotiveDrivingModels.RunLogs.idinframe(pdset, CARID_EGO, 2)
+@test  AutomotiveDrivingModels.RunLogs.idinframe(pdset, CARID_EGO, 3)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, CARID_EGO, 4)
 
-@test !idinframe(pdset, 0, 0)
-@test !idinframe(pdset, 0, 1)
-@test !idinframe(pdset, 0, 2)
-@test !idinframe(pdset, 0, 3)
-@test !idinframe(pdset, 0, 4)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, 0, 0)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, 0, 1)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, 0, 2)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, 0, 3)
+@test !AutomotiveDrivingModels.RunLogs.idinframe(pdset, 0, 4)
 
 @test !indinframe(pdset, CARIND_EGO, 0)
 @test  indinframe(pdset, CARIND_EGO, 1)
