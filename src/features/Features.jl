@@ -23,7 +23,7 @@ export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TU
 export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 # export LEFT, RIGHT
-# export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
+export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
 # export IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
 export FUTUREACCELERATION, FUTUREDESIREDANGLE
 export Feature_IsClean, Feature_Past
@@ -364,6 +364,71 @@ function Base.get(::Feature_A_REQ_StayInLane, runlog::RunLog, sn::StreetNetwork,
     end
 end
 
+create_feature_basics( "Time_Consecutive_Brake", :time_consec_brake, L"t_\text{brake}", Float64, L"s", 0.0, Inf, :no_na)
+function Base.get(::Feature_Time_Consecutive_Brake, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer;
+    THRESHOLD_BRAKING::Float64=-0.05, # [m/s²]
+    )
+    #=
+    Scan backward to see how long the car has been decelerating
+    Returns positive time values
+    =#
+
+    prev_accel = get(ACC, runlog, sn, colset, frame)
+    if prev_accel > THRESHOLD_BRAKING
+        return 0.0
+    end
+
+    id = colset2id(runlog, colset, frame)
+    frame_past = frame
+    frame_jump = N_FRAMES_PER_SIM_FRAME
+    while frame_past > frame_jump && idinframe(runlog, id, frame_past-frame_jump) &&
+          get(ACC, runlog, sn, id2colset(runlog, id, frame_past-frame_jump), frame_past-frame_jump) ≤ THRESHOLD_BRAKING
+
+        frame_past -= frame_jump
+    end
+
+    get_elapsed_time(runlog, frame_past, frame)
+end
+create_feature_basics( "Time_Consecutive_Accel", :time_consec_accel, L"t_\text{accel}", Float64, L"s", 0.0, Inf, :no_na)
+function Base.get(::Feature_Time_Consecutive_Accel, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer;
+    THRESHOLD_ACCEL::Float64=0.05, # [m/s²]
+    )
+    #=
+    Scan backward to see how long the car has been accelerating
+    Returns positive time values
+    =#
+
+    prev_accel = get(ACC, runlog, sn, colset, frame)
+    if prev_accel < THRESHOLD_ACCEL
+        return 0.0
+    end
+
+    id = colset2id(runlog, colset, frame)
+    frame_past = frame
+    frame_jump = N_FRAMES_PER_SIM_FRAME
+    while frame_past > frame_jump && idinframe(runlog, id, frame_past-frame_jump) &&
+          get(ACC, runlog, sn, id2colset(runlog, id, frame_past-frame_jump), frame_past-frame_jump) ≥ THRESHOLD_ACCEL
+
+        frame_past -= frame_jump
+    end
+
+    get_elapsed_time(runlog, frame_past, frame)
+end
+create_feature_basics( "Time_Consecutive_Throttle", :time_consec_throttle, L"t_\text{throttle}", Float64, L"s", -Inf, Inf, :no_na)
+function Base.get(::Feature_Time_Consecutive_Throttle, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer;
+    THRESHOLD_ACCEL::Float64=0.05, # [m/s²]
+    THRESHOLD_BRAKING::Float64=-0.05, # [m/s²]
+    )
+    #=
+    Scan backward to see how long the car has been accelerating or decelerating
+    Returns a negative value for braking, positive value for accelerating
+    =#
+
+    tc_accel = get(TIME_CONSECUTIVE_ACCEL, runlog, sn, colset, frame)
+    tc_brake = get(TIME_CONSECUTIVE_BRAKE, runlog, sn, colset, frame)
+    tc_accel ≥ tc_brake ? tc_accel : -tc_brake
+end
+
 create_feature_basics( "N_Lane_Right", :n_lane_right, L"n^\text{lane}_r", Int, "-", 0.0, 4.0, :no_na)
 function Base.get(::Feature_N_Lane_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     node = _get_node(runlog, sn, colset, frame)
@@ -501,6 +566,12 @@ function Base.get(::Feature_Jerk, runlog::RunLog, sn::StreetNetwork, colset::UIn
         0.0
     end
 end
+
+#############################################
+#
+# Driver Model Features
+#
+#############################################
 
 create_feature_basics("SUMO", :sumo, L"a_\text{SUMO}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_SUMO, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
