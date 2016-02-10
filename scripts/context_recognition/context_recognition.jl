@@ -15,13 +15,12 @@ include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 
 behaviorset_full = behaviorset
 
-for (model_name, traindef) in behaviorset_full
+for (model_name_outer, traindef) in behaviorset_full
 
     behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
-    behaviorset[model_name] = traindef
+    behaviorset[model_name_outer] = traindef
 
-    try
-
+    # try
         nmodels = length(behaviorset)
         model_names = collect(keys(behaviorset))
 
@@ -33,6 +32,7 @@ for (model_name, traindef) in behaviorset_full
         streetnets = Dict{AbstractString, StreetNetwork}()
         cv_splits = Dict{AbstractString, FoldAssignment}()
         trace_likelihoods = Dict{AbstractString, Array{Float64, 3}}() # each matrix is [context_class × nmodels × ntraces]
+        trace_counts = Dict{AbstractString, Array{Int, 3}}()
         for context_class in context_classes
             dataset_jld_file = joinpath(EVALUATION_DIR, "dataset2_" * context_class * ".jld")
             dset = JLD.load(dataset_jld_file, "model_training_data")::ModelTrainingData2
@@ -41,22 +41,23 @@ for (model_name, traindef) in behaviorset_full
 
             dsets[context_class] = dset
             cv_splits[context_class] = cv_split
-            trace_likelihoods[context_class] = zeros(Float64, ncontext_classes, nmodels, length(cv_split.seg_assignment)) # context_class_of_model × nmodels × ntraces
+            trace_likelihoods[context_class] = fill(NaN, ncontext_classes, nmodels, length(cv_split.seg_assignment)) # context_class_train × nmodels × ntraces
+            trace_counts[context_class] = zeros(Int, ncontext_classes, nmodels, length(cv_split.seg_assignment))
         end
         toc()
 
         println("Training models for each context class and computing trace likelihoods"); tic()
-        for (cind, context_class) in enumerate(context_classes)
+        for (cind, context_class_train) in enumerate(context_classes)
 
             println("#################################################\n#\n#\n#\n")
             println("#################################################")
-            println("context_class: ", context_class)
+            println("context_class: ", context_class_train)
 
-            dset = dsets[context_class]
-            cv_split = cv_splits[context_class]
+            dset = dsets[context_class_train]
+            cv_split = cv_splits[context_class_train]
 
             # preallocate data
-            println("preallocating data: ", context_class); tic()
+            println("preallocating data: ", context_class_train); tic()
             preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
             for (model_name, train_def) in behaviorset
                 preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
@@ -71,44 +72,58 @@ for (model_name, traindef) in behaviorset_full
                 models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split)
                 toc()
 
-                println("\ttrace likelihoods... "); tic()
-                for context_class2 in context_classes
+                println("\ttrace likelihoods... "); #tic()
+                for context_class_test in context_classes
 
-                    println("\t\t", context_class2)
+                    # println("\t\t", context_class_test)
 
+                    dset_test = dsets[context_class_test]
 
-                    dset2 = dsets[context_class2]
-
-                    println("\t\tloading runlogs"); tic()
-                    runlogs2 = load_runlogs(dset2)
-                    toc()
+                    # println("\t\tloading runlogs"); tic()
+                    runlogs_test = load_runlogs(dset_test)
+                    # toc()
 
                     if isempty(streetnets)
-                        println("\t\tloading streetnets"); tic()
-                        streetnets = load_streetnets(runlogs2)
-                        toc()
+                        # println("\t\tloading streetnets"); #tic()
+                        streetnets = load_streetnets(runlogs_test)
+                        # toc()
                     end
 
-                    cv_split2 = cv_splits[context_class2]
-                    likelihoods2 = trace_likelihoods[context_class2]
+                    cv_split_test = cv_splits[context_class_test]
+                    likelihoods_test = trace_likelihoods[context_class_test]
+                    counts_test = trace_counts[context_class_test]
 
-                    for segind in 1:length(cv_split2.seg_assignment)
-                        if context_class != context_class2 || cv_split2.seg_assignment[segind] == fold
+                    # train on all samples in other contexts and only on those matching the fold in this context
+                    for segind in 1:length(cv_split_test.seg_assignment)
+                        if context_class_train != context_class_test || cv_split_test.seg_assignment[segind] == fold
 
-                            # println("\t\t\t", segind, " / ", length(cv_split2.seg_assignment))
+                            # println("\t\t\t", segind, " / ", length(cv_split_test.seg_assignment))
 
-                            seg = dset2.runlog_segments[segind]
-                            frac = context_class != context_class2 ? ncontext_classes : 1.0
+                            seg = dset_test.runlog_segments[segind]
+                            runlog = runlogs_test[seg.runlog_id]
+                            sn = streetnets[runlog.header.map_name]
 
-                            for (i,model_name) in enumerate(model_names)
-                                likelihoods2[cind, i, segind] += calc_trace_likelihood(runlogs2, streetnets, seg, models[model_name])/frac
+                            for (i,model_name2) in enumerate(model_names)
+                                if isnan(likelihoods_test[cind, i, segind])
+                                    likelihoods_test[cind, i, segind] = 0.0
+                                end
+                                likelihoods_test[cind, i, segind] += calc_trace_likelihood(runlog, sn, seg, models[model_name2])
+                                counts_test[cind, i, segind] += 1
                             end
                         end
                     end
                 end
-                toc()
+                # toc()
             end
             toc()
+
+            for context_class_test in context_classes
+                i = 1
+                segind = 1
+                likelihoods_test = trace_likelihoods[context_class_test]
+                counts_test = trace_counts[context_class_test]
+                @printf("%20s  %20s  logl: %20.6f  %5d  %6d  %6d\n", context_class_train, context_class_test, likelihoods_test[cind, i, segind]/counts_test[cind, i, segind], i, segind, counts_test[cind, i, segind])
+            end
         end
         toc()
 
@@ -118,19 +133,25 @@ for (model_name, traindef) in behaviorset_full
         for model_name in model_names
             confusion_matrices[model_name] = zeros(Int, ncontext_classes, ncontext_classes) # actual vs. predicted
         end
-        for (i, context_class) in enumerate(context_classes) # true labeling
-            likelihoods = trace_likelihoods[context_class]
+        for (i, context_class_train) in enumerate(context_classes) # true labeling
+            likelihoods = trace_likelihoods[context_class_train]
+            counts_test = trace_counts[context_class_train]
 
             for (modelind, model_name) in enumerate(model_names)
 
                 confusion = confusion_matrices[model_name]
+                # segind = 1
+                # for cind in 1 : size(likelihoods, 1)
+                #     @printf("%20s  %20s  logl: %20.6f  %5d  %6d  %6d\n", context_class_train, context_classes[cind], likelihoods[cind, modelind, segind]/counts_test[cind, modelind, segind], i, segind, counts_test[cind, modelind, segind])
+                # end
 
                 for traceind in 1 : size(likelihoods, 3)
 
+                    # take class index as the one that maximizes likelihood
                     best_score = -Inf
                     best_classind = 0
                     for classind in 1 : size(likelihoods, 1)
-                        score = likelihoods[classind, modelind, traceind]
+                        score = likelihoods[classind, modelind, traceind] / counts_test[classind, modelind, traceind]
                         if score > best_score
                             best_score, best_classind = score, classind
                         end
@@ -194,9 +215,9 @@ for (model_name, traindef) in behaviorset_full
                 end
             end
         end
-    catch
-        println("CAUGHT SOME ERROR, model: ", model_name)
-    end
+    # catch
+    #     println("CAUGHT SOME ERROR, model: ", model_name)
+    # end
 end
 
 println("DONE")

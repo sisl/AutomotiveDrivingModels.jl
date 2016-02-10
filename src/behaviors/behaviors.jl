@@ -9,6 +9,7 @@ export  AbstractVehicleBehavior,
         AbstractVehicleBehaviorPreallocatedData,
         ModelTargets,
 
+        get_indicators,
         select_action,
         calc_action_loglikelihood,
 
@@ -23,6 +24,7 @@ export  AbstractVehicleBehavior,
 
 
 abstract AbstractVehicleBehavior
+get_indicators(behavior::AbstractVehicleBehavior) = error("get_indicators not implemented for behavior")
 
 ###############################################################
 #=

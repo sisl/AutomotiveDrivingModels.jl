@@ -547,27 +547,27 @@ write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
     create_tikzpicture_model_compare_smoothness(fh, data)
 end
 
-# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-#     create_tikzpicture_model_compare_logl(fh, data, false)
-# end
-# write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
-#     create_tikzpicture_model_compare_logl(fh, data, true)
-# end
+write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+    create_tikzpicture_model_compare_logl(fh, data, false)
+end
+write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+    create_tikzpicture_model_compare_logl(fh, data, true)
+end
 
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(SPEED))
-# end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(SPEED))
+end
 if SAVE_FILE_MODIFIER == "_following"
     write_to_texthook(TEXFILE, "model-compare-rwse-mean-headway-distance") do fh
         create_tikzpicture_model_compare_rwse_mean(fh, data, symbol(DIST_FRONT))
     end
 end
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-#     create_tikzpicture_model_compare_rwse_mean(fh, data, :posFt)
-# end
-# write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
-#     create_tikzpicture_model_compare_rwse_legend(fh, data)
-# end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, data, :posFt)
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
+    create_tikzpicture_model_compare_rwse_legend(fh, data)
+end
 
 # context_class_data = Dict{AbstractString, ContextClassData}()
 # context_class_names = ["freeflow", "following", "lanechange"]

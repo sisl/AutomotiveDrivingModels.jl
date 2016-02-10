@@ -9,7 +9,7 @@ using DynamicBayesianNetworkBehaviors
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 
-const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 8)
+const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 21)
 
 ##############################
 # PARAMETERS
@@ -17,6 +17,7 @@ const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 8)
 
 behaviorset_full = behaviorset
 
+tic()
 for (model_name, traindef) in behaviorset_full
 
     behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
@@ -205,5 +206,5 @@ for (model_name, traindef) in behaviorset_full
         println("CAUGHT SOME ERROR, model: ", model_name)
     end
 end
-
 println("DONE")
+toc()

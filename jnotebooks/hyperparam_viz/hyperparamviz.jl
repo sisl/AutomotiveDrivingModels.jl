@@ -43,7 +43,11 @@ function print_log_statistics(df::DataFrame)
 
     @printf("\t%30s  %20s  %20s  %20s\n", "hyperparameters", "min value", "max value", "best param to min L2 rwse")
     for λ in get_hyperparam_names(df)
-        @printf("\t%30s  %20.6f  %20.6f  %20.6f\n", λ, minimum(df[λ]), maximum(df[λ]), df[best_row, λ])
+        if eltype(df[λ]) <: Real
+            @printf("\t%30s  %20.6f  %20.6f  %20.6f\n", λ, minimum(df[λ]), maximum(df[λ]), df[best_row, λ])
+        else
+            @printf("\t%30s  %20s\n", λ, df[best_row, λ])
+        end
     end
 end
 

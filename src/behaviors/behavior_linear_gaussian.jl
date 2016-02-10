@@ -44,6 +44,7 @@ function Base.print(io::IO, LG::VehicleBehaviorLinearGaussian)
     @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.N.Σ.mat[1,1], LG.N.Σ.mat[1,2])
     @printf(io, "\t\t[%12.6f, %12.6f]\n", LG.N.Σ.mat[2,1], LG.N.Σ.mat[2,2])
 end
+get_indicators(behavior::VehicleBehaviorLinearGaussian) = AbstractFeature[behavior.F]
 
 type LG_TrainParams <: AbstractVehicleBehaviorTrainParams
 

@@ -33,6 +33,7 @@ function Base.print(io::IO, SG::VehicleBehaviorGaussian)
     @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.Σ.mat[1,1], SG.Σ.Σ.mat[1,2])
     @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.Σ.mat[2,1], SG.Σ.Σ.mat[2,2])
 end
+get_indicators(behavior::VehicleBehaviorGaussian) = AbstractFeature[]
 
 type SG_TrainParams <: AbstractVehicleBehaviorTrainParams
     SG_TrainParams() = new()

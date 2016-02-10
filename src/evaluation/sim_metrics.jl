@@ -469,12 +469,12 @@ end
 
 const KLDIV_METRIC_NBINS = 10
 const KLDIV_METRIC_DISC_DICT = Dict(
-        symbol(SPEED)                 => LinearDiscretizer(collect(linspace( 0.0,35.0, KLDIV_METRIC_NBINS+1)), Int),
-        symbol(INV_TIMEGAP_FRONT)     => LinearDiscretizer(collect(linspace( 0.0,10.0, KLDIV_METRIC_NBINS+1)), Int),
-        symbol(POSFT)                 => LinearDiscretizer(collect(linspace(-3.0, 3.0, KLDIV_METRIC_NBINS+1)), Int),
-        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0,50.0, KLDIV_METRIC_NBINS+1)), Int),
-        string(JerkSignInversions)    => LinearDiscretizer(collect(linspace( 0.0,15.0,                 15+1)), Int),
-        string(LagOneAutocorrelation) => LinearDiscretizer(collect(linspace(-1.0, 1.0, KLDIV_METRIC_NBINS+1)), Int),
+        symbol(SPEED)                 => LinearDiscretizer(collect(linspace( 0.0, 35.0, KLDIV_METRIC_NBINS+1)), Int),
+        symbol(INV_TIMEGAP_FRONT)     => LinearDiscretizer(collect(linspace( 0.0, 10.0, KLDIV_METRIC_NBINS+1)), Int),
+        symbol(POSFT)                 => LinearDiscretizer(collect(linspace(-3.0,  3.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0,100.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(JerkSignInversions)    => LinearDiscretizer(collect(linspace( 0.0, 25.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(LagOneAutocorrelation) => LinearDiscretizer(collect(linspace(-1.0,  1.0, KLDIV_METRIC_NBINS+1)), Int),
     )
 
 
@@ -533,10 +533,10 @@ function extract{tracemetric <: BehaviorTraceMetric}(::Type{EmergentKLDivMetric{
     counts_sim  = ones(Int, nlabels(disc))  # NOTE(tim): uniform Dirichlet prior
     n_monte_carlo_samples = size(runlogs_for_simulation, 2)
 
-    # lo_realworld = Inf
-    # hi_realworld = -Inf
-    # lo_sim = Inf
-    # hi_sim = -Inf
+    lo_realworld = Inf
+    hi_realworld = -Inf
+    lo_sim = Inf
+    hi_sim = -Inf
 
     for i in bagsamples
 
@@ -552,8 +552,8 @@ function extract{tracemetric <: BehaviorTraceMetric}(::Type{EmergentKLDivMetric{
         end
         counts_orig[encode(disc, v)] += 1
 
-        # lo_realworld = min(lo_realworld, v)
-        # hi_realworld = max(hi_realworld, v)
+        lo_realworld = min(lo_realworld, v)
+        hi_realworld = max(hi_realworld, v)
 
         frame_start = evaldata.frame_starts_sim[seg_index]
         for j = 1 : n_monte_carlo_samples
@@ -563,8 +563,8 @@ function extract{tracemetric <: BehaviorTraceMetric}(::Type{EmergentKLDivMetric{
                 v = 0.0
             end
 
-            # lo_sim = min(lo_sim, v)
-            # hi_sim = max(hi_sim, v)
+            lo_sim = min(lo_sim, v)
+            hi_sim = max(hi_sim, v)
 
             counts_sim[encode(disc, v)] += 1
         end
@@ -837,15 +837,12 @@ end
 ########
 
 function calc_trace_likelihood(
-    runlogs::Vector{RunLog},
-    streetnets::Dict{AbstractString, StreetNetwork},
+    runlog::RunLog,
+    sn::StreetNetwork,
     seg::RunLogSegment,
     behavior::AbstractVehicleBehavior;
     id::UInt=ID_EGO,
     )
-
-    runlog = runlogs[seg.runlog_id]
-    sn = streetnets[runlog.header.map_name]
 
     seg_duration = seg.frame_end - seg.frame_start
 

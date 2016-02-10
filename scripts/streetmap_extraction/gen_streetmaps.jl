@@ -23,7 +23,7 @@ for (RNDF_FILE, STREETMAP_OUTPUT_FILE) in (
     toc()
 
     @printf("Saving streetmap... "); tic()
-    save(STREETMAP_OUTPUT_FILE, "streetmap", sn)
+    JLD.save(STREETMAP_OUTPUT_FILE, "streetmap", sn)
     toc()
 end
 
@@ -47,6 +47,6 @@ for (CURVE_FILE, STREETMAP_OUTPUT_FILE) in (
     toc()
 
     @printf("Saving streetmap... "); tic()
-    save(STREETMAP_OUTPUT_FILE, "streetmap", sn)
+    JLD.save(STREETMAP_OUTPUT_FILE, "streetmap", sn)
     toc()
 end

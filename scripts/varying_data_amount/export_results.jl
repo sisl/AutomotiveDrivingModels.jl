@@ -65,7 +65,7 @@ function create_tikzpicture_experiment_1(io::IO, dfs::Dict{AbstractString, DataF
         println(io, "};")
     end
 end
-function create_tikzpicture_experiment(io::IO, dfs::Dict{AbstractString, DataFrame}, target::Symbol)
+function create_tikzpicture_experiment{S<:AbstractString}(io::IO, dfs::Dict{AbstractString, DataFrame}, target::Symbol, modle_names::Vector{S})
     #=
     This outputs, for each model by order of names:
 
@@ -73,9 +73,9 @@ function create_tikzpicture_experiment(io::IO, dfs::Dict{AbstractString, DataFra
         (0.0100,3472.2196) (0.0167,3179.6420) (0.0278,6060.3558) (0.0464,6231.8598) (0.0774,7445.1712) (0.1292,8600.2229) (0.2154,8947.1872) (0.3594,9629.5129) (0.5995,9900.6706) (1.0000,9782.7516) };
     =#
 
-    for (i, tup) in enumerate(dfs)
+    for (i, model_name) in enumerate(modle_names)
 
-        name, df = tup
+        df = dfs[model_name]
 
         percentages = sort(unique(convert(Vector{Float64}, df[:dataset_percentage])))
         color = "color" * string('A' + i - 1)
@@ -84,26 +84,25 @@ function create_tikzpicture_experiment(io::IO, dfs::Dict{AbstractString, DataFra
         @printf(io, "\t")
 
         for p in percentages
-            logl = 0.0
+            value = 0.0
             nfound = 0
             for j in 1 : nrow(df)
                 if df[j, :dataset_percentage] == p &&
-                   df[j, :model_name] == name
+                   df[j, :model_name] == model_name
 
-                   logl += df[j, target]
+                   value += df[j, target]
                    nfound += 1
                 end
             end
-            logl /= nfound
+            value /= nfound
 
-            @printf(io, "(%.4f,%.4f) ", logl, p)
+            @printf(io, "(%.4f,%.4f) ", p, value)
         end
         println(io, "};")
     end
-
 end
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Linear Bayesian"] #, "Dynamic Forest", "Random Forest", "Mixture Regression", "Bayesian Network"
+modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Bayesian Network", "Linear Bayesian"] # "Mixture Regression",
 
 dfs = Dict{AbstractString, DataFrame}()
 for model_name in modelnames
@@ -115,14 +114,14 @@ end
 
 fh = STDOUT
 write_to_texthook(TEXFILE, "varydata-experiment-logl") do fh
-    create_tikzpicture_experiment(fh, dfs, :logl_test)
+    create_tikzpicture_experiment(fh, dfs, :logl_test, modelnames)
 end
 write_to_texthook(TEXFILE, "varydata-experiment-rwse") do fh
-    create_tikzpicture_experiment(fh, dfs, :rwse_dcl_test)
-    _export_legend(fh, map(_convert_to_short_name, modelnames))
+    create_tikzpicture_experiment(fh, dfs, :rwse_dcl_test, modelnames)
 end
 write_to_texthook(TEXFILE, "varydata-experiment-smoothness") do fh
-    create_tikzpicture_experiment(fh, dfs, :smooth_sumsquare)
+    create_tikzpicture_experiment(fh, dfs, :smooth_sumsquare, modelnames)
+    _export_legend(fh, map(_convert_to_short_name, modelnames))
 end
 
 

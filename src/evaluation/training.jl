@@ -8,7 +8,8 @@ export
     copy_matrix_fold!,
     copy_matrix_fold,
 
-    print_hyperparam_statistics
+    print_hyperparam_statistics,
+    print_indicator_selection_statistics
 
 ###############################################################
 
@@ -416,6 +417,39 @@ function print_hyperparam_statistics(
     for (model_name, train_def) in behaviorset
         counts = hyperparam_counts[model_name]
         print_hyperparam_statistics(io, model_name, train_def, counts)
+        println("\n")
+    end
+
+    nothing
+end
+
+function print_indicator_selection_statistics(
+    io::IO,
+    model_name::AbstractString,
+    indicator_counts::Vector{Int},
+    indicators::Vector{AbstractFeature},
+    )
+
+    println(io, model_name)
+    println(io, "indicator counts: ", indicator_counts)
+    println(io, "top-10 indicators: ", )
+
+    max_counts = maximum(indicator_counts)
+    for (rank, i) in enumerate(sortperm(indicator_counts)[1:min(10,length(indicators))])
+        @printf(io, "\t%2d %5.2f  %s\n", rank, indicator_counts[i]/max_counts, symbol(indicators[i]))
+    end
+end
+function print_indicator_selection_statistics(
+    io::IO,
+    behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
+    indicator_counts::Dict{AbstractString, Vector{Int}},
+    indicators::Vector{AbstractFeature},
+    )
+
+    println(io, "Indicator Selection Statistics: ")
+    for (model_name, train_def) in behaviorset
+        counts = indicator_counts[model_name]
+        print_indicator_selection_statistics(io, model_name, counts, indicators)
         println("\n")
     end
 

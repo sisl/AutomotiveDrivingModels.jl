@@ -19,12 +19,12 @@ export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
 export DIST_MERGE, DIST_SPLIT
 export SUMO, IDM
 export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
-export HAS_REAR, DIST_REAR, D_Y_REAR, DELTA_V_REAR, DELTA_V_Y_REAR, YAW_REAR, TURNRATE_REAR, ACC_REQ_REAR, INV_TTC_REAR, INV_TIMEGAP_REAR, REAR_IS_GAINING
+export HAS_REAR,  DIST_REAR,  D_Y_REAR,  DELTA_V_REAR,  DELTA_V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  ACC_REQ_REAR,  INV_TTC_REAR,  INV_TIMEGAP_REAR,  REAR_IS_GAINING
+export HAS_LEFT,  DIST_LEFT,  D_Y_LEFT,  DELTA_V_LEFT,  DELTA_V_Y_LEFT,  YAW_LEFT,  TURNRATE_LEFT,  ACC_REQ_LEFT,  INV_TTC_LEFT,  INV_TIMEGAP_LEFT,  LEFT_IS_GAINING
+export HAS_RIGHT, DIST_RIGHT, D_Y_RIGHT, DELTA_V_RIGHT, DELTA_V_Y_RIGHT, YAW_RIGHT, TURNRATE_RIGHT, ACC_REQ_RIGHT, INV_TTC_RIGHT, INV_TIMEGAP_RIGHT, RIGHT_IS_GAINING
 export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
-# export LEFT, RIGHT
 export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
-# export IS_IN_EMERGENCY, IS_IN_FREE_FLOW, IS_IN_FOLLOWING, IS_IN_LANECHANGE
 export FUTUREACCELERATION, FUTUREDESIREDANGLE
 export Feature_IsClean, Feature_Past
 export Feature_Mean_Over_History, Feature_Std_Over_History, Feature_Max_Over_History, Feature_Min_Over_History
@@ -253,7 +253,7 @@ end
 
 # ----------------------------------
 
-create_feature_basics("PosFt", :posFt, L"p^F_t", Float64, L"\metre", -Inf, Inf, :no_na)
+create_feature_basics("PosFt", :posFt, L"p^F_t", Float64, L"m", -Inf, Inf, :no_na)
 Base.get(::Feature_PosFt, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :frenet)::VecSE2).y
 
@@ -261,26 +261,26 @@ create_feature_basics("PosFyaw", :posFyaw, L"\psi", Float64, L"\radian", -Inf, I
 Base.get(::Feature_PosFyaw, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :frenet)::VecSE2).θ
 
-create_feature_basics("Speed", :speed, L"\|v\|", Float64, L"\metre\per\second", 0.0, Inf, :no_na)
+create_feature_basics("Speed", :speed, L"\|v\|", Float64, L"m/s", 0.0, Inf, :no_na)
 function Base.get(::Feature_Speed, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer)
     ratesB = get(runlog, colset, frame, :ratesB)::VecSE2
     _fast_hypot(ratesB)
 end
 
-create_feature_basics("VelBx", :velBx, L"v^B_x", Float64, L"\metre\per\second", -Inf, Inf, :no_na)
+create_feature_basics("VelBx", :velBx, L"v^B_x", Float64, L"m/s", -Inf, Inf, :no_na)
 Base.get(::Feature_VelBx, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :ratesB)::VecSE2).x
-create_feature_basics("VelBy", :velBy, L"v^B_y", Float64, L"\metre\per\second", -Inf, Inf, :no_na)
+create_feature_basics("VelBy", :velBy, L"v^B_y", Float64, L"m/s", -Inf, Inf, :no_na)
 Base.get(::Feature_VelBy, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :ratesB)::VecSE2).y
-create_feature_basics("VelFs", :velFs, L"v^F_s", Float64, L"\metre\per\second", -Inf, Inf, :no_na)
+create_feature_basics("VelFs", :velFs, L"v^F_s", Float64, L"m/s", -Inf, Inf, :no_na)
 Base.get(::Feature_VelFs, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :ratesF)::VecE2).x
-create_feature_basics("VelFt", :velFt, L"v^F_t", Float64, L"\metre\per\second", -Inf, Inf, :no_na)
+create_feature_basics("VelFt", :velFt, L"v^F_t", Float64, L"m/s", -Inf, Inf, :no_na)
 Base.get(::Feature_VelFt, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :ratesF)::VecE2).y
 
-create_feature_basics("Scene_Speed_Difference", :scene_speed_diff, L"\delta v_\text{scene}", Float64, L"\metre\per\second", -Inf, Inf, :no_na)
+create_feature_basics("Scene_Speed_Difference", :scene_speed_diff, L"\delta v_\text{scene}", Float64, L"m/s", -Inf, Inf, :no_na)
 function Base.get(::Feature_Scene_Speed_Difference, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # v_id - v_scene
@@ -298,21 +298,21 @@ function Base.get(::Feature_Scene_Speed_Difference, runlog::RunLog, sn::StreetNe
     v_id - v_scene
 end
 
-create_feature_basics("MarkerDist_Left", :d_ml, L"d_{ml}", Float64, L"\metre", -Inf, Inf, :no_na)
+create_feature_basics("MarkerDist_Left", :d_ml, L"d_{ml}", Float64, L"m", -Inf, Inf, :no_na)
 function Base.get(::Feature_MarkerDist_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
     node = _get_node(runlog, sn, colset, frame)
     node.marker_dist_left - offset
 end
-create_feature_basics("MarkerDist_Right", :d_mr, L"d_{mr}", Float64, L"\metre", 0.0, Inf, :no_na)
+create_feature_basics("MarkerDist_Right", :d_mr, L"d_{mr}", Float64, L"m", 0.0, Inf, :no_na)
 function Base.get(::Feature_MarkerDist_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     offset = (get(runlog, colset, frame, :frenet)::VecSE2).y
     node = _get_node(runlog, sn, colset, frame)
     node.marker_dist_right + offset
 end
-create_feature_basics("Dist_From_Centerline", :d_cl, L"d_{cl}", Float64, L"\metre", 0.0, Inf, :no_na)
+create_feature_basics("Dist_From_Centerline", :d_cl, L"d_{cl}", Float64, L"m", 0.0, Inf, :no_na)
 function Base.get(::Feature_Dist_From_Centerline, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     (get(runlog, colset, frame, :frenet)::VecSE2).y
@@ -451,7 +451,7 @@ function Base.get(::Feature_LaneCurvature, runlog::RunLog, sn::StreetNetwork, co
     footpoint.k
 end
 
-create_feature_basics("Dist_Merge", :dist_merge, L"d_\text{merge}", Float64, L"\metre", 0.0, Inf, :no_na)
+create_feature_basics("Dist_Merge", :dist_merge, L"d_\text{merge}", Float64, L"m", 0.0, Inf, :no_na)
 function Base.get(::Feature_Dist_Merge, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the distance from the vehicle's current position to the next merge
@@ -460,7 +460,7 @@ function Base.get(::Feature_Dist_Merge, runlog::RunLog, sn::StreetNetwork, colse
     node = _get_node(runlog, sn, colset, frame)
     node.d_merge
 end
-create_feature_basics("Dist_Split", :dist_split, L"d_\text{split}", Float64, L"\metre", 0.0, Inf, :no_na)
+create_feature_basics("Dist_Split", :dist_split, L"d_\text{split}", Float64, L"m", 0.0, Inf, :no_na)
 function Base.get(::Feature_Dist_Split, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the distance from the vehicle's current position to the next lane split
@@ -474,7 +474,7 @@ create_feature_basics("TurnRate", :turnrate, L"\dot{\psi}", Float64, L"\radian\p
 Base.get(::Feature_TurnRate, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :ratesB)::VecSE2).θ
 
-create_feature_basics("Acc", :acc, L"\|a\|", Float64, L"\metre\per\second\squared", -Inf, Inf, :no_na)
+create_feature_basics("Acc", :acc, L"\|a\|", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_Acc, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # NOTE(tim): defaults to 0.0 if there is no previous frame
@@ -489,7 +489,7 @@ function Base.get(::Feature_Acc, runlog::RunLog, sn::StreetNetwork, colset::UInt
         0.0
     end
 end
-create_feature_basics("AccBx", :accBx, L"a^B_x", Float64, L"\metre\per\second\squared", -Inf, Inf, :no_na)
+create_feature_basics("AccBx", :accBx, L"a^B_x", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccBx, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # NOTE(tim): defaults to 0.0 if there is no previous frame
@@ -504,7 +504,7 @@ function Base.get(::Feature_AccBx, runlog::RunLog, sn::StreetNetwork, colset::UI
         0.0
     end
 end
-create_feature_basics("AccBy", :accBy, L"a^B_y", Float64, L"\metre\per\second\squared", -Inf, Inf, :no_na)
+create_feature_basics("AccBy", :accBy, L"a^B_y", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccBy, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # NOTE(tim): defaults to 0.0 if there is no previous frame
@@ -519,7 +519,7 @@ function Base.get(::Feature_AccBy, runlog::RunLog, sn::StreetNetwork, colset::UI
         0.0
     end
 end
-create_feature_basics("AccFs", :accFs, L"a^F_s", Float64, L"\metre\per\second\squared", -Inf, Inf, :no_na)
+create_feature_basics("AccFs", :accFs, L"a^F_s", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccFs, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # NOTE(tim): defaults to 0.0 if there is no previous frame
@@ -534,7 +534,7 @@ function Base.get(::Feature_AccFs, runlog::RunLog, sn::StreetNetwork, colset::UI
         0.0
     end
 end
-create_feature_basics("AccFt", :accFt, L"a^F_t", Float64, L"\metre\per\second\squared", -Inf, Inf, :no_na)
+create_feature_basics("AccFt", :accFt, L"a^F_t", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccFt, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # NOTE(tim): defaults to 0.0 if there is no previous frame
@@ -549,7 +549,7 @@ function Base.get(::Feature_AccFt, runlog::RunLog, sn::StreetNetwork, colset::UI
         0.0
     end
 end
-create_feature_basics("Jerk", :jerk, L"j", Float64, L"\metre\per\second\cubed", -Inf, Inf, :no_na)
+create_feature_basics("Jerk", :jerk, L"j", Float64, L"m/s\cubed", -Inf, Inf, :no_na)
 function Base.get(::Feature_Jerk, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # NOTE(tim): defaults to 0.0 if there is no previous frame
@@ -573,7 +573,7 @@ end
 #
 #############################################
 
-create_feature_basics("SUMO", :sumo, L"a_\text{SUMO}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("SUMO", :sumo, L"a_\text{SUMO}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_SUMO, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     #=
@@ -612,7 +612,7 @@ function Base.get(::Feature_SUMO, runlog::RunLog, sn::StreetNetwork, colset::UIn
     return a_sumo
 end
 
-create_feature_basics("IDM", :idm, L"a_\text{IDM}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("IDM", :idm, L"a_\text{IDM}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_IDM, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     #=
@@ -666,7 +666,7 @@ function Base.get(::Feature_Has_Front, runlog::RunLog, sn::StreetNetwork, colset
     convert(Float64, colset_front != COLSET_NULL)
 end
 
-create_feature_basics("Dist_Front", :d_front, L"d_x^\text{front}", Float64, L"\metre", 0.0, Inf, :can_na, na_replacement=50.0)
+create_feature_basics("Dist_Front", :d_front, L"d_x^\text{front}", Float64, L"m", 0.0, Inf, :can_na, na_replacement=50.0)
 function Base.get(::Feature_Dist_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -686,7 +686,7 @@ function Base.get(::Feature_Dist_Front, runlog::RunLog, sn::StreetNetwork, colse
     d_front
 end
 
-create_feature_basics("D_Y_Front", :d_y_front, L"d_y^\text{front}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)
+create_feature_basics("D_Y_Front", :d_y_front, L"d_y^\text{front}", Float64, L"m", -5.0, 5.0, :can_na, na_replacement=0.0)
 function Base.get(::Feature_D_Y_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -700,7 +700,7 @@ function Base.get(::Feature_D_Y_Front, runlog::RunLog, sn::StreetNetwork, colset
     dcl_ego - dcl_oth
 end
 
-create_feature_basics("Delta_V_Front", :dv_x_front, L"\Delta v_x^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Delta_V_Front", :dv_x_front, L"\Delta v_x^\text{front}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -714,7 +714,7 @@ function Base.get(::Feature_Delta_V_Front, runlog::RunLog, sn::StreetNetwork, co
     v_oth - v_ego
 end
 
-create_feature_basics("Delta_V_Y_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Delta_V_Y_Front", :dv_y_front, L"\Delta v_y^\text{front}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Delta_V_Y_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_front = get(runlog, colset, frame, :colset_front)::UInt
@@ -750,7 +750,7 @@ function Base.get(::Feature_Turnrate_Front, runlog::RunLog, sn::StreetNetwork, c
     get(TURNRATE, runlog, sn, colset_front, frame)
 end
 
-create_feature_basics("Acc_Req_Front", :acc_req_front, L"a_\text{req}^\text{front}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Acc_Req_Front", :acc_req_front, L"a_\text{req}^\text{front}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Acc_Req_Front, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the const. acceleration required to avoid a collision assuming
@@ -842,7 +842,7 @@ function Base.get(::Feature_Has_Rear, runlog::RunLog, sn::StreetNetwork, colset:
     convert(Float64, colset_rear != COLSET_NULL)
 end
 
-create_feature_basics("Dist_Rear", :d_rear, L"d_x^\text{rear}", Float64, L"\metre", 0.0, Inf, :can_na, na_replacement=50.0)
+create_feature_basics("Dist_Rear", :d_rear, L"d_x^\text{rear}", Float64, L"m", 0.0, Inf, :can_na, na_replacement=50.0)
 function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
@@ -852,7 +852,7 @@ function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset
 
     d_rear = NaN
     try
-        d_rear = _get_dist_between(runlog, sn, colset, colset_front, frame)
+        d_rear = _get_dist_between(runlog, sn, colset_rear, colset, frame)
         @assert(!isnan(d_rear))
     catch
         return NA_ALIAS
@@ -864,7 +864,7 @@ function Base.get(::Feature_Dist_Rear, runlog::RunLog, sn::StreetNetwork, colset
     # d_rear
 end
 
-create_feature_basics("D_Y_Rear", :d_y_rear, L"d_y^\text{rear}", Float64, L"\metre", -5.0, 5.0, :can_na, na_replacement=0.0)
+create_feature_basics("D_Y_Rear", :d_y_rear, L"d_y^\text{rear}", Float64, L"m", -5.0, 5.0, :can_na, na_replacement=0.0)
 function Base.get(::Feature_D_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
@@ -878,7 +878,7 @@ function Base.get(::Feature_D_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset:
     dcl_ego - dcl_oth
 end
 
-create_feature_basics("Delta_V_Rear", :dv_x_rear, L"\Delta v_x^\text{rear}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Delta_V_Rear", :dv_x_rear, L"\Delta v_x^\text{rear}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Delta_V_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
@@ -892,7 +892,7 @@ function Base.get(::Feature_Delta_V_Rear, runlog::RunLog, sn::StreetNetwork, col
     v_oth - v_ego
 end
 
-create_feature_basics("Delta_V_Y_Rear", :dv_y_rear, L"\Delta v_y^\text{rear}", Float64, L"\metre\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Delta_V_Y_Rear", :dv_y_rear, L"\Delta v_y^\text{rear}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Delta_V_Y_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     colset_rear = get(runlog, colset, frame, :colset_rear)::UInt
@@ -928,7 +928,7 @@ function Base.get(::Feature_Turnrate_Rear, runlog::RunLog, sn::StreetNetwork, co
     get(TURNRATE, runlog, sn, colset_rear, frame)
 end
 
-create_feature_basics("Acc_Req_Rear", :acc_req_rear, L"a_\text{req}^\text{rear}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("Acc_Req_Rear", :acc_req_rear, L"a_\text{req}^\text{rear}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_Acc_Req_Rear, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # the const. acceleration required to avoid a collision assuming
@@ -1008,11 +1008,399 @@ end
 
 #############################################
 #
+# LEFT
+#
+#############################################
+
+function _get_vehicle_to_left(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer;
+    GAP_LO::Float64 = -20.0, # [m]
+    GAP_HI::Float64 = 200.0, # [m]
+    GAP_T::Float64 = 1.8,  # [m]
+    )
+
+    #=
+    Returns the id of the vehicle in the left-neighboring lane if it exists, otherwise returns ID_NULL
+
+    - vehicle must be in the neighboring lane
+    - vehicle must be within GAP_LO ≤ s ≤ GAP_HI
+    =#
+
+    # 1 - take the local tangent vector to your lane
+    # 2 - offset it by 2d_marker_left
+    # 3 - project all other vehicles to the linear-assumed lane
+    # 4 - retain the vehicle that is closest in s that falls within the lane boundary
+
+    best_colset = COLSET_NULL
+
+    node = _get_node(runlog, sn, colset, frame)
+    if node.n_lanes_left > 0
+        dcl = 2node.marker_dist_left
+        local_tangent_vector = node.pos
+        left_lane_tangent = local_tangent_vector + Vec.polar(dcl, local_tangent_vector.θ + π/2)
+
+        bestΔs = Inf
+
+        for colset2 in get_colset_range(runlog, frame)
+            if colset2 != colset
+                # project vehicle to left lane tangent
+                pos = get(runlog, colset2, frame, :inertial)::VecSE2
+                pos_rel = inertial2body(pos, left_lane_tangent)
+                if GAP_LO ≤ pos_rel.x ≤ GAP_HI && abs(pos_rel.y) ≤ GAP_T && abs(pos_rel.x) ≤ bestΔs
+                    bestΔs = abs(pos_rel.x)
+                    best_colset = colset2
+                end
+            end
+        end
+    end
+
+    best_colset
+end
+
+create_feature_basics("Has_Left", :has_left, L"\exists_\text{left}", Bool, L"-", :no_na)
+function Base.get(::Feature_Has_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    convert(Float64, colset_left != COLSET_NULL)
+end
+create_feature_basics("Dist_Left", :d_left, L"d_x^\text{left}", Float64, L"m", -Inf, Inf, :can_na, na_replacement=50.0)
+function Base.get(::Feature_Dist_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    #=
+    Returns the relative distance between the left and ego vehicle
+        it is positive if left is in front of ego
+        it is negative if left is behind the ego vehicle
+    =#
+
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    if colset_left == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    pos_ego = get(runlog, colset, frame, :inertial)::VecSE2
+    pos_oth = get(runlog, colset_left, frame, :inertial)::VecSE2
+    inertial2body(pos_oth, pos_ego).x
+end
+create_feature_basics("D_Y_Left", :d_y_left, L"d_y^\text{left}", Float64, L"m", -5.0, 5.0, :can_na, na_replacement=0.0)
+function Base.get(::Feature_D_Y_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    if colset_left == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    pos_ego = get(runlog, colset, frame, :inertial)::VecSE2
+    pos_oth = get(runlog, colset_left, frame, :inertial)::VecSE2
+    inertial2body(pos_oth, pos_ego).y
+end
+create_feature_basics("Delta_V_Left", :dv_x_left, L"\Delta v_x^\text{left}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    if colset_left == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_left, frame, :ratesF)::VecE2).x
+
+    v_oth - v_ego
+end
+create_feature_basics("Delta_V_Y_Left", :dv_y_left, L"\Delta v_y^\text{left}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Y_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    if colset_left == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).y
+    v_oth = (get(runlog, colset_left, frame, :ratesF)::VecE2).y
+
+    v_oth - v_ego
+end
+create_feature_basics("Yaw_Left", :yaw_left, L"\psi^\text{left}", Float64, L"\radian", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Yaw_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    if colset_left == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    (get(runlog, colset_left, frame, :frenet)::VecSE2).θ
+end
+create_feature_basics("Turnrate_Left", :turnrate_left, L"\dot{\psi}^\text{left}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Turnrate_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_left = _get_vehicle_to_left(runlog, sn, colset, frame)
+    if colset_left == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    get(TURNRATE, runlog, sn, colset_left, frame)
+end
+create_feature_basics("Acc_Req_Left", :acc_req_left, L"a_\text{req}^\text{left}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Acc_Req_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    dv = get(DELTA_V_LEFT, runlog, sn, colset, frame)
+    if is_feature_na(dv)
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_LEFT, runlog, sn, colset, frame)
+    if dx ≥ 0.0 && dv ≥ 0.0 || # they are pulling away; we are good
+       dx ≤ 0.0 && dv ≤ 0.0 # they are pulling away; we are good
+        return NA_ALIAS
+    end
+
+    dv*dv / (2dx)
+end
+create_feature_basics("Inv_TTC_Left", :inv_ttc_left, L"ttc_\text{inv}^\text{left}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_TTC_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    dv = get(DELTA_V_LEFT, runlog, sn, colset, frame)
+    if is_feature_na(dv)
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_LEFT, runlog, sn, colset, frame)
+    if dx ≥ 0.0 && dv ≥ 0.0 || # they are pulling away; we are good
+       dx ≤ 0.0 && dv ≤ 0.0 # they are pulling away; we are good
+
+       return NA_ALIAS
+    end
+
+    dv / dx
+end
+create_feature_basics("Inv_Timegap_Left", :inv_timegap_left, L"timegap_\text{inv}^\text{left}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_Timegap_Left, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    dx = get(DIST_LEFT, runlog, sn, colset, frame)
+    if is_feature_na(dx)
+        return NA_ALIAS
+    end
+
+    v = (get(runlog, colset, frame, :ratesF)::VecE2).x
+
+    v / dx
+end
+create_feature_basics("Left_Is_Gaining", :left_is_gaining, L"gaining^\text{left}", Bool, L"-", :can_na, na_replacement=0.0)
+function Base.get(::Feature_Left_Is_Gaining, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    retval = false
+
+    dv = get(DELTA_V_LEFT, runlog, sn, colset, frame)
+    if !is_feature_na(dv)
+        dx = get(DIST_LEFT, runlog, sn, colset, frame)
+        if dx ≥ 0.0 && dv ≤ 0.0 ||
+           dx ≤ 0.0 && dv ≥ 0.0
+
+           retval = true
+        end
+    end
+
+    convert(Float64, retval)
+end
+
+#############################################
+#
+# RIGHT
+#
+#############################################
+
+function _get_vehicle_to_right(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer;
+    GAP_LO::Float64 = -20.0, # [m]
+    GAP_HI::Float64 = 200.0, # [m]
+    GAP_T::Float64 = 1.8,  # [m]
+    )
+
+    #=
+    Returns the id of the vehicle in the right-neighboring lane if it exists, otherwise returns ID_NULL
+
+    - vehicle must be in the neighboring lane
+    - vehicle must be within GAP_LO ≤ s ≤ GAP_HI
+    =#
+
+    # 1 - take the local tangent vector to your lane
+    # 2 - offset it by 2d_marker_right
+    # 3 - project all other vehicles to the linear-assumed lane
+    # 4 - retain the vehicle that is closest in s that falls within the lane boundary
+
+    best_colset = COLSET_NULL
+
+    node = _get_node(runlog, sn, colset, frame)
+    if node.n_lanes_right > 0
+        dcl = 2node.marker_dist_right
+        local_tangent_vector = node.pos
+        right_lane_tangent = local_tangent_vector + Vec.polar(dcl, local_tangent_vector.θ - π/2)
+
+        bestΔs = Inf
+
+        for colset2 in get_colset_range(runlog, frame)
+            if colset2 != colset
+                # project vehicle to right lane tangent
+                pos = get(runlog, colset2, frame, :inertial)::VecSE2
+                pos_rel = inertial2body(pos, right_lane_tangent)
+                if GAP_LO ≤ pos_rel.x ≤ GAP_HI && abs(pos_rel.y) ≤ GAP_T && abs(pos_rel.x) ≤ bestΔs
+                    bestΔs = abs(pos_rel.x)
+                    best_colset = colset2
+                end
+            end
+        end
+    end
+
+    best_colset
+end
+
+create_feature_basics("Has_Right", :has_right, L"\exists_\text{right}", Bool, L"-", :no_na)
+function Base.get(::Feature_Has_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    convert(Float64, colset_right != COLSET_NULL)
+end
+create_feature_basics("Dist_Right", :d_right, L"d_x^\text{right}", Float64, L"m", -Inf, Inf, :can_na, na_replacement=50.0)
+function Base.get(::Feature_Dist_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    #=
+    Returns the relative distance between the right and ego vehicle
+        it is positive if right is in front of ego
+        it is negative if right is behind the ego vehicle
+    =#
+
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    if colset_right == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    pos_ego = get(runlog, colset, frame, :inertial)::VecSE2
+    pos_oth = get(runlog, colset_right, frame, :inertial)::VecSE2
+    inertial2body(pos_oth, pos_ego).x
+end
+create_feature_basics("D_Y_Right", :d_y_right, L"d_y^\text{right}", Float64, L"m", -5.0, 5.0, :can_na, na_replacement=0.0)
+function Base.get(::Feature_D_Y_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    if colset_right == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    pos_ego = get(runlog, colset, frame, :inertial)::VecSE2
+    pos_oth = get(runlog, colset_right, frame, :inertial)::VecSE2
+    inertial2body(pos_oth, pos_ego).y
+end
+create_feature_basics("Delta_V_Right", :dv_x_right, L"\Delta v_x^\text{right}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    if colset_right == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).x
+    v_oth = (get(runlog, colset_right, frame, :ratesF)::VecE2).x
+
+    v_oth - v_ego
+end
+create_feature_basics("Delta_V_Y_Right", :dv_y_right, L"\Delta v_y^\text{right}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Delta_V_Y_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    if colset_right == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    v_ego = (get(runlog, colset, frame, :ratesF)::VecE2).y
+    v_oth = (get(runlog, colset_right, frame, :ratesF)::VecE2).y
+
+    v_oth - v_ego
+end
+create_feature_basics("Yaw_Right", :yaw_right, L"\psi^\text{right}", Float64, L"\radian", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Yaw_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    if colset_right == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    (get(runlog, colset_right, frame, :frenet)::VecSE2).θ
+end
+create_feature_basics("Turnrate_Right", :turnrate_right, L"\dot{\psi}^\text{right}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Turnrate_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    colset_right = _get_vehicle_to_right(runlog, sn, colset, frame)
+    if colset_right == COLSET_NULL
+        return NA_ALIAS
+    end
+
+    get(TURNRATE, runlog, sn, colset_right, frame)
+end
+create_feature_basics("Acc_Req_Right", :acc_req_right, L"a_\text{req}^\text{right}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Acc_Req_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    dv = get(DELTA_V_RIGHT, runlog, sn, colset, frame)
+    if is_feature_na(dv)
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_RIGHT, runlog, sn, colset, frame)
+    if dx ≥ 0.0 && dv ≥ 0.0 || # they are pulling away; we are good
+       dx ≤ 0.0 && dv ≤ 0.0 # they are pulling away; we are good
+        return NA_ALIAS
+    end
+
+    dv*dv / (2dx)
+end
+create_feature_basics("Inv_TTC_Right", :inv_ttc_right, L"ttc_\text{inv}^\text{right}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_TTC_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    dv = get(DELTA_V_RIGHT, runlog, sn, colset, frame)
+    if is_feature_na(dv)
+        return NA_ALIAS
+    end
+
+    dx = get(DIST_RIGHT, runlog, sn, colset, frame)
+    if dx ≥ 0.0 && dv ≥ 0.0 || # they are pulling away; we are good
+       dx ≤ 0.0 && dv ≤ 0.0 # they are pulling away; we are good
+
+       return NA_ALIAS
+    end
+
+    dv / dx
+end
+create_feature_basics("Inv_Timegap_Right", :inv_timegap_right, L"timegap_\text{inv}^\text{right}", Float64, L"\per\sec", 0.0, Inf, :can_na, na_replacement=0.0)
+function Base.get(::Feature_Inv_Timegap_Right, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    dx = get(DIST_RIGHT, runlog, sn, colset, frame)
+    if is_feature_na(dx)
+        return NA_ALIAS
+    end
+
+    v = (get(runlog, colset, frame, :ratesF)::VecE2).x
+
+    v / dx
+end
+create_feature_basics("Right_Is_Gaining", :right_is_gaining, L"gaining^\text{right}", Bool, L"-", :can_na, na_replacement=0.0)
+function Base.get(::Feature_Right_Is_Gaining, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    retval = false
+
+    dv = get(DELTA_V_RIGHT, runlog, sn, colset, frame)
+    if !is_feature_na(dv)
+        dx = get(DIST_RIGHT, runlog, sn, colset, frame)
+        if dx ≥ 0.0 && dv ≤ 0.0 ||
+           dx ≤ 0.0 && dv ≥ 0.0
+
+           retval = true
+        end
+    end
+
+    convert(Float64, retval)
+end
+
+#############################################
+#
 #
 #
 #############################################
 
-create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"\metre\per\second\squared", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
 function Base.get(::Feature_FutureAcceleration, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     # TODO(tim): should we be using AccBx to propagate the model?

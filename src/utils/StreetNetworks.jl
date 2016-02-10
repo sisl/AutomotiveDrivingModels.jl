@@ -70,7 +70,7 @@ immutable LaneTag
 end
 immutable StreetNode
 	id :: WaypointID
-	pos :: VecE3 # (UTM-e, UTM-n, alt [m])
+	pos :: VecSE2 # (UTM-e, UTM-n, heading [m])
 
 	extind  :: Float64 # the extind of the node in its lane curve
 	d_along :: Float64 # distance along the lane, 0.0 at source node [m]
@@ -1160,7 +1160,7 @@ function rndf2streetnetwork(
 				else
 					eas, nor = lat, lon
 				end
-				pos = VecE3(eas,nor,0.0)
+				pos = VecSE2(eas,nor,NaN) # unknown heading for now
 
 				node = StreetNode(WaypointID(segment.id, lane.id.lane, waypoint_index), pos,
 					              NaN, NaN, NaN, NaN, NaN, -999, -999, NaN, NaN)
@@ -1562,12 +1562,13 @@ function rndf2streetnetwork(
 					node = sn.nodes[node_index]
 					@assert(length(lane.curve) > 1)
 					extind = closest_point_extind_to_curve_guess(lane.curve, node.pos.x, node.pos.y, guess)
-					d_along = curve_at(lane.curve, extind).s
+					footpoint = curve_at(lane.curve, extind)
+					d_along = footpoint.s
 
 					@assert(!isnan(d_along))
 
 					sn.nodes[node_index] = StreetNode(node.id,
-					                                  node.pos,
+					                                  VecSE2(node.pos.x,node.pos.y,footpoint.θ),
 					                                  extind,
 					                                  d_along,
 					                                  node.d_merge,
