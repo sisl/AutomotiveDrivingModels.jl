@@ -110,21 +110,22 @@ type ChainedDataProcessor <: DataPreprocessor
     z::Vector{Float64} # output of last processor
     processors::Vector{DataPreprocessor}
 
-    function ChainedDataProcessor(n::Integer)
+    function ChainedDataProcessor(n::Int)
         x = Array(Float64, n)
-        n_features = length(x)
+        new(x, x, DataPreprocessor[])
+    end
+    function ChainedDataProcessor(x::Vector{Float64})
         new(x, x, DataPreprocessor[])
     end
     function ChainedDataProcessor(extractor::FeatureSubsetExtractor)
         x = extractor.x
-        n_features = length(x)
         new(x, x, DataPreprocessor[])
     end
 end
 
 function _deepcopy(chain::ChainedDataProcessor, x::Vector{Float64})
 
-    retval = ChainedDataProcessor(length(x))
+    retval = ChainedDataProcessor(x)
     for dp in chain.processors
         if isa(dp, DataNaReplacer)
             push!(retval.processors, DataNaReplacer(x, deepcopy(dp.indicators)))
