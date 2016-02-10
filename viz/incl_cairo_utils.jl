@@ -21,124 +21,7 @@ colorscheme = getcolorscheme("monokai")
 
 ######################
 
-abstract Overlay
-
-type TextStatsOverlay <: Overlay
-    draw_velFy::Bool
-    draw_inv_timegap::Bool
-    draw_Δv_front::Bool
-    draw_inferred_context::Bool
-    draw_actual_contexts::Bool
-
-    function TextStatsOverlay(;
-        draw_velFy::Bool = true,
-        draw_inv_timegap::Bool = true,
-        draw_Δv_front::Bool = true,
-        draw_inferred_context::Bool = true,
-        draw_actual_contexts::Bool = true,
-        )
-
-        new(draw_velFy, draw_inv_timegap, draw_Δv_front, draw_inferred_context, draw_actual_contexts)
-    end
-end
-function render_overlay!(overlay::TextStatsOverlay,
-    rendermodel::RenderModel,
-    runlog::RunLog,
-    sn::StreetNetwork,
-    frame::Integer,
-    active_carid::Integer,
-    )
-
-    colset = id2colset(runlog, active_carid, frame)
-    velFy = get(FeaturesNew.VELFT, runlog, sn, colset, frame)
-    inv_timegap_front = get(FeaturesNew.INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
-    Δv_front = get(FeaturesNew.DELTA_V_FRONT, runlog, sn, colset, frame)
-
-    r = colorant"red"
-    b = colorant"blue"
-    color_freeflow = (isnan(inv_timegap_front) || inv_timegap_front > 1.0/3.0 || Δv_front > 1.0) ? r : b
-    str_inferred_context = abs(velFy) > 0.1 ? "lanechange" : (isnan(inv_timegap_front) || inv_timegap_front < 1.0/3.0 || Δv_front > 1.0) ? "freeflow" : "following"
-
-    behavior = get(runlog, colset, frame, :behavior)::UInt16
-
-    str_actual_contexts = ""
-    if (behavior & ContextClass.FREEFLOW) > 0
-        str_actual_contexts *= "freeflow"
-    end
-    if (behavior & ContextClass.FOLLOWING) > 0
-        if !isempty(str_actual_contexts)
-            str_actual_contexts *= ", "
-        end
-        str_actual_contexts *= "following"
-    end
-    if (behavior & ContextClass.LANECHANGE) > 0
-        if !isempty(str_actual_contexts)
-            str_actual_contexts *= ", "
-        end
-        str_actual_contexts *= "lanechange"
-    end
-    if isempty(str_actual_contexts)
-        str_actual_contexts = "NONE"
-    end
-
-    text_y = 15
-    text_y_jump = 20
-
-    if overlay.draw_velFy
-        add_instruction!( rendermodel, render_text, (@sprintf("v_lat = %.4f", velFy), 10, text_y, 15, abs(velFy) > 0.1 ? b : r), incameraframe=false)
-        text_y += text_y_jump
-    end
-    if overlay.draw_inv_timegap
-        add_instruction!( rendermodel, render_text, (@sprintf("inv_timegap_front = %.4f", inv_timegap_front), 10, text_y, 15, color_freeflow), incameraframe=false)
-        text_y += text_y_jump
-    end
-    if overlay.draw_Δv_front
-        add_instruction!( rendermodel, render_text, (@sprintf("Δv_front = %.4f", Δv_front), 10, text_y, 15, color_freeflow), incameraframe=false)
-        text_y += text_y_jump
-    end
-    if overlay.draw_inferred_context
-        add_instruction!( rendermodel, render_text, (str_inferred_context, 10, text_y, 15, COLOR_CAR_EGO), incameraframe=false)
-        text_y += text_y_jump
-    end
-    if overlay.draw_actual_contexts
-        add_instruction!( rendermodel, render_text, (str_actual_contexts, 10, text_y, 15, colorscheme["foreground"]), incameraframe=false)
-        text_y += text_y_jump
-    end
-
-    # add_instruction!( rendermodel, render_text, (@sprintf("inv_timegap_front = %.4f", inv_timegap_front), 10, text_y, 15, colorscheme["foreground"]), incameraframe=false)
-    # text_y += text_y_jump
-
-    rendermodel
-end
-
-type TrajdataOverlay <: Overlay
-    trajdata::DataFrame
-end
-function render_overlay!(overlay::TrajdataOverlay,
-    rendermodel::RenderModel,
-    runlog::RunLog,
-    sn::StreetNetwork,
-    frame::Integer,
-    active_carid::Integer,
-    )
-
-    trajdata = overlay.trajdata
-
-    # find frameind in trajdata
-    t = get(runlog, frame, :time)::Float64
-    t₀ = trajdata[1, :time]::Float64
-    frameind_in_trajdata = -1
-    for frameind in 1 : size(trajdata, 1)
-        if abs(trajdata[frameind, :time]::Float64 - t- t₀) < 0.05
-            frameind_in_trajdata = frameind
-            break
-        end
-    end
-
-    frameind_in_trajdata == -1 || render_scene!(rendermodel, trajdata, frameind_in_trajdata,
-                                                    color_ego=RGBA(COLOR_CAR_EGO.r*1.1, COLOR_CAR_EGO.g*0.9, COLOR_CAR_EGO.b*0.9, 0.5),
-                                                    color_oth=RGBA(COLOR_CAR_OTHER.r*0.9, COLOR_CAR_OTHER.g*1.1, COLOR_CAR_OTHER.b*1.1, 0.5))
-end
+include("cairo_overlays.jl")
 
 ######################
 
@@ -208,25 +91,25 @@ function render_trace!(
     add_instruction!(rm, render_arrow, (pts, color, linewidth, arrowhead_len))
 end
 
-function render_extracted_trajdef!(
-    rendermodel::RenderModel,
-    extracted::ExtractedTrajdef;
-    color::Colorant=hexcolor(0xBB,0xBB,0xFF),
-    linewidth::Float64=0.25, # [m]
-    arrowhead_len::Float64=1.0, # [m]
-    )
+# function render_extracted_trajdef!(
+#     rendermodel::RenderModel,
+#     extracted::ExtractedTrajdef;
+#     color::Colorant=hexcolor(0xBB,0xBB,0xFF),
+#     linewidth::Float64=0.25, # [m]
+#     arrowhead_len::Float64=1.0, # [m]
+#     )
 
-    npts = get_num_pdset_frames(extracted)
-    pts = Array(Float64, 2, npts)
-    pt_index = 0
+#     npts = get_num_pdset_frames(extracted)
+#     pts = Array(Float64, 2, npts)
+#     pt_index = 0
 
-    for i in 1 : npts
-        pts[1,i] = extracted.df[i, :posGx]
-        pts[2,i] = extracted.df[i, :posGy]
-    end
+#     for i in 1 : npts
+#         pts[1,i] = extracted.df[i, :posGx]
+#         pts[2,i] = extracted.df[i, :posGy]
+#     end
 
-    add_instruction!(rendermodel, render_arrow, (pts, color, linewidth, arrowhead_len))
-end
+#     add_instruction!(rendermodel, render_arrow, (pts, color, linewidth, arrowhead_len))
+# end
 
 function calc_subframe_interpolation_bounds(subframeind::Int, subframes_per_frame::Int)
     frameind_lo = int((subframeind-1 - mod(subframeind-1, subframes_per_frame))/subframes_per_frame)+1
@@ -1263,81 +1146,81 @@ function plot_traces(
     s
 end
 
-function plot_extracted_trajdefs(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    extracted_trajdefs::Vector{ExtractedTrajdef},
-    validfind::Integer,
-    active_carid::Integer=CARID_EGO;
+# function plot_extracted_trajdefs(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     extracted_trajdefs::Vector{ExtractedTrajdef},
+#     validfind::Integer,
+#     active_carid::Integer=CARID_EGO;
 
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=500, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    camera_forward_offset::Float64=60.0, # [m]
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=500, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     camera_forward_offset::Float64=60.0, # [m]
 
-    color_trace::Colorant=RGBA(0.7,0.0,0.3,0.8),
-    )
-
-
-    s = CairoRGBSurface(canvas_width, canvas_height)
-    ctx = creategc(s)
-    clear_setup!(rendermodel)
-
-    render_streetnet_roads!(rendermodel, sn)
-
-    for extracted in extracted_trajdefs
-        render_extracted_trajdef!(rendermodel, extracted, color=color_trace)
-    end
-
-    render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
-
-    frameind = validfind2frameind(pdset, validfind)
-    camera_setzoom!(rendermodel, camerazoom)
-    set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
-
-    render(rendermodel, ctx, canvas_width, canvas_height)
-    s
-end
-function plot_extracted_trajdefs(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    extracted_trajdefs::Vector{ExtractedTrajdef},
-    trajdef_color_scalars::Vector{Float64},
-    validfind::Integer,
-    active_carid::Integer=CARID_EGO;
-
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=500, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    camera_forward_offset::Float64=60.0, # [m]
-
-    trajdef_color_lo::Colorant=RGB(0.0,0.0,1.0),
-    trajdef_color_hi::Colorant=RGB(1.0,0.0,0.0),
-    )
+#     color_trace::Colorant=RGBA(0.7,0.0,0.3,0.8),
+#     )
 
 
-    s = CairoRGBSurface(canvas_width, canvas_height)
-    ctx = creategc(s)
-    clear_setup!(rendermodel)
+#     s = CairoRGBSurface(canvas_width, canvas_height)
+#     ctx = creategc(s)
+#     clear_setup!(rendermodel)
 
-    render_streetnet_roads!(rendermodel, sn)
+#     render_streetnet_roads!(rendermodel, sn)
 
-    for (extracted, color_scalar) in zip(extracted_trajdefs, trajdef_color_scalars)
-        color = lerp_color_rgb(trajdef_color_lo, trajdef_color_hi, color_scalar, 1.0)
-        render_extracted_trajdef!(rendermodel, extracted, color=color)
-    end
+#     for extracted in extracted_trajdefs
+#         render_extracted_trajdef!(rendermodel, extracted, color=color_trace)
+#     end
 
-    render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
+#     render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
 
-    frameind = validfind2frameind(pdset, validfind)
-    camera_setzoom!(rendermodel, camerazoom)
-    set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
+#     frameind = validfind2frameind(pdset, validfind)
+#     camera_setzoom!(rendermodel, camerazoom)
+#     set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
 
-    render(rendermodel, ctx, canvas_width, canvas_height)
-    s
-end
+#     render(rendermodel, ctx, canvas_width, canvas_height)
+#     s
+# end
+# function plot_extracted_trajdefs(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     extracted_trajdefs::Vector{ExtractedTrajdef},
+#     trajdef_color_scalars::Vector{Float64},
+#     validfind::Integer,
+#     active_carid::Integer=CARID_EGO;
+
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=500, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     camera_forward_offset::Float64=60.0, # [m]
+
+#     trajdef_color_lo::Colorant=RGB(0.0,0.0,1.0),
+#     trajdef_color_hi::Colorant=RGB(1.0,0.0,0.0),
+#     )
+
+
+#     s = CairoRGBSurface(canvas_width, canvas_height)
+#     ctx = creategc(s)
+#     clear_setup!(rendermodel)
+
+#     render_streetnet_roads!(rendermodel, sn)
+
+#     for (extracted, color_scalar) in zip(extracted_trajdefs, trajdef_color_scalars)
+#         color = lerp_color_rgb(trajdef_color_lo, trajdef_color_hi, color_scalar, 1.0)
+#         render_extracted_trajdef!(rendermodel, extracted, color=color)
+#     end
+
+#     render_scene!(rendermodel, pdset, validfind, active_carid=active_carid)
+
+#     frameind = validfind2frameind(pdset, validfind)
+#     camera_setzoom!(rendermodel, camerazoom)
+#     set_camera_in_front_of_carid!(rendermodel, pdset, active_carid, frameind, camera_forward_offset)
+
+#     render(rendermodel, ctx, canvas_width, canvas_height)
+#     s
+# end
 
 function lerp_color(a::Colorant, b::Colorant, t::Real)
 
@@ -1620,269 +1503,269 @@ function plot_manipulable_pdset_with_traces(
         s
     end
 end
-function plot_manipulable_pdset_with_extracted_trajdefs(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    extracted_trajdefs::Vector{ExtractedTrajdef};
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=500, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    active_carid::Integer=CARID_EGO,
-    color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
-    color_extracted::Colorant=RGB(0.7,0.3,0.0),
-    color_extracted_fill::Colorant=RGBA(0,0,0,0)
-    )
+# function plot_manipulable_pdset_with_extracted_trajdefs(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     extracted_trajdefs::Vector{ExtractedTrajdef};
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=500, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     active_carid::Integer=CARID_EGO,
+#     color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
+#     color_extracted::Colorant=RGB(0.7,0.3,0.0),
+#     color_extracted_fill::Colorant=RGBA(0,0,0,0)
+#     )
 
 
 
-    nvalidfinds_total = nvalidfinds(pdset)
-    validfind = 1
-    @manipulate for validfind = 1 : nvalidfinds_total
+#     nvalidfinds_total = nvalidfinds(pdset)
+#     validfind = 1
+#     @manipulate for validfind = 1 : nvalidfinds_total
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
+#         clear_setup!(rendermodel)
 
-        frameind = validfind2frameind(pdset, validfind)
-        render_streetnet_roads!(rendermodel, sn)
+#         frameind = validfind2frameind(pdset, validfind)
+#         render_streetnet_roads!(rendermodel, sn)
 
-        for extracted in extracted_trajdefs
-            render_extracted_trajdef!(rendermodel, extracted, color=color_trace)
-        end
-        for extracted in extracted_trajdefs
-            df_frame = validfind - extracted.df[1,:frame] + 1
-            if 1 ≤ df_frame ≤ nrow(extracted.df)
-                posGx = extracted.df[df_frame, :posGx]
-                posGy = extracted.df[df_frame, :posGy]
-                posGθ = extracted.df[df_frame, :posGyaw]
-                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
-            end
-        end
-        for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
-            carid = carind2id(pdset, carind, validfind)
-            if carid != active_carid
-                color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
-                render_car!(rendermodel, pdset, carind, frameind, color=color)
-            end
-        end
+#         for extracted in extracted_trajdefs
+#             render_extracted_trajdef!(rendermodel, extracted, color=color_trace)
+#         end
+#         for extracted in extracted_trajdefs
+#             df_frame = validfind - extracted.df[1,:frame] + 1
+#             if 1 ≤ df_frame ≤ nrow(extracted.df)
+#                 posGx = extracted.df[df_frame, :posGx]
+#                 posGy = extracted.df[df_frame, :posGy]
+#                 posGθ = extracted.df[df_frame, :posGyaw]
+#                 add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
+#             end
+#         end
+#         for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
+#             carid = carind2id(pdset, carind, validfind)
+#             if carid != active_carid
+#                 color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
+#                 render_car!(rendermodel, pdset, carind, frameind, color=color)
+#             end
+#         end
 
-        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
+#         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
 
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        s
-    end
-end
-function plot_manipulable_pdset_with_extracted_trajdefs(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    candtrajs::Vector{CandidateTrajectory},
-    ntrajs::Int;
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=500, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    active_carid::Integer=CARID_EGO,
-    color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
-    color_extracted::Colorant=RGB(0.7,0.3,0.0),
-    color_extracted_fill::Colorant=RGBA(0,0,0,0)
-    )
+#         render(rendermodel, ctx, canvas_width, canvas_height)
+#         s
+#     end
+# end
+# function plot_manipulable_pdset_with_extracted_trajdefs(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     candtrajs::Vector{CandidateTrajectory},
+#     ntrajs::Int;
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=500, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     active_carid::Integer=CARID_EGO,
+#     color_trace::Colorant=RGBA(0.7,0.3,0.0,0.8),
+#     color_extracted::Colorant=RGB(0.7,0.3,0.0),
+#     color_extracted_fill::Colorant=RGBA(0,0,0,0)
+#     )
 
 
-    nvalidfinds_total = nvalidfinds(pdset)
-    validfind = 1
-    @manipulate for validfind = 1 : nvalidfinds_total
+#     nvalidfinds_total = nvalidfinds(pdset)
+#     validfind = 1
+#     @manipulate for validfind = 1 : nvalidfinds_total
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
+#         clear_setup!(rendermodel)
 
-        frameind = validfind2frameind(pdset, validfind)
-        render_streetnet_roads!(rendermodel, sn)
+#         frameind = validfind2frameind(pdset, validfind)
+#         render_streetnet_roads!(rendermodel, sn)
 
-        for candtraj in candtrajs
-            render_extracted_trajdef!(rendermodel, cantraj, color=color_trace)
-        end
-        for candtraj in candtrajs
-            df_frame = validfind - extracted.df[1,:frame] + 1
-            if 1 ≤ df_frame ≤ nrow(extracted.df)
-                posGx = extracted.df[df_frame, :posGx]
-                posGy = extracted.df[df_frame, :posGy]
-                posGθ = extracted.df[df_frame, :posGyaw]
-                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
-            end
-        end
-        for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
-            carid = carind2id(pdset, carind, validfind)
-            if carid != active_carid
-                color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
-                render_car!(rendermodel, pdset, carind, frameind, color=color)
-            end
-        end
+#         for candtraj in candtrajs
+#             render_extracted_trajdef!(rendermodel, cantraj, color=color_trace)
+#         end
+#         for candtraj in candtrajs
+#             df_frame = validfind - extracted.df[1,:frame] + 1
+#             if 1 ≤ df_frame ≤ nrow(extracted.df)
+#                 posGx = extracted.df[df_frame, :posGx]
+#                 posGy = extracted.df[df_frame, :posGy]
+#                 posGθ = extracted.df[df_frame, :posGyaw]
+#                 add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color_extracted_fill, color_extracted))
+#             end
+#         end
+#         for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
+#             carid = carind2id(pdset, carind, validfind)
+#             if carid != active_carid
+#                 color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
+#                 render_car!(rendermodel, pdset, carind, frameind, color=color)
+#             end
+#         end
 
-        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
+#         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
 
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        s
-    end
-end
+#         render(rendermodel, ctx, canvas_width, canvas_height)
+#         s
+#     end
+# end
 
-function plot_manipulable_pdset_with_extracted_trajdefs(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    extracted_trajdefs::Vector{ExtractedTrajdef},
-    collision_risk::Vector{Float64};
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=500, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    active_carid::Integer=CARID_EGO,
-    color_risk_lo::Colorant=RGB(0.0,0.0,1.0),
-    color_risk_hi::Colorant=RGB(1.0,0.0,0.0),
-    )
+# function plot_manipulable_pdset_with_extracted_trajdefs(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     extracted_trajdefs::Vector{ExtractedTrajdef},
+#     collision_risk::Vector{Float64};
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=500, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     active_carid::Integer=CARID_EGO,
+#     color_risk_lo::Colorant=RGB(0.0,0.0,1.0),
+#     color_risk_hi::Colorant=RGB(1.0,0.0,0.0),
+#     )
 
-    nvalidfinds_total = nvalidfinds(pdset)
-    validfind = 1
-    @manipulate for validfind = 1 : nvalidfinds_total
+#     nvalidfinds_total = nvalidfinds(pdset)
+#     validfind = 1
+#     @manipulate for validfind = 1 : nvalidfinds_total
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
+#         clear_setup!(rendermodel)
 
-        frameind = validfind2frameind(pdset, validfind)
-        render_streetnet_roads!(rendermodel, sn)
+#         frameind = validfind2frameind(pdset, validfind)
+#         render_streetnet_roads!(rendermodel, sn)
 
-        for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
-            color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
-            render_extracted_trajdef!(rendermodel, extracted, color=color)
-        end
-        for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
-            df_frame = validfind - extracted.df[1,:frame] + 1
-            if 1 ≤ df_frame ≤ nrow(extracted.df)
-                posGx = extracted.df[df_frame, :posGx]
-                posGy = extracted.df[df_frame, :posGy]
-                posGθ = extracted.df[df_frame, :posGyaw]
-                color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
-                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color))
-            end
-        end
-        for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
-            active_carind = carid2ind(pdset, active_carid, validfind)
-            if carind != active_carind
-                color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
-                render_car!(rendermodel, pdset, carind, frameind, color=color)
-            end
-        end
+#         for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+#             color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
+#             render_extracted_trajdef!(rendermodel, extracted, color=color)
+#         end
+#         for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+#             df_frame = validfind - extracted.df[1,:frame] + 1
+#             if 1 ≤ df_frame ≤ nrow(extracted.df)
+#                 posGx = extracted.df[df_frame, :posGx]
+#                 posGy = extracted.df[df_frame, :posGy]
+#                 posGθ = extracted.df[df_frame, :posGyaw]
+#                 color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
+#                 add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, color))
+#             end
+#         end
+#         for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
+#             active_carind = carid2ind(pdset, active_carid, validfind)
+#             if carind != active_carind
+#                 color = carind == CARID_EGO ? COLOR_CAR_EGO : COLOR_CAR_OTHER
+#                 render_car!(rendermodel, pdset, carind, frameind, color=color)
+#             end
+#         end
 
-        camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
+#         camera_center_on_carid!(rendermodel, pdset, active_carid, frameind, camerazoom)
 
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        s
-    end
-end
-function plot_manipulable_pdset_with_extracted_trajdefs(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    active_carid::Integer,
-    validfind_start::Integer,
-    history::Integer,
-    horizon::Integer,
-    extracted_trajdefs::Vector{ExtractedTrajdef},
-    collision_risk::Vector{Float64},
-    gridcounts::Vector{Vector{Matrix{Float64}}},
-    start_points::Vector{VecE2},
-    histobin_params::ParamsHistobin;
+#         render(rendermodel, ctx, canvas_width, canvas_height)
+#         s
+#     end
+# end
+# function plot_manipulable_pdset_with_extracted_trajdefs(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     active_carid::Integer,
+#     validfind_start::Integer,
+#     history::Integer,
+#     horizon::Integer,
+#     extracted_trajdefs::Vector{ExtractedTrajdef},
+#     collision_risk::Vector{Float64},
+#     gridcounts::Vector{Vector{Matrix{Float64}}},
+#     start_points::Vector{VecE2},
+#     histobin_params::ParamsHistobin;
 
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=150, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    color_risk_lo::Colorant=RGB(0.0,0.0,1.0),
-    color_risk_hi::Colorant=RGB(1.0,0.0,0.0),
-    color_gridcount_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
-    color_gridcount_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
-    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
-    )
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=150, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     color_risk_lo::Colorant=RGB(0.0,0.0,1.0),
+#     color_risk_hi::Colorant=RGB(1.0,0.0,0.0),
+#     color_gridcount_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+#     color_gridcount_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+#     count_adjust_exponent::Float64=0.25, # to make low probs stand out more
+#     )
 
-    @assert(length(start_points) == length(gridcounts))
+#     @assert(length(start_points) == length(gridcounts))
 
-    # -----------
+#     # -----------
 
-    gridcounts_copy = deepcopy(gridcounts)
-    for i in 1 : length(gridcounts_copy)
-        for gridcount in gridcounts_copy[i]
-            maxcount = maximum(gridcount)
-            for i = 1 : length(gridcount)
-                gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
-            end
-        end
-    end
+#     gridcounts_copy = deepcopy(gridcounts)
+#     for i in 1 : length(gridcounts_copy)
+#         for gridcount in gridcounts_copy[i]
+#             maxcount = maximum(gridcount)
+#             for i = 1 : length(gridcount)
+#                 gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
+#             end
+#         end
+#     end
 
-    # -----------
+#     # -----------
 
-    car_color_fill = RGBA(0,0,0,0)
+#     car_color_fill = RGBA(0,0,0,0)
 
-    validfind = validfind_start
-    validfind_end = validfind_start+horizon
-    @manipulate for validfind = validfind_start-history : validfind_end
+#     validfind = validfind_start
+#     validfind_end = validfind_start+horizon
+#     @manipulate for validfind = validfind_start-history : validfind_end
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
+#         clear_setup!(rendermodel)
 
-        render_streetnet_roads!(rendermodel, sn)
+#         render_streetnet_roads!(rendermodel, sn)
 
-        # for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
-        #     color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
-        #     render_extracted_trajdef!(rendermodel, extracted, color=color)
-        # end
-        for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
-            df_frame = validfind - extracted.df[1,:frame] + 1
-            if 1 ≤ df_frame ≤ nrow(extracted.df)
-                posGx = extracted.df[df_frame, :posGx]
-                posGy = extracted.df[df_frame, :posGy]
-                posGθ = extracted.df[df_frame, :posGyaw]
-                color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 1.0)
-                add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, car_color_fill, color))
-            end
-        end
+#         # for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+#         #     color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 0.5)
+#         #     render_extracted_trajdef!(rendermodel, extracted, color=color)
+#         # end
+#         for (collision_prob,extracted) in zip(collision_risk, extracted_trajdefs)
+#             df_frame = validfind - extracted.df[1,:frame] + 1
+#             if 1 ≤ df_frame ≤ nrow(extracted.df)
+#                 posGx = extracted.df[df_frame, :posGx]
+#                 posGy = extracted.df[df_frame, :posGy]
+#                 posGθ = extracted.df[df_frame, :posGyaw]
+#                 color = lerp_color_rgb(color_risk_lo, color_risk_hi, collision_prob, 1.0)
+#                 add_instruction!(rendermodel, render_car, (posGx, posGy, posGθ, car_color_fill, color))
+#             end
+#         end
 
-        if validfind > validfind_start
-            for i in 1 : length(gridcounts)
+#         if validfind > validfind_start
+#             for i in 1 : length(gridcounts)
 
-                gridcount = gridcounts_copy[i][validfind - validfind_start]
+#                 gridcount = gridcounts_copy[i][validfind - validfind_start]
 
-                posGx_start = start_points[i].x
-                posGy_start = start_points[i].y
+#                 posGx_start = start_points[i].x
+#                 posGy_start = start_points[i].y
 
-                # TODO(tim): change this to transform relative to frenet frame
-                #            (maybe make it relative to original heading?)
-                add_instruction!(rendermodel, render_colormesh, (gridcount,
-                                  histobin_params.discx.binedges .+ posGx_start,
-                                  histobin_params.discy.binedges .+ posGy_start,
-                                  color_gridcount_lo, color_gridcount_hi))
-            end
-        end
+#                 # TODO(tim): change this to transform relative to frenet frame
+#                 #            (maybe make it relative to original heading?)
+#                 add_instruction!(rendermodel, render_colormesh, (gridcount,
+#                                   histobin_params.discx.binedges .+ posGx_start,
+#                                   histobin_params.discy.binedges .+ posGy_start,
+#                                   color_gridcount_lo, color_gridcount_hi))
+#             end
+#         end
 
-        if validfind ≤ validfind_start
-            for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
-                carid = carind2id(pdset, carind, validfind)
-                frameind = validfind2frameind(pdset, validfind)
-                color_stroke = (carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER)
-                render_car!(rendermodel, pdset, carind, frameind, color=color_stroke)
-            end
-        end
+#         if validfind ≤ validfind_start
+#             for carind in CARIND_EGO : get_maxcarind(pdset, validfind)
+#                 carid = carind2id(pdset, carind, validfind)
+#                 frameind = validfind2frameind(pdset, validfind)
+#                 color_stroke = (carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER)
+#                 render_car!(rendermodel, pdset, carind, frameind, color=color_stroke)
+#             end
+#         end
 
-        active_carind = carid2ind(pdset, active_carid, validfind)
-        camerax = get(pdset, :posGx, active_carind, validfind)
-        cameray = get(pdset, :posGy, active_carind, validfind)
+#         active_carind = carid2ind(pdset, active_carid, validfind)
+#         camerax = get(pdset, :posGx, active_carind, validfind)
+#         cameray = get(pdset, :posGy, active_carind, validfind)
 
-        camera_setzoom!(rendermodel, camerazoom)
-        camera_set_pos!(rendermodel, camerax, cameray)
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        s
-    end
-end
+#         camera_setzoom!(rendermodel, camerazoom)
+#         camera_set_pos!(rendermodel, camerax, cameray)
+#         render(rendermodel, ctx, canvas_width, canvas_height)
+#         s
+#     end
+# end
 
 function plot_manipulable_gridcount_set(
     pdset::PrimaryDataset,
@@ -2102,80 +1985,80 @@ function reel_runlog(
     retval
     # roll(frames, fps=fps) # write("output.gif", film)
 end
-function reel_scenario_playthrough(
-    scenario::Scenario,
-    policy::RiskEstimationPolicy;
+# function reel_scenario_playthrough(
+#     scenario::Scenario,
+#     policy::RiskEstimationPolicy;
 
-    pdset::PrimaryDataset=create_scenario_pdset(scenario),
-    validfind_start::Integer=scenario.history,
-    validfind_end::Integer=nvalidfinds(pdset),
+#     pdset::PrimaryDataset=create_scenario_pdset(scenario),
+#     validfind_start::Integer=scenario.history,
+#     validfind_end::Integer=nvalidfinds(pdset),
 
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=300, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=8.0,
-    camera_forward_offset::Real=60.0,
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=300, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=8.0,
+#     camera_forward_offset::Real=60.0,
 
-    fps::Integer=3,
-    sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME,
-    )
+#     fps::Integer=3,
+#     sec_per_frame::Float64=DEFAULT_SEC_PER_FRAME,
+#     )
 
-    frames = CairoSurface[]
+#     frames = CairoSurface[]
 
-    push!(frames, plot_scene(pdset, sn, validfind_start, active_carid,
-                                        canvas_width=canvas_width,
-                                        canvas_height=canvas_height,
-                                        rendermodel=rendermodel,
-                                        camera_forward_offset=camera_forward_offset,
-                                        camerazoom=camerazoom))
+#     push!(frames, plot_scene(pdset, sn, validfind_start, active_carid,
+#                                         canvas_width=canvas_width,
+#                                         canvas_height=canvas_height,
+#                                         rendermodel=rendermodel,
+#                                         camera_forward_offset=camera_forward_offset,
+#                                         camerazoom=camerazoom))
 
-    validfind = validfind_start
-    while validfind < validfind_end
+#     validfind = validfind_start
+#     while validfind < validfind_end
 
-        candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
-        extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
+#         candidate_trajectories = generate_candidate_trajectories(basics, policy, active_carid, validfind)
+#         extracted_trajdefs, extracted_polies = extract_trajdefs(basics, candidate_trajectories, active_carid, validfind)
 
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, validfind, active_carid,
-                                              canvas_width=canvas_width, canvas_height=canvas_height,
-                                              rendermodel=rendermodel, camerazoom=camerazoom,
-                                              camera_forward_offset=camera_forward_offset))
+#         push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, validfind, active_carid,
+#                                               canvas_width=canvas_width, canvas_height=canvas_height,
+#                                               rendermodel=rendermodel, camerazoom=camerazoom,
+#                                               camera_forward_offset=camera_forward_offset))
 
-        collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories, active_carid, validfind, sec_per_frame)
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, collision_risk, validfind, active_carid,
-                                              canvas_width=canvas_width, canvas_height=canvas_height,
-                                              rendermodel=rendermodel, camerazoom=camerazoom,
-                                              camera_forward_offset=camera_forward_offset))
+#         collision_risk = calc_collision_risk_monte_carlo!(basics, policy, candidate_trajectories, active_carid, validfind, sec_per_frame)
+#         push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, collision_risk, validfind, active_carid,
+#                                               canvas_width=canvas_width, canvas_height=canvas_height,
+#                                               rendermodel=rendermodel, camerazoom=camerazoom,
+#                                               camera_forward_offset=camera_forward_offset))
 
-        costs = calc_costs(policy, extracted_polies, collision_risk)
-        max_cost = maximum(costs)
-        push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, costs./max_cost, validfind, active_carid,
-                                              canvas_width=canvas_width, canvas_height=canvas_height,
-                                              rendermodel=rendermodel, camerazoom=camerazoom,
-                                              camera_forward_offset=camera_forward_offset))
+#         costs = calc_costs(policy, extracted_polies, collision_risk)
+#         max_cost = maximum(costs)
+#         push!(frames, plot_extracted_trajdefs(pdset, sn, extracted_trajdefs, costs./max_cost, validfind, active_carid,
+#                                               canvas_width=canvas_width, canvas_height=canvas_height,
+#                                               rendermodel=rendermodel, camerazoom=camerazoom,
+#                                               camera_forward_offset=camera_forward_offset))
 
-        best = indmin(costs)
-        extracted_best = extracted_trajdefs[best]
-        extracted_best_color_factor_arr = [costs[best]/max_cost]
+#         best = indmin(costs)
+#         extracted_best = extracted_trajdefs[best]
+#         extracted_best_color_factor_arr = [costs[best]/max_cost]
 
-        push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind, active_carid,
-                                              canvas_width=canvas_width, canvas_height=canvas_height,
-                                              rendermodel=rendermodel, camerazoom=camerazoom,
-                                              camera_forward_offset=camera_forward_offset))
+#         push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind, active_carid,
+#                                               canvas_width=canvas_width, canvas_height=canvas_height,
+#                                               rendermodel=rendermodel, camerazoom=camerazoom,
+#                                               camera_forward_offset=camera_forward_offset))
 
-        insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
-        for validfind_viz in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
-            push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind_viz, active_carid,
-                                              canvas_width=canvas_width, canvas_height=canvas_height,
-                                              rendermodel=rendermodel, camerazoom=camerazoom,
-                                              camera_forward_offset=camera_forward_offset))
-        end
+#         insert!(pdset, extracted_best, validfind+1, validfind+N_FRAMES_PER_SIM_FRAME)
+#         for validfind_viz in validfind+1 : min(validfind+N_FRAMES_PER_SIM_FRAME, validfind_end)
+#             push!(frames, plot_extracted_trajdefs(pdset, sn, [extracted_best], extracted_best_color_factor_arr, validfind_viz, active_carid,
+#                                               canvas_width=canvas_width, canvas_height=canvas_height,
+#                                               rendermodel=rendermodel, camerazoom=camerazoom,
+#                                               camera_forward_offset=camera_forward_offset))
+#         end
 
-        validfind += N_FRAMES_PER_SIM_FRAME
-    end
+#         validfind += N_FRAMES_PER_SIM_FRAME
+#     end
 
-    # roll(frames, fps=fps)
-    frames
-end
+#     # roll(frames, fps=fps)
+#     frames
+# end
 
 function generate_and_plot_manipulable_gridcount_set(
     behavior::AbstractVehicleBehavior,
