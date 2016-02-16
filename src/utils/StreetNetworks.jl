@@ -26,6 +26,7 @@ export next_lanetag, prev_lanetag
 export next_node_index, prev_node_index
 export same_lane, same_lane_and_tile
 export closest_node_to_extind, closest_node_above_extind
+export move_downstream
 export neighbor_north, neighbor_east, neighbor_south, neighbor_west
 export has_neighbor_east, has_neighbor_south, has_neighbor_west, extisting_neighbor_tiles, extisting_neighbor_tiles_inclusive
 export TilePoint2DProjectionResult
@@ -206,10 +207,6 @@ Base.isequal(A::LaneTag, B::LaneTag) = A.index_e == B.index_e &&
 same_tile(A::LaneTag, B::LaneTag) = A.index_e == B.index_e && A.index_n == B.index_n
 
 # ===============================================================================
-
-# NOTE(tim): returns the smallest in magnitude signed angle a must be rotated by to get to b
-# TODO(tim): move to a utility file
-_signed_dist_btw_angles(a::Real, b::Real) = atan2(sin(b-a), cos(b-a))
 
 utm2tileindex_east(utm_easting::Real) = round(Int, (utm_easting  - EASTING_BASE)  / TILE_WIDTH, RoundNearestTiesUp)
 utm2tileindex_north(utm_northing::Real) = round(Int, (utm_northing - NORTHING_BASE) / TILE_HEIGHT, RoundNearestTiesUp)
@@ -1069,6 +1066,37 @@ function frenet_distance_between_points(
 	(NaN, NaN)
 end
 
+function move_downstream(
+	sn::StreetNetwork,
+	lanetag::LaneTag,
+	extind::Float64,
+	distance::Float64,
+	)
+
+	#=
+	Takes a point relative to a curve and moves it along the curve a certain distance
+		Returns NaN for extind if it fails
+	=#
+
+	lane = get_lane(sn, lanetag)
+	distance += curve_at(lane.curve, extind).s
+
+	while distance > 0.0
+		if distance ≤ lane.curve.s[end]
+			extind = closest_point_ind_to_curve(lane.curve, distance)
+			distance = 0.0
+		elseif has_next_lane(sn, lane)
+			distance -= lane.curve.s[end]
+			lane = next_lane(sn, lane)
+			lanetag = lane.id
+		else
+			return (lanetag, NaN)
+		end
+	end
+
+	(lanetag, extind)
+end
+
 function num_lanes_on_sides(
 	sn         :: StreetNetwork,
 	segment    :: StreetSegment,
@@ -1383,11 +1411,11 @@ function rndf2streetnetwork(
 							line_dist = hypot(proj)
 
 							# NOTE(tim): angle between start and end orientation
-							Δθ = abs(_signed_dist_btw_angles(θ, θ₂))
+							Δθ = angledist(θ, θ₂)
 
 							# NOTE(tim): angle between dangling edge and projection
 							θ₃ = atan2(testnode.pos.y - node.pos.y, testnode.pos.x - node.pos.x)
-							Δ₃ = abs(_signed_dist_btw_angles(θ,θ₃))
+							Δ₃ = angledist(θ,θ₃)
 
 							score = Δθ + 10.0*Δ₃
 
@@ -1446,10 +1474,10 @@ function rndf2streetnetwork(
 							proj = vE * c_p
 							perp_dist = hypot(A - proj)
 							line_dist = hypot(proj)
-							Δθ = abs(_signed_dist_btw_angles(θ,θ₂))
+							Δθ = angledist(θ,θ₂)
 
 							θ₃ = atan2(node.pos.y - testnode.pos.y, node.pos.x - testnode.pos.x)
-							Δ₃ = abs(_signed_dist_btw_angles(θ,θ₃))
+							Δ₃ = angledist(θ,θ₃)
 
 							score = Δθ + 10.0*Δ₃
 
