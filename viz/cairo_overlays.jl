@@ -209,3 +209,78 @@ function render_overlay!(overlay::EgoToLeftCarOverlay,
 
     rendermodel
 end
+
+type RunLogSimOverlay <: Overlay
+    runlog::RunLog
+    frame_offset::Int
+    color::Colorant
+
+    RunLogSimOverlay(runlog::RunLog, frame_offset::Int, color::Colorant=RGBA(0.8,0.2,0.2,0.5)) = new(runlog, frame_offset, color)
+end
+function render_overlay!(overlay::RunLogSimOverlay,
+    rendermodel::RenderModel,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer,
+    )
+
+    runlog_sim = overlay.runlog
+    frame_sim = frame+overlay.frame_offset
+
+    if frame_inbounds(runlog_sim, frame_sim)
+        colset = id2colset(runlog_sim, active_carid, frame_sim)
+        render_car!(rendermodel, runlog_sim, colset, frame_sim, color=overlay.color)
+    end
+
+    rendermodel
+end
+
+##################
+
+abstract CellEntry
+type CellOverlay <: Overlay
+    entries::Vector{CellEntry}
+    font_size::Float64
+    top_margin::Float64
+    side_margin::Float64
+    row_spacing::Float64 # distance between cells
+end
+function render_overlay!(overlay::CellOverlay,
+    rendermodel::RenderModel,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer,
+    )
+
+    text_y = overlay.top_margin
+    for entry in overlay.entries
+        text_y = render_entry(text_y, entry, overlay, rendermodel, runlog, sn, frame, active_carid)
+    end
+
+    rendermodel
+end
+
+#####################
+
+type ModelNameCellEntry <: CellEntry
+    model_name::AbstractString
+    color::Colorant
+end
+function render_entry(
+    text_y::Float64,
+    entry::ModelNameCellEntry,
+    overlay::CellOverlay,
+    rendermodel::RenderModel,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame::Integer,
+    active_carid::Integer,
+    )
+
+
+    add_instruction!(rendermodel, render_text, ("Yo yo yo", overlay.side_margin, text_y, overlay.font_size, entry.color), incameraframe=false)
+
+    text_y + overlay.row_spacing
+end

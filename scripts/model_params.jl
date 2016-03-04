@@ -1,10 +1,10 @@
 behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
 
-# behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 
 ####################
 # Empty Parameter Set
 
+behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 # behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(LG_TrainParams(indicators=INDICATOR_SET2, ridge_regression_constant=0.8))
 # behaviorset["Random Forest"] = BehaviorTrainDefinition(
 #                                                 GRF_TrainParams(indicators=INDICATOR_SET2,
@@ -61,6 +61,14 @@ behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
 ####################
 # Partial Parameter Set
 
+# behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams(),
+#                                     BehaviorParameter[
+#                                         BehaviorParameter(:targets, [
+#                                                                         ModelTargets(FUTUREDESIREDANGLE, FUTUREACCELERATION),
+#                                                                         ModelTargets(FUTUREVELFT, FUTUREACCELERATION),
+#                                                                         ModelTargets(FUTURETURNRATE, FUTUREACCELERATION),
+#                                                                     ], 1),
+#                                     ])
 behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
                                             LG_TrainParams(indicators=INDICATOR_SET2),
                                             [
@@ -109,9 +117,15 @@ behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
                                             )
 behaviorset["Linear Bayesian"] = BehaviorTrainDefinition(
                                             LB_TrainParams(
+                                                # targets=ModelTargets(FUTUREDESIREDANGLE, FUTURE_DELTA_ACCEL),
                                                 indicators=INDICATOR_SET2,
                                             ),
                                             [
+                                                # BehaviorParameter(:targets, [
+                                                #                                 ModelTargets(FUTUREDESIREDANGLE, FUTUREACCELERATION),
+                                                #                                 ModelTargets(FUTUREVELFT, FUTUREACCELERATION),
+                                                #                                 ModelTargets(FUTURETURNRATE, FUTUREACCELERATION),
+                                                #                             ], 1),
                                                 BehaviorParameter(:ridge_regression_constant, [0.005, 0.01, 0.1], 2),
                                                 BehaviorParameter(:min_σ_lat, [1e-7, 1e-6, 1e-5], 2),
                                                 BehaviorParameter(:min_σ_lon, [1e-7, 5e-6, 1e-6], 2),

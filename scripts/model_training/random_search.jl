@@ -215,11 +215,7 @@ for dset_filepath_modifier in (
             for (i,model_name) in enumerate(model_names)
                 behavior = models[model_name]
                 for frameind in 1 : nframes
-                    if trains_with_nona(behavior)
-                        frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-                    else
-                        frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-                    end
+                    frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
                 end
             end
             toc()

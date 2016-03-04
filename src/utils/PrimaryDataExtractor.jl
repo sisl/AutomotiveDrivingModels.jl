@@ -2279,10 +2279,10 @@ function _extract_runlog(
             is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 1.0)
             if is_in_freeflow
                 set_behavior_flag!(runlog, colset, frame, ContextClass.FREEFLOW)
-                @assert(!is_behavior_fag_set(runlog, colset, frame, ContextClass.FOLLOWING))
+                @assert(!is_behavior_flag_set(runlog, colset, frame, ContextClass.FOLLOWING))
             else
                 set_behavior_flag!(runlog, colset, frame, ContextClass.FOLLOWING)
-                @assert(!is_behavior_fag_set(runlog, colset, frame, ContextClass.FREEFLOW))
+                @assert(!is_behavior_flag_set(runlog, colset, frame, ContextClass.FREEFLOW))
             end
 
             # lanechange can be set separately

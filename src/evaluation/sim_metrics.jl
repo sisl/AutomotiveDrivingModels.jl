@@ -388,16 +388,9 @@ function extract(::Type{LoglikelihoodMetric},
 
     logl = 0.0
     nframes = 0
-    if trains_with_nona(behavior)
-        for frameind in foldset
-            nframes += 1
-            logl += calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-        end
-    else
-        for frameind in foldset
-            nframes += 1
-            logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-        end
+    for frameind in foldset
+        nframes += 1
+        logl += calc_action_loglikelihood(behavior, dset.dataframe, frameind)
     end
     LoglikelihoodMetric(logl/nframes)
 end
@@ -408,11 +401,7 @@ function get_frame_score(::Type{LoglikelihoodMetric},
     frameind::Int,
     )
 
-    if trains_with_nona(behavior)
-        calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-    else
-        calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-    end
+    calc_action_loglikelihood(behavior, dset.dataframe, frameind)
 end
 get_score(metric::LoglikelihoodMetric) = metric.logl
 
@@ -432,16 +421,9 @@ function extract(::Type{MedianLoglikelihoodMetric},
     logl_arr = Array(Float64, length(foldset))
     logl_arr_index = 0
 
-    if trains_with_nona(behavior)
-        for frameind in foldset
-            logl_arr_index += 1
-            logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-        end
-    else
-        for frameind in foldset
-            logl_arr_index += 1
-            logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-        end
+    for frameind in foldset
+        logl_arr_index += 1
+        logl_arr[logl_arr_index] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
     end
     MedianLoglikelihoodMetric(median(logl_arr))
 end
@@ -452,11 +434,7 @@ function get_frame_score(::Type{MedianLoglikelihoodMetric},
     frameind::Int,
     )
 
-    if trains_with_nona(behavior)
-        calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-    else
-        calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-    end
+    calc_action_loglikelihood(behavior, dset.dataframe, frameind)
 end
 get_score(metric::MedianLoglikelihoodMetric) = metric.logl
 
@@ -472,7 +450,7 @@ const KLDIV_METRIC_DISC_DICT = Dict(
         symbol(SPEED)                 => LinearDiscretizer(collect(linspace( 0.0, 35.0, KLDIV_METRIC_NBINS+1)), Int),
         symbol(INV_TIMEGAP_FRONT)     => LinearDiscretizer(collect(linspace( 0.0, 10.0, KLDIV_METRIC_NBINS+1)), Int),
         symbol(POSFT)                 => LinearDiscretizer(collect(linspace(-3.0,  3.0, KLDIV_METRIC_NBINS+1)), Int),
-        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0,100.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0, 20.0, KLDIV_METRIC_NBINS+1)), Int),
         string(JerkSignInversions)    => LinearDiscretizer(collect(linspace( 0.0, 25.0, KLDIV_METRIC_NBINS+1)), Int),
         string(LagOneAutocorrelation) => LinearDiscretizer(collect(linspace(-1.0,  1.0, KLDIV_METRIC_NBINS+1)), Int),
     )

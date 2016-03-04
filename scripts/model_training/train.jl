@@ -103,15 +103,15 @@ for (model_name, traindef) in behaviorset_full
     behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
     behaviorset[model_name] = traindef
 
-    # try
+    try
 
         nmodels = length(behaviorset)
         model_names = collect(keys(behaviorset))
 
         for dset_filepath_modifier in (
-            # "_freeflow",
-            "_following",
-            # "_lanechange",
+            "_freeflow",
+            # "_following",
+            "_lanechange",
             )
 
             println(dset_filepath_modifier)
@@ -227,11 +227,7 @@ for (model_name, traindef) in behaviorset_full
                 for (i,model_name) in enumerate(model_names)
                     behavior = models[model_name]
                     for frameind in 1 : nframes
-                        if trains_with_nona(behavior)
-                            frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe_nona, frameind)
-                        else
-                            frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-                        end
+                        frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
                     end
                 end
 
@@ -348,20 +344,10 @@ for (model_name, traindef) in behaviorset_full
             println(metrics_sets_test_traces)
             println("metrics_sets_test_traces_bagged: ")
             println(metrics_sets_test_traces_bagged)
-
-            # JLD.save(METRICS_OUTPUT_FILE,
-            #          "model_names",                      model_names,
-            #          "metrics_sets_test_frames",         metrics_sets_test_frames,
-            #          "metrics_sets_test_frames_bagged",  metrics_sets_test_frames_bagged,
-            #          "metrics_sets_train_frames",        metrics_sets_train_frames,
-            #          "metrics_sets_train_frames_bagged", metrics_sets_train_frames_bagged,
-            #          "metrics_sets_test_traces",         metrics_sets_test_traces,
-            #          "metrics_sets_test_traces_bagged",  metrics_sets_test_traces_bagged,
-            #         )
         end
-    # catch
-    #     println("CAUGHT SOME ERROR, model: ", model_name)
-    # end
+    catch
+        println("CAUGHT SOME ERROR, model: ", model_name)
+    end
 end
 
 # println("DONE")

@@ -12,7 +12,7 @@ using AutomotiveDrivingModels.StreetNetworks
 # ----------------------------------
 # exports
 
-export AbstractFeature
+export AbstractFeature, FeatureTargetLat, FeatureTargetLon
 export POSFYAW, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT, SCENE_SPEED_DIFFERENCE
 export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY, JERK
 export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
@@ -25,7 +25,7 @@ export HAS_RIGHT, DIST_RIGHT, D_Y_RIGHT, DELTA_V_RIGHT, DELTA_V_Y_RIGHT, YAW_RIG
 export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
 export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
 export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
-export FUTUREACCELERATION, FUTUREDESIREDANGLE
+export FUTUREACCELERATION, FUTUREDESIREDANGLE, FUTURETURNRATE, FUTUREVELFT, FUTURE_DELTA_ACCEL
 export Feature_IsClean, Feature_Past
 export Feature_Mean_Over_History, Feature_Std_Over_History, Feature_Max_Over_History, Feature_Min_Over_History
 
@@ -43,7 +43,8 @@ export
     lowerbound,
     couldna,
     replace_na,
-    lsymbol
+    lsymbol,
+    get_feature_derivative_backwards
 
 # ----------------------------------
 # constants
@@ -55,6 +56,8 @@ const KP_DESIRED_ANGLE = 1.0
 # types
 
 abstract AbstractFeature
+abstract FeatureTargetLat <: AbstractFeature
+abstract FeatureTargetLon <: AbstractFeature
 
 # ----------------------------------
 # globals
@@ -124,7 +127,8 @@ function create_feature_basics(
     minvalue    :: Float64,
     maxvalue    :: Float64,
     can_na      :: Symbol; # ∈ {:can_na, :no_na}
-    na_replacement :: Union{Void,Float64} = nothing
+    na_replacement :: Union{Void,Float64} = nothing,
+    target      :: Symbol = :none # ∈ {:lat, :lon}
     )
 
     for feature in values(SYMBOL_TO_FEATURE)
@@ -134,13 +138,21 @@ function create_feature_basics(
     @assert(minvalue ≤ maxvalue)
     @assert(can_na == :can_na || can_na == :no_na)
 
+    if target == :lat
+        feature_parent = :FeatureTargetLat
+    elseif target == :lon
+        feature_parent = :FeatureTargetLon
+    else
+        feature_parent = :AbstractFeature
+    end
+
     feature_name = symbol("Feature_" * name)
     const_name   = symbol(uppercase(name))
     sym_feature  = Meta.quot(sym)
     could_be_na  = can_na == :can_na
 
     @eval begin
-        immutable $feature_name <: AbstractFeature end
+        immutable $feature_name <: $feature_parent end
         const       $const_name  = ($feature_name)()
         units(       ::$feature_name)  = $unit
         isint(       ::$feature_name)  = false
@@ -474,97 +486,72 @@ create_feature_basics("TurnRate", :turnrate, L"\dot{\psi}", Float64, L"\radian\p
 Base.get(::Feature_TurnRate, runlog::RunLog, ::StreetNetwork, colset::UInt, frame::Integer) =
     (get(runlog, colset, frame, :ratesB)::VecSE2).θ
 
+function get_feature_derivative_backwards(f::AbstractFeature, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+    frame_prev = frame-1
+    colset_prev = colset_in_other_frame(runlog, colset, frame, frame_prev)
+
+    retval = NA_ALIAS
+    if colset_prev != COLSET_NULL
+        curr = get(f, runlog, sn, colset, frame)::Float64
+        past = get(f, runlog, sn, colset_prev, frame_prev)::Float64
+        Δt = get_elapsed_time(runlog, frame_prev, frame)
+        retval = (curr - past) / Δt
+    end
+
+    retval
+end
+
 create_feature_basics("Acc", :acc, L"\|a\|", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_Acc, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
-
-    # NOTE(tim): defaults to 0.0 if there is no previous frame
-
-    if frame_inbounds(runlog, frame-1)
-        curr = get(SPEED, runlog, sn, colset, frame)::Float64
-        past = get(SPEED, runlog, sn, colset, frame-1)::Float64
-        curr_t = get(runlog, frame,   :time)::Float64
-        past_t = get(runlog, frame-1, :time)::Float64
-        (curr - past) / (past_t - curr_t)
-    else
-        0.0
+    retval = get_feature_derivative_backwards(SPEED, runlog, sn, colset, frame)
+    if is_feature_na(retval)
+        retval = 0.0
     end
+    retval
 end
 create_feature_basics("AccBx", :accBx, L"a^B_x", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccBx, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
-    # NOTE(tim): defaults to 0.0 if there is no previous frame
-
-    if frame_inbounds(runlog, frame-1)
-        curr = get(VELBX, runlog, sn, colset, frame)::Float64
-        past = get(VELBX, runlog, sn, colset, frame-1)::Float64
-        curr_t = get(runlog, frame,   :time)::Float64
-        past_t = get(runlog, frame-1, :time)::Float64
-        (curr - past) / (past_t - curr_t)
-    else
-        0.0
+    retval = get_feature_derivative_backwards(VELBX, runlog, sn, colset, frame)
+    if is_feature_na(retval)
+        retval = 0.0
     end
+    retval
 end
 create_feature_basics("AccBy", :accBy, L"a^B_y", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccBy, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
-    # NOTE(tim): defaults to 0.0 if there is no previous frame
-
-    if frame_inbounds(runlog, frame-1)
-        curr = get(VELBY, runlog, sn, colset, frame)::Float64
-        past = get(VELBY, runlog, sn, colset, frame-1)::Float64
-        curr_t = get(runlog, frame,   :time)::Float64
-        past_t = get(runlog, frame-1, :time)::Float64
-        (curr - past) / (past_t - curr_t)
-    else
-        0.0
+    retval = get_feature_derivative_backwards(VELBY, runlog, sn, colset, frame)
+    if is_feature_na(retval)
+        retval = 0.0
     end
+    retval
 end
 create_feature_basics("AccFs", :accFs, L"a^F_s", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccFs, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
-    # NOTE(tim): defaults to 0.0 if there is no previous frame
-
-    if frame_inbounds(runlog, frame-1)
-        curr = get(VELFS, runlog, sn, colset, frame)::Float64
-        past = get(VELFS, runlog, sn, colset, frame-1)::Float64
-        curr_t = get(runlog, frame,   :time)::Float64
-        past_t = get(runlog, frame-1, :time)::Float64
-        (curr - past) / (past_t - curr_t)
-    else
-        0.0
+    retval = get_feature_derivative_backwards(VELFS, runlog, sn, colset, frame)
+    if is_feature_na(retval)
+        retval = 0.0
     end
+    retval
 end
 create_feature_basics("AccFt", :accFt, L"a^F_t", Float64, L"m/s^2", -Inf, Inf, :no_na)
 function Base.get(::Feature_AccFt, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
-    # NOTE(tim): defaults to 0.0 if there is no previous frame
-
-    if frame_inbounds(runlog, frame-1)
-        curr = get(VELFT, runlog, sn, colset, frame)::Float64
-        past = get(VELFT, runlog, sn, colset, frame-1)::Float64
-        curr_t = get(runlog, frame,   :time)::Float64
-        past_t = get(runlog, frame-1, :time)::Float64
-        (curr - past) / (past_t - curr_t)
-    else
-        0.0
+    retval = get_feature_derivative_backwards(VELFT, runlog, sn, colset, frame)
+    if is_feature_na(retval)
+        retval = 0.0
     end
+    retval
 end
 create_feature_basics("Jerk", :jerk, L"j", Float64, L"m/s\cubed", -Inf, Inf, :no_na)
 function Base.get(::Feature_Jerk, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
-
-    # NOTE(tim): defaults to 0.0 if there is no previous frame
-
-    frameskip = N_FRAMES_PER_SIM_FRAME
-
-    if frame_inbounds(runlog, frame-frameskip)
-        curr = get(ACC, runlog, sn, colset, frame)::Float64
-        past = get(ACC, runlog, sn, colset, frame-frameskip)::Float64
-        curr_t = get(runlog, frame,           :time)::Float64
-        past_t = get(runlog, frame-frameskip, :time)::Float64
-        (curr - past) / (past_t - curr_t)
-    else
-        0.0
+    retval = get_feature_derivative_backwards(ACCBX, runlog, sn, colset, frame)
+    if is_feature_na(retval)
+        retval = 0.0
     end
+    retval
 end
 
 #############################################
@@ -1400,41 +1387,74 @@ end
 #
 #############################################
 
-create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0)
+create_feature_basics("FutureAcceleration", :f_accel, L"a_{t+1}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0, target=:lon)
 function Base.get(::Feature_FutureAcceleration, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
-    # TODO(tim): should we be using AccBx to propagate the model?
+    frame_fut = frame + N_FRAMES_PER_SIM_FRAME
+    colset_fut = colset_in_other_frame(runlog, colset, frame, frame_fut)
+
+    retval = NA_ALIAS
+    if colset_fut != COLSET_NULL
+        retval = get(ACCBX, runlog, sn, colset_fut, frame_fut)
+    end
+
+    retval
+end
+create_feature_basics("Future_Delta_Accel", :f_delta_accel, L"\Delta a_{t+1}", Float64, L"m/s^2", -Inf, Inf, :can_na, na_replacement=0.0, target=:lon)
+function Base.get(::Feature_Future_Delta_Accel, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     frame_fut = frame + N_FRAMES_PER_SIM_FRAME
-    if frame_inbounds(runlog, frame_fut)
-        curr = get(SPEED, runlog, sn, colset, frame)::Float64
-        futr = get(SPEED, runlog, sn, colset, frame_fut)::Float64
-        curr_t = get(runlog, frame,   :time)::Float64
-        futr_t = get(runlog, frame_fut, :time)::Float64
-        (futr - curr) / (futr_t - curr_t)
-    else
-        NA_ALIAS
+    colset_fut = colset_in_other_frame(runlog, colset, frame, frame_fut)
+
+    retval = NA_ALIAS
+    if colset_fut != COLSET_NULL
+        retval = get(ACCBX, runlog, sn, colset_fut, frame_fut) - get(ACCBX, runlog, sn, colset, frame)
     end
+
+    retval
 end
-create_feature_basics( "FutureDesiredAngle", :f_des_angle, L"\phi^{\text{des}}", Float64, L"\radian", -convert(Float64, π), convert(Float64, π), :can_na, na_replacement=0.0)
+create_feature_basics( "FutureDesiredAngle", :f_des_angle, L"\phi^{\text{des}}", Float64, L"\radian", -convert(Float64, π), convert(Float64, π), :can_na, na_replacement=0.0, target=:lat)
 function Base.get(::Feature_FutureDesiredAngle, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
 
     frame_fut = frame + N_FRAMES_PER_SIM_FRAME
+    colset_fut = colset_in_other_frame(runlog, colset, frame, frame_fut)
 
-    if frame_inbounds(runlog, frame_fut)
-
-        curϕ = (get(runlog, colset, frame,   :frenet)::VecSE2).θ
-        futϕ = (get(runlog, colset, frame_fut, :frenet)::VecSE2).θ
-        curr_t = get(runlog, frame,   :time)::Float64
-        futr_t = get(runlog, frame_fut, :time)::Float64
-
-        ΔT = futr_t - curr_t
-        expconst = exp(-KP_DESIRED_ANGLE*ΔT)
-
-        (futϕ - curϕ*expconst) / (1.0 - expconst)
-    else
-        NA_ALIAS
+    retval = NA_ALIAS
+    if colset_fut != COLSET_NULL
+        curϕ = (get(runlog, colset, frame, :frenet)::VecSE2).θ
+        futϕ = (get(runlog, colset_fut, frame_fut, :frenet)::VecSE2).θ
+        Δt = get_elapsed_time(runlog, frame, frame_fut)
+        expconst = exp(-KP_DESIRED_ANGLE*Δt)
+        retval = (futϕ - curϕ*expconst) / (1.0 - expconst)
     end
+
+    retval
+end
+create_feature_basics( "FutureTurnrate", :f_turnrate, L"\dot{\phi}_{t+1}}", Float64, L"\radian\per\second", -Inf, Inf, :can_na, na_replacement=0.0, target=:lat)
+function Base.get(::Feature_FutureTurnrate, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    frame_fut = frame + N_FRAMES_PER_SIM_FRAME
+    colset_fut = colset_in_other_frame(runlog, colset, frame, frame_fut)
+
+    retval = NA_ALIAS
+    if colset_fut != COLSET_NULL
+        retval = get(TURNRATE, runlog, sn, colset_fut, frame_fut)
+    end
+
+    retval
+end
+create_feature_basics( "FutureVelFt", :f_velFy, L"v^f_{y, t+1}}", Float64, L"m/s", -Inf, Inf, :can_na, na_replacement=0.0, target=:lat)
+function Base.get(::Feature_FutureVelFt, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    frame_fut = frame + N_FRAMES_PER_SIM_FRAME
+    colset_fut = colset_in_other_frame(runlog, colset, frame, frame_fut)
+
+    retval = NA_ALIAS
+    if colset_fut != COLSET_NULL
+        retval = get(VELFT, runlog, sn, colset_fut, frame_fut)
+    end
+
+    retval
 end
 
 #############################################
@@ -1454,6 +1474,7 @@ Base.symbol{F}( ::Feature_IsClean{F}) = symbol("isclean_" * string(F))
 lsymbol{F}(     ::Feature_IsClean{F}) = L"\texttt{isclean}\left(" * lsymbol(symbol2feature(F)) * L"\right)"
 function Base.get{F}(::Feature_IsClean{F}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
+    println(F)
     v = get(f, runlog, sn, colset, frame)::Float64
     convert(Float64, !isnan(v) && !isinf(v))
 end
@@ -1484,16 +1505,15 @@ end
 function Base.get{F, H}(::Feature_Past{F, H}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
 
-    frame_past = frame - H
-    if frame_inbounds(runlog, frame_past)
-        id = colset2id(runlog, colset, frame)
-        colset_past = id2colset(runlog, id, frame_past)
-        v = get(f, runlog, sn, colset_past, frame_past)::Float64
-    else
-        v = NA_ALIAS
+    frame_past = frame-1
+    colset_past = colset_in_other_frame(runlog, colset, frame, frame_past)
+
+    retval = NA_ALIAS
+    if colset_past != COLSET_NULL
+        retval = get(f, runlog, sn, colset_past, frame_past)::Float64
     end
 
-    v
+    retval
 end
 
 """

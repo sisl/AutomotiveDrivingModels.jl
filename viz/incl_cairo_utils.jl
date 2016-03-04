@@ -1767,165 +1767,165 @@ end
 #     end
 # end
 
-function plot_manipulable_gridcount_set(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    active_carid::Integer,
-    validfind_start::Integer,
-    history::Integer,
-    horizon::Integer,
-    gridcounts::Vector{Matrix{Float64}},
-    histobin_params::ParamsHistobin;
+# function plot_manipulable_gridcount_set(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     active_carid::Integer,
+#     validfind_start::Integer,
+#     history::Integer,
+#     horizon::Integer,
+#     gridcounts::Vector{Matrix{Float64}},
+#     histobin_params::ParamsHistobin;
 
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=150, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
-    color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
-    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
-    )
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=150, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+#     color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+#     count_adjust_exponent::Float64=0.25, # to make low probs stand out more
+#     )
 
-    # -----------
+#     # -----------
 
-    gridcounts_copy = deepcopy(gridcounts)
-    for gridcount in gridcounts_copy
-        maxcount = maximum(gridcount)
-        for i = 1 : length(gridcount)
-            gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
-        end
-    end
+#     gridcounts_copy = deepcopy(gridcounts)
+#     for gridcount in gridcounts_copy
+#         maxcount = maximum(gridcount)
+#         for i = 1 : length(gridcount)
+#             gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
+#         end
+#     end
 
-    # -----------
+#     # -----------
 
-    carind_start = carid2ind(pdset, active_carid, validfind_start)
-    posGx_start = get(pdset, :posGx, carind_start, validfind_start)
-    posGy_start = get(pdset, :posGy, carind_start, validfind_start)
+#     carind_start = carid2ind(pdset, active_carid, validfind_start)
+#     posGx_start = get(pdset, :posGx, carind_start, validfind_start)
+#     posGy_start = get(pdset, :posGy, carind_start, validfind_start)
 
-    validfind = validfind_start
-    validfind_end = validfind_start+horizon
-    @manipulate for validfind = validfind_start-history : validfind_end
+#     validfind = validfind_start
+#     validfind_end = validfind_start+horizon
+#     @manipulate for validfind = validfind_start-history : validfind_end
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
+#         clear_setup!(rendermodel)
 
-        render_streetnet_roads!(rendermodel, sn)
+#         render_streetnet_roads!(rendermodel, sn)
 
-        for carind in -1 : get_maxcarind(pdset, validfind)
-            carid = carind2id(pdset, carind, validfind)
-            if carid == active_carid
-                if validfind > validfind_start
-                    gridcount = gridcounts[validfind - validfind_start]
+#         for carind in -1 : get_maxcarind(pdset, validfind)
+#             carid = carind2id(pdset, carind, validfind)
+#             if carid == active_carid
+#                 if validfind > validfind_start
+#                     gridcount = gridcounts[validfind - validfind_start]
 
-                    # TODO(tim): change this to transform relative to frenet frame
-                    add_instruction!(rendermodel, render_colormesh, (gridcount,
-                                      histobin_params.discx.binedges .+ posGx_start,
-                                      histobin_params.discy.binedges .+ posGy_start,
-                                      color_prob_lo, color_prob_hi))
-                end
-            end
-        end
+#                     # TODO(tim): change this to transform relative to frenet frame
+#                     add_instruction!(rendermodel, render_colormesh, (gridcount,
+#                                       histobin_params.discx.binedges .+ posGx_start,
+#                                       histobin_params.discy.binedges .+ posGy_start,
+#                                       color_prob_lo, color_prob_hi))
+#                 end
+#             end
+#         end
 
-        for carind in -1 : get_maxcarind(pdset, validfind)
-            carid = carind2id(pdset, carind, validfind)
-            if carid != active_carid || validfind ≤ validfind_start
-                frameind = validfind2frameind(pdset, validfind)
-                render_car!(rendermodel, pdset, carind, frameind, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
-            end
-        end
+#         for carind in -1 : get_maxcarind(pdset, validfind)
+#             carid = carind2id(pdset, carind, validfind)
+#             if carid != active_carid || validfind ≤ validfind_start
+#                 frameind = validfind2frameind(pdset, validfind)
+#                 render_car!(rendermodel, pdset, carind, frameind, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
+#             end
+#         end
 
-        active_carind = carid2ind(pdset, active_carid, validfind)
-        camerax = get(pdset, :posGx, active_carind, validfind)
-        cameray = get(pdset, :posGy, active_carind, validfind)
+#         active_carind = carid2ind(pdset, active_carid, validfind)
+#         camerax = get(pdset, :posGx, active_carind, validfind)
+#         cameray = get(pdset, :posGy, active_carind, validfind)
 
-        camera_setzoom!(rendermodel, camerazoom)
-        camera_set_pos!(rendermodel, camerax, cameray)
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        s
-    end
-end
-function plot_manipulable_gridcount_sets(
-    pdset::PrimaryDataset,
-    sn::StreetNetwork,
-    active_carid::Integer,
-    validfind_start::Integer,
-    history::Integer,
-    horizon::Integer,
-    gridcounts::Vector{Vector{Matrix{Float64}}},
-    start_points::Vector{VecE2},
-    histobin_params::ParamsHistobin;
+#         camera_setzoom!(rendermodel, camerazoom)
+#         camera_set_pos!(rendermodel, camerax, cameray)
+#         render(rendermodel, ctx, canvas_width, canvas_height)
+#         s
+#     end
+# end
+# function plot_manipulable_gridcount_sets(
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     active_carid::Integer,
+#     validfind_start::Integer,
+#     history::Integer,
+#     horizon::Integer,
+#     gridcounts::Vector{Vector{Matrix{Float64}}},
+#     start_points::Vector{VecE2},
+#     histobin_params::ParamsHistobin;
 
-    canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=150, # [pix]
-    rendermodel::RenderModel=RenderModel(),
-    camerazoom::Real=6.5,
-    color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
-    color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
-    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
-    )
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=150, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+#     color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+#     count_adjust_exponent::Float64=0.25, # to make low probs stand out more
+#     )
 
-    @assert(length(start_points) == length(gridcounts))
+#     @assert(length(start_points) == length(gridcounts))
 
-    # -----------
+#     # -----------
 
-    gridcounts_copy = deepcopy(gridcounts)
-    for i in 1 : length(gridcounts_copy)
-        for gridcount in gridcounts_copy[i]
-            maxcount = maximum(gridcount)
-            for i = 1 : length(gridcount)
-                gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
-            end
-        end
-    end
+#     gridcounts_copy = deepcopy(gridcounts)
+#     for i in 1 : length(gridcounts_copy)
+#         for gridcount in gridcounts_copy[i]
+#             maxcount = maximum(gridcount)
+#             for i = 1 : length(gridcount)
+#                 gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
+#             end
+#         end
+#     end
 
-    # -----------
+#     # -----------
 
-    validfind = validfind_start
-    validfind_end = validfind_start+horizon
-    @manipulate for validfind = validfind_start-history : validfind_end
+#     validfind = validfind_start
+#     validfind_end = validfind_start+horizon
+#     @manipulate for validfind = validfind_start-history : validfind_end
 
-        s = CairoRGBSurface(canvas_width, canvas_height)
-        ctx = creategc(s)
-        clear_setup!(rendermodel)
+#         s = CairoRGBSurface(canvas_width, canvas_height)
+#         ctx = creategc(s)
+#         clear_setup!(rendermodel)
 
-        render_streetnet_roads!(rendermodel, sn)
+#         render_streetnet_roads!(rendermodel, sn)
 
-        if validfind > validfind_start
-            for i in 1 : length(gridcounts)
+#         if validfind > validfind_start
+#             for i in 1 : length(gridcounts)
 
-                gridcount = gridcounts_copy[i][validfind - validfind_start]
+#                 gridcount = gridcounts_copy[i][validfind - validfind_start]
 
-                posGx_start = start_points[i].x
-                posGy_start = start_points[i].y
+#                 posGx_start = start_points[i].x
+#                 posGy_start = start_points[i].y
 
-                # TODO(tim): change this to transform relative to frenet frame
-                #            (maybe make it relative to original heading?)
-                add_instruction!(rendermodel, render_colormesh, (gridcount,
-                                  histobin_params.discx.binedges .+ posGx_start,
-                                  histobin_params.discy.binedges .+ posGy_start,
-                                  color_prob_lo, color_prob_hi))
-            end
-        end
+#                 # TODO(tim): change this to transform relative to frenet frame
+#                 #            (maybe make it relative to original heading?)
+#                 add_instruction!(rendermodel, render_colormesh, (gridcount,
+#                                   histobin_params.discx.binedges .+ posGx_start,
+#                                   histobin_params.discy.binedges .+ posGy_start,
+#                                   color_prob_lo, color_prob_hi))
+#             end
+#         end
 
-        for carind in -1 : get_maxcarind(pdset, validfind)
-            carid = carind2id(pdset, carind, validfind)
-            if carid == active_carid || validfind ≤ validfind_start
-                frameind = validfind2frameind(pdset, validfind)
-                render_car!(rendermodel, pdset, carind, frameind, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
-            end
-        end
+#         for carind in -1 : get_maxcarind(pdset, validfind)
+#             carid = carind2id(pdset, carind, validfind)
+#             if carid == active_carid || validfind ≤ validfind_start
+#                 frameind = validfind2frameind(pdset, validfind)
+#                 render_car!(rendermodel, pdset, carind, frameind, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
+#             end
+#         end
 
-        active_carind = carid2ind(pdset, active_carid, validfind)
-        camerax = get(pdset, :posGx, active_carind, validfind)
-        cameray = get(pdset, :posGy, active_carind, validfind)
+#         active_carind = carid2ind(pdset, active_carid, validfind)
+#         camerax = get(pdset, :posGx, active_carind, validfind)
+#         cameray = get(pdset, :posGy, active_carind, validfind)
 
-        camera_setzoom!(rendermodel, camerazoom)
-        camera_set_pos!(rendermodel, camerax, cameray)
-        render(rendermodel, ctx, canvas_width, canvas_height)
-        s
-    end
-end
+#         camera_setzoom!(rendermodel, camerazoom)
+#         camera_set_pos!(rendermodel, camerax, cameray)
+#         render(rendermodel, ctx, canvas_width, canvas_height)
+#         s
+#     end
+# end
 
 function reel_pdset(
     pdset::PrimaryDataset,
@@ -2060,21 +2060,226 @@ end
 #     frames
 # end
 
+# function generate_and_plot_manipulable_gridcount_set(
+#     behavior::AbstractVehicleBehavior,
+#     pdset::PrimaryDataset,
+#     sn::StreetNetwork,
+#     active_carid::Integer,
+#     validfind_start::Integer,
+#     history::Integer,
+#     horizon::Integer;
+#     disc_bounds_s::Tuple{Float64, Float64}=(0.0,150.0),
+#     disc_bounds_t::Tuple{Float64, Float64}=(-10.0, 10.0),
+#     nbinsx::Integer=101,
+#     nbinsy::Integer=51,
+#     nsimulations::Integer=1000,
+#     canvas_width::Integer=1100, # [pix]
+#     canvas_height::Integer=150, # [pix]
+#     rendermodel::RenderModel=RenderModel(),
+#     camerazoom::Real=6.5,
+#     color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+#     color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+#     count_adjust_exponent::Float64=0.25,
+#     )
+
+#     histobin_params = ParamsHistobin(LinearDiscretizer(linspace(disc_bounds_s..., nbinsx+1)),
+#                                      LinearDiscretizer(linspace(disc_bounds_t..., nbinsy+1)))
+
+#     # ncars = get_num_cars_in_frame(pdset, validfind_start)
+
+#     pdset_sim = deepcopy(pdset)
+
+#     gridcounts = allocate_gridcounts!(horizon, histobin_params)
+
+#     calc_future_grid_counts!(gridcounts, histobin_params, pdset_sim, sn, behavior,
+#                              active_carid, validfind_start, validfind_start + horizon, nsimulations)
+
+#     # -----------
+
+#     plot_manipulable_gridcount_set(pdset, sn, active_carid,
+#                                    validfind_start, history, horizon,
+#                                    gridcounts, histobin_params,
+#                                    canvas_width=canvas_width,
+#                                    canvas_height=canvas_height,
+#                                    rendermodel=rendermodel,
+#                                    camerazoom=camerazoom,
+#                                    color_prob_lo=color_prob_lo,
+#                                    color_prob_hi=color_prob_hi,
+#                                    count_adjust_exponent=count_adjust_exponent)
+# end
+
+function allocate_gridcounts!(horizon::Integer, histobin_params::ParamsHistobin)
+
+    nbinsx = nlabels(histobin_params.discx)
+    nbinsy = nlabels(histobin_params.discy)
+
+    gridcounts = Array(Matrix{Float64}, horizon) # only frames past start, noninclusive
+    for i = 1 : length(gridcounts)
+        gridcounts[i] = Array(Float64, nbinsx, nbinsy)
+    end
+    gridcounts
+end
+function clear_gridcounts!(gridcounts::Vector{Matrix{Float64}})
+    for gridcount in gridcounts
+        fill!(gridcount, 0.0)
+    end
+    gridcounts
+end
+function calc_future_grid_counts!(
+    gridcounts      :: Vector{Matrix{Float64}},
+    histobin_params :: ParamsHistobin,
+    runlog_sim      :: RunLog,
+    sn              :: StreetNetwork,
+    behavior        :: AbstractVehicleBehavior,
+    carid           :: UInt,
+    frame_start     :: Int,
+    frame_end       :: Int,
+    nsimulations    :: Int;
+    )
+
+    #=
+    Compute the future gridcounts for the given carid
+    =#
+
+    clear_gridcounts!(gridcounts)
+
+    colset_start = id2colset(runlog_sim, carid, frame_start)
+    posₒ = get(runlog_sim, colset_start, frame_start, :inertial)::VecSE2
+    x₀, y₀ = posₒ.x, posₒ.y
+
+    # TODO: parallelize
+    for i in 1 : nsimulations
+
+        simulate!(runlog_sim, sn, behavior, carid, frame_start, frame_end)
+
+        for (j,gridcount) in enumerate(gridcounts)
+            frame = frame_start + j
+
+            colset = id2colset(runlog_sim, carid, frame)
+            pos₁ = get(runlog_sim, colset, frame, :inertial)::VecSE2
+            x₁, y₁ = pos₁.x, pos₁.y
+
+            Δs, Δd = frenet_distance_between_points(sn, x₀, y₀, x₁, y₁)
+
+            bin_s = encode(histobin_params.discx, Δs)
+            bin_d = encode(histobin_params.discy, Δd)
+
+            gridcount[bin_s, bin_d] += 1.0
+        end
+    end
+
+    gridcounts
+end
+
+function plot_manipulable_gridcount_set(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    active_carid::UInt,
+    frame_start::Integer,
+    history::Integer,
+    horizon::Integer,
+    gridcounts::Vector{Matrix{Float64}},
+    histobin_params::ParamsHistobin;
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=600, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
+    color_prob_hi::Colorant=RGBA(1.0,0.0,0.0,1.0),
+    count_adjust_exponent::Float64=0.25, # to make low probs stand out more
+    )
+
+    # -----------
+
+
+    gridcounts_copy = deepcopy(gridcounts)
+    for gridcount in gridcounts_copy
+        maxcount = maximum(gridcount)
+        for i = 1 : length(gridcount)
+            gridcount[i] = (gridcount[i]/maxcount)^count_adjust_exponent
+        end
+    end
+
+    # -----------
+
+    colset_start = id2colset(runlog, active_carid, frame_start)
+    extind_start = get(runlog, colset_start, frame_start, :extind)::Float64
+    lanetag = get(runlog, colset_start, frame_start, :lanetag)::LaneTag
+    dcl_start = (get(runlog, colset_start, frame_start, :frenet)::VecSE2).y
+
+    @manipulate for frame in frame_start-history : frame_start+horizon
+
+        s = CairoRGBSurface(canvas_width, canvas_height)
+        ctx = creategc(s)
+        clear_setup!(rendermodel)
+
+        render_streetnet_roads!(rendermodel, sn)
+
+        for colset in get_colset_range(runlog, frame)
+            carid = colset2id(runlog, colset, frame)
+
+            if carid == active_carid && frame > frame_start
+                gridcount = gridcounts[frame - frame_start]
+
+                Cairo.save(ctx)
+                n,m = size(gridcount)
+                for i in 2 : n
+
+                    lanetag_lo, extind_lo = move_downstream(sn, lanetag, extind_start, histobin_params.discx.binedges[i-1])
+                    lane_lo = get_lane(sn, lanetag_lo)
+                    footpoint_lo = curve_at(lane_lo.curve, extind_lo)
+
+                    lanetag_hi, extind_hi = move_downstream(sn, lanetag, extind_start, histobin_params.discx.binedges[i])
+                    lane_hi = get_lane(sn, lanetag_hi)
+                    footpoint_hi = curve_at(lane_hi.curve, extind_hi)
+
+                    for j in 2 : m
+
+                        pt₁₁ = VecE2(footpoint_lo.x, footpoint_lo.y) + polar(dcl_start + histobin_params.discy.binedges[j-1], footpoint_lo.θ-pi/2)
+                        pt₁₂ = VecE2(footpoint_lo.x, footpoint_lo.y) + polar(dcl_start + histobin_params.discy.binedges[j], footpoint_lo.θ-pi/2)
+                        pt₂₁ = VecE2(footpoint_hi.x, footpoint_hi.y) + polar(dcl_start + histobin_params.discy.binedges[j-1], footpoint_hi.θ-pi/2)
+                        pt₂₂ = VecE2(footpoint_hi.x, footpoint_hi.y) + polar(dcl_start + histobin_params.discy.binedges[j], footpoint_hi.θ-pi/2)
+
+                        color = interpolate_color(color_prob_lo, color_prob_hi, gridcount[i,j])
+                        add_instruction!(rendermodel, render_quad, (pt₁₁,pt₁₂, pt₂₂, pt₂₁, color))
+                    end
+                end
+                restore(ctx)
+            end
+        end
+
+        for colset in get_colset_range(runlog, frame)
+            carid = colset2id(runlog, colset, frame)
+            if carid != active_carid || frame ≤ frame_start
+                render_car!(rendermodel, runlog, colset, frame, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
+            end
+        end
+
+        active_colset = id2colset(runlog, active_carid, frame)
+        posG = get(runlog, active_colset, frame, :inertial)::VecSE2
+        camerax = posG.x
+        cameray = posG.y
+
+        camera_setzoom!(rendermodel, camerazoom)
+        camera_set_pos!(rendermodel, camerax, cameray)
+        render(rendermodel, ctx, canvas_width, canvas_height)
+        s
+    end
+end
 function generate_and_plot_manipulable_gridcount_set(
     behavior::AbstractVehicleBehavior,
-    pdset::PrimaryDataset,
+    runlog::RunLog,
     sn::StreetNetwork,
-    active_carid::Integer,
-    validfind_start::Integer,
-    history::Integer,
-    horizon::Integer;
+    seg::RunLogSegment;
+
     disc_bounds_s::Tuple{Float64, Float64}=(0.0,150.0),
     disc_bounds_t::Tuple{Float64, Float64}=(-10.0, 10.0),
-    nbinsx::Integer=101,
+    nbinsx::Integer=201,
     nbinsy::Integer=51,
-    nsimulations::Integer=1000,
+    nsimulations::Integer=5,
     canvas_width::Integer=1100, # [pix]
-    canvas_height::Integer=150, # [pix]
+    canvas_height::Integer=600, # [pix]
     rendermodel::RenderModel=RenderModel(),
     camerazoom::Real=6.5,
     color_prob_lo::Colorant=RGBA(0.0,0.0,0.0,0.0),
@@ -2082,22 +2287,25 @@ function generate_and_plot_manipulable_gridcount_set(
     count_adjust_exponent::Float64=0.25,
     )
 
-    histobin_params = ParamsHistobin(LinearDiscretizer(linspace(disc_bounds_s..., nbinsx+1)),
-                                     LinearDiscretizer(linspace(disc_bounds_t..., nbinsy+1)))
+    seg_duration = seg.frame_end - seg.frame_start
+    where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+    where_to_start_simulating_from_runlog_sim = seg.frame_start - where_to_start_copying_from_original_runlog + 1
+    where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
+    runlog_sim = deepcopy(runlog, where_to_start_copying_from_original_runlog, seg.frame_end)
 
-    # ncars = get_num_cars_in_frame(pdset, validfind_start)
+    histobin_params = ParamsHistobin(LinearDiscretizer(collect(linspace(disc_bounds_s..., nbinsx+1))),
+                                     LinearDiscretizer(collect(linspace(disc_bounds_t..., nbinsy+1))))
+    gridcounts = allocate_gridcounts!(seg_duration, histobin_params)
 
-    pdset_sim = deepcopy(pdset)
+    calc_future_grid_counts!(gridcounts, histobin_params, runlog_sim, sn, behavior, seg.carid,
+                             where_to_start_simulating_from_runlog_sim,
+                             where_to_end_simulating_from_runlog_sim,
+                             nsimulations)
 
-    gridcounts = allocate_gridcounts!(horizon, histobin_params)
+    # # -----------
 
-    calc_future_grid_counts!(gridcounts, histobin_params, pdset_sim, sn, behavior,
-                             active_carid, validfind_start, validfind_start + horizon, nsimulations)
-
-    # -----------
-
-    plot_manipulable_gridcount_set(pdset, sn, active_carid,
-                                   validfind_start, history, horizon,
+    plot_manipulable_gridcount_set(runlog, sn, seg.carid,
+                                   seg.frame_start, DEFAULT_TRACE_HISTORY, seg_duration,
                                    gridcounts, histobin_params,
                                    canvas_width=canvas_width,
                                    canvas_height=canvas_height,
@@ -2106,6 +2314,99 @@ function generate_and_plot_manipulable_gridcount_set(
                                    color_prob_lo=color_prob_lo,
                                    color_prob_hi=color_prob_hi,
                                    count_adjust_exponent=count_adjust_exponent)
+end
+
+function plot_manipulable_future_pos_set(
+    runlog::RunLog,
+    sn::StreetNetwork,
+    active_carid::UInt,
+    frame_start::Integer,
+    history::Integer,
+    horizon::Integer,
+    future_positions::Matrix{VecSE2};
+
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=600, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    )
+
+    @manipulate for frame in frame_start-history : frame_start+horizon
+
+        s = CairoRGBSurface(canvas_width, canvas_height)
+        ctx = creategc(s)
+        clear_setup!(rendermodel)
+
+        render_streetnet_roads!(rendermodel, sn)
+
+        for colset in get_colset_range(runlog, frame)
+            carid = colset2id(runlog, colset, frame)
+
+            if carid == active_carid && frame > frame_start
+                for pos in future_positions[:, frame-frame_start]
+                    add_instruction!(rendermodel, render_car, (pos.x, pos.y, pos.θ, RGBA(0.0,0.0,1.0,0.1)))
+                end
+            end
+        end
+
+        for colset in get_colset_range(runlog, frame)
+            carid = colset2id(runlog, colset, frame)
+            if carid != active_carid || frame ≤ frame_start
+                render_car!(rendermodel, runlog, colset, frame, color=(carid==active_carid?COLOR_CAR_EGO:COLOR_CAR_OTHER))
+            end
+        end
+
+        active_colset = id2colset(runlog, active_carid, frame)
+        posG = get(runlog, active_colset, frame, :inertial)::VecSE2
+        camerax = posG.x
+        cameray = posG.y
+
+        camera_setzoom!(rendermodel, camerazoom)
+        camera_set_pos!(rendermodel, camerax, cameray)
+        render(rendermodel, ctx, canvas_width, canvas_height)
+        s
+    end
+end
+function generate_and_plot_manipulable_future_pos_set(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    seg::RunLogSegment;
+
+    nsimulations::Integer=1000,
+    canvas_width::Integer=1100, # [pix]
+    canvas_height::Integer=600, # [pix]
+    rendermodel::RenderModel=RenderModel(),
+    camerazoom::Real=6.5,
+    )
+
+    seg_duration = seg.frame_end - seg.frame_start
+    where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+    where_to_start_simulating_from_runlog_sim = seg.frame_start - where_to_start_copying_from_original_runlog + 1
+    where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
+    runlog_sim = deepcopy(runlog, where_to_start_copying_from_original_runlog, seg.frame_end)
+
+    future_positions = Array(VecSE2, nsimulations, seg_duration)
+    for i in 1 : nsimulations
+
+        simulate!(runlog_sim, sn, behavior, seg.carid, where_to_start_simulating_from_runlog_sim, where_to_end_simulating_from_runlog_sim)
+
+        for j in 1 : seg_duration
+            frame = where_to_start_simulating_from_runlog_sim + j
+            colset = id2colset(runlog_sim, seg.carid, frame)
+            future_positions[i,j] = get(runlog_sim, colset, frame, :inertial)::VecSE2
+        end
+    end
+
+    # -----------
+
+    plot_manipulable_future_pos_set(runlog, sn, seg.carid,
+                                   seg.frame_start, DEFAULT_TRACE_HISTORY, seg_duration,
+                                   future_positions,
+                                   canvas_width=canvas_width,
+                                   canvas_height=canvas_height,
+                                   rendermodel=rendermodel,
+                                   camerazoom=camerazoom)
 end
 
 nothing

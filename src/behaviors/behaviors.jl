@@ -9,12 +9,11 @@ export  AbstractVehicleBehavior,
         AbstractVehicleBehaviorPreallocatedData,
         ModelTargets,
 
+        get_targets,
         get_indicators,
         select_action,
         calc_action_loglikelihood,
-
         train,
-        trains_with_nona,
 
         create_train_params,
         preallocate_learning_data,
@@ -24,6 +23,8 @@ export  AbstractVehicleBehavior,
 
 
 abstract AbstractVehicleBehavior
+
+get_targets(behavior::AbstractVehicleBehavior) = error("get_indicators not implemented for behavior")
 get_indicators(behavior::AbstractVehicleBehavior) = error("get_indicators not implemented for behavior")
 
 ###############################################################
@@ -54,8 +55,6 @@ type ModelTargets
 end
 Base.print(io::IO, targets::ModelTargets) = print(io, (symbol(targets.lat), symbol(targets.lon)))
 
-trains_with_nona(::AbstractVehicleBehavior) = true
-trains_with_nona{B<:AbstractVehicleBehavior}(::Type{B}) = true
 train{B<:AbstractVehicleBehavior}(::Type{B}, ::DataFrame) = error("train not implemented for $B")
 train(
     ::ModelTrainingData2,

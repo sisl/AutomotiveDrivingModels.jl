@@ -39,13 +39,15 @@ function simulate!(
     n_euler_steps   :: Int = 2
     )
 
+    targets = get_targets(behavior)
+
     for frame in frame_start : pdset_frames_per_sim_frame : frame_end-1
 
         colset = id2colset(runlog, id, frame)
         @assert(colset != COLSET_NULL)
 
         action_lat, action_lon = select_action(behavior, runlog, sn, colset, frame)
-        propagate!(runlog, sn, frame, colset, action_lat, action_lon,
+        propagate!(runlog, sn, frame, colset, targets, action_lat, action_lon,
                    pdset_frames_per_sim_frame, n_euler_steps)
     end
 
@@ -129,18 +131,26 @@ end
 #     false
 # end
 
-# TODO(tim): make this a functuion on the target feature?
-get_input_acceleration(action_lon::Float64) = action_lon
-function get_input_turnrate(action_lat::Float64, ϕ::Float64)
+get_input_acceleration(::Features.Feature_FutureAcceleration, action_lon::Float64, acc_prev::Float64) = action_lon
+get_input_acceleration(::Features.Feature_Future_Delta_Accel, action_lon::Float64, acc_prev::Float64) = acc_prev + action_lon
+
+get_input_turnrate(::Features.Feature_FutureTurnrate, action_lat::Float64, ϕ::Float64, v::Float64, a::Float64, δt::Float64) = action_lat
+function get_input_turnrate(::Features.Feature_FutureVelFt, action_lat::Float64, ϕ::Float64, v::Float64, a::Float64, δt::Float64)
+    v_lat = action_lat
+    (asin(v_lat/(v + a*δt)) - ϕ)/δt
+end
+function get_input_turnrate(::Features.Feature_FutureDesiredAngle, action_lat::Float64, ϕ::Float64, v::Float64, a::Float64, δt::Float64)
     phi_des = action_lat
     (phi_des - ϕ)*Features.KP_DESIRED_ANGLE
 end
 
+#=
 function _propagate_one_pdset_frame!(
     pdset         :: PrimaryDataset,
     sn            :: StreetNetwork,
     validfind     :: Int,
     carid         :: Int,
+    targets       :: ModelTargets,
     action_lat    :: Float64,
     action_lon    :: Float64,
     n_euler_steps :: Int,
@@ -170,8 +180,8 @@ function _propagate_one_pdset_frame!(
 
     for j = 1 : n_euler_steps
 
-        a = get_input_acceleration(action_lon)
-        ω = get_input_turnrate(action_lat, ϕ)
+        a = get_input_acceleration(targets.lat, action_lon)
+        ω = get_input_turnrate(targets.lon, action_lat, ϕ, v, a, δt)
 
         v += a*δt
         θ += ω*δt
@@ -270,6 +280,7 @@ function propagate!(
     sn            :: StreetNetwork,
     validfind     :: Int,
     carid         :: Int,
+    targets       :: ModelTargets,
     action_lat    :: Float64,
     action_lon    :: Float64,
     pdset_frames_per_sim_frame :: Int,
@@ -289,7 +300,7 @@ function propagate!(
     for jump in 0 : pdset_frames_per_sim_frame-1
         validfind_fut = jumpframe(pdset, validfind, jump)
         @assert(validfind_fut != 0)
-        _propagate_one_pdset_frame!(pdset, sn, validfind_fut, carid, action_lat, action_lon, n_euler_steps)
+        _propagate_one_pdset_frame!(pdset, sn, validfind_fut, carid, targets, action_lat, action_lon, n_euler_steps)
     end
 
     # carind = carid2ind(pdset, carid, validfind)
@@ -314,12 +325,14 @@ function propagate!(
 
     pdset
 end
+=#
 
 function _propagate_one_runlog_frame!(
     runlog        :: RunLog,
     sn            :: StreetNetwork,
     frame         :: Int,
     colset        :: UInt,
+    targets       :: ModelTargets,
     action_lat    :: Float64,
     action_lon    :: Float64,
     n_euler_steps :: Int,
@@ -340,10 +353,12 @@ function _propagate_one_runlog_frame!(
     rates = get(runlog, colset, frame, :ratesB)::VecSE2
     v = sqrt(rates.x*rates.x + rates.y*rates.y)
 
+    # TODO: debug acc_prev
+    acc_prev = (hypot(get(runlog, id2colset(runlog, colset2id(runlog, colset, frame), frame-1), frame-1, :ratesB)) - v)/Δt
     for i = 1 : n_euler_steps
 
-        a = get_input_acceleration(action_lon)
-        ω = get_input_turnrate(action_lat, ϕ)
+        a = get_input_acceleration(targets.lon, action_lon, acc_prev)
+        ω = get_input_turnrate(targets.lat, action_lat, ϕ, v, a, δt)
 
         v += a*δt
         θ += ω*δt
@@ -353,6 +368,7 @@ function _propagate_one_runlog_frame!(
         proj = project_point_to_streetmap(x, y, sn)
         @assert(proj.successful)
         s, d, ϕ = pt_to_frenet_xyy(proj.footpoint, x, y, θ)
+        acc_prev = a
     end
 
     proj = project_point_to_streetmap(x, y, sn)
@@ -370,7 +386,7 @@ function _propagate_one_runlog_frame!(
          get(runlog, colset, frame, :id)::UInt,
          VecSE2(x, y, θ), # inertial
          VecSE2(s, d, ϕ), # frenet
-         VecSE2(v*cos(θ), v*sin(θ), (ϕ - ϕₒ)/Δt), # ratesB
+         VecSE2(v, 0.0, (ϕ - ϕₒ)/Δt), # ratesB (assume zero sideslip)
          proj.extind,
          proj.footpoint,
          proj.lane.id,
@@ -391,6 +407,7 @@ function propagate!(
     sn            :: StreetNetwork,
     frame         :: Int,
     colset        :: UInt,
+    targets       :: ModelTargets,
     action_lat    :: Float64,
     action_lon    :: Float64,
     pdset_frames_per_sim_frame :: Int,
@@ -399,7 +416,7 @@ function propagate!(
 
     for jump in 0 : pdset_frames_per_sim_frame-1
         frame_fut = frame + jump
-        _propagate_one_runlog_frame!(runlog, sn, frame_fut, colset, action_lat, action_lon, n_euler_steps)
+        _propagate_one_runlog_frame!(runlog, sn, frame_fut, colset, targets, action_lat, action_lon, n_euler_steps)
     end
 
     runlog

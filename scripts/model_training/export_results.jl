@@ -389,106 +389,8 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
         @printf(io, "\\\\\n")
     end
 
-    # KL divergence, speed
-    # for (context_class, context_class_name) in zip(context_classes, context_class_names)
-
-    #     if context_class_name == context_class_names[1]
-    #         @printf(io, "%-30s &", "KL divergence (speed)")
-    #     else
-    #         @printf(io, "%-30s &", "")
-    #     end
-
-    #     best_model_index = 0
-    #     best_model_score = Inf
-    #     for i in 1 : nmodels
-    #         μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i],
-    #                                                         context_class["metrics_sets_test_traces_bagged"][i])
-    #         if μ ≤ best_model_score
-    #             best_model_score, best_model_index = μ, i
-    #         end
-    #     end
-
-    #     @printf(io, " %-11s ", "\\"*context_class_name)
-    #     for i in 1 : nmodels
-    #         μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(SPEED)}, context_class["metrics_sets_test_traces"][i],
-    #                                                         context_class["metrics_sets_test_traces_bagged"][i])
-    #         metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
-    #         if i == best_model_index
-    #             metric_string = "\\bfseries " * metric_string
-    #         end
-    #         @printf(io, "& %-20s ", metric_string)
-    #     end
-    #     @printf(io, "\\\\\n")
-    # end
-
-    # KL divergence, timegap
-    # for (context_class, context_class_name) in zip(context_classes, context_class_names)
-
-    #     if context_class_name == context_class_names[1]
-    #         @printf(io, "%-30s &", "KL divergence (timegap)")
-    #     else
-    #         @printf(io, "%-30s &", "")
-    #     end
-
-    #     best_model_index = 0
-    #     best_model_score = Inf
-    #     for i in 1 : nmodels
-    #         μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i],
-    #                                                         context_class["metrics_sets_test_traces_bagged"][i])
-    #         if μ ≤ best_model_score
-    #             best_model_score, best_model_index = μ, i
-    #         end
-    #     end
-
-    #     @printf(io, " %-11s ", "\\"*context_class_name)
-    #     for i in 1 : nmodels
-    #         μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(TIMEGAP_X_FRONT)}, context_class["metrics_sets_test_traces"][i],
-    #                                                         context_class["metrics_sets_test_traces_bagged"][i])
-    #         metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
-    #         if i == best_model_index
-    #             metric_string = "\\bfseries " * metric_string
-    #         end
-    #         @printf(io, "& %-20s ", metric_string)
-    #     end
-    #     @printf(io, "\\\\\n")
-    # end
-
-    # KL divergence, lane offset
-    # for (context_class, context_class_name) in zip(context_classes, context_class_names)
-
-    #     if context_class_name == context_class_names[1]
-    #         @printf(io, "%-30s &", "KL divergence (lane offset)")
-    #     else
-    #         @printf(io, "%-30s &", "")
-    #     end
-
-    #     best_model_index = 0
-    #     best_model_score = Inf
-    #     for i in 1 : nmodels
-    #         μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i],
-    #                                                         context_class["metrics_sets_test_traces_bagged"][i])
-    #         if μ ≤ best_model_score
-    #             best_model_score, best_model_index = μ, i
-    #         end
-    #     end
-
-    #     @printf(io, " %-11s ", "\\"*context_class_name)
-    #     for i in 1 : nmodels
-    #         μ, Δ = _grab_score_and_confidence(EmergentKLDivMetric{symbol(D_CL)}, context_class["metrics_sets_test_traces"][i],
-    #                                                         context_class["metrics_sets_test_traces_bagged"][i])
-    #         metric_string = @sprintf("%.2f+-%.2f", μ, Δ)
-    #         if i == best_model_index
-    #             metric_string = "\\bfseries " * metric_string
-    #         end
-    #         @printf(io, "& %-20s ", metric_string)
-    #     end
-    #     @printf(io, "\\\\\n")
-    # end
-
-    # RWSE (4s)
-
+    # RWSE
     horizon = 4.0
-
     for (sym, name, unit) in [(symbol(SPEED), "speed", "m/s"), (symbol(DIST_FRONT), "headway", "m"), (:posFt, "lane offset", "m")]
 
         metric = RootWeightedSquareError{sym, horizon}
@@ -508,6 +410,49 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
             else
                 @printf(io, "%-30s &", "")
             end
+
+            data = data_dict[context_class_name]
+            best_model_index = 0
+            best_model_score = Inf
+            for i in 1 : nmodels
+                μ = get_score(_grab_metric(metric, data.metrics_sets_test_traces[i]))
+                if μ ≤ best_model_score
+                    best_model_score, best_model_index = μ, i
+                end
+            end
+
+            @printf(io, " %-11s ", "\\"*context_class_name)
+            for i in 1 : nmodels
+                μ = get_score(_grab_metric(metric, data.metrics_sets_test_traces[i]))
+                metric_string = @sprintf("%.2f", μ)
+                if i == best_model_index
+                    metric_string = "\\bfseries " * metric_string
+                end
+                @printf(io, "& %-20s ", metric_string)
+            end
+            @printf(io, "\\\\\n")
+        end
+    end
+
+    # smoothness
+    for (typ, name) in [(SumSquareJerk, "sum square"), (LagOneAutocorrelation, "autocor"), (JerkSignInversions, "sign inv")]
+
+        metric = EmergentKLDivMetric{typ}
+
+        counter = 0
+
+        for context_class_name in ["following"] # context_class_names
+
+            counter += 1
+            if counter == 1
+                @printf(io, "%-30s &", "KL-div " * name)
+            else
+                @printf(io, "%-30s &", "")
+            end
+
+            println(typ)
+            println(name)
+            println(context_class_name)
 
             data = data_dict[context_class_name]
             best_model_index = 0
@@ -569,14 +514,14 @@ write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
     create_tikzpicture_model_compare_rwse_legend(fh, data)
 end
 
-# context_class_data = Dict{AbstractString, ContextClassData}()
-# context_class_names = ["freeflow", "following", "lanechange"]
-# for context_class_name in context_class_names
-#     context_class_data[context_class_name] = ContextClassData("_" * context_class_name, preferred_name_order)
-# end
+context_class_data = Dict{AbstractString, ContextClassData}()
+context_class_names = ["freeflow", "following", "lanechange"]
+for context_class_name in context_class_names
+    context_class_data[context_class_name] = ContextClassData("_" * context_class_name, preferred_name_order)
+end
 
-# write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
-#     create_table_validation_across_context_classes(fh, context_class_data, context_class_names, preferred_name_order)
-# end
+write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
+    create_table_validation_across_context_classes(fh, context_class_data, context_class_names, preferred_name_order)
+end
 
 println("DONE EXPORTING RESULTS TO TEX")

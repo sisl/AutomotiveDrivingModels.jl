@@ -162,7 +162,6 @@ function fit_curve(
 	Curve(lane_id, s_arr, x_arr, y_arr, θ_arr, κ_arr, κd_arr)
 end
 
-
 curve_at( curve::Curve, ind::Int) = CurvePt(curve.s[ind], curve.x[ind], curve.y[ind], curve.t[ind], curve.k[ind], curve.k_d[ind])
 function curve_at( curve::Curve, extind::Float64 )
 
@@ -187,7 +186,7 @@ function closest_point_ind_to_curve( curve::Curve, x::Float64, y::Float64 )
 	# picks the lower one in a tie
 
 	# return indmin([norm([x - curve.x[i], y - curve.y[i]]) for i = 1 : length(curve)])
-	return _binary_search(curve.x, curve.y , x, y)
+	return _binary_search(curve.x, curve.y, x, y)
 end
 function closest_point_ind_to_curve_guess( curve::Curve, x::Real, y::Real, ind_guess::Int )
 	# like closest_point_ind_to_curve, but starts from ind_guess and picks the local min

@@ -2,6 +2,32 @@ export
     VehicleBehaviorGaussian,
     SG_TrainParams
 
+type SG_TrainParams <: AbstractVehicleBehaviorTrainParams
+
+    targets::ModelTargets
+
+    SG_TrainParams(; targets::ModelTargets = ModelTargets(Features.FUTUREDESIREDANGLE, Features.FUTUREACCELERATION)) = new(targets)
+end
+
+type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
+
+    # TODO(tim): use this
+
+    SG_PreallocatedData(dset::ModelTrainingData2, params::SG_TrainParams) = new()
+end
+function preallocate_learning_data(
+    dset::ModelTrainingData2,
+    params::SG_TrainParams)
+
+    SG_PreallocatedData(dset, params)
+end
+
+#############
+#
+#
+#
+#############
+
 # The vehicle drives following a multivariable Gaussian noise over accel & turnrate
 type VehicleBehaviorGaussian <: AbstractVehicleBehavior
 
@@ -17,12 +43,11 @@ type VehicleBehaviorGaussian <: AbstractVehicleBehavior
 
         new(targets, MvNormal([σ_lat σ_correlation; σ_correlation σ_lon]), [0.0,0.0])
     end
-    function VehicleBehaviorGaussian(Σ::MvNormal;
-        targets::ModelTargets = ModelTargets(Features.FUTUREDESIREDANGLE, Features.FUTUREACCELERATION),
+    function VehicleBehaviorGaussian(Σ::MvNormal, params::SG_TrainParams;
         )
 
         @assert(length(Σ) == 2)
-        new(targets, Σ, [0.0,0.0])
+        new(params.targets, Σ, [0.0,0.0])
     end
 end
 function Base.print(io::IO, SG::VehicleBehaviorGaussian)
@@ -33,24 +58,15 @@ function Base.print(io::IO, SG::VehicleBehaviorGaussian)
     @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.Σ.mat[1,1], SG.Σ.Σ.mat[1,2])
     @printf(io, "\t\t[%12.6f, %12.6f]\n", SG.Σ.Σ.mat[2,1], SG.Σ.Σ.mat[2,2])
 end
+
+get_targets(behavior::VehicleBehaviorGaussian) = behavior.targets
 get_indicators(behavior::VehicleBehaviorGaussian) = AbstractFeature[]
 
-type SG_TrainParams <: AbstractVehicleBehaviorTrainParams
-    SG_TrainParams() = new()
-end
-
-type SG_PreallocatedData <: AbstractVehicleBehaviorPreallocatedData
-
-    # TODO(tim): use this
-
-    SG_PreallocatedData(dset::ModelTrainingData2, params::SG_TrainParams) = new()
-end
-function preallocate_learning_data(
-    dset::ModelTrainingData2,
-    params::SG_TrainParams)
-
-    SG_PreallocatedData(dset, params)
-end
+#############
+#
+#
+#
+#############
 
 function select_action(
     behavior::VehicleBehaviorGaussian,
@@ -106,13 +122,15 @@ function train(
     trainingframes = training_data.dataframe_nona
     nframes = size(trainingframes, 1)
 
+    sym_lat = symbol(params.targets.lat)
+    sym_lon = symbol(params.targets.lon)
+
     total = 0
     trainingmatrix = Array(Float64, 2, nframes)
     for frame in foldset
 
-        # TODO(tim): shouldn't use hard-coded symbols
-        action_lat = trainingframes[frame, symbol(Features.FUTUREDESIREDANGLE)]
-        action_lon = trainingframes[frame, symbol(Features.FUTUREACCELERATION)]
+        action_lat = trainingframes[frame, sym_lat]
+        action_lon = trainingframes[frame, sym_lon]
 
         if !isnan(action_lat) && !isnan(action_lon) &&
            !isinf(action_lat) && !isinf(action_lon)
@@ -124,5 +142,5 @@ function train(
     end
     trainingmatrix = trainingmatrix[:, 1:total]
 
-    VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix))
+    VehicleBehaviorGaussian(fit_mle(MvNormal, trainingmatrix), params)
 end

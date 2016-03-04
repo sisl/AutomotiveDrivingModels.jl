@@ -109,6 +109,16 @@ end
 
 ###############################################################
 
+function preallocate_learning_data(dset::ModelTrainingData2, behaviorset::Dict{AbstractString, BehaviorTrainDefinition})
+
+    preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
+    for (model_name, train_def) in behaviorset
+        preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
+    end
+
+    preallocated_data_dict
+end
+
 function train(
     behaviorset::Dict{AbstractString, BehaviorTrainDefinition},
     dset::ModelTrainingData2,

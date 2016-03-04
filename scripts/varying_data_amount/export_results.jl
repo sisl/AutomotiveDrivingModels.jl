@@ -102,7 +102,7 @@ function create_tikzpicture_experiment{S<:AbstractString}(io::IO, dfs::Dict{Abst
     end
 end
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Bayesian Network", "Linear Bayesian"] # "Mixture Regression",
+modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
 dfs = Dict{AbstractString, DataFrame}()
 for model_name in modelnames
@@ -120,7 +120,7 @@ write_to_texthook(TEXFILE, "varydata-experiment-rwse") do fh
     create_tikzpicture_experiment(fh, dfs, :rwse_dcl_test, modelnames)
 end
 write_to_texthook(TEXFILE, "varydata-experiment-smoothness") do fh
-    create_tikzpicture_experiment(fh, dfs, :smooth_sumsquare, modelnames)
+    create_tikzpicture_experiment(fh, dfs, :smooth_jerkinvs, modelnames)
     _export_legend(fh, map(_convert_to_short_name, modelnames))
 end
 

@@ -1,97 +1,257 @@
 using AutomotiveDrivingModels
-
 using PGFPlots
 
-function calc_recommended_log_scale_factor(histobins::Vector{Matrix{Float64}})
-    max_count = -1
-    for histobin in histobins
-        max_count = max(max_count, maximum(histobin))
-    end
-    div = Base.log10(max_count+1)
-end
-function calc_histobin_image_matrix( histobin::Matrix{Float64}, log_scale_factor::Float64 = NaN)
+define_color("monokai1", [0xCF/0xFF,0xBF/0xFF,0xAD/0xFF])
+define_color("monokai2", [0x27/0xFF,0x28/0xFF,0x22/0xFF])
+define_color("monokai3", [0x52/0xFF,0xE3/0xFF,0xF6/0xFF])
+define_color("monokai4", [0xA7/0xFF,0xEC/0xFF,0x21/0xFF])
+define_color("monokai5", [0xFF/0xFF,0x00/0xFF,0x7F/0xFF])
+define_color("monokai6", [0xF9/0xFF,0x97/0xFF,0x1F/0xFF])
+define_color("monokai7", [0x79/0xFF,0xAB/0xFF,0xFF/0xFF])
 
-    imagemat = histobin .+ 1.0
-    
-    if !isnan(log_scale_factor)
-        imagemat = log10(imagemat)
-        imagemat ./= log_scale_factor
-    else
-        imagemat ./= maximum(imagemat)
-    end
 
-    imagemat = rotr90(imagemat)
-    imagemat = 1.0 - imagemat
-
-    @assert(maximum(imagemat) ≤ 1.0)
-    @assert(minimum(imagemat) ≥ 0.0)
-
-    imagemat
-end
-function plot_histobin_image_matrix(
-    imagemat :: Matrix{Float64},
-    params   :: ParamsHistobin;
+function get_plot_logl_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+    color="blue"
     )
 
-    xrange = (params.discx.binedges[1], params.discx.binedges[end])
-    yrange = (params.discy.binedges[1], params.discy.binedges[end])
+    frames = collect(frame_start:N_FRAMES_PER_SIM_FRAME:frame_end)
+    logls = Array(Float64, length(frames))
+    targets = get_targets(behavior)
 
-    p = PGFPlots.Image(imagemat, yrange, xrange, zmin=0.0, zmax=1.0, colorbar=false)
-    ax = Axis(p, xlabel="Lateral Deviation (m)", ylabel="Longitudinal Deviation (s)")
+    for (i,frame) in enumerate(frames)
+
+        colset = id2colset(runlog, id, frame)
+        action_lat = get(targets.lat, runlog, sn, colset, frame)
+        action_lon = get(targets.lon, runlog, sn, colset, frame)
+        logls[i] = calc_action_loglikelihood(behavior, runlog, sn, colset, frame, action_lat, action_lon)
+    end
+
+    Plots.Linear(frames, logls, style="mark=none, color="*color)
 end
-function plot_histobin_group_plot{S<:String}(
-    behavior_metrics_sets::AbstractVector{MetricsSet},
-    params::ParamsHistobin,
-    names::Vector{S}
+function plot_logl_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt,
     )
-    
-    nhistobins = length(behavior_metrics_sets)
-    histobins = Array(Matrix{Float64}, nhistobins)
-    for (i,metrics) in enumerate(behavior_metrics_sets)
-        histobins[i] = metrics.histobin
+
+    Axis(get_plot_logl_vs_trace(behavior, runlog, sn, frame_start, frame_end, id),
+        xlabel="frame", ylabel="action log likelihood")
+end
+function plot_logl_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
+    sim_runlogs::Dict{AbstractString, RunLog},
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+
+    styles = [
+                "mark=none, solid, color=monokai1",
+                "mark=none, solid, color=monokai2",
+                "mark=none, solid, color=monokai3",
+                "mark=none, solid, color=monokai4",
+                "mark=none, solid, color=monokai5",
+                "mark=none, solid, color=monokai6",
+                "mark=none, solid, color=monokai7",
+            ],
+    include_legend_entry::Bool = false
+    )
+
+
+    plots = Plots.Plot[]
+    for (i,name) in enumerate(model_names)
+        push!(plots, get_plot_logl_vs_trace(models[name], sim_runlogs[name], sn, frame_start, frame_end, id))
+        plots[end].style = styles[i]
+
+        if include_legend_entry
+            plots[end].legendentry = name
+        end
     end
 
-    log_scale_factor = calc_recommended_log_scale_factor(histobins)
+    Axis(plots, xlabel="frame", ylabel="action log likelihood")
+end
 
-    g = GroupPlot(1,1, groupStyle = "
-        horizontal sep = 1.5mm, 
-        vertical sep = 1.5mm,
-        xticklabels at=edge bottom,
-        yticklabels at=edge left, ")
+function get_plot_target_lat_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+    color="blue!60"
+    )
 
-    for (i,metrics) in enumerate(behavior_metrics_sets)
-        ax = plot_histobin_image_matrix(calc_histobin_image_matrix(metrics.histobin, log_scale_factor), params)
-        ax.enlargelimits = false
-        ax.axisOnTop = true
-        ax.view = "{0}{90}"
-        ax.ylabel = nothing
-        ax.title = "\\textbf{\\strut "* names[i] * "}"
-        push!(g, ax)
+    frames = collect(frame_start:N_FRAMES_PER_SIM_FRAME:frame_end)
+    actions_lat = Array(Float64, length(frames))
+    targets = get_targets(behavior)
+
+    for (i,frame) in enumerate(frames)
+
+        colset = id2colset(runlog, id, frame)
+        actions_lat[i] = get(targets.lat, runlog, sn, colset, frame)
     end
+
+    Plots.Linear(frames, actions_lat, style="mark=none, thick, color="*color)
+end
+function plot_target_lat_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt,
+    )
+
+    Axis(get_plot_target_lat_vs_trace(behavior, runlog, sn, frame_start, frame_end, id),
+        xlabel="frame", ylabel="target lat")
+end
+function plot_target_lat_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
+    sim_runlogs::Dict{AbstractString, RunLog},
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+
+    styles = [
+                "mark=none, solid, color=monokai1",
+                "mark=none, solid, color=monokai2",
+                "mark=none, solid, color=monokai3",
+                "mark=none, solid, color=monokai4",
+                "mark=none, solid, color=monokai5",
+                "mark=none, solid, color=monokai6",
+                "mark=none, solid, color=monokai7",
+            ],
+    include_legend_entry::Bool = false,
+    )
+
+    plots = Plots.Plot[]
+    for (i,name) in enumerate(model_names)
+        push!(plots, get_plot_target_lat_vs_trace(models[name], sim_runlogs[name], sn, frame_start, frame_end, id))
+        plots[end].style = styles[i]
+
+        if include_legend_entry
+            plots[end].legendentry = name
+        end
+    end
+
+    Axis(plots, xlabel="frame", ylabel="target lat")
+end
+
+function get_plot_target_lon_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+    color="blue!80"
+    )
+
+    frames = collect(frame_start:N_FRAMES_PER_SIM_FRAME:frame_end)
+    actions_lon = Array(Float64, length(frames))
+    targets = get_targets(behavior)
+
+    for (i,frame) in enumerate(frames)
+
+        colset = id2colset(runlog, id, frame)
+        actions_lon[i] = get(targets.lon, runlog, sn, colset, frame)
+    end
+
+    Plots.Linear(frames, actions_lon, style="mark=none, thick, color="*color)
+end
+function plot_target_lon_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt,
+    )
+
+    Axis(get_plot_target_lon_vs_trace(behavior, runlog, sn, frame_start, frame_end, id),
+        xlabel="frame", ylabel="target lon")
+end
+function plot_target_lon_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
+    sim_runlogs::Dict{AbstractString, RunLog},
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+
+    styles = [
+                "mark=none, solid, color=monokai1",
+                "mark=none, solid, color=monokai2",
+                "mark=none, solid, color=monokai3",
+                "mark=none, solid, color=monokai4",
+                "mark=none, solid, color=monokai5",
+                "mark=none, solid, color=monokai6",
+                "mark=none, solid, color=monokai7",
+            ],
+    include_legend_entry::Bool = false,
+    )
+
+    plots = Plots.Plot[]
+    for (i,name) in enumerate(model_names)
+        push!(plots, get_plot_target_lon_vs_trace(models[name], sim_runlogs[name], sn, frame_start, frame_end, id))
+        plots[end].style = styles[i]
+
+        if include_legend_entry
+            plots[end].legendentry = name
+        end
+    end
+
+    Axis(plots, xlabel="frame", ylabel="target lon")
+end
+
+function plot_group_logl_vs_trace(
+    behavior::AbstractVehicleBehavior,
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt,
+    )
+
+    g = GroupPlot(3, 1, groupStyle = "horizontal sep = 15mm")
+    push!(g, plot_logl_vs_trace(behavior, runlog, sn, frame_start, frame_end, id))
+    push!(g, plot_target_lat_vs_trace(behavior, runlog, sn, frame_start, frame_end, id))
+    push!(g, plot_target_lon_vs_trace(behavior, runlog, sn, frame_start, frame_end, id))
     g
 end
-function plot_histobin_group_plot{S<:String}(
-    behavior_metrics_sets::AbstractVector{MetricsSet},
-    original_metrics_set::MetricsSet,
-    params::ParamsHistobin,
-    names::Vector{S}
-    )
-    
-    metrics_sets = Array(MetricsSet, length(behavior_metrics_sets)+1)
-    metrics_sets[1] = original_metrics_set
-    metrics_sets[2:end] = behavior_metrics_sets
-
-    plot_histobin_group_plot(metrics_sets, params, ["Real World", names...])
-end
-function save_histobin_image(
-    filename         :: String,
-    histobin         :: Matrix{Float64},
-    params           :: ParamsHistobin;
-    log_scale_factor :: Float64 = NaN
+function plot_group_logl_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
+    sim_runlogs::Dict{AbstractString, RunLog},
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt,
     )
 
-    imagemat = calc_histobin_image_matrix(histobin, log_scale_factor)
-    ax = plot_histobin_image_matrix(imagemat, params)
+    g = GroupPlot(3, 1, groupStyle = "horizontal sep = 15mm")
+    push!(g, plot_logl_vs_trace(model_names, models, sim_runlogs, sn, frame_start, frame_end, id))
+    push!(g, plot_target_lat_vs_trace(model_names, models, sim_runlogs, sn, frame_start, frame_end, id))
+    push!(g, plot_target_lon_vs_trace(model_names, models, sim_runlogs, sn, frame_start, frame_end, id, include_legend_entry=true))
 
-    PGFPlots.save(filename, ax)
+    for axis in g.axes
+        axis.width="7cm"
+    end
+
+    g.axes[end].legendPos = "outer north east"
+
+    g
 end

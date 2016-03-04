@@ -24,7 +24,7 @@ function plot_dbn_indicators(
 
     observations = BN.observations
     assignment = BN.assignment
-    FeaturesNew.observe!(BN.extractor, runlog, sn, colset, frame)
+    observe!(BN.extractor, runlog, sn, colset, frame)
     DynamicBayesianNetworkBehaviors._copy_extracted_into_obs!(BN)
     DynamicBayesianNetworkBehaviors.encode!(assignment, dbn, observations)
 
@@ -162,7 +162,7 @@ function plot_counts_over_conditioned_bin(
 
     observations = BN.observations
     assignment = BN.assignment
-    FeaturesNew.observe!(BN.extractor, runlog, sn, colset, frame)
+    observe!(BN.extractor, runlog, sn, colset, frame)
     DynamicBayesianNetworkBehaviors._copy_extracted_into_obs!(BN)
     DynamicBayesianNetworkBehaviors.encode!(assignment, model, observations)
 
@@ -294,7 +294,6 @@ function render_overlay!(overlay::BNCountsOverlay,
     active_carid::Integer,
     )
 
-
     # ---------------
 
     BN = overlay.BN
@@ -304,7 +303,7 @@ function render_overlay!(overlay::BNCountsOverlay,
 
     observations = BN.observations
     assignment = BN.assignment
-    FeaturesNew.observe!(BN.extractor, runlog, sn, colset, frame)
+    observe!(BN.extractor, runlog, sn, colset, frame)
     DynamicBayesianNetworkBehaviors._copy_extracted_into_obs!(BN)
     DynamicBayesianNetworkBehaviors.encode!(assignment, model, observations)
 

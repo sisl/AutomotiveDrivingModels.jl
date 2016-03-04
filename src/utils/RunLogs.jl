@@ -35,13 +35,14 @@ export
     set!,                               # set the entry in the runlog
 
     set_behavior_flag!,                 # set the given flag
-    is_behavior_fag_set,                #
+    is_behavior_flag_set,                #
 
     idinframe,                          # whether the given id is in the frame
     idinframes,                         # whether the given id is in all the frames
 
     colset2id,                          # get the id of the vehicle in the given colset
     id2colset,                          # get the colset of the vehicle with the given id, returns COLSET_NULL on fail
+    colset_in_other_frame,              # get the colset of the vehicle in another frame, returns COLSET_NULL on fail
 
     estimate_framerate,                 # estimate the framerate using an average
     get_frame,                          # obtains a frame based on the time
@@ -138,6 +139,7 @@ end
 type RunLogHeader
     map_name::AbstractString # defaults to ???
     driver_name::AbstractString # ∈ {???, Philipp}
+    vehicle::AbstractString # ∈ {???, Tesla, BMW}
     date::Date # date of drive
     quat_frame::Union{Type{UTM}, Type{ECEF}}
         # the older maps are in UTM (default)
@@ -160,6 +162,7 @@ type RunLogHeader
 
         retval.map_name = "???"
         retval.driver_name = "???"
+        retval.vehicle = "???"
         retval.date = Date(0)
         retval.quat_frame = UTM
 
@@ -170,6 +173,8 @@ type RunLogHeader
                 if entry == "map_name"
                     retval.map_name = value
                 elseif entry == "driver_name"
+                    retval.driver_name = value
+                elseif entry == "vehicle"
                     retval.driver_name = value
                 elseif entry == "date"
                     retval.date = Date(value,"y-m-d")
@@ -478,7 +483,7 @@ function clear_behavior_flag!(runlog::RunLog, colset::UInt, frame::Integer, flag
     set!(runlog, colset, frame, :behavior, behavior)
     runlog
 end
-function is_behavior_fag_set(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
+function is_behavior_flag_set(runlog::RunLog, colset::UInt, frame::Integer, flag::UInt16)
     behavior = get(runlog, colset, frame, :behavior)::UInt16
     (behavior & flag) > 0
 end
@@ -519,6 +524,14 @@ function id2colset(runlog::RunLog, id::UInt, frame::Integer)
         end
     end
     return COLSET_NULL
+end
+function colset_in_other_frame(runlog::RunLog, colset::UInt, frame_current::Integer, frame_target::Integer)
+    retval = COLSET_NULL
+    if frame_inbounds(runlog, frame_target)
+        id = colset2id(runlog, colset, frame_current)
+        retval = id2colset(runlog, id, frame_target)
+    end
+    retval
 end
 
 function estimate_framerate(runlog::RunLog)

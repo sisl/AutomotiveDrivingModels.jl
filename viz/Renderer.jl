@@ -2,9 +2,7 @@ module Renderer
 
 using Cairo
 using Colors
-
-include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "vec", "Vec.jl"))
-using .Vec
+using Vec
 
 export
         RenderModel,
@@ -29,6 +27,7 @@ export
         render_text,
         render_circle,
         render_arc,
+        render_quad,
         render_round_rect,
         render_car,
         render_vehicle,
@@ -36,7 +35,9 @@ export
         render_line,
         render_dashed_line,
         render_arrow,
-        render_colormesh
+        render_colormesh,
+
+        interpolate_color
 
 import Cairo: set_source_rgba
 
@@ -99,6 +100,40 @@ function render_circle(
     fill(ctx)
 
     arc(ctx, 0.0, 0.0, radius, 0, 2pi)
+    set_line_width(ctx, line_width)
+    set_source_rgba(ctx, color_stroke)
+    stroke(ctx)
+
+    restore(ctx)
+end
+function render_quad(
+    ctx          :: CairoContext,
+    p₁           :: VecE2,
+    p₂           :: VecE2,
+    p₃           :: VecE2,
+    p₄           :: VecE2,
+    color_fill   :: Colorant,
+    color_stroke :: Colorant = color_fill,
+    line_width   :: Real = 1.0
+    )
+
+    save(ctx)
+
+    new_sub_path(ctx)
+    move_to(ctx, p₁.x, p₁.y)
+    line_to(ctx, p₂.x, p₂.y)
+    line_to(ctx, p₃.x, p₃.y)
+    line_to(ctx, p₄.x, p₄.y)
+    close_path(ctx)
+    set_source_rgba(ctx, color_fill)
+    fill(ctx)
+
+    new_sub_path(ctx)
+    move_to(ctx, p₁.x, p₁.y)
+    line_to(ctx, p₂.x, p₂.y)
+    line_to(ctx, p₃.x, p₃.y)
+    line_to(ctx, p₄.x, p₄.y)
+    close_path(ctx)
     set_line_width(ctx, line_width)
     set_source_rgba(ctx, color_stroke)
     stroke(ctx)
@@ -731,7 +766,7 @@ function set_source_rgba(ctx::CairoContext, color::TransparentColor)
 
     set_source_rgba(ctx, r, g, b, a)
 end
-function set_source_rgba(ctx::CairoContext, color₀::Colorant, color₁::Colorant, t::Real)
+function interpolate_color(color₀::Colorant, color₁::Colorant, t::Real)
 
     r₀ = convert(Float64, red(color₀))
     g₀ = convert(Float64, green(color₀))
@@ -747,7 +782,11 @@ function set_source_rgba(ctx::CairoContext, color₀::Colorant, color₁::Colora
     g = g₀ + (g₁ - g₀)*t
     b = b₀ + (b₁ - b₀)*t
     a = a₀ + (a₁ - a₀)*t
-    set_source_rgba(ctx, r, g, b, a)
+
+    RGBA(r, g, b, a)
+end
+function set_source_rgba(ctx::CairoContext, color₀::Colorant, color₁::Colorant, t::Real)
+    set_source_rgba(ctx, interpolate_color(color₀, color₁, t))
 end
 
 end # module
