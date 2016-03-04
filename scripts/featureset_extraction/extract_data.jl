@@ -34,6 +34,7 @@ runlog_extract_params = RunLogSegmentExtractParameters(SIM_HORIZON_IN_FRAMES, SI
 dataset_extract_params = DatasetExtractParams(ContextClass.NULL, ContextClass.NULL, features, runlog_extract_params,
                                               filters=filters)
 
+# pull all runlogs in RUNLOG_DIR
 runlog_filepaths = filter!(s->splitext(s)[2] == ".jld", readdir(RUNLOG_DIR))
 for i in 1 : length(runlog_filepaths)
     runlog_filepaths[i] = joinpath(RUNLOG_DIR, runlog_filepaths[i])
