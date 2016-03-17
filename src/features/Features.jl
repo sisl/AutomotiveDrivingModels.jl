@@ -1494,7 +1494,7 @@ lowerbound{F, H}(  ::Feature_Past{F, H}) = lowerbound(symbol2feature(F))
 upperbound{F, H}(  ::Feature_Past{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Past)       = true
 Base.symbol{F, H}( ::Feature_Past{F, H}) = symbol(@sprintf("past_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Past{F, H}) = L"\texttt{past}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}"
+lsymbol{F, H}(     ::Feature_Past{F, H}) = L"\texttt{past}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * string(H) * L"}"
 function replace_na{F, H}(::Feature_Past{F, H})
     try
         replace_na(symbol2feature(F))

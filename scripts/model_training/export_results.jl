@@ -82,7 +82,6 @@ type ContextClassData
     end
 end
 
-
 function _grab_metric{B<:BehaviorMetric}(T::DataType, metrics::Vector{B})
     j = findfirst(m->isa(m, T), metrics)
     metrics[j]
@@ -480,14 +479,95 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
     print(io, "\\bottomrule\n")
     print(io, "\\end{tabular}\n")
 end
+function create_table_feature_ranking{S<:AbstractString}(
+    io::IO;
+    nfeatures_to_output::Int = 10,
+    folds::AbstractVector{Int} = 1:5,
+    dset_filepath_modifier::AbstractString = "_following",
+    model_names::AbstractVector{S} = ["Linear Gaussian", "Random Forest"], #, "Mixture Regression", "Bayesian Network", "Linear Bayesian"],
+    )
+
+    all_selection_counts = Dict{AbstractString, Dict{AbstractFeature, Int}}() # model_name -> selection_counts
+
+    for model_name in model_names
+
+        model_short_name = convert_model_name_to_short_name(model_name)
+        selection_counts = Dict{AbstractFeature, Int}()
+
+        for fold in folds
+            model_for_fold_path_jld = joinpath(EVALUATION_DIR, model_short_name * dset_filepath_modifier * "_fold" * @sprintf("%02d", fold) * ".jld")
+            model = JLD.load(model_for_fold_path_jld, "model")
+            for f in get_indicators(model)
+                selection_counts[f] = get(selection_counts, f, 0) + 1
+            end
+        end
+
+        all_selection_counts[model_name] = selection_counts
+
+        # generate ranking
+        chosen_features = collect(keys(selection_counts))
+        feature_counts = map(f->selection_counts[f], chosen_features)
+        p = sortperm(feature_counts, rev=true)
+
+        # println(model_short_name, " top features:")
+        # for i in 1:length(p)
+        #     @printf("%d %3.1f  %s\n", i, feature_counts[p[i]]/length(folds), string(symbol(chosen_features[p[i]])))
+        # end
+        # println("")
+    end
+
+    # compute aggregate feature ranking
+    tot_selection_counts = Dict{AbstractFeature, Int}()
+    for selection_counts in values(all_selection_counts)
+        for (f,c) in selection_counts
+            tot_selection_counts[f] = get(tot_selection_counts, f, 0) + c
+        end
+    end
+
+    chosen_features = collect(keys(tot_selection_counts))
+    feature_counts = map(f->tot_selection_counts[f], chosen_features)
+    p = sortperm(feature_counts, rev=true)
+
+    # output the table
+    print(io, "\\begin{tabular}{lS", "S"^length(model_names), "}\n")
+    print(io, "\\toprule\n")
+    print(io, "Feature & Total ")
+    for model_name in model_names
+        print(io, " & ", convert_model_name_to_short_name(model_name))
+    end
+    print(io, "\n")
+    print(io, "\\midrule\n")
+    for i in 1:min(nfeatures_to_output, length(p))
+        if i ≤ length(p)
+            f = chosen_features[p[i]]
+            tot_importance = feature_counts[p[i]] / (length(folds)*length(model_names))
+            print(io, lsymbol(f), " & ", @sprintf("%.2f", tot_importance))
+
+            for model_name in model_names
+                selection_counts = all_selection_counts[model_name]
+                importance = get(selection_counts, f, 0) / length(folds)
+                @printf(io, " & %.1f", importance)
+            end
+            print(io, "\n")
+        end
+    end
+
+    print(io, "\\bottomrule\n")
+    print(io, "\\end{tabular}\n")
+end
+
+fh = STDOUT
+
+# write_to_texthook(TEXFILE, "feature-ranking") do fh
+    create_table_feature_ranking(fh)
+# end
+exit()
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
 preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
-
 data = ContextClassData(SAVE_FILE_MODIFIER, preferred_name_order)
 
-fh = STDOUT
 write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
     create_tikzpicture_model_compare_smoothness(fh, data)
 end

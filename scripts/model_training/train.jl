@@ -102,6 +102,8 @@ for (model_name, traindef) in behaviorset_full
 
     behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
     behaviorset[model_name] = traindef
+    model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
+    model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
     try
 
@@ -109,9 +111,9 @@ for (model_name, traindef) in behaviorset_full
         model_names = collect(keys(behaviorset))
 
         for dset_filepath_modifier in (
-            "_freeflow",
-            # "_following",
-            "_lanechange",
+            # "_freeflow",
+            "_following",
+            # "_lanechange",
             )
 
             println(dset_filepath_modifier)
@@ -149,13 +151,6 @@ for (model_name, traindef) in behaviorset_full
                 end
             end
 
-            #=
-            Indicator counts for determining what features are being selected
-            =#
-            indicator_selection_counts = Dict{AbstractString, Vector{Int}}()
-            for model_name in model_names
-                indicator_selection_counts[model_name] = zeros(Int, length(INDICATOR_SET2))
-            end
 
             cv_split_outer = get_fold_assignment_across_drives(dset, N_FOLDS)
 
@@ -212,16 +207,16 @@ for (model_name, traindef) in behaviorset_full
                 models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_outer)
                 toc()
 
-                # update the indicator selection count
-                for (model_name, behavior) in models
-                    selection_counts = indicator_selection_counts[model_name]
-                    println("selection_counts: ", selection_counts)
-                    println("chosen indicators: ", get_indicators(behavior))
-                    for I in get_indicators(behavior)
-                        selection_counts[findfirst(INDICATOR_SET2, I)] += 1
-                    end
-                    println("selection_counts: ", selection_counts, "\n")
-                end
+                # save the models, ex: BN_following_fold02.jld
+                println("\tsaving model  "); tic()
+                model_for_fold_path_jld = joinpath(EVALUATION_DIR, model_short_name * dset_filepath_modifier * "_fold" * @sprintf("%02d", fold) * ".jld")
+                JLD.save(model_for_fold_path_jld,
+                     "model_name", model_name,
+                     "model",      models[model_name],
+                     "train_def",  behaviorset[model_name],
+                     "time",       now(),
+                    )
+                toc()
 
                 print("\tcomputing likelihoods  "); tic()
                 for (i,model_name) in enumerate(model_names)
@@ -246,7 +241,6 @@ for (model_name, traindef) in behaviorset_full
             #########################################################
 
             print_hyperparam_statistics(STDOUT, behaviorset, hyperparam_counts)
-            print_indicator_selection_statistics(STDOUT, behaviorset, indicator_selection_counts, INDICATOR_SET2)
 
             print("Exctracting metrics  "); tic()
 
@@ -295,7 +289,6 @@ for (model_name, traindef) in behaviorset_full
                 metrics_sets_test_traces[k] = retval_straight
                 metrics_sets_test_traces_bagged[k] = retval_bagged
 
-                model_output_name = replace(lowercase(model_name), " ", "_")
                 model_results_path_jld = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".jld")
                 JLD.save(model_results_path_jld,
                      "model_name",                      model_name,
@@ -314,7 +307,6 @@ for (model_name, traindef) in behaviorset_full
 
                     train_def = behaviorset[model_name]
                     print_hyperparam_statistics(fh, model_name, train_def, hyperparam_counts[model_name])
-                    print_indicator_selection_statistics(fh, model_name, indicator_selection_counts[model_name], INDICATOR_SET2)
                     println(fh)
                     @printf(fh, "LOGL TEST: %6.3f ± %6.3f\n", get_score(metrics_sets_test_frames[k][1]), metrics_sets_test_frames_bagged[k][1].confidence_bound)
                     @printf(fh, "LOGL TEST: %6.3f ± %6.3f\n", get_score(metrics_sets_train_frames[k][1]), metrics_sets_train_frames_bagged[k][1].confidence_bound)
@@ -345,8 +337,18 @@ for (model_name, traindef) in behaviorset_full
             println("metrics_sets_test_traces_bagged: ")
             println(metrics_sets_test_traces_bagged)
         end
-    catch
+    catch err
         println("CAUGHT SOME ERROR, model: ", model_name)
+
+        error_filename = @sprintf("error_%s.txt", model_name)
+        open(error_filename, "w") do fh
+            println(fh, "ERROR training ", model_name)
+            println(fh, "TIME: ", now())
+            println(fh, "")
+            println(fh, err)
+        end
+
+        println(err)
     end
 end
 
