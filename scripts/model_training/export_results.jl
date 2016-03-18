@@ -484,7 +484,7 @@ function create_table_feature_ranking{S<:AbstractString}(
     nfeatures_to_output::Int = 10,
     folds::AbstractVector{Int} = 1:5,
     dset_filepath_modifier::AbstractString = "_following",
-    model_names::AbstractVector{S} = ["Linear Gaussian", "Random Forest"], #, "Mixture Regression", "Bayesian Network", "Linear Bayesian"],
+    model_names::AbstractVector{S} = ["Linear Gaussian", "Random Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"],
     )
 
     all_selection_counts = Dict{AbstractString, Dict{AbstractFeature, Int}}() # model_name -> selection_counts
@@ -535,12 +535,13 @@ function create_table_feature_ranking{S<:AbstractString}(
     for model_name in model_names
         print(io, " & ", convert_model_name_to_short_name(model_name))
     end
-    print(io, "\n")
+    print(io, "\\\\\n")
     print(io, "\\midrule\n")
     for i in 1:min(nfeatures_to_output, length(p))
         if i ≤ length(p)
             f = chosen_features[p[i]]
             tot_importance = feature_counts[p[i]] / (length(folds)*length(model_names))
+
             print(io, lsymbol(f), " & ", @sprintf("%.2f", tot_importance))
 
             for model_name in model_names
@@ -548,7 +549,7 @@ function create_table_feature_ranking{S<:AbstractString}(
                 importance = get(selection_counts, f, 0) / length(folds)
                 @printf(io, " & %.1f", importance)
             end
-            print(io, "\n")
+            print(io, "\\\\\n")
         end
     end
 
@@ -557,11 +558,9 @@ function create_table_feature_ranking{S<:AbstractString}(
 end
 
 fh = STDOUT
-
-# write_to_texthook(TEXFILE, "feature-ranking") do fh
+write_to_texthook(TEXFILE, "feature-ranking") do fh
     create_table_feature_ranking(fh)
-# end
-exit()
+end
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
 preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
