@@ -1529,7 +1529,7 @@ lowerbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = lowerbound(symbol2featur
 upperbound{F, H}(  ::Feature_Mean_Over_History{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Mean_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Mean_Over_History{F, H}) = symbol(@sprintf("mean_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Mean_Over_History{F, H}) = latexstring(replace(L"\texttt{mean}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}", "\$", ""))
+lsymbol{F, H}(     ::Feature_Mean_Over_History{F, H}) = latexstring(replace(L"\texttt{mean}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * string(H) * L"}", "\$", ""))
 function replace_na{F, H}(::Feature_Mean_Over_History{F, H})
     try
         replace_na(symbol2feature(F))
@@ -1569,7 +1569,7 @@ lowerbound{F, H}(  ::Feature_Std_Over_History{F, H}) = lowerbound(symbol2feature
 upperbound{F, H}(  ::Feature_Std_Over_History{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Std_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Std_Over_History{F, H}) = symbol(@sprintf("std_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Std_Over_History{F, H}) = latexstring(replace(L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}", "\$", ""))
+lsymbol{F, H}(     ::Feature_Std_Over_History{F, H}) = latexstring(replace(L"\texttt{std}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * string(H) * L"}", "\$", ""))
 function replace_na{F, H}(::Feature_Std_Over_History{F, H})
     try
         replace_na(symbol2feature(F))
@@ -1609,7 +1609,7 @@ lowerbound{F, H}(  ::Feature_Max_Over_History{F, H}) = lowerbound(symbol2feature
 upperbound{F, H}(  ::Feature_Max_Over_History{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Max_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Max_Over_History{F, H}) = symbol(@sprintf("max_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Max_Over_History{F, H}) = latexstring(replace(L"\texttt{max}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}", "\$", ""))
+lsymbol{F, H}(     ::Feature_Max_Over_History{F, H}) = latexstring(replace(L"\texttt{max}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * string(H) * L"}", "\$", ""))
 function replace_na{F, H}(::Feature_Max_Over_History{F, H})
     try
         replace_na(symbol2feature(F))
@@ -1649,7 +1649,7 @@ lowerbound{F, H}(  ::Feature_Min_Over_History{F, H}) = lowerbound(symbol2feature
 upperbound{F, H}(  ::Feature_Min_Over_History{F, H}) = upperbound(symbol2feature(F))
 couldna(           ::Feature_Min_Over_History)       = true
 Base.symbol{F, H}( ::Feature_Min_Over_History{F, H}) = symbol(@sprintf("min_%d_%s", H, string(F)))
-lsymbol{F, H}(     ::Feature_Min_Over_History{F, H}) = latexstring(replace(L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * H * L"}", "\$", ""))
+lsymbol{F, H}(     ::Feature_Min_Over_History{F, H}) = latexstring(replace(L"\texttt{min}\left(" * lsymbol(symbol2feature(F)) * L"\right)_{" * string(H) * L"}", "\$", ""))
 function replace_na{F, H}(::Feature_Min_Over_History{F, H})
     try
         replace_na(symbol2feature(F))
