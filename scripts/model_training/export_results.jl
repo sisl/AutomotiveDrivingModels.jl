@@ -253,6 +253,39 @@ function create_tikzpicture_model_compare_smoothness(io::IO, data::ContextClassD
     end
     print(io, "}\n")
 end
+function create_tikzpicture_model_compare_smoothness{T<:AbstractString, S<:AbstractString}(
+    io::IO,
+    data_dict::Dict{AbstractString, ContextClassData},
+    context_class_names::Vector{T},
+    model_names::Vector{S},
+    )
+
+    for i in 1 : length(model_names)
+
+        color = "color" * string('A' + i - 1)
+        pattern = PATTERNS[mod(i,2)+3] # up left or down left
+
+        print(io, "\\addplot [", color, ",fill=", color, "!60, postaction={pattern=", pattern, ", pattern color=white}, error bars/.cd,y dir=both,y explicit]\n\t\tcoordinates{\n")
+
+        for context_class in context_class_names
+            data = context_class_data[context_class]
+            stuff = _grab_score_and_confidence(EmergentKLDivMetric{SumSquareJerk}, data.metrics_sets_test_traces[i], data.metrics_sets_test_traces_bagged[i])
+            @printf(io, "\t\t(%-15s%.4f)+=(0,%.4f)-=(0,%.4f)\n", "\\"*context_class*",", stuff[1], stuff[2], min(stuff[1], stuff[2]))
+        end
+
+        @printf(io, "\t};\n")
+    end
+
+    print(io, "\\legend{")
+    for (i,name) in enumerate(model_names)
+
+        print(io, _convert_to_short_name(name))
+        if i != length(model_names)
+            print(io, ", ")
+        end
+    end
+    print(io, "}\n")
+end
 function create_tikzpicture_model_compare_rwse_mean(io::IO, data::ContextClassData, sym::Symbol)
     # metrics_sets::Vector{Vector{BehaviorTraceMetric}},
     # names::Vector{S},
@@ -434,24 +467,20 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
     end
 
     # smoothness
-    for (typ, name) in [(SumSquareJerk, "sum square"), (LagOneAutocorrelation, "autocor"), (JerkSignInversions, "sign inv")]
+    for (typ, name) in [(SumSquareJerk, "sum square jerk")] # , (LagOneAutocorrelation, "autocor"), (JerkSignInversions, "sign inv")
 
         metric = EmergentKLDivMetric{typ}
 
         counter = 0
 
-        for context_class_name in ["following"] # context_class_names
+        for context_class_name in context_class_names
 
             counter += 1
             if counter == 1
-                @printf(io, "%-30s &", "KL-div " * name)
+                @printf(io, "%-30s &", "KLdiv " * name)
             else
                 @printf(io, "%-30s &", "")
             end
-
-            println(typ)
-            println(name)
-            println(context_class_name)
 
             data = data_dict[context_class_name]
             best_model_index = 0
@@ -567,9 +596,9 @@ preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "
 
 data = ContextClassData(SAVE_FILE_MODIFIER, preferred_name_order)
 
-write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
-    create_tikzpicture_model_compare_smoothness(fh, data)
-end
+# write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+#     create_tikzpicture_model_compare_smoothness(fh, data)
+# end
 
 write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
     create_tikzpicture_model_compare_logl(fh, data, false)
@@ -601,6 +630,10 @@ end
 
 write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
     create_table_validation_across_context_classes(fh, context_class_data, context_class_names, preferred_name_order)
+end
+
+write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+    create_tikzpicture_model_compare_smoothness(fh, context_class_data, context_class_names, preferred_name_order)
 end
 
 println("DONE EXPORTING RESULTS TO TEX")

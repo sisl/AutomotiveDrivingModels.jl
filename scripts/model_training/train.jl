@@ -151,7 +151,6 @@ for (model_name, traindef) in behaviorset_full
                 end
             end
 
-
             cv_split_outer = get_fold_assignment_across_drives(dset, N_FOLDS)
 
             nframes = nrow(dset.dataframe)

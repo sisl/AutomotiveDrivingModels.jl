@@ -4,7 +4,7 @@ behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
 ####################
 # Empty Parameter Set
 
-behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
+# behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 # behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(LG_TrainParams(indicators=INDICATOR_SET2, ridge_regression_constant=0.8))
 # behaviorset["Random Forest"] = BehaviorTrainDefinition(
 #                                                 GRF_TrainParams(indicators=INDICATOR_SET2,
@@ -61,6 +61,7 @@ behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 ####################
 # Partial Parameter Set
 
+behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams())
 # behaviorset["Static Gaussian"] = BehaviorTrainDefinition(SG_TrainParams(),
 #                                     BehaviorParameter[
 #                                         BehaviorParameter(:targets, [
@@ -75,24 +76,24 @@ behaviorset["Linear Gaussian"] = BehaviorTrainDefinition(
                                                 BehaviorParameter(:ridge_regression_constant, [0.0,1e-5,1e-4,1e-3,1e-2,0.1,0.25,0.5,0.9], 2)
                                             ])
 behaviorset["Random Forest"] = BehaviorTrainDefinition(
-                                            GRF_TrainParams(indicators=INDICATOR_SET2),
+                                            GRF_TrainParams(indicators=INDICATOR_SET_CLEAN),
                                             [
-                                                BehaviorParameter(:ntrees, [20,25,30], 2),
+                                                BehaviorParameter(:ntrees, [3,10,20,30], 2),
                                                 BehaviorParameter(:max_tree_depth, [2,3,4], 2),
                                                 # BehaviorParameter(:use_PCA, [false, true], 1),
-                                                BehaviorParameter(:n_split_tries, [2,10,20,30], 2),
-                                                BehaviorParameter(:min_split_improvement, [0.0,1.0], 1),
-                                                BehaviorParameter(:partial_sampling, [0.1,0.2,0.3], 2),
+                                                # BehaviorParameter(:n_split_tries, [2,10,20,30], 2),
+                                                # BehaviorParameter(:min_split_improvement, [0.0,1.0], 1),
+                                                BehaviorParameter(:partial_sampling, [0.2,0.5,0.6,0.8], 2),
                                             ])
 behaviorset["Dynamic Forest"] = BehaviorTrainDefinition(
-                                            DF_TrainParams(indicators=INDICATOR_SET2),
+                                            DF_TrainParams(indicators=INDICATOR_SET_CLEAN),
                                             [
-                                                BehaviorParameter(:ntrees, [15,20,25], 2),
+                                                BehaviorParameter(:ntrees, [3,10,20,30], 2),
                                                 BehaviorParameter(:max_tree_depth, [2,3,4], 2),
                                                 # BehaviorParameter(:use_PCA, [false, true], 1),
-                                                BehaviorParameter(:n_split_tries, [10,20,30], 2),
-                                                BehaviorParameter(:min_split_improvement, [0.0,0.5,1.0], 2),
-                                                BehaviorParameter(:partial_sampling, [0.8,0.9,1.0], 2),
+                                                # BehaviorParameter(:n_split_tries, [10,20,30], 2),
+                                                # BehaviorParameter(:min_split_improvement, [0.0,1.0], 2),
+                                                BehaviorParameter(:partial_sampling, [0.2,0.5,0.6,0.8], 2),
                                             ])
 behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
                                             BN_TrainParams(
@@ -109,9 +110,9 @@ behaviorset["Bayesian Network"] = BehaviorTrainDefinition(
                                                 dirichlet_prior=BDeuPrior(0.5),
                                             ),
                                             [
-                                                BehaviorParameter(:max_parents, [2,3,4,5], 2),
-                                                BehaviorParameter(:nbins_lat, 6:8, 2),
-                                                BehaviorParameter(:nbins_lon, 6:8, 2),
+                                                # BehaviorParameter(:max_parents, [2,3,4,5], 2),
+                                                # BehaviorParameter(:nbins_lat, 6:8, 2),
+                                                # BehaviorParameter(:nbins_lon, 6:8, 2),
                                                 BehaviorParameter(:dirichlet_prior, [UniformPrior(), UniformPrior(0.01), BDeuPrior(0.5), BDeuPrior(1.0), BDeuPrior(10.0)], 1),
                                             ]
                                             )
@@ -131,10 +132,11 @@ behaviorset["Linear Bayesian"] = BehaviorTrainDefinition(
                                                 BehaviorParameter(:min_σ_lon, [1e-7, 5e-6, 1e-6], 2),
                                                 BehaviorParameter(:max_parents, [2,3,4,5], 2),
                                             ])
+# INDICATOR_SET_CLEAN
 behaviorset["Mixture Regression"] = BehaviorTrainDefinition(
                                             GMR_TrainParams(indicators=INDICATOR_SET_SMALL, n_gmm_iter=20, n_init=1, min_covar=1e-7, n_components=5, max_n_indicators=3, unlearned_component_weight=0.05),
                                             BehaviorParameter[
-                                                BehaviorParameter(:n_components, [3,5,10], 2),
+                                                BehaviorParameter(:n_components, [3,5], 2),
                                                 # BehaviorParameter(:tol, [0.1, 0.15, 0.2], 2),
                                                 # BehaviorParameter(:min_covar, [1e-7,1e-6,1e-5,1e-4], 2),
                                                 BehaviorParameter(:max_n_indicators, [3,4,5], 2),

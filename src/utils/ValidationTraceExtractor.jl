@@ -53,6 +53,7 @@ export
         calc_row_count_from_region_segments,
 
         get_cross_validation_fold_assignment,
+        get_cross_validation_fold_assignment_frameonly,
         get_train_test_fold_assignment,
         get_fold_assignment_across_drives,
         get_fold_assignment_across_traces,
@@ -930,6 +931,78 @@ function get_cross_validation_fold_assignment(
     end
 
     # println("frame_fold_sizes (after): ", frame_fold_sizes)
+
+    FoldAssignment(frame_fold_assignment, runlogsegment_fold_assignment, nfolds)
+end
+function get_cross_validation_fold_assignment_frameonly(
+    nfolds::Int,
+    dset::ModelTrainingData2,
+    train_test_split::FoldAssignment,
+    target_fold::Int=FOLD_TRAIN,
+    )
+
+    #=
+    Want: to split the dataframe into k disjoint training sets of nearly the same size
+          and simultaneously split the runlog_segments into k disjoint sets of nearly the same size
+
+    Assumptions
+    - runlog_segments are all of the same history and horizon
+    - runlog_segments do not overlap
+
+    1) randomly divide runlog_segments into k roughly equally-sized groups
+    2) for each group, identify the corresponding frames
+    3) assign those frames to each training set
+    4) divide the remaining training frames among the training sets
+    =#
+
+    dataframe = dset.dataframe
+
+    frame_tv_assignment = train_test_split.frame_assignment
+
+    nframes = nrow(dataframe)
+    nrunlogsegments = length(dset.runlog_segments)
+
+    nframes_assigned_to_target = 0
+    for v in frame_tv_assignment
+        if v == target_fold
+            nframes_assigned_to_target += 1
+        end
+    end
+
+    indeces_of_train_frames = Array(Int, nframes_assigned_to_target)
+    ind = 1
+    for (i,v) in enumerate(frame_tv_assignment)
+        if v == target_fold
+            indeces_of_train_frames[ind] = i
+            ind += 1
+        end
+    end
+
+    nframes_per_fold = div(nframes_assigned_to_target, nfolds)
+    nfolds_with_extra_frame = mod(nframes_assigned_to_target, nfolds)
+
+    # println("\n")
+    # println("tot nframes:                  ", nframes)
+    # println("nframes_assigned_to_target: ", nframes_assigned_to_target)
+    # println("nfolds_with_extra_frame:      ", nfolds_with_extra_frame)
+    # println("\n")
+
+    # NOTE(tim): will only set frames that are marked TRAIN
+    frame_fold_assignment = zeros(Int, nframes)
+    runlogsegment_fold_assignment = zeros(Int, nrunlogsegments)
+
+    p = randperm(nframes_assigned_to_target)
+    permind = 0
+    for fold = 1 : nfolds
+        # println(runlogsegment_fold_assignment)
+        nframes_in_fold = nframes_per_fold + (fold ≤ nfolds_with_extra_frame ? 1 : 0)
+        for i = 1 : nframes_in_fold
+            permind += 1
+
+            frameind = indeces_of_train_frames[p[permind]]
+            frame_fold_assignment[frameind] = fold
+        end
+    end
 
     FoldAssignment(frame_fold_assignment, runlogsegment_fold_assignment, nfolds)
 end

@@ -228,7 +228,7 @@ const COLSET_NULL = zero(UInt)
 # ----------------------------------------
 # EACH FRAME CONTAINS THESE VALUES ONCE
 #
-# Float64 time            [s] unix epoch
+# Float64 time            [s] time since start of run
 # UInt16  environment     [0] environment mask
 #
 # ----------------------------------------

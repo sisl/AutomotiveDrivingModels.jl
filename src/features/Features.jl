@@ -1474,7 +1474,6 @@ Base.symbol{F}( ::Feature_IsClean{F}) = symbol("isclean_" * string(F))
 lsymbol{F}(     ::Feature_IsClean{F}) = latexstring(replace(L"\texttt{isclean}\left(" * lsymbol(symbol2feature(F)) * L"\right)", "\$", ""))
 function Base.get{F}(::Feature_IsClean{F}, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
     f = symbol2feature(F)
-    println(F)
     v = get(f, runlog, sn, colset, frame)::Float64
     convert(Float64, !isnan(v) && !isinf(v))
 end

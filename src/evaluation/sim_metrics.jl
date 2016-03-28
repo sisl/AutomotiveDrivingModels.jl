@@ -209,8 +209,6 @@ function extract(::Type{SumSquareJerk},
     running_sum = 0.0
     for frame in frame_start + N_FRAMES_PER_SIM_FRAME : N_FRAMES_PER_SIM_FRAME : frame_end
 
-        Δt = (frame - frame_start)*DEFAULT_SEC_PER_FRAME
-
         colset = RunLogs.id2colset(runlog, seg.carid, frame)
         jerk = get(JERK, runlog, sn, colset, frame)
         @assert(!isnan(jerk) && !isinf(jerk))
@@ -450,8 +448,8 @@ const KLDIV_METRIC_DISC_DICT = Dict(
         symbol(SPEED)                 => LinearDiscretizer(collect(linspace( 0.0, 35.0, KLDIV_METRIC_NBINS+1)), Int),
         symbol(INV_TIMEGAP_FRONT)     => LinearDiscretizer(collect(linspace( 0.0, 10.0, KLDIV_METRIC_NBINS+1)), Int),
         symbol(POSFT)                 => LinearDiscretizer(collect(linspace(-3.0,  3.0, KLDIV_METRIC_NBINS+1)), Int),
-        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0, 20.0, KLDIV_METRIC_NBINS+1)), Int),
-        string(JerkSignInversions)    => LinearDiscretizer(collect(linspace( 0.0, 25.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(SumSquareJerk)         => LinearDiscretizer(collect(linspace( 0.0,  5.0, KLDIV_METRIC_NBINS+1)), Int),
+        string(JerkSignInversions)    => LinearDiscretizer(collect(linspace( 0.0, 10.0, KLDIV_METRIC_NBINS+1)), Int),
         string(LagOneAutocorrelation) => LinearDiscretizer(collect(linspace(-1.0,  1.0, KLDIV_METRIC_NBINS+1)), Int),
     )
 

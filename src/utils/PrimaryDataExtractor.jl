@@ -66,7 +66,7 @@ type PrimaryDataExtractionParams
         self.verbosity = 0
 
         self.threshold_percent_outliers_warn = 0.5
-        self.threshold_percent_outliers_error = 14.0
+        self.threshold_percent_outliers_error = 100.0 # 14.0
         self.threshold_lane_lateral_offset_ego = 2.5
         self.threshold_proj_sqdist_ego = self.threshold_lane_lateral_offset_ego * self.threshold_lane_lateral_offset_ego
         self.threshold_other_frame_gap = 5
@@ -2265,18 +2265,14 @@ function _extract_runlog(
         # compute the behavior manually
 
         id = ID_EGO
-        d_cl_prev = Inf
-
         for frame in 1 : RunLogs.nframes(runlog)
             colset = RunLogs.id2colset(runlog, id, frame)
 
-            velFy = get(VELFT, runlog, sn, colset, frame)
             inv_timegap_front = get(INV_TIMEGAP_FRONT, runlog, sn, colset, frame)
             Δv_front = get(DELTA_V_FRONT, runlog, sn, colset, frame)
-            d_cl = get(DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
 
             # freeflow and carfollow are mutually exclusive
-            is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 1.0)
+            is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5)
             if is_in_freeflow
                 set_behavior_flag!(runlog, colset, frame, ContextClass.FREEFLOW)
                 @assert(!is_behavior_flag_set(runlog, colset, frame, ContextClass.FOLLOWING))
@@ -2284,19 +2280,28 @@ function _extract_runlog(
                 set_behavior_flag!(runlog, colset, frame, ContextClass.FOLLOWING)
                 @assert(!is_behavior_flag_set(runlog, colset, frame, ContextClass.FREEFLOW))
             end
+        end
 
-            # lanechange can be set separately
+        # lanechange can be set separately
+        d_cl_prev = Inf
+        for frame in 1 : RunLogs.nframes(runlog)
+            colset = RunLogs.id2colset(runlog, id, frame)
+
+            d_cl = get(DIST_FROM_CENTERLINE, runlog, sn, colset, frame)
+
             if frame > 1 && abs(d_cl - d_cl_prev) > 2.5
                 # identifier lanechange
                 # move forward and back until |velFy| < 0.1
 
-                set_behavior_flag!(runlog, colset, frame, ContextClass.LANECHANGE)
+                # set_behavior_flag!(runlog, colset, frame, ContextClass.LANECHANGE)
+                RunLogs.set!(runlog, colset, frame, :behavior, ContextClass.LANECHANGE)
 
                 for frame_fut  in frame+1 : RunLogs.nframes(runlog)
                     colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
                     velFt_fut = get(VELFT, runlog, sn, colset, frame_fut)
                     if abs(velFt_fut) ≥ 0.1
-                        set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
+                        # set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
+                        RunLogs.set!(runlog, colset_fut, frame_fut, :behavior, ContextClass.LANECHANGE)
                     else
                         break
                     end
@@ -2306,7 +2311,8 @@ function _extract_runlog(
                     colset_past = RunLogs.id2colset(runlog, id, frame_past)
                     velFt_past = get(VELFT, runlog, sn, colset_past, frame_past)
                     if abs(velFt_past) ≥ 0.1
-                        set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
+                        # set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
+                        RunLogs.set!(runlog, colset_past, frame_past, :behavior, ContextClass.LANECHANGE)
                     else
                         break
                     end
