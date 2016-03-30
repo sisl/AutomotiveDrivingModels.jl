@@ -17,12 +17,12 @@ context_classes = ["freeflow", "following", "lanechange"]
 ncontext_classes = length(context_classes)
 
 model_names = AbstractString[]
-# push!(model_names, "Static Gaussian")
-# push!(model_names, "Linear Gaussian")
-# push!(model_names, "Random Forest")
-# push!(model_names, "Dynamic Forest")
-# push!(model_names, "Mixture Regression")
-# push!(model_names, "Bayesian Network")
+push!(model_names, "Static Gaussian")
+push!(model_names, "Linear Gaussian")
+push!(model_names, "Random Forest")
+push!(model_names, "Dynamic Forest")
+push!(model_names, "Mixture Regression")
+push!(model_names, "Bayesian Network")
 push!(model_names, "Linear Bayesian")
 
 for model_name in model_names
