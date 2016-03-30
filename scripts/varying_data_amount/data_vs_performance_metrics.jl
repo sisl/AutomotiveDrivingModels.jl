@@ -9,7 +9,7 @@ using DynamicBayesianNetworkBehaviors
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 
-const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 3)
+const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 11)
 
 ##############################
 # PARAMETERS

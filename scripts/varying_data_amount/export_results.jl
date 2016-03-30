@@ -111,7 +111,7 @@ write_to_texthook(TEXFILE, "varydata-experiment-logl") do fh
     create_tikzpicture_experiment(fh, dfs, :logl_test, modelnames)
 end
 write_to_texthook(TEXFILE, "varydata-experiment-rwse") do fh
-    create_tikzpicture_experiment(fh, dfs, :rwse_dcl_test, modelnames)
+    create_tikzpicture_experiment(fh, dfs, :rwse_speed_test, modelnames) # rwse_speed_test, rwse_dcl_test, rwse_headway_test
 end
 write_to_texthook(TEXFILE, "varydata-experiment-smoothness") do fh
     create_tikzpicture_experiment(fh, dfs, :smooth_sumsquare, modelnames)
