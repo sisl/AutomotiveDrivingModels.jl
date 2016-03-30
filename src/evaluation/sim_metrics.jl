@@ -443,7 +443,7 @@ type EmergentKLDivMetric{feature_symbol} <: BehaviorTraceMetric
     kldiv::Float64
 end
 
-const KLDIV_METRIC_NBINS = 10
+const KLDIV_METRIC_NBINS = 20
 const KLDIV_METRIC_DISC_DICT = Dict(
         symbol(SPEED)                 => LinearDiscretizer(collect(linspace( 0.0, 35.0, KLDIV_METRIC_NBINS+1)), Int),
         symbol(INV_TIMEGAP_FRONT)     => LinearDiscretizer(collect(linspace( 0.0, 10.0, KLDIV_METRIC_NBINS+1)), Int),

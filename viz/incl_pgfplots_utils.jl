@@ -49,6 +49,40 @@ end
 function plot_logl_vs_trace(
     model_names::Vector{AbstractString},
     models::Dict{AbstractString, AbstractVehicleBehavior},
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+
+    styles = [
+                "mark=none, solid, color=monokai1",
+                "mark=none, solid, color=monokai2",
+                "mark=none, solid, color=monokai3",
+                "mark=none, solid, color=monokai4",
+                "mark=none, solid, color=monokai5",
+                "mark=none, solid, color=monokai6",
+                "mark=none, solid, color=monokai7",
+            ],
+    include_legend_entry::Bool = false
+    )
+
+
+    plots = Plots.Plot[]
+    for (i,name) in enumerate(model_names)
+        push!(plots, get_plot_logl_vs_trace(models[name], runlog, sn, frame_start, frame_end, id))
+        plots[end].style = styles[i]
+
+        if include_legend_entry
+            plots[end].legendentry = name
+        end
+    end
+
+    Axis(plots, xlabel="frame", ylabel="action log likelihood")
+end
+function plot_logl_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
     sim_runlogs::Dict{AbstractString, RunLog},
     sn::StreetNetwork,
     frame_start::Integer,
@@ -114,6 +148,39 @@ function plot_target_lat_vs_trace(
 
     Axis(get_plot_target_lat_vs_trace(behavior, runlog, sn, frame_start, frame_end, id),
         xlabel="frame", ylabel="target lat")
+end
+function plot_target_lat_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+
+    styles = [
+                "mark=none, solid, color=monokai1",
+                "mark=none, solid, color=monokai2",
+                "mark=none, solid, color=monokai3",
+                "mark=none, solid, color=monokai4",
+                "mark=none, solid, color=monokai5",
+                "mark=none, solid, color=monokai6",
+                "mark=none, solid, color=monokai7",
+            ],
+    include_legend_entry::Bool = false,
+    )
+
+    plots = Plots.Plot[]
+    for (i,name) in enumerate(model_names)
+        push!(plots, get_plot_target_lat_vs_trace(models[name], runlog, sn, frame_start, frame_end, id))
+        plots[end].style = styles[i]
+
+        if include_legend_entry
+            plots[end].legendentry = name
+        end
+    end
+
+    Axis(plots, xlabel="frame", ylabel="target lat")
 end
 function plot_target_lat_vs_trace(
     model_names::Vector{AbstractString},
@@ -186,6 +253,39 @@ end
 function plot_target_lon_vs_trace(
     model_names::Vector{AbstractString},
     models::Dict{AbstractString, AbstractVehicleBehavior},
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt;
+
+    styles = [
+                "mark=none, solid, color=monokai1",
+                "mark=none, solid, color=monokai2",
+                "mark=none, solid, color=monokai3",
+                "mark=none, solid, color=monokai4",
+                "mark=none, solid, color=monokai5",
+                "mark=none, solid, color=monokai6",
+                "mark=none, solid, color=monokai7",
+            ],
+    include_legend_entry::Bool = false,
+    )
+
+    plots = Plots.Plot[]
+    for (i,name) in enumerate(model_names)
+        push!(plots, get_plot_target_lon_vs_trace(models[name], runlog, sn, frame_start, frame_end, id))
+        plots[end].style = styles[i]
+
+        if include_legend_entry
+            plots[end].legendentry = name
+        end
+    end
+
+    Axis(plots, xlabel="frame", ylabel="target lon")
+end
+function plot_target_lon_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
     sim_runlogs::Dict{AbstractString, RunLog},
     sn::StreetNetwork,
     frame_start::Integer,
@@ -230,6 +330,29 @@ function plot_group_logl_vs_trace(
     push!(g, plot_logl_vs_trace(behavior, runlog, sn, frame_start, frame_end, id))
     push!(g, plot_target_lat_vs_trace(behavior, runlog, sn, frame_start, frame_end, id))
     push!(g, plot_target_lon_vs_trace(behavior, runlog, sn, frame_start, frame_end, id))
+    g
+end
+function plot_group_logl_vs_trace(
+    model_names::Vector{AbstractString},
+    models::Dict{AbstractString, AbstractVehicleBehavior},
+    runlog::RunLog,
+    sn::StreetNetwork,
+    frame_start::Integer,
+    frame_end::Integer,
+    id::UInt,
+    )
+
+    g = GroupPlot(3, 1, groupStyle = "horizontal sep = 15mm")
+    push!(g, plot_logl_vs_trace(model_names, models, runlog, sn, frame_start, frame_end, id))
+    push!(g, plot_target_lat_vs_trace(model_names, models, runlog, sn, frame_start, frame_end, id))
+    push!(g, plot_target_lon_vs_trace(model_names, models, runlog, sn, frame_start, frame_end, id, include_legend_entry=true))
+
+    for axis in g.axes
+        axis.width="7cm"
+    end
+
+    g.axes[end].legendPos = "outer north east"
+
     g
 end
 function plot_group_logl_vs_trace(

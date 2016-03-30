@@ -2291,7 +2291,7 @@ function _extract_runlog(
 
             if frame > 1 && abs(d_cl - d_cl_prev) > 2.5
                 # identifier lanechange
-                # move forward and back until |velFy| < 0.1
+                # move forward and back until |velFy| < 0.1 for a max of 3 sec each direction
 
                 # set_behavior_flag!(runlog, colset, frame, ContextClass.LANECHANGE)
                 RunLogs.set!(runlog, colset, frame, :behavior, ContextClass.LANECHANGE)
@@ -2299,7 +2299,8 @@ function _extract_runlog(
                 for frame_fut  in frame+1 : RunLogs.nframes(runlog)
                     colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
                     velFt_fut = get(VELFT, runlog, sn, colset, frame_fut)
-                    if abs(velFt_fut) ≥ 0.1
+                    Δt = RunLogs.get_elapsed_time(runlog, frame, frame_fut)
+                    if abs(velFt_fut) ≥ 0.1 && Δt < 3.0
                         # set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
                         RunLogs.set!(runlog, colset_fut, frame_fut, :behavior, ContextClass.LANECHANGE)
                     else
@@ -2310,7 +2311,8 @@ function _extract_runlog(
                 for frame_past  in frame-1 : -1 : 1
                     colset_past = RunLogs.id2colset(runlog, id, frame_past)
                     velFt_past = get(VELFT, runlog, sn, colset_past, frame_past)
-                    if abs(velFt_past) ≥ 0.1
+                    Δt = RunLogs.get_elapsed_time(runlog, frame_past, frame)
+                    if abs(velFt_past) ≥ 0.1 && Δt < 3.0
                         # set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
                         RunLogs.set!(runlog, colset_past, frame_past, :behavior, ContextClass.LANECHANGE)
                     else
