@@ -11,6 +11,9 @@ const TEXDIR = splitdir(TEXFILE)[1]
 
 const INCLUDE_FILE_BASE = "realworld"
 
+# const NAME_SUFFIX = " Clean"
+const NAME_SUFFIX = ""
+
 const DASH_TYPES = ["solid", "dashdotted", "dashed", "densely dotted", "loosely dotted", "densely dashdotted", "solid"]
 const PATTERNS = ["horizontal lines", "vertical lines", "north east lines", "north west lines", "grid", "crosshatch", "dots", "crosshatch dots", "fivepointed stars", "sixpointed stars", "bricks"]
 # const SAVE_FILE_MODIFIER = "_subset_car_following"
@@ -43,12 +46,12 @@ type ContextClassData
         retval.metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, 0)
 
         for model_name in preferred_name_order
-            model_output_name = replace(lowercase(model_name), " ", "_")
+            model_output_name = replace(lowercase(model_name*NAME_SUFFIX), " ", "_")
             model_results_path_jld = joinpath(EVALUATION_DIR, "validation_results" * context_class * "_" * model_output_name * ".jld")
 
             data = JLD.load(model_results_path_jld)
 
-            push!(retval.names,                            data["model_name"])
+            push!(retval.names,                            model_name)#data["model_name"])
             push!(retval.metrics_sets_test_frames,         data["metrics_set_test_frames"])
             push!(retval.metrics_sets_test_frames_bagged,  data["metrics_set_test_frames_bagged"])
             push!(retval.metrics_sets_train_frames,        data["metrics_set_train_frames"])
@@ -520,7 +523,7 @@ function create_table_feature_ranking{S<:AbstractString}(
 
     for model_name in model_names
 
-        model_short_name = convert_model_name_to_short_name(model_name)
+        model_short_name = convert_model_name_to_short_name(model_name * NAME_SUFFIX)
         selection_counts = Dict{AbstractFeature, Int}()
 
         for fold in folds
@@ -621,6 +624,8 @@ end
 write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
     create_tikzpicture_model_compare_rwse_legend(fh, data)
 end
+
+exit()
 
 context_class_data = Dict{AbstractString, ContextClassData}()
 context_class_names = ["freeflow", "following", "lanechange"]

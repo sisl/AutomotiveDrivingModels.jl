@@ -111,9 +111,9 @@ for (model_name, traindef) in behaviorset_full
         model_names = collect(keys(behaviorset))
 
         for dset_filepath_modifier in (
-            # "_freeflow",
+            "_freeflow",
             "_following",
-            # "_lanechange",
+            "_lanechange",
             )
 
             println(dset_filepath_modifier)

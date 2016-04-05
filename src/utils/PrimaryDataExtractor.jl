@@ -2264,6 +2264,9 @@ function _extract_runlog(
     else
         # compute the behavior manually
 
+        const FREEFLOW_TIMEGAP_THRESOLD = 2.0 # [s]
+        const LANECHANGE_TIME_THRESHOLD = 2.25 # [s]
+
         id = ID_EGO
         for frame in 1 : RunLogs.nframes(runlog)
             colset = RunLogs.id2colset(runlog, id, frame)
@@ -2272,7 +2275,7 @@ function _extract_runlog(
             Δv_front = get(DELTA_V_FRONT, runlog, sn, colset, frame)
 
             # freeflow and carfollow are mutually exclusive
-            is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/3.0 || Δv_front > 0.5)
+            is_in_freeflow = isnan(inv_timegap_front) || (inv_timegap_front < 1.0/FREEFLOW_TIMEGAP_THRESOLD) #  || Δv_front > 0.5
             if is_in_freeflow
                 set_behavior_flag!(runlog, colset, frame, ContextClass.FREEFLOW)
                 @assert(!is_behavior_flag_set(runlog, colset, frame, ContextClass.FOLLOWING))
@@ -2300,7 +2303,7 @@ function _extract_runlog(
                     colset_fut = RunLogs.id2colset(runlog, id, frame_fut)
                     velFt_fut = get(VELFT, runlog, sn, colset, frame_fut)
                     Δt = RunLogs.get_elapsed_time(runlog, frame, frame_fut)
-                    if abs(velFt_fut) ≥ 0.1 && Δt < 3.0
+                    if abs(velFt_fut) ≥ 0.1 && Δt < LANECHANGE_TIME_THRESHOLD
                         # set_behavior_flag!(runlog, colset_fut, frame_fut, ContextClass.LANECHANGE)
                         RunLogs.set!(runlog, colset_fut, frame_fut, :behavior, ContextClass.LANECHANGE)
                     else
@@ -2312,7 +2315,7 @@ function _extract_runlog(
                     colset_past = RunLogs.id2colset(runlog, id, frame_past)
                     velFt_past = get(VELFT, runlog, sn, colset_past, frame_past)
                     Δt = RunLogs.get_elapsed_time(runlog, frame_past, frame)
-                    if abs(velFt_past) ≥ 0.1 && Δt < 3.0
+                    if abs(velFt_past) ≥ 0.1 && Δt < LANECHANGE_TIME_THRESHOLD
                         # set_behavior_flag!(runlog, colset_past, frame_past, ContextClass.LANECHANGE)
                         RunLogs.set!(runlog, colset_past, frame_past, :behavior, ContextClass.LANECHANGE)
                     else

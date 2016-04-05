@@ -23,8 +23,17 @@ push!(model_names, "Dynamic Forest")
 push!(model_names, "Mixture Regression")
 push!(model_names, "Bayesian Network")
 push!(model_names, "Linear Bayesian")
+push!(model_names, "Static Gaussian Clean")
+push!(model_names, "Linear Gaussian Clean")
+push!(model_names, "Random Forest Clean")
+push!(model_names, "Dynamic Forest Clean")
+push!(model_names, "Mixture Regression Clean")
+push!(model_names, "Bayesian Network Clean")
+push!(model_names, "Linear Bayesian Clean")
 
 current_time = now()
+
+@printf("%-30s %-15s %4s %5s\n", "model name", "context class", "fold", "days")
 
 for model_name in model_names
 

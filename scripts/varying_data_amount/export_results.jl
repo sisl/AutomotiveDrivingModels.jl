@@ -97,11 +97,13 @@ function create_tikzpicture_experiment{S<:AbstractString}(io::IO, dfs::Dict{Abst
 end
 
 modelnames = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
+# name_suffix = " Clean"
+name_suffix = ""
 
 dfs = Dict{AbstractString, DataFrame}()
 for model_name in modelnames
 
-    model_output_name = replace(lowercase(model_name), " ", "_")
+    model_output_name = replace(lowercase(model_name*name_suffix), " ", "_")
     inpath = joinpath(RESULTS_DIR, "data_vs_performance_metrics_" * model_output_name * ".csv")
     dfs[model_name] = readtable(inpath)
 end
