@@ -35,7 +35,12 @@ export
     # compute_metric_summary_table,
 
     calc_dataset_likelihood,
-    calc_trace_likelihood
+    calc_trace_likelihood,
+
+    create_metrics_df,
+    calc_likelihood_metrics!,
+    calc_trace_metrics!,
+    calc_metrics!
 
 const DEFAULT_N_SIMULATIONS_PER_TRACE = 5
 const DEFAULT_TRACE_HISTORY = 2*DEFAULT_FRAME_PER_SEC
@@ -415,130 +420,6 @@ function extract!(
     metric
 end
 
-# ########################################################################################################
-# # Bagging
-
-# const DEFAULT_CONFIDENCE_LEVEL = 0.95
-# const DEFAULT_N_BAGGING_SAMPLES = 10
-
-# function _bagged_mean_sample(v::AbstractVector{Float64}, m::Int=length(v), bag_range::UnitRange{Int}=1:m)
-
-#     # compute the mean of a bagged subset of v
-
-#     x = 0.0
-#     for i in 1 : m
-#         x += v[rand(bag_range)]
-#     end
-#     x / m
-# end
-# function _bagged_sample(
-#     M::DataType,
-#     evaldata::EvaluationData,
-#     runlogs_for_simulation::Matrix{RunLog},
-#     seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
-#     bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
-#     m::Int=length(seg_indeces),
-#     bag_range::UnitRange{Int}=1:m
-#     )
-
-#     @assert(length(bagsamples) == length(seg_indeces))
-
-#     for i in 1 : m
-#         bagsamples[i] = rand(bag_range)
-#     end
-
-#     get_score(extract(M, evaldata, runlogs_for_simulation, seg_indeces, bagsamples))
-# end
-
-
-# immutable BaggedMetricResult
-#     M::DataType # datatype of the source BehaviorMetric
-#     μ::Float64 # sample mean
-#     σ::Float64 # sample standard deviation
-#     min::Float64 # min observed value
-#     max::Float64 # max observed value
-#     n_bagging_samples::Int
-#     confidence_bound::Float64
-#     confidence_level::Float64 # ie, 0.95 indicates 95% confidence level
-
-#     function BaggedMetricResult{M<:BehaviorFrameMetric}(
-#         ::Type{M},
-#         frame_scores::Vector{Float64}, # already extracted, of dimension nvalid_frames
-#         n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES,
-#         confidence_level::Float64=DEFAULT_CONFIDENCE_LEVEL,
-#         )
-
-#         z = 1.41421356237*erfinv(confidence_level)
-#         m = length(frame_scores)
-#         bag_range = 1 : m
-
-#         μ = _bagged_mean_sample(frame_scores, m, bag_range)
-#         ν = 0.0 # running variance sum (variance = Sₖ/(k-1))
-#         lo = Inf
-#         hi = -Inf
-
-#         # TODO: use OnlineStats.jl
-#         for k in 2 : n_bagging_samples
-
-#             # take a bagged sample
-#             x = _bagged_mean_sample(frame_scores, m, bag_range)
-
-#             # update running stats
-#             μ₂ = μ + (x - μ)/k
-#             ν += (x - μ)*(x - μ₂)
-#             μ = μ₂
-
-#             lo = min(lo, x)
-#             hi = max(hi, x)
-#         end
-
-#         σ = sqrt(ν/(n_bagging_samples-1))
-
-#         confidence_bound = z * σ / sqrt(n_bagging_samples)
-
-#         new(M, μ, σ, lo, hi, n_bagging_samples, confidence_bound, confidence_level)
-#     end
-#     function BaggedMetricResult{M<:BehaviorTraceMetric}(
-#         ::Type{M},
-#         evaldata::EvaluationData,
-#         runlogs_for_simulation::Matrix{RunLog},
-#         seg_indeces::AbstractVector{Int}, # segment indeces, typically from collect(FoldSet)
-#         bagsamples::AbstractVector{Int},  # indeces in foldset that were selected for evaluation; of length seg_indeces
-#         n_bagging_samples::Int=DEFAULT_N_BAGGING_SAMPLES,
-#         confidence_level::Float64=DEFAULT_CONFIDENCE_LEVEL,
-#         )
-
-#         z = 1.41421356237*erfinv(confidence_level)
-#         m = length(seg_indeces)
-#         bag_range = 1 : m
-
-#         μ = _bagged_sample(M, evaldata, runlogs_for_simulation, seg_indeces, bagsamples, m, bag_range)
-#         ν = 0.0 # running variance sum (variance = Sₖ/(k-1))
-#         lo = Inf
-#         hi = -Inf
-
-#         for k in 2 : n_bagging_samples
-
-#             # take a bagged sample
-#             x = _bagged_sample(M, evaldata, runlogs_for_simulation, seg_indeces, bagsamples, m, bag_range)
-
-#             # update running stats
-#             μ₂ = μ + (x - μ)/k
-#             ν += (x - μ)*(x - μ₂)
-#             μ = μ₂
-
-#             lo = min(lo, x)
-#             hi = max(hi, x)
-#         end
-
-#         σ = sqrt(ν/(n_bagging_samples-1))
-
-#         confidence_bound = z * σ / sqrt(n_bagging_samples)
-
-#         new(M, μ, σ, lo, hi, n_bagging_samples, confidence_bound, confidence_level)
-#     end
-# end
-
 #########################################################################################################
 
 calc_kl_div_gaussian(μA::Float64, σA::Float64, μB::Float64, σB::Float64) = log(σB/σA) + (σA*σA + (μA-μB)^2)/(2σB*σB) - 0.5
@@ -583,87 +464,11 @@ function calc_kl_div_categorical{I<:Real, J<:Real}(counts_p::AbstractVector{I}, 
     kldiv
 end
 
-# function calc_rmse_predicted_vs_ground_truth(
-#     pdset_predicted::PrimaryDataset,
-#     pdset_truth::PrimaryDataset,
-#     seg::PdsetSegment,
-#     nframes::Int=get_horizon(seg)
-#     )
-
-#     #=
-#     RMSE: Root-Mean Square Error
-
-#     the square root of the mean square error
-#     =#
-
-#     @assert(nframes > 0)
-#     @assert(nframes ≤ get_horizon(seg))
-
-#     total = 0.0
-#     validfind = seg.validfind_start - 1
-#     for i = 1 : nframes
-#         validfind += 1
-
-#         carind_predicted = carid2ind(pdset_predicted, seg.carid, validfind)
-#         carind_truth     = carid2ind(pdset_truth,     seg.carid, validfind)
-
-#         pos_x_predicted = get(pdset_predicted, :posGx, carind_predicted, validfind)::Float64
-#         pos_y_predicted = get(pdset_predicted, :posGy, carind_predicted, validfind)::Float64
-#         pos_x_truth     = get(pdset_truth,     :posGx, carind_truth,     validfind)::Float64
-#         pos_y_truth     = get(pdset_truth,     :posGy, carind_truth,     validfind)::Float64
-
-#         Δx = pos_x_predicted - pos_x_truth
-#         Δy = pos_y_predicted - pos_y_truth
-
-#         if i == 1
-#             if abs(Δx) > 0.01 || abs(Δy) > 0.01
-#                 println("validfind:        ", validfind)
-#                 println("Δx:               ", Δx)
-#                 println("Δy:               ", Δy)
-#                 println("pos_x_predicted:  ", pos_x_predicted)
-#                 println("pos_y_predicted:  ", pos_y_predicted)
-#                 println("pos_x_truth:      ", pos_x_truth)
-#                 println("pos_y_truth:      ", pos_y_truth)
-#                 println("carind_predicted: ", carind_predicted)
-#                 println("carind_truth:     ", carind_truth)
-#                 println("seg:              ", seg)
-#             end
-#             @assert(abs(Δx) < 0.01, "Must have no initial deviation")
-#             @assert(abs(Δy) < 0.01, "Must have no initial deviation")
-#         end
-
-#         total += Δx*Δx + Δy*Δy
-#     end
-#     sqrt(total / nframes)
-# end
-
 calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, binwidth::Float64) = bindiscreteprob / binwidth
 function calc_probability_for_uniform_sample_from_bin(bindiscreteprob::Float64, disc::LinearDiscretizer, binindex::Int)
     width_of_bin = binwidth(disc, binindex)
     calc_probability_for_uniform_sample_from_bin(bindiscreteprob, width_of_bin)
 end
-
-# function calc_mean_cross_validation_metrics(aggmetric_set::Vector{Dict{Symbol,Any}})
-#     retval = Dict{Symbol, Any}[]
-
-#     n = length(aggmetric_set)
-#     temparr = Array(Float64, n)
-
-#     keyset = keys(aggmetric_set[1])
-#     for key in keyset
-#         for (i,aggmetrics) in enumerate(aggmetric_set)
-#             temparr[i] = Float64(get(aggmetrics, key, NaN))
-#         end
-#         μ = mean(temparr)
-#         σ = stdm(temparr, μ)
-#         retval[symbol(string(key)*"_mean")] = μ
-#         retval[symbol(string(key)*"_stdev")] = σ
-#     end
-
-#     retval
-# end
-
-########
 
 function calc_trace_likelihood(
     runlog::RunLog,
@@ -693,4 +498,111 @@ function calc_dataset_likelihood(dset::ModelTrainingData2, model::AbstractVehicl
         retval += calc_action_loglikelihood(model, dset.dataframe, frame)
     end
     retval
+end
+
+function create_metrics_df(nfolds::Int, trace_metric_names::Vector{Symbol}=Symbol[])
+    metrics_df = DataFrame()
+    metrics_df[:mean_logl_train]   = Array(Float64, nfolds)
+    metrics_df[:mean_logl_test]    = Array(Float64, nfolds)
+    metrics_df[:median_logl_train] = Array(Float64, nfolds)
+    metrics_df[:median_logl_test]  = Array(Float64, nfolds)
+    for name in trace_metric_names
+        metrics_df[name] = Array(Float64, nfolds)
+    end
+    metrics_df
+end
+function calc_likelihood_metrics!(
+    metrics_df::DataFrame,
+    dset::ModelTrainingData2,
+    model::AbstractVehicleBehavior,
+    cv_split::FoldAssignment,
+    fold::Int
+    )
+
+    count_logl_train = 0
+    count_logl_test = 0
+    arr_logl_test  = Array(Float64, length(FoldSet(cv_split, fold, true, :frame)))
+    arr_logl_train = Array(Float64, length(FoldSet(cv_split, fold, false, :frame)))
+
+    for frame in 1 : length(cv_split.frame_assignment)
+        if cv_split.frame_assignment[frame] == fold
+            count_logl_test += 1
+            arr_logl_test[count_logl_test] = calc_action_loglikelihood(model, dset.dataframe, frame)
+        elseif cv_split.frame_assignment[frame] != 0
+            count_logl_train += 1
+            arr_logl_train[count_logl_train] = calc_action_loglikelihood(model, dset.dataframe, frame)
+        end
+    end
+
+    metrics_df[fold, :mean_logl_train] = mean(arr_logl_train)
+    metrics_df[fold, :mean_logl_test] = mean(arr_logl_test)
+    metrics_df[fold, :median_logl_train] = median(arr_logl_train)
+    metrics_df[fold, :median_logl_test] = median(arr_logl_test)
+
+    metrics_df
+end
+function calc_trace_metrics!(
+    metrics_df::DataFrame,
+    model::AbstractVehicleBehavior,
+    trace_metrics::Vector{BehaviorTraceMetric},
+    evaldata::EvaluationData,
+    arr_runlogs_for_simulation::Vector{RunLog},
+    n_simulations_per_trace::Int,
+    cv_split::FoldAssignment,
+    fold::Int
+    )
+
+    foldset_seg_test = FoldSet(cv_split, fold, true, :seg)
+
+    # reset metrics
+    for metric in trace_metrics
+        reset!(metric)
+    end
+
+    # simulate traces and perform online metric extraction
+    for seg_index in foldset_seg_test
+
+        seg = evaldata.segments[seg_index]
+        seg_duration = seg.frame_end - seg.frame_start
+        sim_start = evaldata.frame_starts_sim[seg_index]
+        sim_end = sim_start + seg_duration
+        runlog_true = evaldata.runlogs[seg.runlog_id]
+        runlog_sim = arr_runlogs_for_simulation[seg_index]
+        sn = evaldata.streetnets[runlog_sim.header.map_name]
+
+        for sim_index in 1 : n_simulations_per_trace
+
+            simulate!(runlog_sim, sn, model, seg.carid, sim_start, sim_end)
+
+            for metric in trace_metrics
+                extract!(metric, seg, runlog_true, runlog_sim, sn, sim_start)
+            end
+        end
+    end
+
+    # compute metric scores
+    for metric in trace_metrics
+        metric_name = get_name(metric)
+        metrics_df[fold, metric_name] = get_score(metric)
+    end
+
+    metrics_df
+end
+function calc_metrics!(
+    metrics_df::DataFrame,
+    dset::ModelTrainingData2,
+    model::AbstractVehicleBehavior,
+    cv_split::FoldAssignment,
+    fold::Int,
+
+    trace_metrics::Vector{BehaviorTraceMetric},
+    evaldata::EvaluationData,
+    arr_runlogs_for_simulation::Vector{RunLog},
+    n_simulations_per_trace::Int,
+    )
+
+    calc_likelihood_metrics!(metrics_df, dset, model, cv_split, fold)
+    calc_trace_metrics!(metrics_df, model, trace_metrics, evaldata, arr_runlogs_for_simulation, n_simulations_per_trace, cv_split, fold)
+
+    metrics_df
 end

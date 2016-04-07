@@ -63,14 +63,10 @@ behaviorset_full = behaviorset
 
 for (model_name, traindef) in behaviorset_full
 
-    behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
-    behaviorset[model_name] = traindef
     model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
     model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
     # try
-        nmodels = length(behaviorset)
-        model_names = collect(keys(behaviorset))
 
         for dset_filepath_modifier in (
             "_freeflow",
@@ -96,38 +92,20 @@ for (model_name, traindef) in behaviorset_full
             toc()
 
             print("\t\tpreallocating data   "); tic()
-            preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
-            for (model_name, train_def) in behaviorset
-                preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
-            end
+            preallocated_data = preallocate_learning_data(dset, traindef.trainparams)
             toc()
 
-            hyperparam_counts = Dict{AbstractString, Matrix{Int}}()
-            for model_name in model_names
-                train_def = behaviorset[model_name]
-                if !isempty(train_def.hyperparams)
-                    max_range = maximum([length(λ) for λ in train_def.hyperparams])
-                    hyperparam_counts[model_name] = zeros(length(train_def.hyperparams), max_range)
-                else
-                    hyperparam_counts[model_name] = zeros(1, 1)
-                end
+            if !isempty(traindef.hyperparams)
+                max_range = maximum([length(λ) for λ in traindef.hyperparams])
+                hyperparam_counts = zeros(Int, length(traindef.hyperparams), max_range)
+            else
+                hyperparam_counts = zeros(Int, 1, 1)
             end
 
             cv_split_outer = get_fold_assignment_across_drives(dset, N_FOLDS)
 
-            nframes = nrow(dset.dataframe)
-            ntraces = length(dset.runlog_segments)
-            ntracemetrics = length(trace_metrics)
-
-            # NOTE: metrics is shared between models to conserve memory
-            metrics_df = DataFrame()
-            metrics_df[:mean_logl_train] = Array(Float64, cv_split_outer.nfolds)
-            metrics_df[:mean_logl_test] = Array(Float64, cv_split_outer.nfolds)
-            metrics_df[:median_logl_train] = Array(Float64, cv_split_outer.nfolds)
-            metrics_df[:median_logl_test] = Array(Float64, cv_split_outer.nfolds)
-            for (metric_index,metric) in enumerate(trace_metrics)
-                metrics_df[trace_metric_names[metric_index]] = Array(Float64, cv_split_outer.nfolds)
-            end
+            # NOTE: metrics_df is shared between models to conserve memory
+            metrics_df = create_metrics_df(cv_split_outer.nfolds, trace_metric_names)
 
             ######################################
             # TRAIN A MODEL FOR EACH FOLD USING CV
@@ -148,34 +126,28 @@ for (model_name, traindef) in behaviorset_full
 
                 ##############
 
-                print("\toptimizing hyperparameters\n"); tic()
-                for (model_name, train_def) in behaviorset
-                    println(model_name)
-                    preallocated_data = preallocated_data_dict[model_name]
-                    AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
-                            train_def, dset, preallocated_data, cv_split_inner)
-                end
+                print("\toptimizing hyperparameters for $(model_name)\n"); tic()
+                AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
+                                        traindef, dset, preallocated_data, cv_split_inner)
                 toc()
 
                 # update the traindef count
-                for (model_name, train_def) in behaviorset
-                    hyperparam_count = hyperparam_counts[model_name]
-                    for (i, λ) in enumerate(train_def.hyperparams)
-                        sym = λ.sym
-                        val = getfield(train_def.trainparams, sym)
-                        ind = findfirst(λ.range, val)
-                        if ind == 0
-                            println("sym: ", sym) # DEBUG
-                            println("range: ", λ.range)
-                            println("val: ", val)
-                        end
-                        @assert(ind != 0)
-                        hyperparam_count[i, ind] += 1
+                for (i, λ) in enumerate(traindef.hyperparams)
+                    sym = λ.sym
+                    val = getfield(traindef.trainparams, sym)
+                    ind = findfirst(λ.range, val)
+                    if ind == 0
+                        println("sym: ", sym) # DEBUG
+                        println("range: ", λ.range)
+                        println("val: ", val)
                     end
+                    @assert(ind != 0)
+                    hyperparam_counts[i, ind] += 1
                 end
 
                 print("\ttraining models  "); tic()
-                models = train(behaviorset, dset, preallocated_data_dict, fold, cv_split_outer)
+                foldset_frame_train = FoldSet(cv_split_outer, fold, false, :frame)
+                model = train(dset, preallocated_data, traindef.trainparams, foldset_frame_train)
                 toc()
 
                 # save the models, ex: BN_following_fold02.jld
@@ -183,83 +155,28 @@ for (model_name, traindef) in behaviorset_full
                 model_for_fold_path_jld = joinpath(EVALUATION_DIR, model_short_name * dset_filepath_modifier * "_fold" * @sprintf("%02d", fold) * ".jld")
                 JLD.save(model_for_fold_path_jld,
                      "model_name", model_name,
-                     "model",      models[model_name],
-                     "train_def",  behaviorset[model_name],
+                     "model",      model,
+                     "train_def",  traindef,
                      "time",       now(),
                     )
                 toc()
 
-                print("\tcomputing metrics  "); tic()
-                foldset_seg_test = FoldSet(cv_split_outer, fold, true, :seg)
-                arr_logl_test  = Array(Float64, length(FoldSet(cv_split_outer, fold, true,  :frame)))
-                arr_logl_train = Array(Float64, length(FoldSet(cv_split_outer, fold, false, :frame)))
-
-                for (model_index,model_name) in enumerate(model_names)
-
-                    behavior = models[model_name]
-
-                    count_logl_train = 0
-                    count_logl_test = 0
-
-                    for frame in 1 : nframes
-                        if cv_split_outer.frame_assignment[frame] == fold
-                            count_logl_test += 1
-                            arr_logl_test[count_logl_test] = calc_action_loglikelihood(behavior, dset.dataframe, frame)
-                        elseif cv_split_outer.frame_assignment[frame] != 0
-                            count_logl_train += 1
-                            arr_logl_train[count_logl_train] = calc_action_loglikelihood(behavior, dset.dataframe, frame)
-                        end
-                    end
-
-                    metrics_df[fold, :mean_logl_train] = mean(arr_logl_train)
-                    metrics_df[fold, :mean_logl_test] = mean(arr_logl_test)
-                    metrics_df[fold, :median_logl_train] = median(arr_logl_train)
-                    metrics_df[fold, :median_logl_test] = median(arr_logl_test)
-
-                    # reset metrics
-                    for metric in trace_metrics
-                        reset!(metric)
-                    end
-
-                    # simulate traces and perform online metric extraction
-                    for seg_index in foldset_seg_test
-
-                        seg = evaldata.segments[seg_index]
-                        seg_duration = seg.frame_end - seg.frame_start
-                        sim_start = evaldata.frame_starts_sim[seg_index]
-                        sim_end = sim_start + seg_duration
-                        runlog_true = evaldata.runlogs[seg.runlog_id]
-                        runlog_sim = arr_runlogs_for_simulation[seg_index]
-                        sn = evaldata.streetnets[runlog_sim.header.map_name]
-
-                        for sim_index in 1 : N_SIMULATIONS_PER_TRACE
-
-                            simulate!(runlog_sim, sn, behavior, seg.carid, sim_start, sim_end)
-
-                            for metric in trace_metrics
-                                extract!(metric, seg, runlog_true, runlog_sim, sn, sim_start)
-                            end
-                        end
-                    end
-
-                    # compute metric scores
-                    for metric_index in 1 : ntracemetrics
-                        metric_name = trace_metric_names[metric_index]
-                        metrics_df[fold, metric_name] = get_score(trace_metrics[metric_index])
-                    end
-
-                    # save model results
-                    model_results_path_df = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".csv")
-                    writetable(model_results_path_df, metrics_df)
-
-                    println(metrics_df)
-                end
+                print("\tsimulating and computing metrics  "); tic()
+                calc_metrics!(metrics_df, dset, model, cv_split_outer, fold,
+                              trace_metrics, evaldata, arr_runlogs_for_simulation, N_SIMULATIONS_PER_TRACE)
                 toc()
             end
 
+            println(metrics_df)
+
+            # save model results
+            model_results_path_df = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".csv")
+            writetable(model_results_path_df, metrics_df)
+
             #########################################################
 
-            print_hyperparam_statistics(STDOUT, behaviorset, hyperparam_counts)
+            print_hyperparam_statistics(STDOUT, model_name, traindef, hyperparam_counts)
+            println("\n")
         end
     # catch err
     #     println("CAUGHT SOME ERROR, model: ", model_name)

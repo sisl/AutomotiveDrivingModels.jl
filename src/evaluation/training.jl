@@ -127,10 +127,10 @@ function train(
     fold_assignment::FoldAssignment,
     )
 
+    foldset = FoldSet(fold_assignment, fold, false, :frame)
     retval = Dict{AbstractString,AbstractVehicleBehavior}()
     for (behavior_name, train_def) in behaviorset
         preallocated_data = preallocated_data_dict[behavior_name]
-        foldset = FoldSet(fold_assignment, fold, false, :frame)
         retval[behavior_name] = train(dset, preallocated_data, train_def.trainparams, foldset)
     end
     retval
