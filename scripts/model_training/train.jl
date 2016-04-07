@@ -20,84 +20,40 @@ trace_metrics = BehaviorTraceMetric[
                     EmergentKLDivMetric(SumSquareJerk()),
                     EmergentKLDivMetric(JerkSignInversions()),
                     EmergentKLDivMetric(LagOneAutocorrelation()),
-                    # RootWeightedSquareError(SPEED, 0.5),
-                    # RootWeightedSquareError(SPEED, 1.0),
-                    # RootWeightedSquareError(SPEED, 1.5),
-                    # RootWeightedSquareError(SPEED, 2.0),
-                    # RootWeightedSquareError(SPEED, 2.5),
-                    # RootWeightedSquareError(SPEED, 3.0),
-                    # RootWeightedSquareError(SPEED, 3.5),
-                    # RootWeightedSquareError(SPEED, 4.0),
-                    # RootWeightedSquareError(POSFT, 0.5),
-                    # RootWeightedSquareError(POSFT, 1.0),
-                    # RootWeightedSquareError(POSFT, 1.5),
-                    # RootWeightedSquareError(POSFT, 2.0),
-                    # RootWeightedSquareError(POSFT, 2.5),
-                    # RootWeightedSquareError(POSFT, 3.0),
-                    # RootWeightedSquareError(POSFT, 3.5),
-                    # RootWeightedSquareError(POSFT, 4.0),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 0.5),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.0),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.5),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.0),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.5),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.0),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.5),
-                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 4.0),
-                    # RootWeightedSquareError(DIST_FRONT, 0.5),
-                    # RootWeightedSquareError(DIST_FRONT, 1.0),
-                    # RootWeightedSquareError(DIST_FRONT, 1.5),
-                    # RootWeightedSquareError(DIST_FRONT, 2.0),
-                    # RootWeightedSquareError(DIST_FRONT, 2.5),
-                    # RootWeightedSquareError(DIST_FRONT, 3.0),
-                    # RootWeightedSquareError(DIST_FRONT, 3.5),
-                    # RootWeightedSquareError(DIST_FRONT, 4.0),
+                    RootWeightedSquareError(SPEED, 0.5),
+                    RootWeightedSquareError(SPEED, 1.0),
+                    RootWeightedSquareError(SPEED, 1.5),
+                    RootWeightedSquareError(SPEED, 2.0),
+                    RootWeightedSquareError(SPEED, 2.5),
+                    RootWeightedSquareError(SPEED, 3.0),
+                    RootWeightedSquareError(SPEED, 3.5),
+                    RootWeightedSquareError(SPEED, 4.0),
+                    RootWeightedSquareError(POSFT, 0.5),
+                    RootWeightedSquareError(POSFT, 1.0),
+                    RootWeightedSquareError(POSFT, 1.5),
+                    RootWeightedSquareError(POSFT, 2.0),
+                    RootWeightedSquareError(POSFT, 2.5),
+                    RootWeightedSquareError(POSFT, 3.0),
+                    RootWeightedSquareError(POSFT, 3.5),
+                    RootWeightedSquareError(POSFT, 4.0),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 0.5),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.0),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.5),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.0),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.5),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.0),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.5),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 4.0),
+                    RootWeightedSquareError(DIST_FRONT, 0.5),
+                    RootWeightedSquareError(DIST_FRONT, 1.0),
+                    RootWeightedSquareError(DIST_FRONT, 1.5),
+                    RootWeightedSquareError(DIST_FRONT, 2.0),
+                    RootWeightedSquareError(DIST_FRONT, 2.5),
+                    RootWeightedSquareError(DIST_FRONT, 3.0),
+                    RootWeightedSquareError(DIST_FRONT, 3.5),
+                    RootWeightedSquareError(DIST_FRONT, 4.0),
                 ]
 trace_metric_names = map(m->get_name(m), trace_metrics)::Vector{Symbol}
-
-# metric_types_test_traces = [
-                            # EmergentKLDivMetric{symbol(SPEED)},
-                            # EmergentKLDivMetric{symbol(POSFT)},
-                            # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
-                            # SumSquareJerk,
-                            # JerkSignInversions,
-                            # LagOneAutocorrelation,
-                            # EmergentKLDivMetric{SumSquareJerk},
-                            # EmergentKLDivMetric{JerkSignInversions},
-                            # EmergentKLDivMetric{LagOneAutocorrelation},
-                            # RootWeightedSquareError{symbol(SPEED), 0.5},
-                            # RootWeightedSquareError{symbol(SPEED), 1.0},
-                            # RootWeightedSquareError{symbol(SPEED), 1.5},
-                            # RootWeightedSquareError{symbol(SPEED), 2.0},
-                            # RootWeightedSquareError{symbol(SPEED), 2.5},
-                            # RootWeightedSquareError{symbol(SPEED), 3.0},
-                            # RootWeightedSquareError{symbol(SPEED), 3.5},
-                            # RootWeightedSquareError{symbol(SPEED), 4.0},
-                            # RootWeightedSquareError{symbol(POSFT), 0.5},
-                            # RootWeightedSquareError{symbol(POSFT), 1.0},
-                            # RootWeightedSquareError{symbol(POSFT), 1.5},
-                            # RootWeightedSquareError{symbol(POSFT), 2.0},
-                            # RootWeightedSquareError{symbol(POSFT), 2.5},
-                            # RootWeightedSquareError{symbol(POSFT), 3.0},
-                            # RootWeightedSquareError{symbol(POSFT), 3.5},
-                            # RootWeightedSquareError{symbol(POSFT), 4.0},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 0.5},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.0},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.5},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.0},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.5},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.0},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.5},
-                            # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 0.5},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 1.0},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 1.5},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 2.0},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 2.5},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 3.0},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 3.5},
-                            # RootWeightedSquareError{symbol(DIST_FRONT), 4.0},
-                           # ]
 
 ################################
 # MAIN LOOP
@@ -117,9 +73,9 @@ for (model_name, traindef) in behaviorset_full
         model_names = collect(keys(behaviorset))
 
         for dset_filepath_modifier in (
-            # "_freeflow",
+            "_freeflow",
             "_following",
-            # "_lanechange",
+            "_lanechange",
             )
 
             println(dset_filepath_modifier)
@@ -136,7 +92,7 @@ for (model_name, traindef) in behaviorset_full
             toc()
 
             print("allocating runlogs for simulation  "); tic()
-            arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata, nmodels, 1) # TODO: investigate whether this needs to be fixed
+            arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata) # TODO: investigate whether this needs to be fixed
             toc()
 
             print("\t\tpreallocating data   "); tic()
@@ -270,20 +226,18 @@ for (model_name, traindef) in behaviorset_full
 
                         seg = evaldata.segments[seg_index]
                         seg_duration = seg.frame_end - seg.frame_start
-                        where_to_start_simulating_from_runlog_sim = evaldata.frame_starts_sim[seg_index]
-                        where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
+                        sim_start = evaldata.frame_starts_sim[seg_index]
+                        sim_end = sim_start + seg_duration
                         runlog_true = evaldata.runlogs[seg.runlog_id]
-                        runlog_sim = arr_runlogs_for_simulation[model_index][seg.runlog_id, 1]
-                        sn = evaldata.streetnets[runlog_true.header.map_name]
-                        frame_starts_sim = evaldata.frame_starts_sim[seg_index]
+                        runlog_sim = arr_runlogs_for_simulation[seg_index]
+                        sn = evaldata.streetnets[runlog_sim.header.map_name]
 
                         for sim_index in 1 : N_SIMULATIONS_PER_TRACE
-                            simulate!(runlog_sim, sn, behavior, seg.carid,
-                                      where_to_start_simulating_from_runlog_sim,
-                                      where_to_end_simulating_from_runlog_sim)
+
+                            simulate!(runlog_sim, sn, behavior, seg.carid, sim_start, sim_end)
 
                             for metric in trace_metrics
-                                extract!(metric, seg, runlog_true, runlog_sim, sn, frame_starts_sim)
+                                extract!(metric, seg, runlog_true, runlog_sim, sn, sim_start)
                             end
                         end
                     end

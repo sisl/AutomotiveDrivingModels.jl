@@ -34,6 +34,7 @@ export
 
     # compute_metric_summary_table,
 
+    calc_dataset_likelihood,
     calc_trace_likelihood
 
 const DEFAULT_N_SIMULATIONS_PER_TRACE = 5
@@ -90,6 +91,20 @@ function allocate_runlogs_for_simulation(evaldata::EvaluationData, nmodels::Int,
                 arr_runlogs_for_simulation[k][i,j] = deepcopy(runlog_sim)
             end
         end
+    end
+
+    arr_runlogs_for_simulation
+end
+function allocate_runlogs_for_simulation(evaldata::EvaluationData)
+
+    # arr_runlogs_for_simulation::Vector{Matrix{RunLog}}  # nmodels × [ntraces × N_SIMULATIONS_PER_TRACE]
+
+    nsegments = get_nsegments(evaldata)
+    arr_runlogs_for_simulation = Array(RunLog, nsegments)
+    for (i, seg) in enumerate(evaldata.segments)
+
+        where_to_start_copying_from_original_runlog = max(1, seg.frame_start - DEFAULT_TRACE_HISTORY)
+        arr_runlogs_for_simulation[i] = deepcopy(evaldata.runlogs[seg.runlog_id], where_to_start_copying_from_original_runlog, seg.frame_end)
     end
 
     arr_runlogs_for_simulation
@@ -671,4 +686,11 @@ function calc_trace_likelihood(
         logl += calc_action_loglikelihood(behavior, runlog, sn, colset, frame, action_lat, action_lon)
     end
     logl
+end
+function calc_dataset_likelihood(dset::ModelTrainingData2, model::AbstractVehicleBehavior, foldset::FoldSet)
+    retval = 0.0
+    for frame in foldset
+        retval += calc_action_loglikelihood(model, dset.dataframe, frame)
+    end
+    retval
 end

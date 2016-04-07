@@ -195,7 +195,7 @@ function optimize_hyperparams_cyclic_coordinate_ascent!(
                     for fold in 1 : cross_validation_split.nfolds
                         foldset = FoldSet(cross_validation_split, fold, false, :frame)
                         model = train(dset, preallocated_data, trainparams, foldset)
-                        logl += extract(MedianLoglikelihoodMetric, dset, model, foldset).logl
+                        logl += calc_dataset_likelihood(dset, model, foldset)
                     end
                     logl /= cross_validation_split.nfolds
 
