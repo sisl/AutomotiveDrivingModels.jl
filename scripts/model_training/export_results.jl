@@ -93,6 +93,7 @@ function _grab_score_and_extrema(df::DataFrame, sym::Symbol)
 end
 
 _get_rwse_colsym(feature_sym::Symbol, H::Float64) = symbol(@sprintf("RWSE_%s_%s", string(feature_sym), replace(@sprintf("%.2f", H), ".", "_")))
+_get_kldiv_colsym(feature_sym::Symbol) = symbol(@sprintf("kldiv_%s", string(feature_sym)))
 
 
 function create_tikzpicture_model_compare_logl{S<:AbstractString}(
@@ -220,7 +221,7 @@ function create_tikzpicture_model_compare_smoothness{T<:AbstractString, S<:Abstr
     data::Dict{AbstractString, DataFrame},
     context_class_names::Vector{T},
     preferred_name_order::Vector{S},
-    colname::Symbol = :sumsquarejerk
+    colname::Symbol = _get_kldiv_colsym(:sumsquarejerk)
     )
 
 
@@ -447,7 +448,7 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
     end
 
     # smoothness
-    for (colname, name) in [(:sumsquarejerk, "sum square jerk")] # , (:lagoneautocor, "autocor"), (:jerksigninvs, "sign inv")
+    for (colname, name) in [(_get_kldiv_colsym(:sumsquarejerk), "sum square jerk")] # , (_get_kldiv_colsym(:lagoneautocor), "autocor"), (_get_kldiv_colsym(:jerksigninvs), "sign inv")
 
         counter = 0
 
@@ -577,47 +578,47 @@ fh = STDOUT
 
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
-preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest"] #, "Mixture Regression", "Bayesian Network", "Linear Bayesian"
+preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
 data = load_model_metrics_data()
 
 println(keys(data))
 
 
-# write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
-    # create_tikzpicture_model_compare_smoothness(fh, data, preferred_name_order, SAVE_FILE_MODIFIER)
-# end
+write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+    create_tikzpicture_model_compare_smoothness(fh, data, preferred_name_order, SAVE_FILE_MODIFIER)
+end
 
-# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    # create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
-# end
-# write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
-    # create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
-# end
+write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+    create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
+end
+write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
+    create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
+end
 
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
-    # create_tikzpicture_model_compare_rwse_mean(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, symbol(SPEED))
-# end
-# if SAVE_FILE_MODIFIER == "following"
-#     write_to_texthook(TEXFILE, "model-compare-rwse-mean-headway-distance") do fh
-#         create_tikzpicture_model_compare_rwse_mean(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, symbol(DIST_FRONT))
-#     end
-# end
-# write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
-#   create_tikzpicture_model_compare_rwse_mean(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, :posFt)
-# end
-# write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-speed") do fh
+    create_tikzpicture_model_compare_rwse_mean(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, symbol(SPEED))
+end
+if SAVE_FILE_MODIFIER == "following"
+    write_to_texthook(TEXFILE, "model-compare-rwse-mean-headway-distance") do fh
+        create_tikzpicture_model_compare_rwse_mean(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, symbol(DIST_FRONT))
+    end
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-mean-dcl") do fh
+  create_tikzpicture_model_compare_rwse_mean(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, :posFt)
+end
+write_to_texthook(TEXFILE, "model-compare-rwse-legend") do fh
     create_tikzpicture_model_compare_rwse_legend(fh, data, preferred_name_order)
-# end
+end
 
 context_class_names = ["freeflow", "following", "lanechange"]
 
-# write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
-    # create_table_validation_across_context_classes(fh, data, context_class_names, preferred_name_order)
-# end
+write_to_texthook(TEXFILE, "validation-across-context-classes") do fh
+    create_table_validation_across_context_classes(fh, data, context_class_names, preferred_name_order)
+end
 
-# write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
-    # create_tikzpicture_model_compare_smoothness(fh, data, context_class_names, preferred_name_order)
-# end
+write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+    create_tikzpicture_model_compare_smoothness(fh, data, context_class_names, preferred_name_order)
+end
 
 println("DONE EXPORTING RESULTS TO TEX")
