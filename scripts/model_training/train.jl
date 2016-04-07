@@ -13,32 +13,74 @@ include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 # METRICS
 ################################
 
-metric_types_test_traces = [
+trace_metrics = BehaviorTraceMetric[
+                    SumSquareJerk(),
+                    JerkSignInversions(),
+                    LagOneAutocorrelation(),
+                    EmergentKLDivMetric(SumSquareJerk()),
+                    EmergentKLDivMetric(JerkSignInversions()),
+                    EmergentKLDivMetric(LagOneAutocorrelation()),
+                    # RootWeightedSquareError(SPEED, 0.5),
+                    # RootWeightedSquareError(SPEED, 1.0),
+                    # RootWeightedSquareError(SPEED, 1.5),
+                    # RootWeightedSquareError(SPEED, 2.0),
+                    # RootWeightedSquareError(SPEED, 2.5),
+                    # RootWeightedSquareError(SPEED, 3.0),
+                    # RootWeightedSquareError(SPEED, 3.5),
+                    # RootWeightedSquareError(SPEED, 4.0),
+                    # RootWeightedSquareError(POSFT, 0.5),
+                    # RootWeightedSquareError(POSFT, 1.0),
+                    # RootWeightedSquareError(POSFT, 1.5),
+                    # RootWeightedSquareError(POSFT, 2.0),
+                    # RootWeightedSquareError(POSFT, 2.5),
+                    # RootWeightedSquareError(POSFT, 3.0),
+                    # RootWeightedSquareError(POSFT, 3.5),
+                    # RootWeightedSquareError(POSFT, 4.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 0.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 4.0),
+                    # RootWeightedSquareError(DIST_FRONT, 0.5),
+                    # RootWeightedSquareError(DIST_FRONT, 1.0),
+                    # RootWeightedSquareError(DIST_FRONT, 1.5),
+                    # RootWeightedSquareError(DIST_FRONT, 2.0),
+                    # RootWeightedSquareError(DIST_FRONT, 2.5),
+                    # RootWeightedSquareError(DIST_FRONT, 3.0),
+                    # RootWeightedSquareError(DIST_FRONT, 3.5),
+                    # RootWeightedSquareError(DIST_FRONT, 4.0),
+                ]
+trace_metric_names = map(m->get_name(m), trace_metrics)::Vector{Symbol}
+
+# metric_types_test_traces = [
                             # EmergentKLDivMetric{symbol(SPEED)},
                             # EmergentKLDivMetric{symbol(POSFT)},
                             # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
                             # SumSquareJerk,
                             # JerkSignInversions,
                             # LagOneAutocorrelation,
-                            EmergentKLDivMetric{SumSquareJerk},
-                            EmergentKLDivMetric{JerkSignInversions},
-                            EmergentKLDivMetric{LagOneAutocorrelation},
-                            RootWeightedSquareError{symbol(SPEED), 0.5},
-                            RootWeightedSquareError{symbol(SPEED), 1.0},
-                            RootWeightedSquareError{symbol(SPEED), 1.5},
-                            RootWeightedSquareError{symbol(SPEED), 2.0},
-                            RootWeightedSquareError{symbol(SPEED), 2.5},
-                            RootWeightedSquareError{symbol(SPEED), 3.0},
-                            RootWeightedSquareError{symbol(SPEED), 3.5},
-                            RootWeightedSquareError{symbol(SPEED), 4.0},
-                            RootWeightedSquareError{symbol(POSFT), 0.5},
-                            RootWeightedSquareError{symbol(POSFT), 1.0},
-                            RootWeightedSquareError{symbol(POSFT), 1.5},
-                            RootWeightedSquareError{symbol(POSFT), 2.0},
-                            RootWeightedSquareError{symbol(POSFT), 2.5},
-                            RootWeightedSquareError{symbol(POSFT), 3.0},
-                            RootWeightedSquareError{symbol(POSFT), 3.5},
-                            RootWeightedSquareError{symbol(POSFT), 4.0},
+                            # EmergentKLDivMetric{SumSquareJerk},
+                            # EmergentKLDivMetric{JerkSignInversions},
+                            # EmergentKLDivMetric{LagOneAutocorrelation},
+                            # RootWeightedSquareError{symbol(SPEED), 0.5},
+                            # RootWeightedSquareError{symbol(SPEED), 1.0},
+                            # RootWeightedSquareError{symbol(SPEED), 1.5},
+                            # RootWeightedSquareError{symbol(SPEED), 2.0},
+                            # RootWeightedSquareError{symbol(SPEED), 2.5},
+                            # RootWeightedSquareError{symbol(SPEED), 3.0},
+                            # RootWeightedSquareError{symbol(SPEED), 3.5},
+                            # RootWeightedSquareError{symbol(SPEED), 4.0},
+                            # RootWeightedSquareError{symbol(POSFT), 0.5},
+                            # RootWeightedSquareError{symbol(POSFT), 1.0},
+                            # RootWeightedSquareError{symbol(POSFT), 1.5},
+                            # RootWeightedSquareError{symbol(POSFT), 2.0},
+                            # RootWeightedSquareError{symbol(POSFT), 2.5},
+                            # RootWeightedSquareError{symbol(POSFT), 3.0},
+                            # RootWeightedSquareError{symbol(POSFT), 3.5},
+                            # RootWeightedSquareError{symbol(POSFT), 4.0},
                             # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 0.5},
                             # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.0},
                             # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.5},
@@ -47,50 +89,15 @@ metric_types_test_traces = [
                             # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.0},
                             # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.5},
                             # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 0.5},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 1.0},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 1.5},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 2.0},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 2.5},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 3.0},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 3.5},
-                            RootWeightedSquareError{symbol(DIST_FRONT), 4.0},
-                           ]
-metric_types_test_traces_bagged = [
-                                   # SumSquareJerk,
-                                   # JerkSignInversions,
-                                   # LagOneAutocorrelation,
-                                   EmergentKLDivMetric{SumSquareJerk},
-                                   EmergentKLDivMetric{JerkSignInversions},
-                                   EmergentKLDivMetric{LagOneAutocorrelation},
-                                   # EmergentKLDivMetric{symbol(SPEED)},
-                                   # EmergentKLDivMetric{symbol(POSFT)},
-                                   # EmergentKLDivMetric{symbol(INV_TIMEGAP_FRONT)},
-                                   # RootWeightedSquareError{symbol(SPEED), 0.5},
-                                   # RootWeightedSquareError{symbol(SPEED), 1.0},
-                                   # RootWeightedSquareError{symbol(SPEED), 1.5},
-                                   # RootWeightedSquareError{symbol(SPEED), 2.0},
-                                   # RootWeightedSquareError{symbol(SPEED), 2.5},
-                                   # RootWeightedSquareError{symbol(SPEED), 3.0},
-                                   # RootWeightedSquareError{symbol(SPEED), 3.5},
-                                   # RootWeightedSquareError{symbol(SPEED), 4.0},
-                                   # RootWeightedSquareError{symbol(POSFT), 0.5},
-                                   # RootWeightedSquareError{symbol(POSFT), 1.0},
-                                   # RootWeightedSquareError{symbol(POSFT), 1.5},
-                                   # RootWeightedSquareError{symbol(POSFT), 2.0},
-                                   # RootWeightedSquareError{symbol(POSFT), 2.5},
-                                   # RootWeightedSquareError{symbol(POSFT), 3.0},
-                                   # RootWeightedSquareError{symbol(POSFT), 3.5},
-                                   # RootWeightedSquareError{symbol(POSFT), 4.0},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 0.5},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.0},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 1.5},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.0},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 2.5},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.0},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 3.5},
-                                   # RootWeightedSquareError{symbol(INV_TIMEGAP_FRONT), 4.0},
-                                  ]
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 0.5},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 1.0},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 1.5},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 2.0},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 2.5},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 3.0},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 3.5},
+                            # RootWeightedSquareError{symbol(DIST_FRONT), 4.0},
+                           # ]
 
 ################################
 # MAIN LOOP
@@ -105,15 +112,14 @@ for (model_name, traindef) in behaviorset_full
     model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
     model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
-    try
-
+    # try
         nmodels = length(behaviorset)
         model_names = collect(keys(behaviorset))
 
         for dset_filepath_modifier in (
-            "_freeflow",
+            # "_freeflow",
             "_following",
-            "_lanechange",
+            # "_lanechange",
             )
 
             println(dset_filepath_modifier)
@@ -130,7 +136,7 @@ for (model_name, traindef) in behaviorset_full
             toc()
 
             print("allocating runlogs for simulation  "); tic()
-            arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata, nmodels, N_SIMULATIONS_PER_TRACE)
+            arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata, nmodels, 1) # TODO: investigate whether this needs to be fixed
             toc()
 
             print("\t\tpreallocating data   "); tic()
@@ -155,7 +161,17 @@ for (model_name, traindef) in behaviorset_full
 
             nframes = nrow(dset.dataframe)
             ntraces = length(dset.runlog_segments)
-            frame_logls = Array(Float64, nframes, ntraces, nmodels) # logl for each frame under each run (we can back out TRAIN and TEST)
+            ntracemetrics = length(trace_metrics)
+
+            # NOTE: metrics is shared between models to conserve memory
+            metrics_df = DataFrame()
+            metrics_df[:mean_logl_train] = Array(Float64, cv_split_outer.nfolds)
+            metrics_df[:mean_logl_test] = Array(Float64, cv_split_outer.nfolds)
+            metrics_df[:median_logl_train] = Array(Float64, cv_split_outer.nfolds)
+            metrics_df[:median_logl_test] = Array(Float64, cv_split_outer.nfolds)
+            for (metric_index,metric) in enumerate(trace_metrics)
+                metrics_df[trace_metric_names[metric_index]] = Array(Float64, cv_split_outer.nfolds)
+            end
 
             ######################################
             # TRAIN A MODEL FOR EACH FOLD USING CV
@@ -171,7 +187,7 @@ for (model_name, traindef) in behaviorset_full
                 println("fold ", fold, " / ", cv_split_outer.nfolds)
 
                 # create an inner split where we remove the current fold
-                cv_split_inner = drop_fold!(deepcopy(cv_split_outer), fold)
+                cv_split_inner = drop_fold!(deepcopy(cv_split_outer), fold) # TODO: can I do this with pre-allocated memory?
                 @assert(cv_split_inner.nfolds > 0)
 
                 ##############
@@ -217,22 +233,72 @@ for (model_name, traindef) in behaviorset_full
                     )
                 toc()
 
-                print("\tcomputing likelihoods  "); tic()
-                for (i,model_name) in enumerate(model_names)
+                print("\tcomputing metrics  "); tic()
+                foldset_seg_test = FoldSet(cv_split_outer, fold, true, :seg)
+                arr_logl_test  = Array(Float64, length(FoldSet(cv_split_outer, fold, true,  :frame)))
+                arr_logl_train = Array(Float64, length(FoldSet(cv_split_outer, fold, false, :frame)))
+
+                for (model_index,model_name) in enumerate(model_names)
+
                     behavior = models[model_name]
-                    for frameind in 1 : nframes
-                        frame_logls[frameind, fold, i] = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+
+                    count_logl_train = 0
+                    count_logl_test = 0
+
+                    for frame in 1 : nframes
+                        if cv_split_outer.frame_assignment[frame] == fold
+                            count_logl_test += 1
+                            arr_logl_test[count_logl_test] = calc_action_loglikelihood(behavior, dset.dataframe, frame)
+                        elseif cv_split_outer.frame_assignment[frame] != 0
+                            count_logl_train += 1
+                            arr_logl_train[count_logl_train] = calc_action_loglikelihood(behavior, dset.dataframe, frame)
+                        end
                     end
-                end
 
-                println("\tsimulating"); tic()
-                foldset = FoldSet(cv_split_outer, fold, true, :seg)
-                for (k,model_name) in enumerate(model_names)
-                    behavior = models[model_name]
+                    metrics_df[fold, :mean_logl_train] = mean(arr_logl_train)
+                    metrics_df[fold, :mean_logl_test] = mean(arr_logl_test)
+                    metrics_df[fold, :median_logl_train] = median(arr_logl_train)
+                    metrics_df[fold, :median_logl_test] = median(arr_logl_test)
 
-                    print("\t\t", model_name, "  "); tic()
-                    simulate!(behavior, evaldata, arr_runlogs_for_simulation[k], foldset)
-                    toc()
+                    # reset metrics
+                    for metric in trace_metrics
+                        reset!(metric)
+                    end
+
+                    # simulate traces and perform online metric extraction
+                    for seg_index in foldset_seg_test
+
+                        seg = evaldata.segments[seg_index]
+                        seg_duration = seg.frame_end - seg.frame_start
+                        where_to_start_simulating_from_runlog_sim = evaldata.frame_starts_sim[seg_index]
+                        where_to_end_simulating_from_runlog_sim = where_to_start_simulating_from_runlog_sim + seg_duration
+                        runlog_true = evaldata.runlogs[seg.runlog_id]
+                        runlog_sim = arr_runlogs_for_simulation[model_index][seg.runlog_id, 1]
+                        sn = evaldata.streetnets[runlog_true.header.map_name]
+                        frame_starts_sim = evaldata.frame_starts_sim[seg_index]
+
+                        for sim_index in 1 : N_SIMULATIONS_PER_TRACE
+                            simulate!(runlog_sim, sn, behavior, seg.carid,
+                                      where_to_start_simulating_from_runlog_sim,
+                                      where_to_end_simulating_from_runlog_sim)
+
+                            for metric in trace_metrics
+                                extract!(metric, seg, runlog_true, runlog_sim, sn, frame_starts_sim)
+                            end
+                        end
+                    end
+
+                    # compute metric scores
+                    for metric_index in 1 : ntracemetrics
+                        metric_name = trace_metric_names[metric_index]
+                        metrics_df[fold, metric_name] = get_score(trace_metrics[metric_index])
+                    end
+
+                    # save model results
+                    model_results_path_df = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".csv")
+                    writetable(model_results_path_df, metrics_df)
+
+                    println(metrics_df)
                 end
                 toc()
             end
@@ -240,115 +306,20 @@ for (model_name, traindef) in behaviorset_full
             #########################################################
 
             print_hyperparam_statistics(STDOUT, behaviorset, hyperparam_counts)
-
-            print("Exctracting metrics  "); tic()
-
-            seg_indeces = collect(1:ntraces) # list of traces
-            bagsamples = collect(1:ntraces) # should tell me what foldind to use
-
-            metrics_sets_test_frames = Array(Vector{BehaviorFrameMetric}, nmodels)
-            metrics_sets_train_frames = Array(Vector{BehaviorFrameMetric}, nmodels)
-            metrics_sets_test_frames_bagged = Array(Vector{BaggedMetricResult}, nmodels)
-            metrics_sets_train_frames_bagged = Array(Vector{BaggedMetricResult}, nmodels)
-            metrics_sets_test_traces = Array(Vector{BehaviorTraceMetric}, nmodels)
-            metrics_sets_test_traces_bagged = Array(Vector{BaggedMetricResult}, nmodels)
-
-            for (k, model_name) in enumerate(model_names)
-                print("\tmodel: ", k, "  "); tic()
-
-                arr_logl_test = Float64[]
-                arr_logl_train = Float64[]
-
-                for j in 1 : cv_split_outer.nfolds
-                    for i in 1 : nframes
-                        if cv_split_outer.frame_assignment[i] == j
-                            push!(arr_logl_test, frame_logls[i,j,k])
-                        elseif cv_split_outer.frame_assignment[i] != 0
-                            push!(arr_logl_train, frame_logls[i,j,k])
-                        end
-                    end
-                end
-
-                metrics_sets_test_frames[k] = BehaviorFrameMetric[MedianLoglikelihoodMetric(median(arr_logl_test))]
-                metrics_sets_train_frames[k] = BehaviorFrameMetric[MedianLoglikelihoodMetric(median(arr_logl_train))]
-                metrics_sets_test_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(MedianLoglikelihoodMetric, arr_logl_test, N_BAGGING_SAMPLES)]
-                metrics_sets_train_frames_bagged[k] = BaggedMetricResult[BaggedMetricResult(MedianLoglikelihoodMetric, arr_logl_train, N_BAGGING_SAMPLES)]
-
-                # TRACES
-                retval_straight = Array(BehaviorTraceMetric, length(metric_types_test_traces))
-                retval_bagged = Array(BaggedMetricResult, length(metric_types_test_traces_bagged))
-                for (i,M) in enumerate(metric_types_test_traces)
-                    retval_straight[i] = extract(M, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples)
-                    if i ≤ length(retval_bagged)
-                        retval_bagged[i] = BaggedMetricResult(M, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples,
-                                                              N_BAGGING_SAMPLES, CONFIDENCE_LEVEL)
-                    end
-                end
-
-                metrics_sets_test_traces[k] = retval_straight
-                metrics_sets_test_traces_bagged[k] = retval_bagged
-
-                model_results_path_jld = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".jld")
-                JLD.save(model_results_path_jld,
-                     "model_name",                      model_name,
-                     "metrics_set_test_frames",         metrics_sets_test_frames[k],
-                     "metrics_set_test_frames_bagged",  metrics_sets_test_frames_bagged[k],
-                     "metrics_set_train_frames",        metrics_sets_train_frames[k],
-                     "metrics_set_train_frames_bagged", metrics_sets_train_frames_bagged[k],
-                     "metrics_set_test_traces",         metrics_sets_test_traces[k],
-                     "metrics_set_test_traces_bagged",  metrics_sets_test_traces_bagged[k],
-                    )
-
-                model_results_path_txt = joinpath(EVALUATION_DIR, "validation_results" * dset_filepath_modifier * "_" * model_output_name * ".txt")
-
-                open(model_results_path_txt, "w") do fh
-                    println("")
-
-                    train_def = behaviorset[model_name]
-                    print_hyperparam_statistics(fh, model_name, train_def, hyperparam_counts[model_name])
-                    println(fh)
-                    @printf(fh, "LOGL TEST: %6.3f ± %6.3f\n", get_score(metrics_sets_test_frames[k][1]), metrics_sets_test_frames_bagged[k][1].confidence_bound)
-                    @printf(fh, "LOGL TEST: %6.3f ± %6.3f\n", get_score(metrics_sets_train_frames[k][1]), metrics_sets_train_frames_bagged[k][1].confidence_bound)
-                end
-
-                toc()
-            end
-            toc()
-
-            println("\tLOGL TEST")
-            for i in 1 : length(metrics_sets_test_frames)
-                logl_μ = get_score(metrics_sets_test_frames[i][1])
-                logl_b = metrics_sets_test_frames_bagged[i][1].confidence_bound
-                @printf("\t%-20s logl %6.3f ± %6.3f\n", model_names[i], logl_μ, logl_b)
-            end
-            println("")
-
-            println("\tLOGL TRAIN")
-            for i in 1 : length(metrics_sets_train_frames)
-                logl_μ = get_score(metrics_sets_train_frames[i][1])
-                logl_b = metrics_sets_train_frames_bagged[i][1].confidence_bound
-                @printf("\t%-20s logl %6.3f ± %6.3f\n", model_names[i], logl_μ, logl_b)
-            end
-            println("")
-
-            println("metrics_sets_test_traces: ")
-            println(metrics_sets_test_traces)
-            println("metrics_sets_test_traces_bagged: ")
-            println(metrics_sets_test_traces_bagged)
         end
-    catch err
-        println("CAUGHT SOME ERROR, model: ", model_name)
+    # catch err
+    #     println("CAUGHT SOME ERROR, model: ", model_name)
 
-        error_filename = @sprintf("error_%s.txt", model_name)
-        open(error_filename, "w") do fh
-            println(fh, "ERROR training ", model_name)
-            println(fh, "TIME: ", now())
-            println(fh, "")
-            println(fh, err)
-        end
+    #     error_filename = @sprintf("error_%s.txt", model_name)
+    #     open(error_filename, "w") do fh
+    #         println(fh, "ERROR training ", model_name)
+    #         println(fh, "TIME: ", now())
+    #         println(fh, "")
+    #         println(fh, err)
+    #     end
 
-        println(err)
-    end
+    #     println(err)
+    # end
 end
 
 # println("DONE")
