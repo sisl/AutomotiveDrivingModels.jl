@@ -134,7 +134,7 @@ type RootWeightedSquareError <: BehaviorTraceMetric
     RootWeightedSquareError(F::AbstractFeature, horizon::Float64, running_sum::Float64=0.0, n_obs::Int=0) =
         new(F, horizon, running_sum, n_obs)
 end
-get_name(m::RootWeightedSquareError) = symbol(@sprintf("RWSE_%s_%.2f", string(symbol(m.F)), m.H))
+get_name(m::RootWeightedSquareError) = symbol(@sprintf("RWSE_%s_%d_%02d", string(symbol(m.F)), floor(Int, m.H), floor(Int, 100*rem(m.H, 1.0))))
 get_score(m::RootWeightedSquareError) = sqrt(m.running_sum / m.n_obs)
 function reset!(metric::RootWeightedSquareError)
     metric.running_sum = 0.0
@@ -516,7 +516,8 @@ function calc_likelihood_metrics!(
     dset::ModelTrainingData2,
     model::AbstractVehicleBehavior,
     cv_split::FoldAssignment,
-    fold::Int
+    fold::Int,
+    metrics_df_index::Int=fold,
     )
 
     count_logl_train = 0
@@ -549,7 +550,8 @@ function calc_trace_metrics!(
     arr_runlogs_for_simulation::Vector{RunLog},
     n_simulations_per_trace::Int,
     cv_split::FoldAssignment,
-    fold::Int
+    fold::Int,
+    metrics_df_index::Int=fold,
     )
 
     foldset_seg_test = FoldSet(cv_split, fold, true, :seg)
@@ -599,10 +601,12 @@ function calc_metrics!(
     evaldata::EvaluationData,
     arr_runlogs_for_simulation::Vector{RunLog},
     n_simulations_per_trace::Int,
+
+    metrics_df_index::Int=fold,
     )
 
-    calc_likelihood_metrics!(metrics_df, dset, model, cv_split, fold)
-    calc_trace_metrics!(metrics_df, model, trace_metrics, evaldata, arr_runlogs_for_simulation, n_simulations_per_trace, cv_split, fold)
+    calc_likelihood_metrics!(metrics_df, dset, model, cv_split, fold, metrics_df_index)
+    calc_trace_metrics!(metrics_df, model, trace_metrics, evaldata, arr_runlogs_for_simulation, n_simulations_per_trace, cv_split, fold, metrics_df_index)
 
     metrics_df
 end

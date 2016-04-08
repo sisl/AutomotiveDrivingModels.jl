@@ -32,6 +32,7 @@ export Feature_Mean_Over_History, Feature_Std_Over_History, Feature_Max_Over_His
 export
     NA_ALIAS,
 
+    get_feature,
     symbol2feature,
     is_symbol_a_feature,
     is_feature_na,
@@ -1771,6 +1772,193 @@ function _get_node(runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integ
     # end
 end
 
+function get_feature(F::AbstractFeature, runlog::RunLog, sn::StreetNetwork, colset::UInt, frame::Integer)
+
+    if isa(F, Feature_PosFyaw)
+        retval = get(F::Feature_PosFyaw, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_PosFt)
+        retval = get(F::Feature_PosFt, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Speed)
+        retval = get(F::Feature_Speed, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_VelBx)
+        retval = get(F::Feature_VelBx, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_VelBy)
+        retval = get(F::Feature_VelBy, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_VelFs)
+        retval = get(F::Feature_VelFs, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_VelFt)
+        retval = get(F::Feature_VelFt, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Scene_Speed_Difference)
+        retval = get(F::Feature_Scene_Speed_Difference, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_TurnRate)
+        retval = get(F::Feature_TurnRate, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Acc)
+        retval = get(F::Feature_Acc, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_AccFs)
+        retval = get(F::Feature_AccFs, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_AccFt)
+        retval = get(F::Feature_AccFt, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_AccBx)
+        retval = get(F::Feature_AccBx, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_AccBy)
+        retval = get(F::Feature_AccBy, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Jerk)
+        retval = get(F::Feature_Jerk, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_MarkerDist_Left)
+        retval = get(F::Feature_MarkerDist_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_MarkerDist_Right)
+        retval = get(F::Feature_MarkerDist_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_From_Centerline)
+        retval = get(F::Feature_Dist_From_Centerline, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_Merge)
+        retval = get(F::Feature_Dist_Merge, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_Split)
+        retval = get(F::Feature_Dist_Split, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_SUMO)
+        retval = get(F::Feature_SUMO, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_IDM)
+        retval = get(F::Feature_IDM, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Has_Front)
+        retval = get(F::Feature_Has_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_Front)
+        retval = get(F::Feature_Dist_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_D_Y_Front)
+        retval = get(F::Feature_D_Y_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Front)
+        retval = get(F::Feature_Delta_V_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Y_Front)
+        retval = get(F::Feature_Delta_V_Y_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Yaw_Front)
+        retval = get(F::Feature_Yaw_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Turnrate_Front)
+        retval = get(F::Feature_Turnrate_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Acc_Req_Front)
+        retval = get(F::Feature_Acc_Req_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_TTC_Front)
+        retval = get(F::Feature_Inv_TTC_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_Timegap_Front)
+        retval = get(F::Feature_Inv_Timegap_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Gaining_On_Front)
+        retval = get(F::Feature_Gaining_On_Front, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Has_Rear)
+        retval = get(F::Feature_Has_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_Rear)
+        retval = get(F::Feature_Dist_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_D_Y_Rear)
+        retval = get(F::Feature_D_Y_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Rear)
+        retval = get(F::Feature_Delta_V_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Y_Rear)
+        retval = get(F::Feature_Delta_V_Y_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Yaw_Rear)
+        retval = get(F::Feature_Yaw_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Turnrate_Rear)
+        retval = get(F::Feature_Turnrate_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Acc_Req_Rear)
+        retval = get(F::Feature_Acc_Req_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_TTC_Rear)
+        retval = get(F::Feature_Inv_TTC_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_Timegap_Rear)
+        retval = get(F::Feature_Inv_Timegap_Rear, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Rear_Is_Gaining)
+        retval = get(F::Feature_Rear_Is_Gaining, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Has_Left)
+        retval = get(F::Feature_Has_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_Left)
+        retval = get(F::Feature_Dist_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_D_Y_Left)
+        retval = get(F::Feature_D_Y_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Left)
+        retval = get(F::Feature_Delta_V_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Y_Left)
+        retval = get(F::Feature_Delta_V_Y_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Yaw_Left)
+        retval = get(F::Feature_Yaw_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Turnrate_Left)
+        retval = get(F::Feature_Turnrate_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Acc_Req_Left)
+        retval = get(F::Feature_Acc_Req_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_TTC_Left)
+        retval = get(F::Feature_Inv_TTC_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_Timegap_Left)
+        retval = get(F::Feature_Inv_Timegap_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Left_Is_Gaining)
+        retval = get(F::Feature_Left_Is_Gaining, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Has_Right)
+        retval = get(F::Feature_Has_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Dist_Right)
+        retval = get(F::Feature_Dist_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_D_Y_Right)
+        retval = get(F::Feature_D_Y_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Right)
+        retval = get(F::Feature_Delta_V_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Delta_V_Y_Right)
+        retval = get(F::Feature_Delta_V_Y_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Yaw_Right)
+        retval = get(F::Feature_Yaw_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Turnrate_Right)
+        retval = get(F::Feature_Turnrate_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Acc_Req_Right)
+        retval = get(F::Feature_Acc_Req_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_TTC_Right)
+        retval = get(F::Feature_Inv_TTC_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Inv_Timegap_Right)
+        retval = get(F::Feature_Inv_Timegap_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Right_Is_Gaining)
+        retval = get(F::Feature_Right_Is_Gaining, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_TimeToCrossing_Left)
+        retval = get(F::Feature_TimeToCrossing_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_TimeToCrossing_Right)
+        retval = get(F::Feature_TimeToCrossing_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_EstimatedTimeToLaneCrossing)
+        retval = get(F::Feature_EstimatedTimeToLaneCrossing, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_A_REQ_StayInLane)
+        retval = get(F::Feature_A_REQ_StayInLane, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_N_Lane_Left)
+        retval = get(F::Feature_N_Lane_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_N_Lane_Right)
+        retval = get(F::Feature_N_Lane_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Has_Lane_Right)
+        retval = get(F::Feature_Has_Lane_Right, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Has_Lane_Left)
+        retval = get(F::Feature_Has_Lane_Left, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_LaneCurvature)
+        retval = get(F::Feature_LaneCurvature, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Time_Consecutive_Brake)
+        retval = get(F::Feature_Time_Consecutive_Brake, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Time_Consecutive_Accel)
+        retval = get(F::Feature_Time_Consecutive_Accel, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Time_Consecutive_Throttle)
+        retval = get(F::Feature_Time_Consecutive_Throttle, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_FutureAcceleration)
+        retval = get(F::Feature_FutureAcceleration, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_FutureDesiredAngle)
+        retval = get(F::Feature_FutureDesiredAngle, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_FutureTurnrate)
+        retval = get(F::Feature_FutureTurnrate, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_FutureVelFt)
+        retval = get(F::Feature_FutureVelFt, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Future_Delta_Accel)
+        retval = get(F::Feature_Future_Delta_Accel, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_IsClean)
+        retval = get(F::Feature_IsClean, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Past)
+        retval = get(F::Feature_Past, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Mean_Over_History)
+        retval = get(F::Feature_Mean_Over_History, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Std_Over_History)
+        retval = get(F::Feature_Std_Over_History, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Max_Over_History)
+        retval = get(F::Feature_Max_Over_History, runlog, sn, colset, frame)::Float64
+    elseif isa(F, Feature_Min_Over_History)
+        retval = get(F::Feature_Min_Over_History, runlog, sn, colset, frame)::Float64
+    else
+        warn("UNKNOWN FEATURE $F")
+        retval = NaN
+    end
+
+    retval::Float64
+end
 
 include("data_preprocessor.jl")
 

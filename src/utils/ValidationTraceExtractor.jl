@@ -492,23 +492,23 @@ function calc_row_count_from_region_segments(validfind_regions::AbstractVector{I
     estimated_row_count
 end
 
-function pull_model_training_data(
-    extract_params::OrigHistobinExtractParameters,
-    csvfilesets::Vector{CSVFileSet};
-    features::Vector{AbstractFeature}=FEATURES,
-    filters::Vector{AbstractFeature}=AbstractFeature[],
-    pdset_dir::AbstractString=PRIMARYDATA_DIR,
-    streetmap_base::AbstractString="/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
-    )
+# function pull_model_training_data(
+#     extract_params::OrigHistobinExtractParameters,
+#     csvfilesets::Vector{CSVFileSet};
+#     features::Vector{AbstractFeature}=FEATURES,
+#     filters::Vector{AbstractFeature}=AbstractFeature[],
+#     pdset_dir::AbstractString=PRIMARYDATA_DIR,
+#     streetmap_base::AbstractString="/media/tim/DATAPART1/Data/Bosch/processed/streetmaps/"
+#     )
 
-    if nworkers() > 1
-        _pull_model_training_data_parallel(extract_params, csvfilesets,
-                                           features, filters, pdset_dir, streetmap_base)
-    else
-        _pull_model_training_data(extract_params, csvfilesets,
-                                           features, filters, pdset_dir, streetmap_base)
-    end
-end
+#     if nworkers() > 1
+#         _pull_model_training_data_parallel(extract_params, csvfilesets,
+#                                            features, filters, pdset_dir, streetmap_base)
+#     else
+#         _pull_model_training_data(extract_params, csvfilesets,
+#                                   features, filters, pdset_dir, streetmap_base)
+#     end
+# end
 
 ########################################
 #             RunLog Code              #

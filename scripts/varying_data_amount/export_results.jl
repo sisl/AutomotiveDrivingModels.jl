@@ -22,43 +22,6 @@ function _export_legend{S<:AbstractString}(io::IO, modelnames::Vector{S})
     end
     print(io, "}\n")
 end
-# function create_tikzpicture_experiment_1(io::IO, dfs::Dict{AbstractString, DataFrame})
-
-#     #=
-#     This outputs, for each model by order of names:
-
-#     \addplot[colorE, dotted, thick, mark=none] coordinates{
-#         (0.0100,3472.2196) (0.0167,3179.6420) (0.0278,6060.3558) (0.0464,6231.8598) (0.0774,7445.1712) (0.1292,8600.2229) (0.2154,8947.1872) (0.3594,9629.5129) (0.5995,9900.6706) (1.0000,9782.7516) };
-#     =#
-
-#     for (i, tup) in enumerate(dfs)
-
-#         name, df = tup
-
-#         percentages = sort(unique(convert(Vector{Float64}, df[:dataset_percentage])))
-#         color = "color" * string('A' + i - 1)
-
-#         @printf(io, "\\addplot[%s, %s, thick, mark=none] coordinates{\n", color, DASH_TYPES[i])
-#         @printf(io, "\t")
-
-#         for p in percentages
-#             logl = 0.0
-#             nfound = 0
-#             for j in 1 : nrow(df)
-#                 if df[j, :dataset_percentage] == p &&
-#                    df[j, :model_name] == name
-
-#                    logl += df[j, :logl_test]
-#                    nfound += 1
-#                 end
-#             end
-#             logl /= nfound
-
-#             @printf(io, "(%.4f,%.4f) ", p, logl)
-#         end
-#         println(io, "};")
-#     end
-# end
 function create_tikzpicture_experiment{S<:AbstractString}(io::IO, dfs::Dict{AbstractString, DataFrame}, target::Symbol, model_names::Vector{S})
     #=
     This outputs, for each model by order of names:
