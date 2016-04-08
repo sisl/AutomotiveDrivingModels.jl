@@ -9,51 +9,47 @@ using DynamicBayesianNetworkBehaviors
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 
-const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 11)
+const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 3)
 
-##############################
-# PARAMETERS
-##############################
-
-behaviorset_full = behaviorset
+trace_metrics = BehaviorTraceMetric[
+                    SumSquareJerk(),
+                    JerkSignInversions(),
+                    LagOneAutocorrelation(),
+                    EmergentKLDivMetric(SumSquareJerk()),
+                    EmergentKLDivMetric(JerkSignInversions()),
+                    EmergentKLDivMetric(LagOneAutocorrelation()),
+                    RootWeightedSquareError(SPEED, 4.0),
+                    RootWeightedSquareError(POSFT, 4.0),
+                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 4.0),
+                    RootWeightedSquareError(DIST_FRONT, 4.0),
+                ]
+trace_metric_names = map(m->get_name(m), trace_metrics)::Vector{Symbol}
 
 tic()
-for (model_name, traindef) in behaviorset_full
+for (model_name, traindef) in behaviorset
 
     println("MODEL: ", model_name)
 
-    behaviorset = Dict{AbstractString, BehaviorTrainDefinition}()
-    behaviorset[model_name] = traindef
     model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
     model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
-    try
-        nmodels = length(behaviorset)
-        model_names = collect(keys(behaviorset))
+    # try
 
-        df_results = Dict{AbstractString, DataFrame}()
-        for model_name in model_names
-            df = DataFrame()
-            df[:model_name] = AbstractString[]
-            df[:fold_test] = Float64[]
-            df[:dataset_percentage] = Float64[]
-            df[:nframes_train] = Int[]
-            df[:nframes_test] = Int[]
-            df[:nseg_test] = Int[]
-            df[:context_class] = AbstractString[]
-            df[:logl_train] = Float64[]
-            df[:logl_test] = Float64[]
-
-            df[:rwse_speed_test] = Float64[]
-            df[:rwse_dcl_test] = Float64[]
-            df[:rwse_headway_test] = Float64[]
-
-            df[:smooth_sumsquare] = Float64[]
-            df[:smooth_autocor] = Float64[]
-            df[:smooth_jerkinvs] = Float64[]
-
-            df_results[model_name] = df
-        end
+        df_results = DataFrame()
+        df_results[:model_name] = AbstractString[]
+        df_results[:dataset_percentage] = Float64[]
+        df_results[:nframes_train] = Float64[]
+        df_results[:nframes_test] = Float64[]
+        df_results[:nseg_test] = Float64[]
+        df_results[:context_class] = AbstractString[]
+        df_results[:logl_train] = Float64[]
+        df_results[:logl_test] = Float64[]
+        df_results[:rwse_speed_test] = Float64[]
+        df_results[:rwse_dcl_test] = Float64[]
+        df_results[:rwse_headway_test] = Float64[]
+        df_results[:smooth_sumsquare] = Float64[]
+        df_results[:smooth_autocor] = Float64[]
+        df_results[:smooth_jerkinvs] = Float64[]
 
         for dset_filepath_modifier in (
             "_freeflow",
@@ -75,44 +71,41 @@ for (model_name, traindef) in behaviorset_full
             toc()
 
             print("allocating runlogs for simulation  "); tic()
-            arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata, nmodels, N_SIMULATIONS_PER_TRACE)
+            arr_runlogs_for_simulation = allocate_runlogs_for_simulation(evaldata)
             toc()
 
             print("\t\tpreallocating data   "); tic()
-            preallocated_data_dict = Dict{AbstractString, AbstractVehicleBehaviorPreallocatedData}()
-            for (model_name, train_def) in behaviorset
-                preallocated_data_dict[model_name] = preallocate_learning_data(dset, train_def.trainparams)
-            end
+            preallocated_data = preallocate_learning_data(dset, traindef.trainparams)
             toc()
 
-            nframes = nrow(dset.dataframe)
-            ntraces = length(dset.runlog_segments)
-            frame_logls = Array(Float64, nframes, ntraces, nmodels) # logl for each frame under each run (we can back out TRAIN and TEST)
-            # train_test_split = get_fold_assignment_across_drives(dset, N_FOLDS)
-            # assign_all_non_test_to_train!(train_test_split)
             cv_split_outer = get_fold_assignment_across_drives(dset, N_FOLDS)
+            metrics_df = create_metrics_df(cv_split_outer.nfolds, trace_metric_names)
 
-            for fold_test in 1:N_FOLDS
+            ##############################
+            # RUN FOR EACH DATA SUBSET
+            ##############################
 
-                nframes_train = length(FoldSet(cv_split_outer, fold_test, false, :frame))
-                nframes_test = length(FoldSet(cv_split_outer, fold_test, true, :frame))
-                nsegs_test = length(FoldSet(cv_split_outer, fold_test, false, :seg))
-                println("fold_test: ", fold_test)
-                println("nframes train: ", nframes_train)
-                println("nframes test:  ", nframes_test)
-                println("nsegs test:    ", nsegs_test)
+            for dset_percentage in DATASET_PERCENTAGES
 
-                ##############################
-                # TRAIN MODELS
-                ##############################
+                nframes_train_reduced_mean = 0.0
+                nframes_test_mean = 0.0
+                nsegs_test_mean = 0.0
 
-                for dset_percentage in DATASET_PERCENTAGES
+                for fold_test in 1 : cv_split_outer.nfolds
+
+                    nframes_train = length(FoldSet(cv_split_outer, fold_test, false, :frame))
+                    nframes_test = length(FoldSet(cv_split_outer, fold_test, true, :frame))
+                    nsegs_test = length(FoldSet(cv_split_outer, fold_test, false, :seg))
 
                     nframes_train_reduced = round(Int, nframes_train * dset_percentage)
                     if nframes_train_reduced < 10
                         continue
                     end
                     @assert(nframes_train_reduced ≤ nframes_train)
+
+                    nframes_train_reduced_mean += nframes_train_reduced
+                    nframes_test_mean += nframes_test
+                    nsegs_test_mean += nsegs_test
 
                     # build a subset to train on
                     cv_split_outer_copy = deepcopy(cv_split_outer)
@@ -144,10 +137,9 @@ for (model_name, traindef) in behaviorset_full
                     # println("length foldset:        ", length(FoldSet(cv_split_outer_copy, FOLD_TRAIN, true, :frame)))
                     @assert(nframes_train_reduced == length(FoldSet(cv_split_outer_copy, FOLD_TRAIN, true, :frame)))
 
-
                     sum_fold_size = 0
-                    cv_split_inner = get_cross_validation_fold_assignment_frameonly(N_FOLDS-1, dset, cv_split_outer_copy)
-                    for fold in 1:N_FOLDS-1
+                    cv_split_inner = get_cross_validation_fold_assignment_frameonly(cv_split_outer.nfolds-1, dset, cv_split_outer_copy)
+                    for fold in 1:cv_split_outer.nfolds-1
                         fold_size = length(FoldSet(cv_split_inner, fold, true, :frame))
                         # println(fold, "  ", fold_size)
                         sum_fold_size += fold_size
@@ -156,97 +148,120 @@ for (model_name, traindef) in behaviorset_full
 
                     println("\tdset_percentage: ", dset_percentage, "   nframes train reduced: ", nframes_train_reduced)
 
-                    print("\toptimizing hyperparameters\n"); tic()
-                    for (model_name, train_def) in behaviorset
-                        preallocated_data = preallocated_data_dict[model_name]
-                        AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
-                                train_def, dset, preallocated_data, cv_split_inner)
-                    end
+                    print("\toptimizing hyperparameters for $(model_name)\n"); tic()
+                    AutomotiveDrivingModels.optimize_hyperparams_cyclic_coordinate_ascent!(
+                                            traindef, dset, preallocated_data, cv_split_outer_copy)
                     toc()
 
                     print("\ttraining models  "); tic()
-                    models = train(behaviorset, dset, preallocated_data_dict, FOLD_TEST, cv_split_outer_copy)
+                    foldset_frame_train = FoldSet(cv_split_outer_copy, FOLD_TEST, false, :frame)
+                    model = train(dset, preallocated_data, traindef.trainparams, foldset_frame_train)
                     toc()
 
-                    println("\tsimulating"); tic()
-                    foldset = FoldSet(cv_split_outer_copy, FOLD_TEST, true, :seg)
-                    for (k,model_name) in enumerate(model_names)
-                        behavior = models[model_name]
-
-                        print("\t\t", model_name, "  "); tic()
-                        simulate!(behavior, evaldata, arr_runlogs_for_simulation[k], foldset)
-                        toc()
-                    end
+                    print("\tsimulating and computing metrics  "); tic()
+                    foldset_seg_test = FoldSet(cv_split_outer_copy, FOLD_TEST, true, :seg)
+                    arr_logl_test  = Array(Float64, length(FoldSet(cv_split_outer_copy, FOLD_TEST, true,  :frame)))
+                    arr_logl_train = Array(Float64, length(FoldSet(cv_split_outer_copy, FOLD_TEST, false, :frame)))
+                    calc_metrics!(metrics_df, dset, model, cv_split_outer_copy, FOLD_TRAIN,
+                                  trace_metrics, evaldata, arr_runlogs_for_simulation, N_SIMULATIONS_PER_TRACE,
+                                  fold_test)
                     toc()
 
-                    print("\tcomputing metrics  "); tic()
-                    logl_train_arr = Array(Float64, nframes_train_reduced)
-                    logl_test_arr = Array(Float64, nframes_test)
-
-                    seg_indeces = collect(foldset)
-                    bagsamples = collect(1:length(seg_indeces))
-                    for (k,model_name) in enumerate(model_names)
-
-                        behavior = models[model_name]
-                        ind_test = 0
-                        ind_train = 0
-
-                        for frameind in 1 : nframes
-                            logl = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
-
-                            if cv_split_outer_copy.frame_assignment[frameind] == FOLD_TRAIN
-                                logl_train_arr[ind_train += 1] = logl
-                            elseif cv_split_outer_copy.frame_assignment[frameind] == FOLD_TEST
-                                logl_test_arr[ind_test += 1] = logl
-                            end
-                        end
-
-                        rwse_speed_test   = get_score(extract(RootWeightedSquareError{symbol(SPEED),      4.0}, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
-                        rwse_dcl_test     = get_score(extract(RootWeightedSquareError{symbol(POSFT),      4.0}, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
-                        rwse_headway_test = get_score(extract(RootWeightedSquareError{symbol(DIST_FRONT), 4.0}, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
-                        smooth_sumsquare  = get_score(extract(EmergentKLDivMetric{SumSquareJerk},               evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
-                        smooth_autocor    = get_score(extract(EmergentKLDivMetric{JerkSignInversions},          evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
-                        smooth_jerkinvs   = get_score(extract(EmergentKLDivMetric{LagOneAutocorrelation},       evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
-
-                        @assert(ind_train == length(logl_train_arr))
-                        @assert(ind_test == length(logl_test_arr))
-
-                        median_logl_train = median(logl_train_arr)
-                        median_logl_test = median(logl_test_arr)
-
-                        push!(df_results[model_name], [model_name, fold_test, dset_percentage, nframes_train_reduced, nframes_test, nsegs_test, dset_filepath_modifier, median_logl_train, median_logl_test,
-                                                       rwse_speed_test, rwse_dcl_test, rwse_headway_test, smooth_sumsquare, smooth_autocor, smooth_jerkinvs])
-                    end
-                    toc()
                 end
+
+                rwse_speed_test   = mean(metrics_df[:RWSE_speed_4_00])
+                rwse_dcl_test     = mean(metrics_df[:RWSE_posFt_4_00])
+                rwse_headway_test = mean(metrics_df[:RWSE_d_front_4_00])
+                smooth_sumsquare  = mean(metrics_df[:kldiv_sumsquarejerk])
+                smooth_autocor    = mean(metrics_df[:kldiv_jerksigninvs])
+                smooth_jerkinvs   = mean(metrics_df[:kldiv_lagoneautocor])
+                median_logl_train = mean(metrics_df[:median_logl_train])
+                median_logl_test = mean(metrics_df[:median_logl_test])
+
+                nframes_train_reduced_mean /= cv_split_outer.nfolds
+                nframes_test_mean /= cv_split_outer.nfolds
+                nsegs_test_mean /= cv_split_outer.nfolds
+
+                push!(df_results, [model_name, dset_percentage,
+                                   nframes_train_reduced_mean, nframes_test_mean, nsegs_test_mean,
+                                   dset_filepath_modifier, median_logl_train, median_logl_test,
+                                   rwse_speed_test, rwse_dcl_test, rwse_headway_test,
+                                   smooth_sumsquare, smooth_autocor, smooth_jerkinvs])
+
+                    # println("\tsimulating"); tic()
+                    # foldset = FoldSet(cv_split_outer_copy, FOLD_TEST, true, :seg)
+                    # for (k,model_name) in enumerate(model_names)
+                    #     behavior = models[model_name]
+
+                    #     print("\t\t", model_name, "  "); tic()
+                    #     simulate!(behavior, evaldata, arr_runlogs_for_simulation[k], foldset)
+                    #     toc()
+                    # end
+                    # toc()
+
+                    # print("\tcomputing metrics  "); tic()
+                    # logl_train_arr = Array(Float64, nframes_train_reduced)
+                    # logl_test_arr = Array(Float64, nframes_test)
+
+                    # seg_indeces = collect(foldset)
+                    # bagsamples = collect(1:length(seg_indeces))
+                    # for (k,model_name) in enumerate(model_names)
+
+                    #     behavior = models[model_name]
+                    #     ind_test = 0
+                    #     ind_train = 0
+
+                    #     for frameind in 1 : nframes
+                    #         logl = calc_action_loglikelihood(behavior, dset.dataframe, frameind)
+
+                    #         if cv_split_outer_copy.frame_assignment[frameind] == FOLD_TRAIN
+                    #             logl_train_arr[ind_train += 1] = logl
+                    #         elseif cv_split_outer_copy.frame_assignment[frameind] == FOLD_TEST
+                    #             logl_test_arr[ind_test += 1] = logl
+                    #         end
+                    #     end
+
+                    #     rwse_speed_test   = get_score(extract(RootWeightedSquareError{symbol(SPEED),      4.0}, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
+                    #     rwse_dcl_test     = get_score(extract(RootWeightedSquareError{symbol(POSFT),      4.0}, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
+                    #     rwse_headway_test = get_score(extract(RootWeightedSquareError{symbol(DIST_FRONT), 4.0}, evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
+                    #     smooth_sumsquare  = get_score(extract(EmergentKLDivMetric{SumSquareJerk},               evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
+                    #     smooth_autocor    = get_score(extract(EmergentKLDivMetric{JerkSignInversions},          evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
+                    #     smooth_jerkinvs   = get_score(extract(EmergentKLDivMetric{LagOneAutocorrelation},       evaldata, arr_runlogs_for_simulation[k], seg_indeces, bagsamples))
+
+                    #     @assert(ind_train == length(logl_train_arr))
+                    #     @assert(ind_test == length(logl_test_arr))
+
+                    #     median_logl_train = median(logl_train_arr)
+                    #     median_logl_test = median(logl_test_arr)
+
+                    #     push!(df_results[model_name], [model_name, fold_test, dset_percentage, nframes_train_reduced, nframes_test, nsegs_test, dset_filepath_modifier, median_logl_train, median_logl_test,
+                    #                                    rwse_speed_test, rwse_dcl_test, rwse_headway_test, smooth_sumsquare, smooth_autocor, smooth_jerkinvs])
+                    # end
+                #     # toc()
+                # end
             end
         end
 
         # print results
-        for model_name in model_names
-            println(model_name)
-            println(df_results[model_name])
-        end
+        println(model_name)
+        println(df_results)
 
         # export results
-        for model_name in model_names
-            model_output_name = replace(lowercase(model_name), " ", "_")
-            outpath = joinpath(".", "results", "data_vs_performance_metrics_" * model_output_name * ".csv")
-            writetable(outpath, df_results[model_name])
-        end
-    catch err
-        println("CAUGHT SOME ERROR, model: ", model_name)
+        outpath = joinpath(".", "results", "data_vs_performance_metrics_" * model_output_name * ".csv")
+        writetable(outpath, df_results)
+    # catch err
+    #     println("CAUGHT SOME ERROR, model: ", model_name)
 
-        error_filename = @sprintf("error_%s.txt", model_name)
-        open(error_filename, "w") do fh
-            println(fh, "ERROR training ", model_name)
-            println(fh, "TIME: ", now())
-            println(fh, "")
-            println(fh, err)
-        end
+    #     error_filename = @sprintf("error_%s.txt", model_name)
+    #     open(error_filename, "w") do fh
+    #         println(fh, "ERROR training ", model_name)
+    #         println(fh, "TIME: ", now())
+    #         println(fh, "")
+    #         println(fh, err)
+    #     end
 
-        println(err)
-    end
+    #     println(err)
+    # end
 end
 println("DONE")
 toc()
