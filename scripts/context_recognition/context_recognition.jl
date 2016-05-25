@@ -96,8 +96,6 @@ for model_name in model_names
                 for segind in 1:length(cv_split_test.seg_assignment)
                     if context_class_train != context_class_test || cv_split_test.seg_assignment[segind] == fold
 
-                        # println("\t\t\t", segind, " / ", length(cv_split_test.seg_assignment))
-
                         seg = dset_test.runlog_segments[segind]
                         runlog = runlogs_test[seg.runlog_id]
                         sn = streetnets[runlog.header.map_name]
@@ -110,7 +108,6 @@ for model_name in model_names
                     end
                 end
             end
-            # toc()
         end
         toc()
 

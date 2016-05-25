@@ -9,7 +9,7 @@ using DynamicBayesianNetworkBehaviors
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "extract_params.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 
-const DATASET_PERCENTAGES = logspace(-3.0, 0.0, 3)
+const DATASET_PERCENTAGES = logspace(-2.0, 0.0, 3)
 
 trace_metrics = BehaviorTraceMetric[
                     SumSquareJerk(),
@@ -33,7 +33,7 @@ for (model_name, traindef) in behaviorset
     model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
     model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
-    # try
+    try
 
         df_results = DataFrame()
         df_results[:model_name] = AbstractString[]
@@ -169,6 +169,8 @@ for (model_name, traindef) in behaviorset
 
                 end
 
+                println(df_results)
+
                 rwse_speed_test   = mean(metrics_df[:RWSE_speed_4_00])
                 rwse_dcl_test     = mean(metrics_df[:RWSE_posFt_4_00])
                 rwse_headway_test = mean(metrics_df[:RWSE_d_front_4_00])
@@ -176,7 +178,7 @@ for (model_name, traindef) in behaviorset
                 smooth_autocor    = mean(metrics_df[:kldiv_jerksigninvs])
                 smooth_jerkinvs   = mean(metrics_df[:kldiv_lagoneautocor])
                 median_logl_train = mean(metrics_df[:median_logl_train])
-                median_logl_test = mean(metrics_df[:median_logl_test])
+                median_logl_test  = mean(metrics_df[:median_logl_test])
 
                 nframes_train_reduced_mean /= cv_split_outer.nfolds
                 nframes_test_mean /= cv_split_outer.nfolds
@@ -249,19 +251,19 @@ for (model_name, traindef) in behaviorset
         # export results
         outpath = joinpath(".", "results", "data_vs_performance_metrics_" * model_output_name * ".csv")
         writetable(outpath, df_results)
-    # catch err
-    #     println("CAUGHT SOME ERROR, model: ", model_name)
+    catch err
+        println("CAUGHT SOME ERROR, model: ", model_name)
 
-    #     error_filename = @sprintf("error_%s.txt", model_name)
-    #     open(error_filename, "w") do fh
-    #         println(fh, "ERROR training ", model_name)
-    #         println(fh, "TIME: ", now())
-    #         println(fh, "")
-    #         println(fh, err)
-    #     end
+        error_filename = @sprintf("error_%s.txt", model_name)
+        open(error_filename, "w") do fh
+            println(fh, "ERROR training ", model_name)
+            println(fh, "TIME: ", now())
+            println(fh, "")
+            println(fh, err)
+        end
 
-    #     println(err)
-    # end
+        println(err)
+    end
 end
 println("DONE")
 toc()

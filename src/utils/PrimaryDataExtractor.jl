@@ -2264,7 +2264,7 @@ function _extract_runlog(
     else
         # compute the behavior manually
 
-        const FREEFLOW_TIMEGAP_THRESOLD = 2.0 # [s]
+        const FREEFLOW_TIMEGAP_THRESOLD = 1.5 # [s]
         const LANECHANGE_TIME_THRESHOLD = 2.25 # [s]
 
         id = ID_EGO

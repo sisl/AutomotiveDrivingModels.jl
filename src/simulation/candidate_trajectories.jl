@@ -91,7 +91,7 @@ type PolynomialFactoredTrajectory
     #            t=τ is the end of the trajectory
 
     s::Polynomial # along the centerline
-    d::Polynomial # perpendicular to the centerline, (left)
+    d::Polynomial # perpendicular to the centerline, (positive to vehicle's left)
 end
 
 function translate(traj::PolynomialFactoredTrajectory, Δs::Float64, Δd::Float64)
@@ -851,8 +851,6 @@ function get_polynomial_factored_trajectory(
     sdot₂ = link.sdot
     sddot₂ = link.sddot
 
-    # Compute a trajectory in which the lateral start and end states are given
-    # and where the longitudinal trajectory has unspecified end position
     poly_s = get_quintic_coefficients(0.0, sdot₁, sddot₁, Δs, sdot₂, sddot₂, τ)
     poly_d = get_quintic_coefficients( d₁, ddot₁, dddot₁, d₂, ddot₂, dddot₂, τ)
 

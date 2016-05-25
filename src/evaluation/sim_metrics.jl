@@ -124,7 +124,6 @@ abstract BehaviorTraceMetric <: BehaviorMetric
 #########################################################################################################
 # RootWeightedSquareError
 
-# F isa AbstractFeature
 type RootWeightedSquareError <: BehaviorTraceMetric
     F::AbstractFeature
     H::Float64 # horizon
@@ -535,10 +534,10 @@ function calc_likelihood_metrics!(
         end
     end
 
-    metrics_df[fold, :mean_logl_train] = mean(arr_logl_train)
-    metrics_df[fold, :mean_logl_test] = mean(arr_logl_test)
-    metrics_df[fold, :median_logl_train] = median(arr_logl_train)
-    metrics_df[fold, :median_logl_test] = median(arr_logl_test)
+    metrics_df[metrics_df_index, :mean_logl_train] = mean(arr_logl_train)
+    metrics_df[metrics_df_index, :mean_logl_test] = mean(arr_logl_test)
+    metrics_df[metrics_df_index, :median_logl_train] = median(arr_logl_train)
+    metrics_df[metrics_df_index, :median_logl_test] = median(arr_logl_test)
 
     metrics_df
 end
@@ -585,7 +584,7 @@ function calc_trace_metrics!(
     # compute metric scores
     for metric in trace_metrics
         metric_name = get_name(metric)
-        metrics_df[fold, metric_name] = get_score(metric)
+        metrics_df[metrics_df_index, metric_name] = get_score(metric)
     end
 
     metrics_df

@@ -1,7 +1,7 @@
 
 const FLOAT_REGEX = r"[-+]?[0-9]*\.?[0-9]+"
 
-modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Bayesian Network", "Linear Bayesian"] # "Mixture Regression",
+modelnames = ["Static Gaussian", "Linear Gaussian", "Dynamic Forest", "Random Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
 
 function _convert_to_short_name(name::AbstractString)
     retval = ""

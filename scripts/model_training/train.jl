@@ -59,18 +59,16 @@ trace_metric_names = map(m->get_name(m), trace_metrics)::Vector{Symbol}
 # MAIN LOOP
 ################################
 
-behaviorset_full = behaviorset
-
-for (model_name, traindef) in behaviorset_full
+for (model_name, traindef) in behaviorset
 
     model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
     model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
-    # try
+    try
 
         for dset_filepath_modifier in (
-            "_freeflow",
-            "_following",
+            # "_freeflow",
+            # "_following",
             "_lanechange",
             )
 
@@ -178,19 +176,19 @@ for (model_name, traindef) in behaviorset_full
             print_hyperparam_statistics(STDOUT, model_name, traindef, hyperparam_counts)
             println("\n")
         end
-    # catch err
-    #     println("CAUGHT SOME ERROR, model: ", model_name)
+    catch err
+        println("CAUGHT SOME ERROR, model: ", model_name)
 
-    #     error_filename = @sprintf("error_%s.txt", model_name)
-    #     open(error_filename, "w") do fh
-    #         println(fh, "ERROR training ", model_name)
-    #         println(fh, "TIME: ", now())
-    #         println(fh, "")
-    #         println(fh, err)
-    #     end
+        error_filename = @sprintf("error_%s.txt", model_name)
+        open(error_filename, "w") do fh
+            println(fh, "ERROR training ", model_name)
+            println(fh, "TIME: ", now())
+            println(fh, "")
+            println(fh, err)
+        end
 
-    #     println(err)
-    # end
+        println(err)
+    end
 end
 
 # println("DONE")

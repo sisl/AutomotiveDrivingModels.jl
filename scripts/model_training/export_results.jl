@@ -494,10 +494,10 @@ function create_table_validation_across_context_classes{T<:AbstractString, S<:Ab
 end
 function create_table_feature_ranking{S<:AbstractString}(
     io::IO;
-    nfeatures_to_output::Int = 10,
+    nfeatures_to_output::Int = 30,
     folds::AbstractVector{Int} = 1:5,
     dset_filepath_modifier::AbstractString = "_following",
-    model_names::AbstractVector{S} = ["Linear Gaussian", "Random Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"],
+    model_names::AbstractVector{S} = ["Linear Gaussian", "Mixture Regression", "Bayesian Network", "Linear Bayesian"], # "Random Forest",
     )
 
     all_selection_counts = Dict{AbstractString, Dict{AbstractFeature, Int}}() # model_name -> selection_counts
@@ -572,10 +572,9 @@ end
 
 fh = STDOUT
 
-# write_to_texthook(TEXFILE, "feature-ranking") do fh
-#     create_table_feature_ranking(fh)
-# end
-
+write_to_texthook(TEXFILE, "feature-ranking") do fh
+    create_table_feature_ranking(fh)
+end
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
 preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
