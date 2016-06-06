@@ -207,6 +207,16 @@ const CSVFILESETS = (
                         Int[], # car follow
                         Int[], # free flow
                         ),
+            CSVFileSet(RunLogs.ID_EGO,
+                        "/media/tim/DATAPART1/Data/Bosch/runs_201605/2016-05-25-14-55-45-raw.csv",
+                        "???",
+                        Int[],
+                        Int[], # lanechange normal
+                        Int[], # lanechanges postpass
+                        Int[], # lanechanges arbitrary
+                        Int[], # car follow
+                        Int[], # free flow
+                        ),
         )
 
 #############################################

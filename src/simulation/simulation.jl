@@ -353,7 +353,6 @@ function _propagate_one_runlog_frame!(
     rates = get(runlog, colset, frame, :ratesB)::VecSE2
     v = sqrt(rates.x*rates.x + rates.y*rates.y)
 
-    # TODO: debug acc_prev
     acc_prev = (hypot(get(runlog, id2colset(runlog, colset2id(runlog, colset, frame), frame-1), frame-1, :ratesB)) - v)/Δt
     for i = 1 : n_euler_steps
 

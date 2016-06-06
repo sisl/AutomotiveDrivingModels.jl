@@ -14,12 +14,12 @@ include(Pkg.dir("AutomotiveDrivingModels", "scripts", "model_params.jl"))
 ################################
 
 trace_metrics = BehaviorTraceMetric[
-                    SumSquareJerk(),
-                    JerkSignInversions(),
-                    LagOneAutocorrelation(),
+                    # SumSquareJerk(),
+                    # JerkSignInversions(),
+                    # LagOneAutocorrelation(),
                     EmergentKLDivMetric(SumSquareJerk()),
-                    EmergentKLDivMetric(JerkSignInversions()),
-                    EmergentKLDivMetric(LagOneAutocorrelation()),
+                    # EmergentKLDivMetric(JerkSignInversions()),
+                    # EmergentKLDivMetric(LagOneAutocorrelation()),
                     RootWeightedSquareError(SPEED, 0.5),
                     RootWeightedSquareError(SPEED, 1.0),
                     RootWeightedSquareError(SPEED, 1.5),
@@ -36,14 +36,14 @@ trace_metrics = BehaviorTraceMetric[
                     RootWeightedSquareError(POSFT, 3.0),
                     RootWeightedSquareError(POSFT, 3.5),
                     RootWeightedSquareError(POSFT, 4.0),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 0.5),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.0),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.5),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.0),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.5),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.0),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.5),
-                    RootWeightedSquareError(INV_TIMEGAP_FRONT, 4.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 0.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 1.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 2.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.0),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 3.5),
+                    # RootWeightedSquareError(INV_TIMEGAP_FRONT, 4.0),
                     RootWeightedSquareError(DIST_FRONT, 0.5),
                     RootWeightedSquareError(DIST_FRONT, 1.0),
                     RootWeightedSquareError(DIST_FRONT, 1.5),
@@ -64,11 +64,11 @@ for (model_name, traindef) in behaviorset
     model_output_name = replace(lowercase(model_name), " ", "_")    # ex: bayesian_network
     model_short_name = convert_model_name_to_short_name(model_name) # ex: BN
 
-    try
+    # try
 
         for dset_filepath_modifier in (
-            # "_freeflow",
-            # "_following",
+            "_freeflow",
+            "_following",
             "_lanechange",
             )
 
@@ -176,21 +176,20 @@ for (model_name, traindef) in behaviorset
             print_hyperparam_statistics(STDOUT, model_name, traindef, hyperparam_counts)
             println("\n")
         end
-    catch err
-        println("CAUGHT SOME ERROR, model: ", model_name)
+    # catch err
+    #     println("CAUGHT SOME ERROR, model: ", model_name)
 
-        error_filename = @sprintf("error_%s.txt", model_name)
-        open(error_filename, "w") do fh
-            println(fh, "ERROR training ", model_name)
-            println(fh, "TIME: ", now())
-            println(fh, "")
-            println(fh, err)
-        end
+    #     error_filename = @sprintf("error_%s.txt", model_name)
+    #     open(error_filename, "w") do fh
+    #         println(fh, "ERROR training ", model_name)
+    #         println(fh, "TIME: ", now())
+    #         println(fh, "")
+    #         println(fh, err)
+    #     end
 
-        println(err)
-    end
+    #     println(err)
+    # end
 end
 
-# println("DONE")
 println("DONE")
 exit()

@@ -58,34 +58,19 @@ end
 
 
 const INDICATOR_SET_SMALL = [
-                    POSFYAW, SPEED, VELFS, VELFT,
-                    TURNRATE, ACC, ACCFS, ACCFT,
-                    MARKERDIST_LEFT, MARKERDIST_RIGHT,
-                    ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE,
-                    HAS_LANE_RIGHT, HAS_LANE_LEFT,
+                    SPEED, ACC,
+                    DIST_FRONT, DELTA_V_FRONT,
+                    TURNRATE, POSFT,
 
-                    DIST_FRONT, DELTA_V_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT,
-                    # HAS_REAR,  DIST_REAR,  D_Y_REAR,  DELTA_V_REAR,  DELTA_V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  ACC_REQ_REAR,  INV_TTC_REAR,  INV_TIMEGAP_REAR,  REAR_IS_GAINING,
-                    # HAS_LEFT,  DIST_LEFT,  D_Y_LEFT,  DELTA_V_LEFT,  DELTA_V_Y_LEFT,  YAW_LEFT,  TURNRATE_LEFT,  ACC_REQ_LEFT,  INV_TTC_LEFT,  INV_TIMEGAP_LEFT,  LEFT_IS_GAINING,
-                    # HAS_RIGHT, DIST_RIGHT, D_Y_RIGHT, DELTA_V_RIGHT, DELTA_V_Y_RIGHT, YAW_RIGHT, TURNRATE_RIGHT, ACC_REQ_RIGHT, INV_TTC_RIGHT, INV_TIMEGAP_RIGHT, RIGHT_IS_GAINING,
-
-                    # Feature_Past{symbol(VELFT), 1}(),  Feature_Past{symbol(VELFT), 2}(),  Feature_Past{symbol(VELFT), 3}(),  Feature_Past{symbol(VELFT), 4}(),
-                    # Feature_Past{symbol(POSFT), 1}(),  Feature_Past{symbol(POSFT), 2}(),  Feature_Past{symbol(POSFT), 3}(),  Feature_Past{symbol(POSFT), 4}(),
-                    # Feature_Past{symbol(INV_TTC_FRONT), 1}(),  Feature_Past{symbol(INV_TTC_FRONT), 2}(),  Feature_Past{symbol(INV_TTC_FRONT), 3}(),  Feature_Past{symbol(INV_TTC_FRONT), 4}(),
-                    Feature_Past{symbol(ACC), 1}(),    Feature_Past{symbol(ACC), 2}(),    Feature_Past{symbol(ACC), 3}(),    Feature_Past{symbol(ACC), 4}(),
-                    Feature_Past{:f_des_angle, 1}(),   Feature_Past{:f_des_angle, 2}(),   Feature_Past{:f_des_angle, 3}(),   Feature_Past{:f_des_angle, 4}(),
-
-                    # Feature_Mean_Over_History{symbol(ACC),4}(), Feature_Mean_Over_History{symbol(ACC),8}(),
-                    # Feature_Mean_Over_History{:f_des_angle,4}(), Feature_Mean_Over_History{:f_des_angle,8}(),
-
-                    # Feature_Std_Over_History{symbol(ACC),4}(), Feature_Std_Over_History{symbol(ACC),8}(),
-                    # Feature_Std_Over_History{:f_des_angle,4}(), Feature_Std_Over_History{:f_des_angle,8}(),
-
-                    # Feature_Max_Over_History{symbol(ACC),4}(), Feature_Max_Over_History{symbol(ACC),8}(),
-                    # Feature_Max_Over_History{:f_des_angle,4}(), Feature_Max_Over_History{:f_des_angle,8}(),
-
-                    # Feature_Min_Over_History{symbol(ACC),4}(), Feature_Min_Over_History{symbol(ACC),8}(),
-                    # Feature_Min_Over_History{:f_des_angle,4}(), Feature_Min_Over_History{:f_des_angle,8}(),
+                    Feature_Past{symbol(ACC), 1}(),
+                    Feature_Past{symbol(TURNRATE), 1}(),
+                    Feature_Past{symbol(POSFT), 1}(),
                 ]
+const INDICATOR_SET_SMALL2 = [SPEED, ACC, DIST_FRONT, DELTA_V_FRONT, TURNRATE, POSFT]
+for feature in [VELFT, ACC, DIST_FRONT, DELTA_V_FRONT, TURNRATE, POSFT]
+    for history in 1:4
+        push!(INDICATOR_SET_SMALL2, Feature_Past{symbol(feature), history}())
+    end
+end
 
 const INDICATOR_SET_CLEAN = filter!(f->!couldna(f), deepcopy(INDICATOR_SET2))

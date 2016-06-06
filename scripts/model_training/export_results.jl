@@ -6,7 +6,7 @@ using DynamicBayesianNetworkBehaviors
 push!(LOAD_PATH, "/home/tim/Documents/wheelerworkspace/UtilityCode/")
 using LaTeXeXport
 
-const TEXFILE = "/home/tim/Documents/papers/2016_its_car_behaviors_wheeler/its_car_behaviors.tex"
+const TEXFILE = "/home/tim/Documents/papers/2016_its_car_behaviors_wheeler/itsc_probdrive.tex"
 const TEXDIR = splitdir(TEXFILE)[1]
 
 const INCLUDE_FILE_BASE = "realworld"
@@ -118,7 +118,7 @@ function create_tikzpicture_model_compare_logl{S<:AbstractString}(
 
         color_letter = string('A' + i - 1)
 
-        println(io, "\\addplot[thick, mark=*, mark options={thick, color", color_letter, "}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit, error bar style={line width=1.5pt}, error mark options={rotate=90, mark size=4pt, line width=1pt}]")
+        println(io, "\\addplot[thick, mark=*, mark options={color", color_letter, ", mark size=1.5pt}, error bars/error bar style={color", color_letter, "}, error bars/.cd,x dir=both,x explicit, error bar style={line width=1.5pt}, error mark options={rotate=90, mark size=4pt, line width=1pt}]")
         @printf(io, "\tcoordinates{(%.4f,%s)+=(%.3f,0)-=(%.3f,0)};\n", μ, name, hi-μ, μ-lo)
     end
 end
@@ -572,9 +572,9 @@ end
 
 fh = STDOUT
 
-write_to_texthook(TEXFILE, "feature-ranking") do fh
-    create_table_feature_ranking(fh)
-end
+# write_to_texthook(TEXFILE, "feature-ranking") do fh
+#     create_table_feature_ranking(fh)
+# end
 
 println("EXPORTING FOR ", SAVE_FILE_MODIFIER)
 preferred_name_order = ["Static Gaussian", "Linear Gaussian", "Random Forest", "Dynamic Forest", "Mixture Regression", "Bayesian Network", "Linear Bayesian"]
@@ -584,13 +584,13 @@ data = load_model_metrics_data()
 println(keys(data))
 
 
-write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
-    create_tikzpicture_model_compare_smoothness(fh, data, preferred_name_order, SAVE_FILE_MODIFIER)
-end
+# write_to_texthook(TEXFILE, "model-compare-smoothness") do fh
+#     create_tikzpicture_model_compare_smoothness(fh, data, preferred_name_order, SAVE_FILE_MODIFIER)
+# end
 
-write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
-    create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
-end
+# write_to_texthook(TEXFILE, "model-compare-logl-training") do fh
+#     create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
+# end
 write_to_texthook(TEXFILE, "model-compare-logl-testing") do fh
     create_tikzpicture_model_compare_logl(fh, data, preferred_name_order, SAVE_FILE_MODIFIER, false)
 end

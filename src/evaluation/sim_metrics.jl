@@ -42,7 +42,6 @@ export
     calc_trace_metrics!,
     calc_metrics!
 
-const DEFAULT_N_SIMULATIONS_PER_TRACE = 5
 const DEFAULT_TRACE_HISTORY = 2*DEFAULT_FRAME_PER_SEC
 
 #########################################################################################################
@@ -126,7 +125,7 @@ abstract BehaviorTraceMetric <: BehaviorMetric
 
 type RootWeightedSquareError <: BehaviorTraceMetric
     F::AbstractFeature
-    H::Float64 # horizon
+    H::Float64 # horizon [s]
     running_sum::Float64
     n_obs::Int
 
@@ -155,26 +154,93 @@ function extract!(
     frame = seg.frame_start + frame_skip
     @assert(frame ≤ seg.frame_end)
 
-    # pull true value
-    colset = RunLogs.id2colset(runlog_true, carid, frame)
-    v_true = get(metric.F, runlog_true, sn, colset, frame)
-    # @assert !is_feature_na(v_true)  # DO I WANT THIS?
-    if is_feature_na(v_true)
-        v_true = replace_na(metric.F)
+    v_true = NaN
+    v_montecarlo = NaN
+    Δ = NaN
+
+    if symbol(metric.F) == :d_front
+
+        colset = RunLogs.id2colset(runlog_true, carid, seg.frame_start)
+        colset_front_orig = get(runlog_true, colset, seg.frame_start, :colset_front)::UInt
+        if colset_front_orig != COLSET_NULL
+
+            carid_front = RunLogs.colset2id(runlog_true, colset_front_orig, seg.frame_start)
+
+            frame = seg.frame_start + frame_skip
+            colset_front_now = RunLogs.id2colset(runlog_true, carid_front, frame)
+            colset_ego_now = RunLogs.id2colset(runlog_true, carid, frame)
+
+            if colset_front_now != COLSET_NULL
+                dist_true = Features._get_dist_between(runlog_true, sn, colset_ego_now, colset_front_now, frame)
+                if !isnan(dist_true)
+
+                    frame = frame_starts_sim + frame_skip
+                    colset_front_now = RunLogs.id2colset(runlog_sim, carid_front, frame)
+                    colset_ego_now = RunLogs.id2colset(runlog_sim, carid, frame)
+
+                    if colset_front_now != COLSET_NULL
+                        dist_sim = Features._get_dist_between(runlog_sim, sn, colset_ego_now, colset_front_now, frame)
+
+                        if !isnan(dist_sim)
+                            v_true = dist_true
+                            v_montecarlo = dist_sim
+
+                            Δ = v_true - v_montecarlo
+                            metric.running_sum += Δ*Δ
+                            metric.n_obs += 1
+                        end
+                    end
+                end
+            end
+        end
+
+    elseif symbol(metric.F) == :posFt
+
+        colset_orig = RunLogs.id2colset(runlog_true, carid, seg.frame_start)
+        lanetag = get(runlog_true, colset_orig, seg.frame_start, :lanetag)::LaneTag
+
+        colset_now = RunLogs.id2colset(runlog_true, carid, frame)
+        pos_now = get(runlog_true, colset_now, frame, :inertial)::VecSE2
+        extind, lane = project_point_to_lanetag(sn, pos_now.x, pos_now.y, lanetag)
+        curvept = curve_at(lane.curve, extind)
+        s, d = pt_to_frenet_xy( curvept, pos_now.x, pos_now.y)
+        v_true = d
+
+        frame = frame_starts_sim + frame_skip
+        colset_now = RunLogs.id2colset(runlog_sim, carid, frame)
+        pos_now = get(runlog_sim, colset_now, frame, :inertial)::VecSE2
+        extind, lane = project_point_to_lanetag(sn, pos_now.x, pos_now.y, lanetag)
+        curvept = curve_at(lane.curve, extind)
+        s, d = pt_to_frenet_xy( curvept, pos_now.x, pos_now.y)
+        v_montecarlo = d
+
+        Δ = v_true - v_montecarlo
+        metric.running_sum += Δ*Δ
+        metric.n_obs += 1
+    else
+        # pull true value
+        colset = RunLogs.id2colset(runlog_true, carid, frame)
+        v_true = get(metric.F, runlog_true, sn, colset, frame)
+        if is_feature_na(v_true)
+            v_true = replace_na(metric.F)
+        end
+
+        # pull sim value
+        frame = frame_starts_sim + frame_skip
+        colset = RunLogs.id2colset(runlog_sim, carid, frame)
+        v_montecarlo = get(metric.F, runlog_sim, sn, colset, frame)
+        if is_feature_na(v_montecarlo)
+            v_montecarlo = replace_na(metric.F)
+        end
+
+        Δ = v_true - v_montecarlo
+        metric.running_sum += Δ*Δ
+        metric.n_obs += 1
     end
 
-    # pull sim value
-    frame = frame_starts_sim + frame_skip
-    colset = RunLogs.id2colset(runlog_sim, carid, frame)
-    v_montecarlo = get(metric.F, runlog_sim, sn, colset, frame)
-    # @assert !is_feature_na(v_montecarlo)
-    if is_feature_na(v_montecarlo)
-        v_montecarlo = replace_na(metric.F)
-    end
-
-    Δ = v_true - v_montecarlo
-    metric.running_sum += Δ*Δ
-    metric.n_obs += 1
+    # if symbol(metric.F) == :posFt
+    #     @printf("%10s  %5.2f:  %10.6f  %10.6f  %10.6f  %10.6f  %10d\n", string(symbol(metric.F)), metric.H, v_true, v_montecarlo, Δ*Δ, metric.running_sum, metric.n_obs)
+    # end
 
     metric
 end

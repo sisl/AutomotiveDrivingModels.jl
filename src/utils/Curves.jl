@@ -798,11 +798,11 @@ function mod2pi2(X::Float64)
 end
 
 Base.length( curve::Curve ) = length(curve.x)
-function lerp( P0::Array, P1::Array, t::Real )
+function Vec.lerp( P0::Array, P1::Array, t::Real )
 
 	return P0 + (P1 - P0)*t
 end
-function lerp( a::CurvePt, b::CurvePt, t::Real )
+function Vec.lerp( a::CurvePt, b::CurvePt, t::Real )
 	CurvePt(
 			a.s + (b.s - a.s)*t,
 			a.x + (b.x - a.x)*t,
@@ -812,7 +812,7 @@ function lerp( a::CurvePt, b::CurvePt, t::Real )
 			a.kd + (b.kd - a.kd)*t,
 		)
 end
-lerp( a::Real, b::Real, t::Real ) = a + (b-a)*t
+# Vec.lerp( a::Real, b::Real, t::Real ) = a + (b-a)*t
 
 s_length(curve::Curve) = curve.s[end]
 
