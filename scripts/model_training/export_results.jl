@@ -544,7 +544,7 @@ function create_table_feature_ranking{S<:AbstractString}(
     # output the table
     print(io, "\\begin{tabular}{lS", "S"^length(model_names), "}\n")
     print(io, "\\toprule\n")
-    print(io, "Feature & Across Models ")
+    print(io, "Feature & \{Across Models\} ")
     for model_name in model_names
         print(io, " & ", convert_model_name_to_short_name(model_name))
     end
