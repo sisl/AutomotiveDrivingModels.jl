@@ -1,5 +1,7 @@
 # Automotive Driving Models
 
+This is the state of the package as it was before submission to ITSC 2016
+
 A Julia package containing tools for simulating automotive driving models
 
 [![Build Status](https://travis-ci.org/tawheeler/AutomotiveDrivingModels.jl.svg?branch=master)](https://travis-ci.org/tawheeler/AutomotiveDrivingModels.jl)
