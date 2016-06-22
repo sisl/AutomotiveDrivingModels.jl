@@ -1,7 +1,5 @@
 # Curves
 
-# Copyright (c) 2014 Tim wheeler, Robert Bosch Gmbh
-
 # Module for working with curve files
 # Curve files are csv deliniated with the following columns:
 #    entry - the index in the file, starts at 0
