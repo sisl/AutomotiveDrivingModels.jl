@@ -149,8 +149,8 @@ function get_curve_index(ind::CurveIndex, curve::Curve, Δs::Float64)
 
     if Δs ≥ 0.0
 
-        if s + Δs > s_hi && ind_hi < L
-            while s + Δs > s_hi && ind_hi < L
+        if s + Δs ≥ s_hi && ind_hi < L
+            while s + Δs ≥ s_hi && ind_hi < L
                 Δs -= (s_hi - s)
                 s = s_hi
                 ind_lo += 1

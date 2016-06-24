@@ -268,4 +268,37 @@ let
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
     @test res.tag == LaneTag(2,3)
+
+    ###
+
+    roadind_0 = RoadIndex(CurveIndex(1,0), LaneTag(2,1))
+    roadind = move_along(roadind_0, roadway, 0.0)
+    @test roadind == roadind_0
+
+    roadind = move_along(roadind_0, roadway, 1.0)
+    @test roadind == RoadIndex(CurveIndex(2,0), LaneTag(2,1))
+
+    roadind = move_along(roadind_0, roadway, 1.25)
+    @test roadind == RoadIndex(CurveIndex(2,0.25), LaneTag(2,1))
+
+    roadind = move_along(roadind_0, roadway, 3.0)
+    @test roadind == RoadIndex(CurveIndex(3,1.0), LaneTag(2,1))
+
+    roadind = move_along(roadind_0, roadway, 4.0)
+    @test roadind == RoadIndex(CurveIndex(1,0.0), LaneTag(3,1))
+
+    roadind = move_along(roadind_0, roadway, 4.5)
+    @test roadind == RoadIndex(CurveIndex(1,0.5), LaneTag(3,1))
+
+    roadind = move_along(roadind_0, roadway, 3.75)
+    @test roadind == RoadIndex(CurveIndex(0,0.75), LaneTag(3,1))
+
+    roadind = move_along(roadind_0, roadway, -1.0)
+    @test roadind == RoadIndex(CurveIndex(0,0.0), LaneTag(2,1))
+
+    roadind = move_along(roadind_0, roadway, -1.75)
+    @test roadind == RoadIndex(CurveIndex(1,0.25), LaneTag(1,1))
+
+    roadind = move_along(roadind_0, roadway, -0.75)
+    @test roadind == RoadIndex(CurveIndex(0,0.25), LaneTag(2,1))
 end

@@ -34,7 +34,8 @@ export
     has_prev,
     connect!,
     prev,
-    project_to_closest_lane
+    project_to_closest_lane,
+    move_along
 
 
 

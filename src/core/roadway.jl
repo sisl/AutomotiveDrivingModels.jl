@@ -80,8 +80,10 @@ function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
         lane.curve[ind]
     else
         lane_prev = roadway[lane.prev]
-        pt_lo = lane_prev.curve[end]
         pt_hi = lane.curve[1]
+        pt_lo = lane_prev.curve[end]
+        s_gap = abs(pt_hi.pos - pt_lo.pos)
+        pt_lo = CurvePt(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
         lerp( pt_lo, pt_hi, ind.t)
     end
 end
@@ -212,52 +214,64 @@ immutable RoadIndex
     ind::CurveIndex
     tag::LaneTag
 end
+function Base.getindex(roadway::Roadway, roadind::RoadIndex)
+    lane = roadway[roadind.tag]
+    lane[roadind.ind]
+end
 
-# """
-#     move_along(ind::CurveIndex, curve::Curve, Δs::Float64)
-# Return the CurveIndex at ind's s position + Δs
-# """
-# function get_curve_index(ind::CurveIndex, curve::Curve, Δs::Float64)
+"""
+    move_along(roadind::RoadIndex, road::Roadway, Δs::Float64)
+Return the RoadIndex at ind's s position + Δs
+"""
+function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
 
-#     L = length(curve)
-#     ind_lo, ind_hi = ind.i, ind.i+1
+    lane = roadway[roadind.tag]
+    curvept = lane[roadind.ind, roadway]
 
-#     s_lo = curve[ind_lo].s
-#     s_hi = curve[ind_hi].s
-#     s = lerp(s_lo, s_hi, ind.t)
+    if curvept.s + Δs < 0.0
+        if has_prev(lane)
+            lane_prev = roadway[lane.prev]
+            pt_lo = lane_prev.curve[end]
+            pt_hi = lane.curve[1]
+            s_gap = abs(pt_hi.pos - pt_lo.pos)
 
-#     if Δs ≥ 0.0
+            if curvept.s + Δs < -s_gap
+                curveind = CurveIndex(length(lane_prev.curve)-1,1.0)
+                roadind = RoadIndex(curveind, lane_prev.tag)
+                return move_along(roadind, roadway, Δs + curvept.s + s_gap)
+            else # in the gap between lanes
+                t = (s_gap + curvept.s + Δs) / s_gap
+                curveind = CurveIndex(0, t)
+                RoadIndex(curveind, lane.tag)
+            end
 
-#         if s + Δs > s_hi && ind_hi < L
-#             while s + Δs > s_hi && ind_hi < L
-#                 Δs -= (s_hi - s)
-#                 s = s_hi
-#                 ind_lo += 1
-#                 ind_hi += 1
-#                 s_lo = curve[ind_lo].s
-#                 s_hi = curve[ind_hi].s
-#             end
-#         else
-#             Δs = s + Δs - s_lo
-#         end
+        else # no prev lane, return the beginning of this one
+            curveind = CurveIndex(1, 0.0)
+            return RoadIndex(curveind, roadind.tag)
+        end
+    elseif curvept.s + Δs > lane.curve[end].s
+        if has_next(lane)
+            lane_next = roadway[lane.next]
+            pt_lo = lane.curve[end]
+            pt_hi = lane_next.curve[1]
+            s_gap = abs(pt_hi.pos - pt_lo.pos)
 
-#         t = Δs/(s_hi - s_lo)
-#         CurveIndex(ind_lo, t)
-#     else
-#         if s + Δs < s_lo  && ind_lo > 1
-#             while s + Δs < s_lo  && ind_lo > 1
-#                 Δs += (s - s_lo)
-#                 s = s_lo
-#                 ind_lo -= 1
-#                 ind_hi -= 1
-#                 s_lo = curve[ind_lo].s
-#                 s_hi = curve[ind_hi].s
-#             end
-#         else
-#             Δs = s + Δs - s_lo
-#         end
+            if curvept.s + Δs ≥ pt_lo.s + s_gap
+                curveind = CurveIndex(1,0.0)
+                roadind = RoadIndex(curveind, lane_next.tag)
+                return move_along(roadind, roadway, Δs - (lane.curve[end].s + s_gap - curvept.s))
+            else # in the gap between lanes
+                t = (Δs - (lane.curve[end].s - curvept.s)) / s_gap
+                curveind = CurveIndex(0, t)
+                RoadIndex(curveind, lane_next.tag)
+            end
+        else # no next lane, return the end of this lane
+            curveind = CurveIndex(length(lane.curve)-1, 1.0)
+            return RoadIndex(curveind, roadind.tag)
+        end
+    else
+        ind = get_curve_index(roadind.ind, lane.curve, Δs)
+        RoadIndex(ind, roadind.tag)
+    end
 
-#         t = 1.0 - Δs/(s_hi - s_lo)
-#         CurveIndex(ind_lo, t)
-#     end
-# end
+end
