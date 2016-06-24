@@ -4,6 +4,8 @@ immutable CurvePt
     s::Float64  # distance along the curve
     k::Float64  # curvature
     kd::Float64 # derivative of curvature
+
+    CurvePt(pos::VecSE2, s::Float64, k::Float64=NaN, kd::Float64=NaN) = new(pos, s, k, kd)
 end
 
 Vec.lerp(a::CurvePt, b::CurvePt, t::Float64) = CurvePt(lerp(a.pos, b.pos, t), a.s + (b.s - a.s)*t, a.k + (b.k - a.k)*t, a.kd + (b.kd - a.kd)*t)
@@ -12,11 +14,7 @@ Vec.lerp(a::CurvePt, b::CurvePt, t::Float64) = CurvePt(lerp(a.pos, b.pos, t), a.
 
 typealias Curve Vector{CurvePt}
 
-"""
-    get_lerp_time(A::VecE2, B::VecE2, Q::VecE2)
-Get lerp time t∈[0,1] such that lerp(A, B) is as close as possible to Q
-"""
-function get_lerp_time(A::VecE2, B::VecE2, Q::VecE2)
+function get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
 
     a = Q - A
     b = B - A
@@ -28,9 +26,16 @@ function get_lerp_time(A::VecE2, B::VecE2, Q::VecE2)
         t = c.y / b.y
     end
 
-    clamp(t, 0.0, 1.0)
+    t
 end
-get_lerp_time(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time(convert(VecE2, P₀.pos), convert(VecE2, P₁.pos), convert(VecE2, Q))
+get_lerp_time_unclamped(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time_unclamped(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
+
+"""
+    get_lerp_time(A::VecE2, B::VecE2, Q::VecE2)
+Get lerp time t∈[0,1] such that lerp(A, B) is as close as possible to Q
+"""
+get_lerp_time(A::VecE2, B::VecE2, Q::VecE2) = clamp(get_lerp_time_unclamped(A, B, Q), 0.0, 1.0)
+get_lerp_time(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
 
 
 immutable CurveIndex
@@ -109,7 +114,10 @@ function get_curve_index(curve::Curve, s::Float64)
     n = 1
     while true
         if b == a+1
-            return a + -fa/(fb-fa)
+            extind = a + -fa/(fb-fa)
+            ind = floor(Int, extind)
+            t = rem(extind, 1.0)
+            return CurveIndex(ind, t)
         end
 
         c = div(a+b, 2)
@@ -185,6 +193,18 @@ immutable CurveProjection
     ϕ::Float64 # lane-relative heading [rad]
 end
 
+function get_curve_projection(posG::VecSE2, footpoint::VecSE2, ind::CurveIndex)
+    dyaw = _mod2pi2( atan2( posG - footpoint ) - posG.θ )
+
+    on_left_side = abs(_mod2pi2(dyaw - pi/2)) < abs(_mod2pi2(dyaw - 3pi/2))
+    d = hypot( footpoint - posG )
+    d *= on_left_side ? 1.0 : -1.0 # left side is positive, right side is negative
+
+    ϕ = _mod2pi2(posG.θ-footpoint.θ)
+
+    CurveProjection(ind, d, ϕ)
+end
+
 """
     Vec.proj(posG::VecSE2, curve::Curve)
 Return a CurveProjection obtained by projecting posG onto the curve
@@ -229,13 +249,5 @@ function Vec.proj(posG::VecSE2, curve::Curve)
         curveind = CurveIndex(ind-1, t)
     end
 
-    # 3 - compute frenet value
-    dyaw = _mod2pi2( atan2( posG - footpoint ) - posG.θ )
-
-    on_left_side = abs(_mod2pi2(dyaw - pi/2)) < abs(_mod2pi2(dyaw - 3pi/2))
-    d *= on_left_side ? 1.0 : -1.0 # left side is positive, right side is negative
-
-    ϕ = _mod2pi2(posG.θ-footpoint.θ)
-
-    CurveProjection(curveind, d, ϕ)
+    get_curve_projection(posG, footpoint, curveind)
 end

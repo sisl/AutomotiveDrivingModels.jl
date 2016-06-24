@@ -5,4 +5,4 @@ using Base.Test
 
 using AutomotiveDrivingModels
 
-# include("utils/test_trajdata.jl")
+include("core/test_core.jl")
