@@ -75,6 +75,16 @@ type Roadway
     Roadway(segments::Vector{RoadSegment}=RoadSegment[]) = new(segments)
 end
 
+function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
+    if ind.i != 0
+        lane.curve[ind]
+    else
+        lane_prev = roadway[lane.prev]
+        pt_lo = lane_prev.curve[end]
+        pt_hi = lane.curve[1]
+        lerp( pt_lo, pt_hi, ind.t)
+    end
+end
 function Base.getindex(roadway::Roadway, segid::Int)
     for seg in roadway.segments
         if seg.id == segid
@@ -133,7 +143,7 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         pt_hi = lane_next.curve[1]
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
-        if t > 1.0
+        if t ≥ 1.0
             return proj(posG, lane_next, roadway)
         end
 
@@ -148,37 +158,53 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
     RoadProjection(curveproj, lane.tag)
 end
 
-# function project_to_closest_lane(posG::VecSE2, seg::RoadSegment)
+"""
+    proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
+Return the RoadProjection for projecting posG onto the segment.
+Tries all of the lanes and gets the closest one
+"""
+function Vec.proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
 
-#     best_dist2 = Inf
-#     best_lanetag = NULL_LANETAG
-#     best_proj = CurveProjection(CurveIndex(-1,-1), NaN, NaN)
+    best_dist2 = Inf
+    best_proj = RoadProjection(CurveProjection(CurveIndex(-1,-1), NaN, NaN), NULL_LANETAG)
 
-#     for lane in seg.lanes
-#         curveproj = proj(posG, lane.curve)
-#         dist2 = abs2(lane.curve[curveproj.ind])
-#         if dist2 < best_dist2
-#             best_dist2 = dist2
-#             best_lanetag = lane.tag
-#             best_proj = curveproj
-#         end
-#     end
+    for lane in seg.lanes
+        roadproj = proj(posG, lane, roadway)
+        footpoint = roadway[roadproj.tag][roadproj.curveproj.ind, roadway]
+        dist2 = abs2(posG - footpoint.pos)
+        if dist2 < best_dist2
+            best_dist2 = dist2
+            best_proj = roadproj
+        end
+    end
 
-#     RoadProjection(best_curveproj, best_dist2, best_lanetag)
-# end
-# function project_to_closest_lane(posG::VecSE2, roadway::Roadway)
+    best_proj
+end
 
-#     best_proj = RoadProjection(CurveProjection(CurveIndex(-1,-1), NaN, NaN), Inf, NULL_LANETAG)
+"""
+    proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
+Return the RoadProjection for projecting posG onto the roadway.
+Tries all of the lanes and gets the closest one
+"""
+function Vec.proj(posG::VecSE2, roadway::Roadway)
 
-#     for seg in roadway.segments
-#         proj = project_to_closest_lane(posG, seg)
-#         if proj.dist2 < best_proj.dist2
-#             best_proj = proj
-#         end
-#     end
+    best_dist2 = Inf
+    best_proj = RoadProjection(CurveProjection(CurveIndex(-1,-1), NaN, NaN), NULL_LANETAG)
 
-#     proj
-# end
+    for seg in roadway.segments
+        for lane in seg.lanes
+            roadproj = proj(posG, lane, roadway)
+            footpoint = roadway[roadproj.tag][roadproj.curveproj.ind, roadway]
+            dist2 = abs2(posG - footpoint.pos)
+            if dist2 < best_dist2
+                best_dist2 = dist2
+                best_proj = roadproj
+            end
+        end
+    end
+
+    best_proj
+end
 
 ############################################
 

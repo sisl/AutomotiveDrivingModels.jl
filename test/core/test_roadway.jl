@@ -6,11 +6,11 @@ function get_test_roadway()
             [CurvePt(VecSE2(-2.0,0.0,0.0), 0.0),
              CurvePt(VecSE2(-1.0,0.0,0.0), 1.0)]),
          Lane(LaneTag(1,2),
-            [CurvePt(VecSE2(-2.0,0.0,0.0), 0.0),
-             CurvePt(VecSE2(-1.0,0.0,0.0), 1.0)]),
+            [CurvePt(VecSE2(-2.0,1.0,0.0), 0.0),
+             CurvePt(VecSE2(-1.0,1.0,0.0), 1.0)]),
          Lane(LaneTag(1,3),
-            [CurvePt(VecSE2(-2.0,0.0,0.0), 0.0),
-             CurvePt(VecSE2(-1.0,0.0,0.0), 1.0)])
+            [CurvePt(VecSE2(-2.0,2.0,0.0), 0.0),
+             CurvePt(VecSE2(-1.0,2.0,0.0), 1.0)])
         ])
 
     seg2 = RoadSegment(2,
@@ -20,15 +20,15 @@ function get_test_roadway()
              CurvePt(VecSE2(2.0,0.0,0.0), 2.0),
              CurvePt(VecSE2(3.0,0.0,0.0), 3.0)]),
          Lane(LaneTag(2,2),
-            [CurvePt(VecSE2(0.0,0.0,0.0), 0.0),
-             CurvePt(VecSE2(1.0,0.0,0.0), 1.0),
-             CurvePt(VecSE2(2.0,0.0,0.0), 2.0),
-             CurvePt(VecSE2(3.0,0.0,0.0), 3.0)]),
+            [CurvePt(VecSE2(0.0,1.0,0.0), 0.0),
+             CurvePt(VecSE2(1.0,1.0,0.0), 1.0),
+             CurvePt(VecSE2(2.0,1.0,0.0), 2.0),
+             CurvePt(VecSE2(3.0,1.0,0.0), 3.0)]),
          Lane(LaneTag(2,3),
-            [CurvePt(VecSE2(0.0,0.0,0.0), 0.0),
-             CurvePt(VecSE2(1.0,0.0,0.0), 1.0),
-             CurvePt(VecSE2(2.0,0.0,0.0), 2.0),
-             CurvePt(VecSE2(3.0,0.0,0.0), 3.0)])
+            [CurvePt(VecSE2(0.0,2.0,0.0), 0.0),
+             CurvePt(VecSE2(1.0,2.0,0.0), 1.0),
+             CurvePt(VecSE2(2.0,2.0,0.0), 2.0),
+             CurvePt(VecSE2(3.0,2.0,0.0), 3.0)])
          ])
 
     seg3 = RoadSegment(3,
@@ -36,11 +36,11 @@ function get_test_roadway()
             [CurvePt(VecSE2(4.0,0.0,0.0), 0.0),
              CurvePt(VecSE2(5.0,0.0,0.0), 1.0)]),
          Lane(LaneTag(3,2),
-            [CurvePt(VecSE2(4.0,0.0,0.0), 0.0),
-             CurvePt(VecSE2(5.0,0.0,0.0), 1.0)]),
+            [CurvePt(VecSE2(4.0,1.0,0.0), 0.0),
+             CurvePt(VecSE2(5.0,1.0,0.0), 1.0)]),
          Lane(LaneTag(3,3),
-            [CurvePt(VecSE2(4.0,0.0,0.0), 0.0),
-             CurvePt(VecSE2(5.0,0.0,0.0), 1.0)])
+            [CurvePt(VecSE2(4.0,2.0,0.0), 0.0),
+             CurvePt(VecSE2(5.0,2.0,0.0), 1.0)])
         ])
 
     for i in 1:3
@@ -107,19 +107,165 @@ let
     @test isapprox(res.curveproj.ϕ, 0.0)
     @test res.tag == lane.prev
 
-    # @test res.ind == CurveIndex(1, 0.0)
-    # @test isapprox(res.t, 0.0)
-    # @test isapprox(res.ϕ, 0.0)
-    # res = proj(VecSE2(0.25,0.5,0.1), lane)
-    # @test res.ind == CurveIndex(1, 0.25)
-    # @test isapprox(res.t, 0.5)
-    # @test isapprox(res.ϕ, 0.1)
-    # res = proj(VecSE2(0.25,-0.5,-0.1), lane)
-    # @test res.ind == CurveIndex(1, 0.25)
-    # @test isapprox(res.t, -0.5)
-    # @test isapprox(res.ϕ, -0.1)
-    # res = proj(VecSE2(1.5,0.5,-0.1), lane)
-    # @test res.ind == CurveIndex(2, 0.25)
-    # @test isapprox(res.t,  0.5)
-    # @test isapprox(res.ϕ, -0.1)
+    res = proj(VecSE2(4.25,0.2,0.1), lane, roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(3.25,0.2,0.1), lane, roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(4.25,0.2,0.1), roadway[lane.prev], roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(-0.75,0.0,0.0), roadway[lane.next], roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    ####
+
+    seg = roadway[2]
+
+    res = proj(VecSE2(1.0,0.0,0.0), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(1.5,0.25,0.1), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.5)
+    @test isapprox(res.curveproj.t, 0.25)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(0.0,0.0,0.0), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(-0.75,0.0,0.0), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(-1.75,0.0,0.0), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.prev
+
+    res = proj(VecSE2(4.25,0.2,0.1), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(3.25,0.2,0.1), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(4.25,0.2,0.1), roadway[1], roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(-0.75,0.0,0.0), roadway[3], roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(1.0,1.0,0.0), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == LaneTag(2,2)
+
+    res = proj(VecSE2(1.0,2.0,0.0), seg, roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == LaneTag(2,3)
+
+    ###
+
+    res = proj(VecSE2(1.0,0.0,0.0), roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(1.5,0.25,0.1), roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.5)
+    @test isapprox(res.curveproj.t, 0.25)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(0.0,0.0,0.0), roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(-0.75,0.0,0.0), roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(-1.75,0.0,0.0), roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.prev
+
+    res = proj(VecSE2(4.25,0.2,0.1), roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(3.25,0.2,0.1), roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(4.25,0.2,0.1), roadway[1], roadway)
+    @test res.curveproj.ind == CurveIndex(1, 0.25)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.next
+
+    res = proj(VecSE2(-0.75,0.0,0.0), roadway[3], roadway)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(1.0,1.0,0.0), roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == LaneTag(2,2)
+
+    res = proj(VecSE2(1.0,2.0,0.0), roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == LaneTag(2,3)
 end
