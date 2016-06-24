@@ -301,4 +301,20 @@ let
 
     roadind = move_along(roadind_0, roadway, -0.75)
     @test roadind == RoadIndex(CurveIndex(0,0.25), LaneTag(2,1))
+
+    roadind = move_along(roadind_0, roadway, -Inf)
+    @test roadind == RoadIndex(CurveIndex(1,0.0), LaneTag(1,1))
+
+    roadind = move_along(roadind_0, roadway, Inf)
+    @test roadind == RoadIndex(CurveIndex(1,1.0), LaneTag(3,1))
+
+    ####
+
+    @test n_lanes_right(roadway[LaneTag(2,1)], roadway) == 0
+    @test n_lanes_right(roadway[LaneTag(2,2)], roadway) == 1
+    @test n_lanes_right(roadway[LaneTag(2,3)], roadway) == 2
+    @test n_lanes_left(roadway[LaneTag(2,1)], roadway) == 2
+    @test n_lanes_left(roadway[LaneTag(2,2)], roadway) == 1
+    @test n_lanes_left(roadway[LaneTag(2,3)], roadway) == 0
+
 end

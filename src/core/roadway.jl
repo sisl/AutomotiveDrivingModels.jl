@@ -214,6 +214,8 @@ immutable RoadIndex
     ind::CurveIndex
     tag::LaneTag
 end
+const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
+
 function Base.getindex(roadway::Roadway, roadind::RoadIndex)
     lane = roadway[roadind.tag]
     lane[roadind.ind]
@@ -273,5 +275,10 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
         ind = get_curve_index(roadind.ind, lane.curve, Δs)
         RoadIndex(ind, roadind.tag)
     end
+end
 
+n_lanes_right(lane::Lane, roadway::Roadway) = lane.tag.lane - 1
+function n_lanes_left(lane::Lane, roadway::Roadway)
+    seg = roadway[lane.tag.segment]
+    length(seg.lanes) - lane.tag.lane
 end
