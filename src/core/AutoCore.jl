@@ -47,13 +47,25 @@ export
     VehicleState,
     Vehicle,
     AgentClass,
+    VehicleDef,
 
+    NULL_VEHICLEDEF,
     NULL_FRENET,
 
     get_vel_s,
     get_vel_t,
     get_footpoint,
-    get_center
+
+    # trajdata
+    TrajdataFrame,
+    TrajdataState,
+    Trajdata,
+
+    nframes,
+    frame_inbounds,
+    carsinframe,
+    nth_carid,
+    iscarinframe
 
 
 
@@ -61,5 +73,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "utils.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "curves.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "roadway.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "vehicles.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "trajdata.jl"))
 
 end # module

@@ -218,7 +218,7 @@ const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
 
 function Base.getindex(roadway::Roadway, roadind::RoadIndex)
     lane = roadway[roadind.tag]
-    lane[roadind.ind]
+    lane[roadind.ind, roadway]
 end
 
 """
