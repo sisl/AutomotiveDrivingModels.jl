@@ -165,20 +165,17 @@ function get_curve_index(ind::CurveIndex, curve::Curve, Δs::Float64)
         t = Δs/(s_hi - s_lo)
         CurveIndex(ind_lo, t)
     else
-        if s + Δs < s_lo  && ind_lo > 1
-            while s + Δs < s_lo  && ind_lo > 1
-                Δs += (s - s_lo)
-                s = s_lo
-                ind_lo -= 1
-                ind_hi -= 1
-                s_lo = curve[ind_lo].s
-                s_hi = curve[ind_hi].s
-            end
-        else
-            Δs = s + Δs - s_lo
+        while s + Δs < s_lo  && ind_lo > 1
+            Δs += (s - s_lo)
+            s = s_lo
+            ind_lo -= 1
+            ind_hi -= 1
+            s_lo = curve[ind_lo].s
+            s_hi = curve[ind_hi].s
         end
 
-        t = 1.0 - Δs/(s_hi - s_lo)
+        Δs = s + Δs - s_lo
+        t = Δs/(s_hi - s_lo)
         CurveIndex(ind_lo, t)
     end
 end
@@ -192,17 +189,9 @@ immutable CurveProjection
     t::Float64 # lane offset
     ϕ::Float64 # lane-relative heading [rad]
 end
-
 function get_curve_projection(posG::VecSE2, footpoint::VecSE2, ind::CurveIndex)
-    dyaw = _mod2pi2( atan2( posG - footpoint ) - posG.θ )
-
-    on_left_side = abs(_mod2pi2(dyaw - pi/2)) < abs(_mod2pi2(dyaw - 3pi/2))
-    d = hypot( footpoint - posG )
-    d *= on_left_side ? 1.0 : -1.0 # left side is positive, right side is negative
-
-    ϕ = _mod2pi2(posG.θ-footpoint.θ)
-
-    CurveProjection(ind, d, ϕ)
+    F = inertial2body(posG, footpoint)
+    CurveProjection(ind, F.y, F.θ)
 end
 
 """
