@@ -65,14 +65,19 @@ export
     frame_inbounds,
     carsinframe,
     nth_carid,
-    iscarinframe
+    iscarinframe,
+    get_vehiclestate,
+    get_vehicledef,
+    get_vehicle!,
+    get_vehicle
 
 
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "utils.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "curves.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "roadway.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "roadways.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "vehicles.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "trajdata.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "trajdatas.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "scenes.jl"))
 
 end # module

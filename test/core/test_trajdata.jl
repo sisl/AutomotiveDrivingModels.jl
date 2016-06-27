@@ -32,4 +32,12 @@ let
     @test iscarinframe(trajdata, 2, 1)
     @test iscarinframe(trajdata, 2, 2)
     @test !iscarinframe(trajdata, 3, 1)
+
+    veh = get_vehicle(trajdata, 1, 1)
+    @test veh.state == VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0)
+    @test_throws ErrorException get_vehicle(trajdata, 10, 1)
+    @test_throws BoundsError get_vehicle(trajdata, 1, 10)
+
+    get_vehicle!(veh, trajdata, 1, 2)
+    @test veh.state == VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0)
 end
