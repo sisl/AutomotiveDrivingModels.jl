@@ -3,17 +3,17 @@ type Scene
     vehicles::Vector{Vehicle} # this is a pre-allocated array that is at least as large as the maximum number of vehicles in a Trajdata frame
     n_vehicles::Int
 
-    function Scene(n_vehicles::Int=500)
+    function Scene(n_vehicles::Int=500; trajdataid::Int=-1)
         vehicles = Array(Vehicle, n_vehicles)
         for i in 1 : length(vehicles)
             vehicles[i] = Vehicle()
         end
-        new(-1, vehicles, 0)
+        new(trajdataid, vehicles, 0)
     end
     function Scene(
-        trajdataid::Int,
         vehicles::Vector{Vehicle},
-        n_vehicles::Int=length(vehicles),
+        n_vehicles::Int=length(vehicles);
+        trajdataid::Int=-1,
         )
 
         new(trajdataid, vehicles, n_vehicles)
@@ -74,7 +74,6 @@ end
 function get_index_of_first_vehicle_with_id(scene::Scene, id::Int)
     retval = 0
     for i in 1 : scene.n_vehicles
-        println(scene.vehicles[i].def.id)
         if scene.vehicles[i].def.id == id
             retval = i
             break
@@ -82,3 +81,23 @@ function get_index_of_first_vehicle_with_id(scene::Scene, id::Int)
     end
     retval
 end
+iscarinframe(scene::Scene, id::Int) = get_index_of_first_vehicle_with_id(scene, id) != 0
+
+function get_vehiclestate(scene::Scene, id::Int)
+    for i in 1 : scene.n_vehicles
+        if scene.vehicles[i].def.id == id
+            return scene.vehicles[i].state
+        end
+    end
+    error("get_vehiclestate: vehicle with id $id not found")
+end
+function get_vehicle!(veh::Vehicle, scene::Scene, id::Int)
+    for i in 1 : scene.n_vehicles
+        if scene.vehicles[i].def.id == id
+            copy!(veh, scene.vehicles[i])
+            return veh
+        end
+    end
+    error("get_vehicle!: vehicle with id $id not found")
+end
+get_vehicle(scene::Scene, id::Int) = get_vehicle!(Vehicle(), scene, id)

@@ -73,8 +73,13 @@ export
 
     # scene
     Scene,
+    SceneRecord,
 
-    get_index_of_first_vehicle_with_id
+    get_index_of_first_vehicle_with_id,
+    record_length,
+    get_scene,
+    push_back_records!,
+    update!
 
 
 
@@ -84,5 +89,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "roadways.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "vehicles.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "trajdatas.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "scenes.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "scene_records.jl"))
 
 end # module
