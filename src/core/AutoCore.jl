@@ -69,7 +69,12 @@ export
     get_vehiclestate,
     get_vehicledef,
     get_vehicle!,
-    get_vehicle
+    get_vehicle,
+
+    # scene
+    Scene,
+
+    get_index_of_first_vehicle_with_id
 
 
 

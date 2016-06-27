@@ -64,6 +64,11 @@ type Vehicle
         new(state,def)
     end
 end
+function Base.copy!(veh1::Vehicle, veh2::Vehicle)
+    veh1.state = veh2.state
+    veh1.def = veh2.def
+    veh1
+end
 
 get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane

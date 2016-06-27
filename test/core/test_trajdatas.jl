@@ -1,4 +1,4 @@
-let
+function get_test_trajdata()
     roadway = get_test_roadway()
     trajdata = Trajdata(roadway, 1)
 
@@ -12,6 +12,14 @@ let
 
     push!(trajdata.frames, TrajdataFrame(1,2,0.0))
     push!(trajdata.frames, TrajdataFrame(3,4,0.1))
+
+    trajdata
+end
+
+let
+
+    trajdata = get_test_trajdata()
+    roadway = trajdata.roadway
 
     @test nframes(trajdata) == 2
     @test !frame_inbounds(trajdata, 0)
