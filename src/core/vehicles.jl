@@ -20,7 +20,6 @@ function Base.isapprox(a::Frenet, b::Frenet;
     )
 
     a.roadind.tag == b.roadind.tag &&
-    a.roadind.ind.i == b.roadind.ind.i &&
     isapprox(a.roadind.ind.t, b.roadind.ind.t, atol=atol, rtol=rtol) &&
     isapprox(a.s, b.s, atol=atol, rtol=rtol) &&
     isapprox(a.t, b.t, atol=atol, rtol=rtol) &&

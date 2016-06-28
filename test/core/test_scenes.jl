@@ -29,6 +29,9 @@ let
     @test length(scene2) == 1
     @test scene2[1].state == get_vehiclestate(trajdata, 2, 1)
     @test scene2[1].def == get_vehicledef(trajdata, 2)
+    scene2[1] = deepcopy(scene[1])
+    @test scene2[1].state == get_vehiclestate(trajdata, 1, 1)
+    @test scene2[1].def == get_vehicledef(trajdata, 1)
 
     @test get_index_of_first_vehicle_with_id(scene, 1) == 1
     @test get_index_of_first_vehicle_with_id(scene, 2) == 2

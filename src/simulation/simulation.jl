@@ -2,11 +2,11 @@ export
         get_actions!,
         tick!
 
-function get_actions!{A<:DriveAction}(
+function get_actions!{A<:DriveAction, D<:DriverModel}(
     actions::Vector{A},
     scene::Scene,
     roadway::Roadway,
-    models::Dict{Int, DriverModel}, # id → model
+    models::Dict{Int, D}, # id → model
     )
 
 
@@ -22,40 +22,43 @@ function get_actions!{A<:DriveAction}(
     actions
 end
 
-function tick!(
+function tick!{A<:DriveAction, D<:DriverModel}(
     scene::Scene,
     roadway::Roadway,
-    models::Dict{Int, DriverModel}, # id → model
-    frame::Int,
-    actions::Vector{DriveAction},
+    actions::Vector{A},
+    models::Dict{Int, D}, # id → model
     )
 
-    roadway = get_roadway(scene)
-
-    j = 0
-    for veh in scene
-        if haskey(models, veh.id)
-            veh.state = propagate(veh, actions[j+=1], roadway)
-        else
-            if iscarinframe(trajdata, veh.id, frame)
-                veh.state = get_vehiclestate(trajdata, veh.id, frame)
-            else
-                veh.state = VehicleState(VecSE2(NaN,NaN,NaN), NaN) # car disappears
-            end
-        end
+    for (veh, action) in zip(scene, actions)
+        model = models[veh.def.id]
+        context = action_context(model)
+        veh.state = propagate(veh, action, context, roadway)
     end
 
     scene
 end
-function tick!(
+function tick!{A<:DriveAction, C<:ActionContext}(
     scene::Scene,
-    actions::Vector{DriveAction},
+    roadway::Roadway,
+    actions::Vector{A},
+    contexts::Vector{C}
     )
 
-    roadway = get_roadway(scene)
+    for (veh, action, context) in zip(scene, actions, contexts)
+        veh.state = propagate(veh, action, context, roadway)
+    end
 
-    for (veh_index, veh) in enumerate(scene)
-        veh.state = propagate(veh, actions[veh_index], roadway)
+    scene
+end
+function tick!{A<:DriveAction}(
+    scene::Scene,
+    roadway::Roadway,
+    actions::Vector{A},
+    context::ActionContext,
+    )
+
+    for (veh, action) in zip(scene, actions)
+        veh.state = propagate(veh, action, context, roadway)
     end
 
     scene
