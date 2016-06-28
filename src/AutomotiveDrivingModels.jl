@@ -16,5 +16,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "driver_models.j
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "simulation.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "static_gaussian_drivers.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "prerecorded_drivers.jl"))
 
 end # module
