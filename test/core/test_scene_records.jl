@@ -32,7 +32,7 @@ let
     @test get_index_of_first_vehicle_with_id(rec, 2, 0) == 2
     @test get_index_of_first_vehicle_with_id(rec, 5, 0) == 0
 
-    scene2 = get!(Scene(), rec, 0)
+    scene2 = get!(Scene(), rec)
     @test scene2[1].state == get_vehiclestate(trajdata, 1, 2)
     @test scene2[1].def == get_vehicledef(trajdata, 1)
     @test scene2[2].state == get_vehiclestate(trajdata, 2, 2)
@@ -46,4 +46,10 @@ let
 
     empty!(rec)
     @test length(rec) == 0
+
+    test_veh_state = VehicleState(VecSE2(7.0,7.0,2.0), trajdata.roadway, 10.0)
+    test_veh_def = VehicleDef(999, AgentClass.CAR, 5.0, 3.0)
+    test_veh = Vehicle(test_veh_state, test_veh_def)
+    rec[1,-1] = test_veh
+    @test get_vehiclestate(rec,999,-1) == test_veh_state
 end

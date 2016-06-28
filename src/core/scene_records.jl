@@ -31,7 +31,7 @@ function Base.setindex!(rec::SceneRecord, veh::Vehicle, vehicle_index::Int, past
 
     rec
 end
-Base.setindex!(rec::SceneRecord, veh::Vehicle, i::Int) = Base.setindex!(rec, veh, i, 0)
+Base.setindex!(rec::SceneRecord, veh::Vehicle, vehicle_index::Int) = Base.setindex!(rec, veh, vehicle_index, 0)
 
 function get_vehiclestate(rec::SceneRecord, id::Int, pastframe::Int=0)
     scene = get_scene(rec, pastframe)
