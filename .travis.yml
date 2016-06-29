@@ -9,6 +9,6 @@ notifications:
   email: false
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.clone("https://github.com/tawheeler/Vec.jl.git"); Pkg.test("AutomotiveDrivingModels"; coverage=true)'
+  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.clone("https://github.com/tawheeler/Vec.jl.git"); Pkg.clone("https://github.com/tawheeler/RoadNetworks.jl.git"); Pkg.test("AutomotiveDrivingModels"; coverage=true)'
 after_success:
   - julia -e 'cd(Pkg.dir("AutomotiveDrivingModels")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
