@@ -1,34 +1,11 @@
-export VehicleBehaviorPerfect
-
-# Vehicle does exactly what is in the pdset
-
-type VehicleBehaviorPerfect <: AbstractVehicleBehavior
+type PrerecordedDriver <: DriverModel{NextState}
+    trajdata::Trajdata # log we pull from
 end
 
-
-function calc_action_loglikelihood(
-    behavior::VehicleBehaviorPerfect,
-    features::DataFrame,
-    frameind::Integer,
-    )
-
-    action_lat_true = features[frameind, symbol(FUTUREDESIREDANGLE_250MS)]::Float64
-    action_lon_true = features[frameind, symbol(FUTUREACCELERATION_250MS)]::Float64
-
-    if action_lat == action_lat_true &&
-       action_lon == action_lon_true
-
-       return log(1.0)
-    end
-
-    -Inf
+get_name(::StaticGaussianDriver) = "StaticGaussian"
+function Base.rand{A}(model::StaticGaussianDriver{A})
+    a = rand(model.P)
+    convert(A, a)
 end
-
-function train(::Type{VehicleBehaviorPerfect}, trainingframes::DataFrame; args::Dict=Dict{Symbol,Any}())
-
-    for (k,v) in args
-        warn("Train VehicleBehaviorPerfect: ignoring $k")
-    end
-
-    VehicleBehaviorPerfect()
-end
+Distributions.pdf{A}(model::StaticGaussianDriver{A}, a::A) = pdf(model.P, convert(Vector{Float64}, a))
+Distributions.logpdf{A}(model::StaticGaussianDriver{A}, a::A) = logpdf(model.P, convert(Vector{Float64}, a))
