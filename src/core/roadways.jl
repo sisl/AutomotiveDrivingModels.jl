@@ -282,3 +282,8 @@ function n_lanes_left(lane::Lane, roadway::Roadway)
     seg = roadway[lane.tag.segment]
     length(seg.lanes) - lane.tag.lane
 end
+
+############################################
+
+function rndf2roadway(rndf::RNDF)
+end

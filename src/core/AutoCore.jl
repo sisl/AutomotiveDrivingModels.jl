@@ -5,6 +5,7 @@ Defines the core Automotive Types
 module AutoCore
 
 using Vec
+using RoadNetworks
 
 export
 
@@ -31,6 +32,8 @@ export
     NULL_LANETAG,
     NULL_ROADINDEX,
 
+    DEFAULT_LANE_WIDTH,
+
     has_next,
     has_prev,
     connect!,
@@ -41,6 +44,7 @@ export
     n_lanes_right,
     get_neighbor_lanetag_left,
     get_neighbor_lanetag_right,
+    rndf2roadway,
 
     # vehicles
     Frenet,
