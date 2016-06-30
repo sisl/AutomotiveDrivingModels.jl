@@ -9,6 +9,14 @@ const NULL_LANETAG = LaneTag(0,0)
 
 #######################################
 
+immutable RoadIndex
+    ind::CurveIndex
+    tag::LaneTag
+end
+const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
+
+#######################################
+
 immutable LaneBoundary
     style::Symbol # ∈ :solid, :broken, :double
     color::Symbol # ∈ :yellow, white
@@ -25,8 +33,8 @@ type Lane
     width          :: Float64 # [m]
     boundary_left  :: LaneBoundary
     boundary_right :: LaneBoundary
-    prev           :: LaneTag
-    next           :: LaneTag
+    prev           :: RoadIndex
+    next           :: RoadIndex
 
     function Lane(
         tag::LaneTag,
@@ -34,8 +42,8 @@ type Lane
         width::Float64 = DEFAULT_LANE_WIDTH,
         boundary_left::LaneBoundary = NULL_BOUNDARY,
         boundary_right::LaneBoundary = NULL_BOUNDARY,
-        prev::LaneTag = NULL_LANETAG,
-        next::LaneTag = NULL_LANETAG,
+        prev::RoadIndex = NULL_ROADINDEX,
+        next::RoadIndex = NULL_ROADINDEX,
         )
 
         retval = new()
@@ -50,12 +58,12 @@ type Lane
     end
 end
 
-has_next(lane::Lane) = lane.next != NULL_LANETAG
-has_prev(lane::Lane) = lane.prev != NULL_LANETAG
+has_next(lane::Lane) = lane.next != NULL_ROADINDEX
+has_prev(lane::Lane) = lane.prev != NULL_ROADINDEX
 
 function connect!(prev::Lane, next::Lane)
-    prev.next = next.tag
-    next.prev = prev.tag
+    prev.next = RoadIndex(CurveIndex(1,0.0), next.tag)
+    next.prev = RoadIndex(CurveIndex(length(prev.curve)-1,1.0), prev.tag)
     (prev, next)
 end
 
@@ -80,9 +88,8 @@ function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
     if ind.i != 0
         lane.curve[ind]
     else
-        lane_prev = roadway[lane.prev]
         pt_hi = lane.curve[1]
-        pt_lo = lane_prev.curve[end]
+        pt_lo = prev_lane_point(lane, roadway)
         s_gap = abs(pt_hi.pos - pt_lo.pos)
         pt_lo = CurvePt(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
         lerp( pt_lo, pt_hi, ind.t)
@@ -101,6 +108,11 @@ function Base.getindex(roadway::Roadway, tag::LaneTag)
     seg.lanes[tag.lane]
 end
 
+next_lane(lane::Lane, roadway::Roadway) = roadway[lane.next.tag]
+prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.prev.tag]
+next_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.next]
+prev_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.prev]
+
 function has_segment(roadway::Roadway, segid::Int)
     for seg in roadway.segments
         if seg.id == segid
@@ -117,9 +129,6 @@ function has_lanetag(roadway::Roadway, tag::LaneTag)
     1 ≤ tag.lane ≤ length(seg.lanes)
 end
 
-Base.next(roadway::Roadway, lane::Lane) = roadway[lane.next]
-     prev(roadway::Roadway, lane::Lane) = roadway[lane.prev]
-
 immutable RoadProjection
     curveproj::CurveProjection
     tag::LaneTag
@@ -135,13 +144,12 @@ curve downstream of that point.
 function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
     curveproj = proj(posG, lane.curve)
     if curveproj.ind == CurveIndex(1,0.0) && has_prev(lane)
-        lane_prev = roadway[lane.prev]
-        pt_lo = lane_prev.curve[end]
+        pt_lo = prev_lane_point(lane, roadway)
         pt_hi = lane.curve[1]
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
         if t < 0.0
-            return proj(posG, lane_prev, roadway)
+            return proj(posG, prev_lane(lane, roadway), roadway)
         end
 
         @assert(0.0 ≤ t ≤ 1.0)
@@ -157,20 +165,19 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         curveproj = get_curve_projection(posG, footpoint, ind)
 
     elseif curveproj.ind == CurveIndex(length(lane.curve)-1,1.0) && has_next(lane)
-        lane_next = roadway[lane.next]
         pt_lo = lane.curve[end]
-        pt_hi = lane_next.curve[1]
+        pt_hi = next_lane_point(lane, roadway)
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
         if t ≥ 1.0
-            return proj(posG, lane_next, roadway)
+            return proj(posG, next_lane(lane, roadway), roadway)
         end
 
         @assert(0.0 ≤ t ≤ 1.0)
 
         footpoint = lerp( pt_lo.pos, pt_hi.pos, t)
         ind = CurveIndex(0.0, t)
-        lane = lane_next
+        lane = next_lane(lane, roadway)
         curveproj = get_curve_projection(posG, footpoint, ind)
     end
 
@@ -227,11 +234,7 @@ end
 
 ############################################
 
-immutable RoadIndex
-    ind::CurveIndex
-    tag::LaneTag
-end
-const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
+RoadIndex(roadproj::RoadProjection) = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
 
 function Base.getindex(roadway::Roadway, roadind::RoadIndex)
     lane = roadway[roadind.tag]
@@ -249,12 +252,12 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
 
     if curvept.s + Δs < 0.0
         if has_prev(lane)
-            lane_prev = roadway[lane.prev]
-            pt_lo = lane_prev.curve[end]
+            pt_lo = prev_lane_point(lane, roadway)
             pt_hi = lane.curve[1]
             s_gap = abs(pt_hi.pos - pt_lo.pos)
 
             if curvept.s + Δs < -s_gap
+                lane_prev = prev_lane(lane, roadway)
                 curveind = CurveIndex(length(lane_prev.curve)-1,1.0)
                 roadind = RoadIndex(curveind, lane_prev.tag)
                 return move_along(roadind, roadway, Δs + curvept.s + s_gap)
@@ -270,19 +273,18 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
         end
     elseif curvept.s + Δs > lane.curve[end].s
         if has_next(lane)
-            lane_next = roadway[lane.next]
             pt_lo = lane.curve[end]
-            pt_hi = lane_next.curve[1]
+            pt_hi = next_lane_point(lane, roadway)
             s_gap = abs(pt_hi.pos - pt_lo.pos)
 
             if curvept.s + Δs ≥ pt_lo.s + s_gap
                 curveind = CurveIndex(1,0.0)
-                roadind = RoadIndex(curveind, lane_next.tag)
+                roadind = RoadIndex(curveind, lane.next.tag)
                 return move_along(roadind, roadway, Δs - (lane.curve[end].s + s_gap - curvept.s))
             else # in the gap between lanes
                 t = (Δs - (lane.curve[end].s - curvept.s)) / s_gap
                 curveind = CurveIndex(0, t)
-                RoadIndex(curveind, lane_next.tag)
+                RoadIndex(curveind, lane.next.tag)
             end
         else # no next lane, return the end of this lane
             curveind = CurveIndex(length(lane.curve)-1, 1.0)
