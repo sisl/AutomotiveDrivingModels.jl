@@ -33,8 +33,8 @@ type Lane
     width          :: Float64 # [m]
     boundary_left  :: LaneBoundary
     boundary_right :: LaneBoundary
-    prev           :: RoadIndex
-    next           :: RoadIndex
+    prev           :: RoadIndex # connects some RoadIndex to the first point of this lane
+    next           :: RoadIndex # connects some the last point of this lane to some RoadIndex
 
     function Lane(
         tag::LaneTag,
@@ -84,12 +84,25 @@ type Roadway
     Roadway(segments::Vector{RoadSegment}=RoadSegment[]) = new(segments)
 end
 
+"""
+    lane[ind::CurveIndex, roadway::Roadway]
+Accessor for lanes based on a CurveIndex.
+Note that we extend the definition of a CurveIndex,
+previously ind.i ∈ [1, length(curve)-1], to:
+
+    ind.i ∈ [1, length(curve)]
+
+where 1 ≤ ind.i ≤ length(curve)-1 is as before, but if the index
+is on the sectionn between two lanes, we use:
+
+    ind.i = length(curve), ind.t ∈ [0,1]
+"""
 function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
-    if ind.i != 0
+    if ind.i < length(lane.curve)
         lane.curve[ind]
     else
-        pt_hi = lane.curve[1]
-        pt_lo = prev_lane_point(lane, roadway)
+        pt_hi = next_lane_point(lane, roadway)
+        pt_lo = lane.curve[end]
         s_gap = abs(pt_hi.pos - pt_lo.pos)
         pt_lo = CurvePt(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
         lerp( pt_lo, pt_hi, ind.t)
@@ -138,11 +151,12 @@ end
     proj(posG::VecSE2, lane::Lane, roadway::Roadway)
 Return the RoadProjection for projecting posG onto the lane.
 This will automatically project to the next or prev curve as appropriate.
-If the pt is between curves the CurveIndex will have i = 0, and it will be on the
-curve downstream of that point.
+If the pt is between curves the CurveIndex will have i = length(L), and it will be on the
+curve downstream of that lane.
 """
 function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
     curveproj = proj(posG, lane.curve)
+    rettag = lane.tag
     if curveproj.ind == CurveIndex(1,0.0) && has_prev(lane)
         pt_lo = prev_lane_point(lane, roadway)
         pt_hi = lane.curve[1]
@@ -155,15 +169,16 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         @assert(0.0 ≤ t ≤ 1.0)
 
         if t < 1.0
-            footpoint = lerp( pt_lo.pos, pt_hi.pos, t)
-            ind = CurveIndex(0.0, t)
+            lane_prev = prev_lane(lane, roadway)
+            rettag = prev_lane(lane, roadway).tag
+            footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
+            ind = CurveIndex(length(lane_prev.curve), t)
         else
             footpoint = pt_hi.pos
-            ind = CurveIndex(1.0,0.0)
+            ind = CurveIndex(1,0.0)
         end
 
         curveproj = get_curve_projection(posG, footpoint, ind)
-
     elseif curveproj.ind == CurveIndex(length(lane.curve)-1,1.0) && has_next(lane)
         pt_lo = lane.curve[end]
         pt_hi = next_lane_point(lane, roadway)
@@ -175,13 +190,11 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
 
         @assert(0.0 ≤ t ≤ 1.0)
 
-        footpoint = lerp( pt_lo.pos, pt_hi.pos, t)
-        ind = CurveIndex(0.0, t)
-        lane = next_lane(lane, roadway)
+        footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
+        ind = CurveIndex(length(lane.curve), t)
         curveproj = get_curve_projection(posG, footpoint, ind)
     end
-
-    RoadProjection(curveproj, lane.tag)
+    RoadProjection(curveproj, rettag)
 end
 
 """
@@ -220,7 +233,14 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
     for seg in roadway.segments
         for lane in seg.lanes
             roadproj = proj(posG, lane, roadway)
-            footpoint = roadway[roadproj.tag][roadproj.curveproj.ind, roadway]
+            targetlane = roadway[roadproj.tag]
+            if roadproj.curveproj.ind.i == 0
+                println("lane.tag: ", lane.tag)
+                println("lane.prev: ", lane.prev)
+                println("lane.next: ", lane.next)
+                println("roadproj: ", roadproj)
+            end
+            footpoint = targetlane[roadproj.curveproj.ind, roadway]
             dist2 = abs2(posG - footpoint.pos)
             if dist2 < best_dist2
                 best_dist2 = dist2
