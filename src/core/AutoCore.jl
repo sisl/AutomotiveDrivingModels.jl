@@ -34,6 +34,8 @@ export
 
     DEFAULT_LANE_WIDTH,
 
+    has_segment,
+    has_lanetag,
     has_next,
     has_prev,
     connect!,
@@ -44,7 +46,6 @@ export
     n_lanes_right,
     get_neighbor_lanetag_left,
     get_neighbor_lanetag_right,
-    rndf2roadway,
 
     # vehicles
     Frenet,
