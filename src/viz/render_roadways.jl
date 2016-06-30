@@ -46,8 +46,10 @@ function render!(rendermodel::RenderModel, roadway::Roadway;
 
     # render the asphalt along the lane centerline
     for seg in roadway.segments
+        color = convert(RGB, HSV(rand()*360, 0.8, 0.8))
         for lane in seg.lanes
-            render!(rendermodel, lane, roadway, color_asphalt=color_asphalt)
+            render!(rendermodel, lane, roadway, color_asphalt=color)
+            # render!(rendermodel, lane, roadway, color_asphalt=color_asphalt)
         end
     end
 

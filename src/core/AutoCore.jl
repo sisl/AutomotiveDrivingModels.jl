@@ -33,6 +33,7 @@ export
 
     DEFAULT_LANE_WIDTH,
 
+    is_at_curve_end,
     has_segment,
     has_lanetag,
     has_next,

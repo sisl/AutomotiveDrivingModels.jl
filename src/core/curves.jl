@@ -44,6 +44,11 @@ immutable CurveIndex
 end
 Base.getindex(curve::Curve, ind::CurveIndex) = lerp(curve[ind.i], curve[ind.i+1], ind.t)
 
+function is_at_curve_end(ind::CurveIndex, curve::Curve)
+    (ind.i == 1 && ind.t == 0.0) ||
+    (ind.i == length(curve)-1 && ind.t == 1.0)
+end
+
 function index_closest_to_point(curve::Curve, target::AbstractVec)
 
     a = 1
@@ -208,14 +213,14 @@ function Vec.proj(posG::VecSE2, curve::Curve)
     d = NaN
 
     if ind > 1 && ind < length(curve)
-        t_lo = get_lerp_time( curve[ind-1], curve[ind],   posG )
-        t_hi = get_lerp_time( curve[ind],   curve[ind+1], posG )
+        t_lo = get_lerp_time(curve[ind-1], curve[ind],   posG)
+        t_hi = get_lerp_time(curve[ind],   curve[ind+1], posG)
 
-        p_lo = lerp( curve[ind-1].pos, curve[ind].pos,   t_lo )
-        p_hi = lerp( curve[ind].pos,   curve[ind+1].pos, t_hi )
+        p_lo = lerp(curve[ind-1].pos, curve[ind].pos,   t_lo)
+        p_hi = lerp(curve[ind].pos,   curve[ind+1].pos, t_hi)
 
-        d_lo = hypot( p_lo - posG )
-        d_hi = hypot( p_hi - posG )
+        d_lo = hypot(p_lo - posG )
+        d_hi = hypot(p_hi - posG )
 
         if d_lo < d_hi
             footpoint = p_lo
