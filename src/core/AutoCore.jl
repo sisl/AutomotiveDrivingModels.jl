@@ -5,7 +5,6 @@ Defines the core Automotive Types
 module AutoCore
 
 using Vec
-using RoadNetworks
 
 export
 
