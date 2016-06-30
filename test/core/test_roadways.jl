@@ -96,10 +96,10 @@ let
     @test res.tag == lane.tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), lane, roadway)
-    @test res.curveproj.ind == CurveIndex(2, 0.25)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == lane.tag
 
     res = proj(VecSE2(-1.75,0.0,0.0), lane, roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
@@ -126,10 +126,10 @@ let
     @test res.tag == lane.next.tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), next_lane(lane, roadway), roadway)
-    @test res.curveproj.ind == CurveIndex(2, 0.25)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == lane.tag
 
     ####
 
@@ -154,10 +154,10 @@ let
     @test res.tag == lane.tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), seg, roadway)
-    @test res.curveproj.ind == CurveIndex(2, 0.25)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == lane.tag
 
     res = proj(VecSE2(-1.75,0.0,0.0), seg, roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
@@ -184,10 +184,10 @@ let
     @test res.tag == lane.next.tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), roadway[3], roadway)
-    @test res.curveproj.ind == CurveIndex(2, 0.25)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == lane.tag
 
     res = proj(VecSE2(1.0,1.0,0.0), seg, roadway)
     @test res.curveproj.ind == CurveIndex(2, 0.0)
@@ -252,10 +252,10 @@ let
     @test res.tag == lane.next.tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), roadway[3], roadway)
-    @test res.curveproj.ind == CurveIndex(2, 0.25)
+    @test res.curveproj.ind == CurveIndex(0, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == lane.tag
 
     res = proj(VecSE2(1.0,1.0,0.0), roadway)
     @test res.curveproj.ind == CurveIndex(2, 0.0)
