@@ -1,5 +1,6 @@
 export
-        LateralDriverModel
+        LateralDriverModel,
+        ProportionalLaneTracker
 
 abstract LateralDriverModel
 get_name(::LateralDriverModel) = "???"
@@ -15,21 +16,21 @@ type ProportionalLaneTracker <: LateralDriverModel
     k::Float64 # proportional constant for lane tracking
 
     function ProportionalLaneTracker(;
-        σ::Float64     = NaN,
-        k_spd::Float64 = 1.0,
+        σ::Float64 = NaN,
+        k::Float64 = 1.0,
         )
 
         retval = new()
         retval.a = NaN
         retval.σ = σ
-        retval.k_spd = k_spd
+        retval.k = k
         retval
     end
 end
 get_name(::ProportionalLaneTracker) = "ProportionalLaneTracker"
 function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway, egoid::Int)
 
-    ego_index = get_index_of_first_vehicle_with_id(scene, carid)
+    ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
     veh_ego = scene[ego_index]
     t = veh_ego.state.posF.t
     model.a = -t*model.k

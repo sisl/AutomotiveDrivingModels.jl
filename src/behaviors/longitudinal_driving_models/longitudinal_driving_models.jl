@@ -1,6 +1,6 @@
 export
         LongitudinalDriverModel,
-        TrackDesiredSpeed,
+        ProportionalSpeedTracker,
         IntelligentDriverModel
 
 abstract LongitudinalDriverModel
@@ -14,19 +14,19 @@ Distributions.logpdf(model::LongitudinalDriverModel, a_lon::Float64) = error("lo
 type ProportionalSpeedTracker <: LongitudinalDriverModel
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
-    k_spd::Float64 # proportional constant for speed tracking [s⁻¹]
+    k::Float64 # proportional constant for speed tracking [s⁻¹]
     v_des::Float64 # desired speed [m/s]
 
     function ProportionalSpeedTracker(;
-        σ::Float64     = NaN,
-        k_spd::Float64 = 10.0,
+        σ::Float64 = NaN,
+        k::Float64 = 1.0,
         v_des::Float64 = 29.0,
         )
 
         retval = new()
         retval.a = NaN
         retval.σ = σ
-        retval.k_spd = k_spd
+        retval.k = k
         retval.v_des = v_des
         retval
     end
@@ -34,12 +34,12 @@ end
 get_name(::ProportionalSpeedTracker) = "ProportionalSpeedTracker"
 function observe!(model::ProportionalSpeedTracker, scene::Scene, roadway::Roadway, egoid::Int)
 
-    ego_index = get_index_of_first_vehicle_with_id(scene, carid)
+    ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
     veh_ego = scene[ego_index]
     v = veh_ego.state.v
 
     Δv = model.v_des - v
-    model.a = Δv*model.k_spd # predicted accel to match target speed
+    model.a = Δv*model.k # predicted accel to match target speed
 
     model
 end

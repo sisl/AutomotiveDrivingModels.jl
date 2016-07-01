@@ -216,8 +216,8 @@ function render_car(
 end
 function render_vehicle(
     ctx           :: CairoContext,
-    x             :: Real, # x-pos of the center-front of the vehicle
-    y             :: Real, # y-pos of the center-front of the vehicle
+    x             :: Real, # x-pos of the center of the vehicle
+    y             :: Real, # y-pos of the center of the vehicle
     yaw           :: Real, # heading angle [rad]
     length        :: Real, # vehicle length
     width         :: Real, # vehicle width
@@ -238,7 +238,8 @@ function render_vehicle(
 
     save(ctx)
 
-    translate(ctx, x - 0.5length*cos(yaw), y - 0.5length*sin(yaw))
+    # translate(ctx, x - 0.5length*cos(yaw), y - 0.5length*sin(yaw))
+    translate(ctx, x, y)
     rotate(ctx, yaw)
 
     render_round_rect(ctx, 0, 0, length, width, corner_aspect, corner_radius, color_fill, true, true, color_stroke, line_width)

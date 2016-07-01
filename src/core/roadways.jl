@@ -111,7 +111,7 @@ function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
         pt_hi = next_lane_point(lane, roadway)
         pt_lo = lane.curve[end]
         s_gap = abs(pt_hi.pos - pt_lo.pos)
-        pt_lo = CurvePt(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
+        pt_hi = CurvePt(pt_hi.pos, pt_lo.s + s_gap, pt_hi.k, pt_hi.kd)
         lerp( pt_lo, pt_hi, ind.t)
     end
 end
@@ -235,6 +235,13 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
                 best_dist2 = dist2
                 best_proj = roadproj
             end
+
+            # if lane.tag.lane == 3
+            #     println("proj")
+            #     println("roadproj: ", roadproj)
+            #     println("dist2: ", dist2)
+            #     println("best_dist2: ", best_dist2)
+            # end
         end
     end
 
@@ -264,6 +271,14 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
             pt_lo = prev_lane_point(lane, roadway)
             pt_hi = lane.curve[1]
             s_gap = abs(pt_hi.pos - pt_lo.pos)
+
+            # println("roadind:        ", roadind)
+            # println("pt_lo:          ", pt_lo)
+            # println("pt_hi:          ", pt_hi)
+            # println("s_gap:          ", s_gap)
+            # println("curvept.s:      ", curvept.s)
+            # println("Δs:             ", Δs)
+            # println("curvept.s + Δs: ", curvept.s + Δs)
 
             if curvept.s + Δs < -s_gap
                 lane_prev = prev_lane(lane, roadway)
@@ -300,7 +315,13 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
             return RoadIndex(curveind, roadind.tag)
         end
     else
-        ind = get_curve_index(roadind.ind, lane.curve, Δs)
+        if roadind.ind.i == 0
+            ind = get_curve_index(CurveIndex(1,0.0), lane.curve, curvept.s+Δs)
+        elseif roadind.ind.i == length(lane.curve)
+            ind = get_curve_index(CurveIndex(length(lane.curve)-1,1.0), lane.curve, curvept.s+Δs)
+        else
+            ind = get_curve_index(roadind.ind, lane.curve, Δs)
+        end
         RoadIndex(ind, roadind.tag)
     end
 end

@@ -8,7 +8,7 @@ function Frenet(roadproj::RoadProjection, roadway::Roadway)
     roadind = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
     s = roadway[roadind].s
     t = roadproj.curveproj.t
-    ϕ = roadproj.curveproj.ϕ
+    ϕ = _mod2pi2(roadproj.curveproj.ϕ)
     Frenet(roadind, s, t, ϕ)
 end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
