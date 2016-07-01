@@ -46,4 +46,6 @@ let
     @test lane.curve[1] == CurvePt(VecSE2(0.0,0.0,0.0), 0.0)
     @test lane.curve[2] == CurvePt(VecSE2(100.0,0.0,0.0), 100.0)
     @test lane.curve[3] == CurvePt(VecSE2(125.0,25.0,π/2), 100.0 + 25*π/2)
+
+    roadway = gen_stadium_roadway(4)
 end
