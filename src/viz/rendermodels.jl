@@ -225,7 +225,7 @@ function render_vehicle(
     color_stroke  :: Colorant = color_fill;
 
     color_arrow   :: Colorant = RGB(1.0,1.0,1.0),
-    corner_radius :: Float64 = 1.0,
+    corner_radius :: Float64 = 0.5,
     corner_aspect :: Float64 = 1.0,
     arrow_width   :: Float64 = 0.3, # [% car width]
     arrow_length  :: Float64 = 0.6, # [% car length]

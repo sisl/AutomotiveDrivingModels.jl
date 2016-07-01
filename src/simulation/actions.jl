@@ -7,6 +7,7 @@ export
     NextState,
     AccelTurnrate,
     AccelDesang,
+    LatLonAccel,
 
     propagate
 
@@ -98,6 +99,53 @@ function propagate(veh::Vehicle, action::AccelDesang, context::IntegratedContinu
 
     posG = VecSE2(x, y, θ)
     VehicleState(posG, roadway, v)
+end
+
+###############
+
+"""
+    LatLonAccel
+Acceleration in the frenet frame
+"""
+immutable LatLonAccel <: DriveAction
+    a_lat::Float64
+    a_lon::Float64
+end
+Base.length(::Type{LatLonAccel}) = 2
+Base.convert(::Type{LatLonAccel}, v::Vector{Float64}) = LatLonAccel(v[1], v[2])
+function Base.copy!(v::Vector{Float64}, a::LatLonAccel)
+    v[1] = a.a_lat
+    v[2] = a.a_lon
+    v
+end
+function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinuous, roadway::Roadway)
+
+    a_lat = action.a_lat
+    a_lon = action.a_lon
+
+     v = veh.state.v
+
+     ϕ = veh.state.posF.ϕ
+    ds = v*cos(ϕ)
+     t = veh.state.posF.t
+    dt = v*sin(ϕ)
+
+    #
+
+    Δt = context.Δt
+    Δt² = Δt^2
+    Δs = ds*Δt + 0.5*a_lon*Δt²
+    Δt = dt*Δt + 0.5*a_lat*Δt²
+
+    ds₂ = ds + a_lon*Δt
+    dt₂ = dt + a_lat*Δt
+    v₂ = hypot(ds₂, dt₂)
+
+    roadind = move_along(veh,state.posF.roadind, roadway, Δs)
+    footpoint = roadway[roadind]
+    posG = footpoint.pos + polar(t + Δt, footpoint.pos.θ)
+    posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + atan2(dt₂, ds₂))
+    VehicleState(posG, roadway, v₂)
 end
 
 ###############

@@ -167,7 +167,7 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         pt_hi = lane.curve[1]
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
-        if t < 0.0
+        if t ≤ 0.0
             return proj(posG, prev_lane(lane, roadway), roadway)
         elseif t < 1.0 # for t == 1.0 we use the actual end of the lane
             @assert(0.0 ≤ t < 1.0)
@@ -229,12 +229,6 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
         for lane in seg.lanes
             roadproj = proj(posG, lane, roadway)
             targetlane = roadway[roadproj.tag]
-            if roadproj.tag.segment == -1
-                println("lane.tag: ", lane.tag)
-                println("lane.prev: ", lane.prev)
-                println("lane.next: ", lane.next)
-                println("roadproj: ", roadproj)
-            end
             footpoint = targetlane[roadproj.curveproj.ind, roadway]
             dist2 = abs2(posG - footpoint.pos)
             if dist2 < best_dist2

@@ -46,10 +46,10 @@ function render!(rendermodel::RenderModel, roadway::Roadway;
 
     # render the asphalt along the lane centerline
     for seg in roadway.segments
-        color = convert(RGB, HSV(rand()*360, 0.8, 0.8))
+        # color = convert(RGB, HSV(rand()*360, 0.8, 0.8))
         for lane in seg.lanes
-            render!(rendermodel, lane, roadway, color_asphalt=color)
-            # render!(rendermodel, lane, roadway, color_asphalt=color_asphalt)
+            # render!(rendermodel, lane, roadway, color_asphalt=color)
+            render!(rendermodel, lane, roadway, color_asphalt=color_asphalt)
         end
     end
 
@@ -99,4 +99,21 @@ function render!(rendermodel::RenderModel, roadway::Roadway;
     end
 
     rendermodel
+end
+
+function render(roadway::Roadway;
+    canvas_width::Int=DEFAULT_CANVAS_WIDTH,
+    canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
+    rendermodel = RenderModel(),
+    )
+
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
+
+    render!(rendermodel, roadway)
+
+    camera_fit_to_content!(rendermodel, canvas_width, canvas_height)
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
 end

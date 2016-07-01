@@ -35,6 +35,12 @@ function Base.copy!(dest::Scene, src::Scene)
     dest
 end
 
+function Base.push!(scene::Scene, veh::Vehicle)
+    scene.n_vehicles += 1
+    scene.vehicles[scene.n_vehicles] = veh
+    scene
+end
+
 Base.length(scene::Scene) = scene.n_vehicles
 Base.getindex(scene::Scene, i::Int) = scene.vehicles[i]
 function Base.setindex!(scene::Scene, veh::Vehicle, i::Int)
