@@ -1,7 +1,8 @@
 export
         LongitudinalDriverModel,
         ProportionalSpeedTracker,
-        IntelligentDriverModel
+        IntelligentDriverModel,
+        StaticLongitudinalDriver
 
 abstract LongitudinalDriverModel
 get_name(::LongitudinalDriverModel) = "???"
@@ -10,6 +11,14 @@ observe!(model::LongitudinalDriverModel, scene::Scene, roadway::Roadway, egoid::
 Base.rand(model::LongitudinalDriverModel) = error("rand not implemented for model $model")
 Distributions.pdf(model::LongitudinalDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
 Distributions.logpdf(model::LongitudinalDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
+
+type StaticLongitudinalDriver <: LongitudinalDriverModel
+    a::Float64
+end
+get_name(::StaticLongitudinalDriver) = "ProportionalSpeedTracker"
+Base.rand(model::StaticLongitudinalDriver) = model.a
+Distributions.pdf(model::StaticLongitudinalDriver, a_lon::Float64) = a_lon == model.a ? Inf : 0.0
+Distributions.logpdf(model::StaticLongitudinalDriver, a_lon::Float64) = a_lon == model.a ? Inf : -Inf
 
 type ProportionalSpeedTracker <: LongitudinalDriverModel
     a::Float64 # predicted acceleration
@@ -64,8 +73,6 @@ function Distributions.logpdf(model::ProportionalSpeedTracker, a_lon::Float64)
         logpdf(Normal(model.a, model.σ), a_lon)
     end
 end
-
-
 
 """
 Commonly referred to as IDM
