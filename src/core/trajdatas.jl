@@ -52,6 +52,65 @@ function Base.write(io::IO, trajdata::Trajdata)
         @printf(io, "%d %d %.4f\n", tf.lo, tf.hi, tf.t)
     end
 end
+function Base.read(io::IO, ::Type{Trajdata})
+    lines = readlines(io)
+    line_index = 1
+    if contains(lines[line_index], "TRAJDATA")
+        line_index += 1
+    end
+
+    function advance!()
+        line = strip(lines[line_index])
+        line_index += 1
+        line
+    end
+
+    trajdata_id = parse(Int, advance!())
+
+    vehdefs = Dict{Int, VehicleDef}()
+    N = parse(Int, advance!())
+    for i in 1 : N
+        tokens = split(advance!(), ' ')
+        id = parse(Int, tokens[1])
+        class = parse(Int, tokens[2])
+        length = parse(Float64, tokens[3])
+        width = parse(Float64, tokens[4])
+        vehdefs[id] = VehicleDef(id, class, length, width)
+    end
+
+    N = parse(Int, advance!())
+    states = Array(TrajdataState, N)
+    for i in 1 : N
+        line = advance!()
+        cleanedline = replace(line, r"(\(|\))", "")
+        tokens = split(cleanedline, ' ')
+        id = parse(Int, tokens[1])
+        x = parse(Float64, tokens[2])
+        y = parse(Float64, tokens[3])
+        θ = parse(Float64, tokens[4])
+        ind_i = parse(Int, tokens[5])
+        ind_t = parse(Float64, tokens[6])
+        seg = parse(Int, tokens[7])
+        lane = parse(Int, tokens[8])
+        s = parse(Float64, tokens[9])
+        t = parse(Float64, tokens[10])
+        ϕ = parse(Float64, tokens[11])
+        v = parse(Float64, tokens[12])
+        states[i] = TrajdataState(id, VehicleState(VecSE2(x,y,θ), Frenet(RoadIndex(CurveIndex(ind_i, ind_t), LaneTag(seg, lane)), s, t, ϕ), v))
+    end
+
+    N = parse(Int, advance!())
+    frames = Array(TrajdataFrame, N)
+    for i in 1:N
+        tokens = split(advance!(), ' ')
+        lo = parse(Int, tokens[1])
+        hi = parse(Int, tokens[2])
+        t = parse(Float64, tokens[3])
+        frames[i] = TrajdataFrame(lo, hi, t)
+    end
+
+    Trajdata(Roadway(), trajdata_id, vehdefs, states, frames)
+end
 
 nframes(trajdata::Trajdata) = length(trajdata.frames)
 frame_inbounds(trajdata::Trajdata, frame::Int) = 1 ≤ frame ≤ nframes(trajdata)

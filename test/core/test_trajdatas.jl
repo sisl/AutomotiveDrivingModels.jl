@@ -53,7 +53,6 @@ let
     close(io)
 
     lines = open(readlines, path)
-    rm(path)
 
     for (line_orig, line_test) in zip(lines,
             ["TRAJDATA",
@@ -72,5 +71,32 @@ let
         )
 
         @test strip(line_orig) == line_test
+    end
+
+    io = open(path)
+    trajdata2 = read(io, Trajdata)
+    close(io)
+    rm(path)
+
+    @test nframes(trajdata2) == nframes(trajdata)
+    for i in 1 : nframes(trajdata2)
+        @test carsinframe(trajdata2, i) == carsinframe(trajdata, i)
+        for j in 1 : carsinframe(trajdata, i)
+            veh1 = get_vehicle(trajdata, i, j)
+            veh2 = get_vehicle(trajdata2, i, j)
+            @test veh1.def.id == veh2.def.id
+            @test veh1.def.class == veh2.def.class
+            @test isapprox(veh1.def.length, veh2.def.length)
+            @test isapprox(veh1.def.width, veh2.def.width)
+
+            @test isapprox(veh1.state.v, veh2.state.v)
+            @test isapprox(veh1.state.posG, veh2.state.posG, atol=1e-3)
+            @test isapprox(veh1.state.posF.s, veh2.state.posF.s, atol=1e-3)
+            @test isapprox(veh1.state.posF.t, veh2.state.posF.t, atol=1e-3)
+            @test isapprox(veh1.state.posF.ϕ, veh2.state.posF.ϕ, atol=1e-6)
+            @test veh1.state.posF.roadind.tag == veh2.state.posF.roadind.tag
+            @test veh1.state.posF.roadind.ind.i == veh2.state.posF.roadind.ind.i
+            @test isapprox(veh1.state.posF.roadind.ind.t, veh2.state.posF.roadind.ind.t, atol=1e-3)
+        end
     end
 end
