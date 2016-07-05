@@ -162,6 +162,7 @@ This will automatically project to the next or prev curve as appropriate.
 function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
     curveproj = proj(posG, lane.curve)
     rettag = lane.tag
+
     if curveproj.ind == CurveIndex(1,0.0) && has_prev(lane)
         pt_lo = prev_lane_point(lane, roadway)
         pt_hi = lane.curve[1]
@@ -180,9 +181,11 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         pt_hi = next_lane_point(lane, roadway)
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
+
         if t ≥ 1.0
+             # for t == 1.0 we use the actual start of the lane
             return proj(posG, next_lane(lane, roadway), roadway)
-        elseif t < 1.0 # for t == 1.0 we use the actual start of the lane
+        elseif t ≥ 0.0
             @assert(0.0 ≤ t ≤ 1.0)
             footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
             ind = CurveIndex(length(lane.curve), t)
