@@ -13,17 +13,20 @@ Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf 
 type ProportionalLaneTracker <: LateralDriverModel
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
-    k::Float64 # proportional constant for lane tracking
+    kp::Float64 # proportional constant for lane tracking
+    kd::Float64 # derivative constant for lane tracking
 
     function ProportionalLaneTracker(;
         σ::Float64 = NaN,
-        k::Float64 = 1.0,
+        kp::Float64 = 1.0,
+        kd::Float64 = 0.1,
         )
 
         retval = new()
         retval.a = NaN
         retval.σ = σ
-        retval.k = k
+        retval.kp = kp
+        retval.kd = kd
         retval
     end
 end
@@ -32,8 +35,9 @@ function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway
 
     ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
     veh_ego = scene[ego_index]
-    t = veh_ego.state.posF.t
-    model.a = -t*model.k
+    t = veh_ego.state.posF.t # lane offset
+    dt = veh_ego.state.v * sin(veh_ego.state.posF.ϕ) # rate of change of lane offset
+    model.a = -t*model.kp - dt*model.kd
 
     model
 end

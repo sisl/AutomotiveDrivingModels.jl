@@ -91,26 +91,6 @@ function render_trace!(
     add_instruction!(rm, render_arrow, (pts, color, linewidth, arrowhead_len))
 end
 
-# function render_extracted_trajdef!(
-#     rendermodel::RenderModel,
-#     extracted::ExtractedTrajdef;
-#     color::Colorant=hexcolor(0xBB,0xBB,0xFF),
-#     linewidth::Float64=0.25, # [m]
-#     arrowhead_len::Float64=1.0, # [m]
-#     )
-
-#     npts = get_num_pdset_frames(extracted)
-#     pts = Array(Float64, 2, npts)
-#     pt_index = 0
-
-#     for i in 1 : npts
-#         pts[1,i] = extracted.df[i, :posGx]
-#         pts[2,i] = extracted.df[i, :posGy]
-#     end
-
-#     add_instruction!(rendermodel, render_arrow, (pts, color, linewidth, arrowhead_len))
-# end
-
 function calc_subframe_interpolation_bounds(subframeind::Int, subframes_per_frame::Int)
     frameind_lo = int((subframeind-1 - mod(subframeind-1, subframes_per_frame))/subframes_per_frame)+1
     frameind_hi = frameind_lo + 1

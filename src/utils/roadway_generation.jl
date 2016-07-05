@@ -93,23 +93,23 @@ function gen_stadium_roadway(nlanes::Int;
 
         seg1.lanes[laneindex] = Lane(tag1, curvepts1, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
-                                      prev = RoadIndex(curveind_hi, tag4),
                                       next = RoadIndex(curveind_lo, tag2),
+                                      prev = RoadIndex(curveind_hi, tag4),
                                      )
         seg2.lanes[laneindex] = Lane(tag2, curvepts2, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
-                                      prev = RoadIndex(curveind_hi, tag1),
                                       next = RoadIndex(curveind_lo, tag3),
+                                      prev = RoadIndex(curveind_hi, tag1),
                                      )
         seg3.lanes[laneindex] = Lane(tag3, curvepts3, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
-                                      prev = RoadIndex(curveind_hi, tag2),
                                       next = RoadIndex(curveind_lo, tag4),
+                                      prev = RoadIndex(curveind_hi, tag2),
                                      )
         seg4.lanes[laneindex] = Lane(tag4, curvepts4, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
-                                      prev = RoadIndex(curveind_hi, tag3),
                                       next = RoadIndex(curveind_lo, tag1),
+                                      prev = RoadIndex(curveind_hi, tag3),
                                      )
     end
 
