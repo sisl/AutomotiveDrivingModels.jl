@@ -17,7 +17,6 @@ function get_test_trajdata()
 end
 
 let
-
     trajdata = get_test_trajdata()
     roadway = trajdata.roadway
 
@@ -48,4 +47,30 @@ let
 
     get_vehicle!(veh, trajdata, 1, 2)
     @test veh.state == VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0)
+
+    path, io = mktemp()
+    write(io, trajdata)
+    close(io)
+
+    lines = open(readlines, path)
+    rm(path)
+
+    for (line_orig, line_test) in zip(lines,
+            ["TRAJDATA",
+             "1",
+             "2",
+             "2 1 5.000 3.000",
+             "1 1 5.000 3.000",
+             "4",
+             "1 (0.0000 0.0000 0.0000e+00) (1 0.0000 2 1) (0.0000 0.0000 0.0000e+00) 10.0000",
+             "2 (3.0000 0.0000 0.0000e+00) (4 0.0000 2 1) (3.0000 0.0000 0.0000e+00) 20.0000",
+             "1 (1.0000 0.0000 0.0000e+00) (2 0.0000 2 1) (1.0000 0.0000 0.0000e+00) 10.0000",
+             "2 (5.0000 0.0000 0.0000e+00) (1 1.0000 3 1) (1.0000 0.0000 0.0000e+00) 20.0000",
+             "2",
+             "1 2 0.0000",
+             "3 4 0.1000"]
+        )
+
+        @test strip(line_orig) == line_test
+    end
 end
