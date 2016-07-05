@@ -264,7 +264,7 @@ end
     move_along(roadind::RoadIndex, road::Roadway, Δs::Float64)
 Return the RoadIndex at ind's s position + Δs
 """
-function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
+function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::Int=0)
 
     lane = roadway[roadind.tag]
     curvept = lane[roadind.ind, roadway]
@@ -275,19 +275,11 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64)
             pt_hi = lane.curve[1]
             s_gap = abs(pt_hi.pos - pt_lo.pos)
 
-            # println("roadind:        ", roadind)
-            # println("pt_lo:          ", pt_lo)
-            # println("pt_hi:          ", pt_hi)
-            # println("s_gap:          ", s_gap)
-            # println("curvept.s:      ", curvept.s)
-            # println("Δs:             ", Δs)
-            # println("curvept.s + Δs: ", curvept.s + Δs)
-
             if curvept.s + Δs < -s_gap
                 lane_prev = prev_lane(lane, roadway)
                 curveind = CurveIndex(length(lane_prev.curve)-1,1.0)
                 roadind = RoadIndex(curveind, lane_prev.tag)
-                return move_along(roadind, roadway, Δs + curvept.s + s_gap)
+                return move_along(roadind, roadway, Δs + curvept.s + s_gap, depth+1)
             else # in the gap between lanes
                 t = (s_gap + curvept.s + Δs) / s_gap
                 curveind = CurveIndex(0, t)

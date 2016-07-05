@@ -88,7 +88,10 @@ export
     record_length,
     get_scene,
     push_back_records!,
-    update!
+    update!,
+
+    NeighborForeResult,
+    get_neighbor_fore_along_lane
 
 
 

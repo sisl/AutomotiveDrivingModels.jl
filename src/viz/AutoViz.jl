@@ -32,4 +32,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_roadways.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_vehicles.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_scenes.jl"))
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "overlays.jl"))
+
 end # module

@@ -1,65 +1,94 @@
-abstract Overlay
-function render!(rendermodel::RenderModel, overlay::Overlay, trajdata::Trajdata, frame::Int)
-    # does nothing
-    rendermodel
-end
+export
+        SceneOverlay,
+        LineToCenterlineOverlay,
+        LineToFrontOverlay
 
-type LineToCenterline <: Overlay
+abstract SceneOverlay
+
+type LineToCenterlineOverlay <: SceneOverlay
     target_id::Int # if -1 does it for all
-end
-function render!(rendermodel::RenderModel, overlay::LineToCenterline, trajdata::Trajdata, frame::Int,
-    color::Colorant = colorant"white",
-    )
+    line_width::Float64
+    color::Colorant
 
-    line_width = 0.5
+    function LineToCenterline(target_id::Int=-1;
+        line_width::Float64=0.5, #[m]
+        color::Colorant=colorant"blue",
+        )
+
+        new(target_id, line_width, color)
+    end
+end
+function render!(rendermodel::RenderModel, overlay::LineToCenterlineOverlay, scene::Scene, roadway::Roadway)
 
     if overlay.target_id < 0
-        target_ids = carsinframe(trajdata, frame)
+        target_inds = 1:length(scene)
     else
-        target_ids = [overlay.t
-        arget_id]
+        target_inds = overlay.target_id:overlay.target_id
     end
 
-    veh = Vehicle()
-    for carid in target_ids
-        get_vehicle!(veh, trajdata, carid, frame)
+    for ind in target_inds
+        veh = scene[ind]
         footpoint = get_footpoint(veh)
-        Renderer.add_instruction!(rendermodel, render_line_segment, (veh.state.posG.x, veh.state.posG.y, footpoint.x, footpoint.y, color, line_width))
+        add_instruction!(rendermodel, render_line_segment,
+            (veh.state.posG.x, veh.state.posG.y, footpoint.x, footpoint.y, overlay.color, overlay.line_width))
     end
 
     rendermodel
 end
 
-type FrenetDisplay <: Overlay
+type LineToFrontOverlay <: SceneOverlay
     target_id::Int # if -1 does it for all
+    line_width::Float64
+    color::Colorant
+
+    function LineToFrontOverlay(target_id::Int=-1;
+        line_width::Float64=0.5, #[m]
+        color::Colorant=colorant"blue",
+        )
+
+        new(target_id, line_width, color)
+    end
 end
-function render!(rendermodel::RenderModel, overlay::FrenetDisplay, trajdata::Trajdata, frame::Int,
-    color::Colorant = colorant"white",
+function render!(rendermodel::RenderModel, overlay::LineToFrontOverlay, scene::Scene, roadway::Roadway)
+
+    if overlay.target_id < 0
+        target_inds = 1:length(scene)
+    else
+        target_inds = overlay.target_id:overlay.target_id
+    end
+
+    for ind in target_inds
+        veh = scene[ind]
+        veh_ind_front = get_neighbor_fore_along_lane(scene, ind, roadway).ind
+        if veh_ind_front != 0
+            v2 = scene[veh_ind_front]
+            add_instruction!(rendermodel, render_line_segment,
+                (veh.state.posG.x, veh.state.posG.y, v2.state.posG.x, v2.state.posG.y, overlay.color, overlay.line_width))
+        end
+    end
+
+    rendermodel
+end
+
+function render{O<:SceneOverlay}(scene::Scene, roadway::Roadway, overlays::AbstractVector{O};
+    canvas_width::Int=DEFAULT_CANVAS_WIDTH,
+    canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
+    rendermodel = RenderModel(),
     )
 
-    render!(rendermodel, LineToCenterline(overlay.target_id), trajdata, frame)
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    clear_setup!(rendermodel)
 
-    if overlay.target_id > 0
-        veh = get_vehicle(trajdata, overlay.target_id, frame)
-        posF, laneid = project_to_closest_lane(veh.state.posG, trajdata.roadway)
+    render!(rendermodel, roadway)
+    render!(rendermodel, scene)
 
-        text_y = -5
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("extind: %.6f", posF.x), 10, text_y+=20, 15, color), incameraframe=false)
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("laneid: %d", laneid), 10, text_y+=20, 15, color), incameraframe=false)
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("d_cl: %.6f", posF.y), 10, text_y+=20, 15, color), incameraframe=false)
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("theta: %.5f", rad2deg(posF.θ)), 10, text_y+=20, 15, color), incameraframe=false)
-        text_y+=20
-        posF = veh.state.posF
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("extind: %.6f", posF.extind), 10, text_y+=20, 15, color), incameraframe=false)
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("laneid: %d", posF.laneid), 10, text_y+=20, 15, color), incameraframe=false)
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("d_cl: %.6f", posF.t), 10, text_y+=20, 15, color), incameraframe=false)
-        Renderer.add_instruction!(rendermodel, render_text, (@sprintf("theta: %.5f", rad2deg(posF.ϕ)), text_y+=20, 75, 15, color), incameraframe=false)
+    for overlay in overlays
+        render!(rendermodel, overlay, scene, roadway)
     end
 
-    rendermodel
+    camera_fit_to_content!(rendermodel, canvas_width, canvas_height)
+    render(rendermodel, ctx, canvas_width, canvas_height)
+    s
 end
 
-type SubSceneBox <: Overlay
-    scene_extract::Union{SceneExtractParams, SubScene1DExtractParams}
-end
-render!(rendermodel::RenderModel, overlay::SubSceneBox, trajdata::Trajdata, frame::Int) = render!(rendermodel, overlay.scene_extract)

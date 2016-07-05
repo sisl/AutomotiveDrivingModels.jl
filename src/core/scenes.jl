@@ -107,3 +107,65 @@ function get_vehicle!(veh::Vehicle, scene::Scene, id::Int)
     error("get_vehicle!: vehicle with id $id not found")
 end
 get_vehicle(scene::Scene, id::Int) = get_vehicle!(Vehicle(), scene, id)
+
+########################
+
+"""
+    get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)
+Return the index of the vehicle that is in the same lane as scene[vehicle_index] and
+in front of it with the smallest distance along the lane
+
+    The method will search on the current lane first, and if no vehicle is found it
+    will continue to travel along the lane following next_lane(lane, roadway).
+    If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
+"""
+immutable NeighborForeResult
+    ind::Int # index in scene of the neighbor
+    Δs::Float64 # positive distance along lane between vehicles' positions
+end
+function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    best_ind = 0
+    best_dist = max_distance_fore
+
+    veh_target = scene[vehicle_index]
+    tag_start = veh_target.state.posF.roadind.tag
+    tag_target = tag_start
+    s_base = veh_target.state.posF.s
+
+    dist_searched = 0.0
+    while dist_searched < max_distance_fore
+
+        for (i,veh) in enumerate(scene)
+            if i != vehicle_index && veh.state.posF.roadind.tag == tag_target
+                s_target = veh.state.posF.s
+                dist = s_target - s_base
+                if 0.0 ≤ dist < best_dist
+                    best_dist = dist
+                    best_ind = i
+                end
+            end
+        end
+
+        if best_ind != 0
+            break
+        end
+
+        lane = roadway[tag_target]
+        if !has_next(lane)
+            break
+        end
+
+        dist_searched += (lane.curve[end].s - s_base)
+        s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
+        tag_target = next_lane(lane, roadway).tag
+
+        if tag_target == tag_start
+            break
+        end
+    end
+
+    NeighborForeResult(best_ind, best_dist)
+end
