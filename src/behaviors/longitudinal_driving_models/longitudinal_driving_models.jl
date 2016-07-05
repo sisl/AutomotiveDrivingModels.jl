@@ -97,7 +97,6 @@ type IntelligentDriverModel <: LongitudinalDriverModel
         retval = new()
         retval.a = NaN
         retval.k_spd = k_spd
-        retval.k_lat = k_lat
         retval.δ     = δ
         retval.T     = T
         retval.v_des = v_des
@@ -112,29 +111,26 @@ function observe!(model::IntelligentDriverModel, scene::Scene, roadway::Roadway,
 
     # update the predicted accel
 
-    # ego_index = get_index_of_first_vehicle_with_id(scene, carid)
-    # veh_ego = scene[ego_index]
-    # v = veh_ego.state.v
+    ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
+    veh_ego = scene[ego_index]
+    v = veh_ego.state.v
 
-    # ind_fore = get_neighbor_index_fore(scene, ego_index)
-    # if ind_fore > 0
-    #     veh_fore = scene[ind_fore]
-    #     s_gap = get_headway_dist_between(veh_ego, veh_fore)
+    fore_res = get_neighbor_fore_along_lane(scene, ego_index, roadway)
+    if fore_res.ind > 0
+        s_gap = fore_res.Δs
+        Δv = scene[fore_res.ind].state.v - v
+        s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
+        a_idm = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
+        @assert(!isnan(a_idm))
 
-    #     Δv = veh_fore.state.v - v
-    #     s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
-    #     a_idm = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
-    #     @assert(!isnan(a_idm))
+        model.a = a_idm
+    else
+        # no lead vehicle, just drive to match desired speed
+        Δv = model.v_des - v
+        model.a = Δv*model.k_spd # predicted accel to match target speed
+    end
 
-    #     model.P.μ[1] = a_idm
-    # else
-    #     # no lead vehicle, just drive to match desired speed
-    #     Δv = model.v_des - v
-    #     model.a = Δv*model.k_spd # predicted accel to match target speed
-    # end
-
-    # model.a = clamp(model.a, -model.d_cmf, model.a_max)
-    model.a = 0.0 # TODO: implement this
+    model.a = clamp(model.a, -model.d_cmf, model.a_max)
     model
 end
 function Base.rand(model::IntelligentDriverModel)
