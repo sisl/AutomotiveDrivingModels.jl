@@ -36,6 +36,7 @@ function render!(rendermodel::RenderModel, lane::Lane, roadway::Roadway;
     add_instruction!(rendermodel, render_line, (pts, color_asphalt, lane.width))
     rendermodel
 end
+
 function render!(rendermodel::RenderModel, roadway::Roadway;
     color_asphalt       :: Colorant=COLOR_ASPHALT,
     lane_marking_width  :: Real=0.15, # [m]
@@ -44,12 +45,44 @@ function render!(rendermodel::RenderModel, roadway::Roadway;
     lane_dash_offset    :: Real=0.00  # [m]
     )
 
-    # render the asphalt along the lane centerline
+    # render the asphalt between the leftmost and rightmost lane markers
     for seg in roadway.segments
-        # color = convert(RGB, HSV(rand()*360, 0.8, 0.8))
-        for lane in seg.lanes
-            # render!(rendermodel, lane, roadway, color_asphalt=color)
-            render!(rendermodel, lane, roadway, color_asphalt=color_asphalt)
+        if !isempty(seg.lanes)
+            laneR = seg.lanes[1]
+            laneL = seg.lanes[end]
+
+            pts = Array(Float64, 2, length(laneL.curve) + has_next(laneL) +
+                                    length(laneR.curve) + has_next(laneR))
+            i = 0
+            for pt in laneL.curve
+                edgept = pt.pos + polar(laneL.width/2, pt.pos.θ + π/2)
+                i += 1
+                pts[1,i] = edgept.x
+                pts[2,i] = edgept.y
+            end
+            if has_next(laneL)
+                pt = next_lane_point(laneL, roadway)
+                edgept = pt.pos + polar(laneL.width/2, pt.pos.θ + π/2)
+                i += 1
+                pts[1,i] = edgept.x
+                pts[2,i] = edgept.y
+            end
+            if has_next(laneR)
+                pt = next_lane_point(laneR, roadway)
+                edgept = pt.pos + polar(laneR.width/2, pt.pos.θ - π/2)
+                i += 1
+                pts[1,i] = edgept.x
+                pts[2,i] = edgept.y
+            end
+            for j in length(laneR.curve) : -1 : 1
+                pt = laneR.curve[j]
+                edgept = pt.pos + polar(laneR.width/2, pt.pos.θ - π/2)
+                i += 1
+                pts[1,i] = edgept.x
+                pts[2,i] = edgept.y
+            end
+
+            add_instruction!(rendermodel, render_fill_region, (pts, color_asphalt))
         end
     end
 

@@ -18,8 +18,7 @@ function render(scene::Scene, roadway::Roadway;
     rendermodel = RenderModel(),
     )
 
-    s = CairoRGBSurface(canvas_width, canvas_height)
-    ctx = creategc(s)
+    s, ctx = get_surface_and_context(canvas_width, canvas_height)
     clear_setup!(rendermodel)
 
     render!(rendermodel, roadway)

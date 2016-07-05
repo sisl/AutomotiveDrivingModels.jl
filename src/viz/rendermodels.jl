@@ -26,10 +26,13 @@ export
         render_vehicle,
         render_point_trail,
         render_line,
+        render_fill_region,
         render_line_segment,
         render_dashed_line,
         render_arrow,
-        render_colormesh
+        render_colormesh,
+
+        get_surface_and_context
 
 # config variables
 type RenderModel
@@ -303,6 +306,24 @@ function render_line{T<:Real}(
         line_to(ctx, pts[1,i], pts[2,i])
     end
     stroke(ctx)
+    restore(ctx)
+end
+function render_fill_region{T<:Real}(
+    ctx        :: CairoContext,
+    pts        :: Matrix{T}, # 2×n
+    color      :: Colorant,
+    )
+
+    save(ctx)
+    set_source_rgba(ctx,color)
+
+    move_to(ctx, pts[1,1], pts[2,1])
+    for i = 2 : size(pts,2)
+        line_to(ctx, pts[1,i], pts[2,i])
+    end
+    close_path(ctx)
+
+    fill(ctx)
     restore(ctx)
 end
 function render_line_segment(
@@ -763,4 +784,10 @@ function Cairo.set_source_rgba(ctx::CairoContext, color₀::Colorant, color₁::
     b = b₀ + (b₁ - b₀)*t
     a = a₀ + (a₁ - a₀)*t
     set_source_rgba(ctx, r, g, b, a)
+end
+
+function get_surface_and_context(canvas_width::Int, canvas_height::Int)
+    s = CairoRGBSurface(canvas_width, canvas_height)
+    ctx = creategc(s)
+    (s, ctx)
 end
