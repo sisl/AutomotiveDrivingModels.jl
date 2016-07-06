@@ -143,8 +143,10 @@ function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinu
     footpoint = roadway[roadind]
     posG = convert(VecE2, footpoint.pos) + polar(t + Δt, footpoint.pos.θ + π/2)
     posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
-    # posF = Frenet(roadind, footpoint.s, t + Δt, ϕ₂)
     VehicleState(posG, roadway, v₂)
+
+    # posF = Frenet(roadind, footpoint.s, t + Δt, ϕ₂)
+    # VehicleState(posG, posF, v₂)
 end
 
 ###############

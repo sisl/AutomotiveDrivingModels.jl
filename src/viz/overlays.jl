@@ -1,7 +1,8 @@
 export
         SceneOverlay,
         LineToCenterlineOverlay,
-        LineToFrontOverlay
+        LineToFrontOverlay,
+        CarFollowingStatsOverlay
 
 abstract SceneOverlay
 
@@ -65,6 +66,52 @@ function render!(rendermodel::RenderModel, overlay::LineToFrontOverlay, scene::S
             add_instruction!(rendermodel, render_line_segment,
                 (veh.state.posG.x, veh.state.posG.y, v2.state.posG.x, v2.state.posG.y, overlay.color, overlay.line_width))
         end
+    end
+
+    rendermodel
+end
+
+type CarFollowingStatsOverlay <: SceneOverlay
+    target_id::Int
+    color::Colorant
+
+    function CarFollowingStatsOverlay(target_id::Int;
+        color::Colorant=colorant"white",
+        )
+
+        new(target_id, color)
+    end
+end
+function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, scene::Scene, roadway::Roadway)
+
+    if overlay.target_id < 0
+        target_inds = 1:length(scene)
+    else
+        target_inds = overlay.target_id:overlay.target_id
+    end
+
+    text_y = 15
+    text_y_jump = 20
+
+    veh_index = get_index_of_first_vehicle_with_id(scene, overlay.target_id)
+    if veh_index != 0
+        veh = scene[veh_index]
+
+        add_instruction!( rendermodel, render_text, (@sprintf("v  = %10.3f m/s", veh.state.v), 10, text_y, 15, overlay.color), incameraframe=false)
+        text_y += text_y_jump
+
+        foreinfo = get_neighbor_fore_along_lane(scene, veh_index, roadway)
+        if foreinfo.ind != 0
+            v2 = scene[foreinfo.ind]
+            rel_speed = v2.state.v - veh.state.v
+            add_instruction!( rendermodel, render_text, (@sprintf("Δv = %10.3f m/s", rel_speed), 10, text_y, 15, overlay.color), incameraframe=false)
+            text_y += text_y_jump
+            add_instruction!( rendermodel, render_text, (@sprintf("Δs = %10.3f m/s", foreinfo.Δs), 10, text_y, 15, overlay.color), incameraframe=false)
+        else
+            add_instruction!( rendermodel, render_text, (@sprintf("no front vehicle"), 10, text_y, 15, overlay.color), incameraframe=false)
+        end
+    else
+        add_instruction!( rendermodel, render_text, (@sprintf("vehicle %d not found", overlay.target_id), 10, text_y, 15, overlay.color), incameraframe=false)
     end
 
     rendermodel
