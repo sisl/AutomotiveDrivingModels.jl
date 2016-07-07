@@ -50,6 +50,7 @@ export
     n_lanes_right,
     get_neighbor_lanetag_left,
     get_neighbor_lanetag_right,
+    read_dxf,
 
     # vehicles
     Frenet,
@@ -96,6 +97,7 @@ export
 
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "utils.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "splines.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "curves.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "roadways.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "vehicles.jl"))

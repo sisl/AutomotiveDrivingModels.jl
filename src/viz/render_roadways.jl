@@ -84,6 +84,9 @@ function render!(rendermodel::RenderModel, roadway::Roadway;
 
             add_instruction!(rendermodel, render_fill_region, (pts, color_asphalt))
         end
+        # for lane in seg.lanes
+        #     render!(rendermodel, lane, roadway)
+        # end
     end
 
     # render the lane edges
