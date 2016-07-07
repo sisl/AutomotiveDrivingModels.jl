@@ -318,3 +318,122 @@ let
     @test n_lanes_left(roadway[LaneTag(2,3)], roadway) == 0
 
 end
+
+let
+    roadway = Roadway()
+
+    seg1 = RoadSegment(1,
+        [Lane(LaneTag(1,1),
+            [CurvePt(VecSE2(0.0,0.0,0.0), 0.0),
+             CurvePt(VecSE2(1.0,0.0,0.0), 1.0)],
+             width=1.0,
+             boundary_left = LaneBoundary(:solid, :white),
+             boundary_right = LaneBoundary(:broken, :yellow)),
+         Lane(LaneTag(1,2),
+            [CurvePt(VecSE2(0.0,1.0,0.0), 0.0),
+             CurvePt(VecSE2(1.0,1.0,0.0), 1.0)],
+             width=2.0,
+             boundary_left = LaneBoundary(:double, :white))],
+         )
+
+    seg2 = RoadSegment(2,
+        [Lane(LaneTag(2,1),
+            [CurvePt(VecSE2(4.0,0.0,0.0), 0.0),
+             CurvePt(VecSE2(5.0,0.0,0.0), 1.0)]),
+         Lane(LaneTag(2,2),
+            [CurvePt(VecSE2(4.0,1.0,0.0), 0.0),
+             CurvePt(VecSE2(5.0,1.0,0.0), 1.0)])],
+         )
+
+    connect!(seg1.lanes[1], seg2.lanes[2])
+
+    push!(roadway.segments, seg1)
+    push!(roadway.segments, seg2)
+
+    ############
+
+    path, io = mktemp()
+    write(io, roadway)
+    close(io)
+
+    lines = open(readlines, path)
+
+    for (line_orig, line_test) in zip(lines,
+            [
+            "ROADWAY"
+            "2"
+            "1"
+            "    2"
+            "    1"
+            "        1.000"
+            "       solid white"
+            "        broken yellow"
+            "        -1 NaN -1 -1"
+            "        1 0.000000 2 2"
+            "        2"
+            "            (0.0000 0.0000 0.000000) 0.0000 NaN NaN"
+            "            (1.0000 0.0000 0.000000) 1.0000 NaN NaN"
+            "    2"
+            "        2.000"
+            "        double white"
+            "        unknown unknown"
+            "        -1 NaN -1 -1"
+            "        -1 NaN -1 -1"
+            "        2"
+            "            (0.0000 1.0000 0.000000) 0.0000 NaN NaN"
+            "            (1.0000 1.0000 0.000000) 1.0000 NaN NaN"
+            "2"
+            "    2"
+            "    1"
+            "        3.000"
+            "        unknown unknown"
+            "        unknown unknown"
+            "        -1 NaN -1 -1"
+            "        -1 NaN -1 -1"
+            "        2"
+            "            (4.0000 0.0000 0.000000) 0.0000 NaN NaN"
+            "            (5.0000 0.0000 0.000000) 1.0000 NaN NaN"
+            "    2"
+            "        3.000"
+            "        unknown unknown"
+            "        unknown unknown"
+            "        1 1.000000 1 1"
+            "        -1 NaN -1 -1"
+            "        2"
+            "            (4.0000 1.0000 0.000000) 0.0000 NaN NaN"
+            "            (5.0000 1.0000 0.000000) 1.0000 NaN NaN"
+             "3 4 0.1000"]
+        )
+        @test strip(line_orig) == strip(line_test)
+    end
+
+    io = open(path)
+    roadway2 = read(io, Roadway)
+    close(io)
+    rm(path)
+
+    @test length(roadway.segments) == length(roadway2.segments)
+    for (seg1, seg2) in zip(roadway.segments, roadway2.segments)
+        @test seg1.id == seg2.id
+        @test length(seg1.lanes) == length(seg2.lanes)
+        for (lane1, lane2) in zip(seg1.lanes, seg2.lanes)
+            @test lane1.tag == lane2.tag
+            @test isapprox(lane1.width, lane2.width, atol=1e-3)
+            @test lane1.boundary_left == lane2.boundary_left
+            @test lane1.boundary_right == lane2.boundary_right
+            @test lane1.next.tag == lane2.next.tag
+            @test lane1.next.ind.i == lane2.next.ind.i
+            @test isnan(lane1.next.ind.t) || isapprox(lane1.next.ind.t, lane2.next.ind.t, atol=1e-5)
+            @test lane1.prev.tag == lane2.prev.tag
+            @test lane1.prev.ind.i == lane2.prev.ind.i
+            @test isnan(lane1.prev.ind.t) || isapprox(lane1.prev.ind.t, lane2.prev.ind.t, atol=1e-5)
+            for (pt1, pt2) in zip(lane1.curve, lane2.curve)
+                @test abs2(convert(VecE2, pt1.pos) - convert(VecE2, pt2.pos)) < 0.01
+                @test angledist(pt1.pos.θ, pt2.pos.θ) < 1e-5
+                @test isnan(pt1.s) || isapprox(pt1.s, pt2.s, atol=1e-3)
+                @test isnan(pt1.k) || isapprox(pt1.k, pt2.k, atol=1e-6)
+                @test isnan(pt1.kd) || isapprox(pt1.kd, pt2.kd, atol=1e-6)
+            end
+        end
+    end
+end

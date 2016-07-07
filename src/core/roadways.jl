@@ -80,9 +80,96 @@ end
 
 type Roadway
     segments::Vector{RoadSegment}
-
     Roadway(segments::Vector{RoadSegment}=RoadSegment[]) = new(segments)
 end
+
+function Base.write(io::IO, roadway::Roadway)
+    # writes to a text file
+
+    println(io, "ROADWAY")
+    println(io, length(roadway.segments)) # number of segments
+    for seg in roadway.segments
+        println(io, seg.id)
+        println(io, "\t", length(seg.lanes)) # number of lanes
+        for (i,lane) in enumerate(seg.lanes)
+            @assert(lane.tag.lane == i)
+            @printf(io, "\t%d\n", i)
+            @printf(io, "\t\t%.3f\n", lane.width)
+            println(io, "\t\t", lane.boundary_left.style, " ", lane.boundary_left.color)
+            println(io, "\t\t", lane.boundary_right.style, " ", lane.boundary_right.color)
+            @printf(io, "\t\t%d %.6f %d %d\n", lane.prev.ind.i, lane.prev.ind.t, lane.prev.tag.segment, lane.prev.tag.lane)
+            @printf(io, "\t\t%d %.6f %d %d\n", lane.next.ind.i, lane.next.ind.t, lane.next.tag.segment, lane.next.tag.lane)
+            println(io, "\t\t", length(lane.curve))
+            for pt in lane.curve
+                @printf(io, "\t\t\t(%.4f %.4f %.6f) %.4f %.8f %.8f\n", pt.pos.x, pt.pos.y, pt.pos.θ, pt.s, pt.k, pt.kd)
+            end
+        end
+    end
+end
+function Base.read(io::IO, ::Type{Roadway})
+    lines = readlines(io)
+    line_index = 1
+    if contains(lines[line_index], "ROADWAY")
+        line_index += 1
+    end
+
+    function advance!()
+        line = strip(lines[line_index])
+        line_index += 1
+        line
+    end
+
+    nsegs = parse(Int, advance!())
+    roadway = Roadway(Array(RoadSegment, nsegs))
+    for i_seg in 1:nsegs
+        segid = parse(Int, advance!())
+        nlanes = parse(Int, advance!())
+        seg = RoadSegment(segid, Array(Lane, nlanes))
+        for i_lane in 1:nlanes
+            @assert(i_lane == parse(Int, advance!()))
+            tag = LaneTag(segid, i_lane)
+            width = parse(Float64, advance!())
+
+            tokens = split(advance!(), ' ')
+            boundary_left = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
+
+            tokens = split(advance!(), ' ')
+            boundary_right = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
+
+            tokens = split(advance!(), ' ')
+            curveind = CurveIndex(parse(Int, tokens[1]), parse(Float64, tokens[2]))
+            prev_tag = LaneTag(parse(Int, tokens[3]), parse(Int, tokens[4]))
+            prev = RoadIndex(curveind, prev_tag)
+
+            tokens = split(advance!(), ' ')
+            curveind = CurveIndex(parse(Int, tokens[1]), parse(Float64, tokens[2]))
+            next_tag = LaneTag(parse(Int, tokens[3]), parse(Int, tokens[4]))
+            next = RoadIndex(curveind, next_tag)
+
+            npts = parse(Int, advance!())
+            curve = Array(CurvePt, npts)
+            for i_pt in 1:npts
+                line = advance!()
+                cleanedline = replace(line, r"(\(|\))", "")
+                tokens = split(cleanedline, ' ')
+                x = parse(Float64, tokens[1])
+                y = parse(Float64, tokens[2])
+                θ = parse(Float64, tokens[3])
+                s = parse(Float64, tokens[4])
+                k = parse(Float64, tokens[5])
+                kd = parse(Float64, tokens[6])
+                curve[i_pt] = CurvePt(VecSE2(x,y,θ), s, k, kd)
+            end
+
+            seg.lanes[i_lane] = Lane(tag, curve, width=width, boundary_left=boundary_left,
+                                     boundary_right=boundary_right, prev=prev, next=next)
+        end
+        roadway.segments[i_seg] = seg
+    end
+
+    roadway
+end
+
 
 """
     lane[ind::CurveIndex, roadway::Roadway]
@@ -570,3 +657,4 @@ function read_dxf(io::IO, ::Type{Roadway};
 
     retval
 end
+
