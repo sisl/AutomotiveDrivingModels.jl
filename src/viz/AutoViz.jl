@@ -16,8 +16,10 @@ using AutomotiveDrivingModels
 @reexport using Colors
 @reexport using Cairo
 
-using Reactive
-import Gtk
+import Reel
+
+# using Reactive
+# import Gtk
 # using PGFPlots
 
 export
@@ -37,6 +39,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_scenes.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "overlays.jl"))
 
-include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "gtk.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "reel_drive.jl"))
+# include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "gtk.jl"))
 
 end # module
