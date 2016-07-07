@@ -42,6 +42,10 @@ immutable CurveIndex
     i::Int     # index in curve, ∈ [1:length(curve)-1]
     t::Float64 # ∈ [0,1] for linear interpolation
 end
+const CURVEINDEX_START = CurveIndex(1,0.0)
+
+curveindex_end(curve::Curve) = CurveIndex(length(curve)-1,1.0)
+
 Base.getindex(curve::Curve, ind::CurveIndex) = lerp(curve[ind.i], curve[ind.i+1], ind.t)
 
 function is_at_curve_end(ind::CurveIndex, curve::Curve)
@@ -105,9 +109,9 @@ Return the CurveIndex for the closest s-location on the curve
 function get_curve_index(curve::Curve, s::Float64)
 
     if s ≤ 0.0
-        return CurveIndex(1,0.0)
+        return CURVEINDEX_START
     elseif s ≥ curve[end].s
-        return CurveIndex(length(curve)-1,1.0)
+        return curveindex_end(curve)
     end
 
     a = 1

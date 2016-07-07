@@ -69,13 +69,13 @@ let
     lane = roadway[LaneTag(1,1)]
     @test has_next(lane)
     @test !has_prev(lane)
-    @test lane.next == RoadIndex(CurveIndex(1,0.0), LaneTag(2,1))
+    @test lane.exits[1].target == RoadIndex(CurveIndex(1,0.0), LaneTag(2,1))
 
     lane = roadway[LaneTag(2,1)]
     @test has_next(lane)
     @test has_prev(lane)
-    @test lane.next == RoadIndex(CurveIndex(1,0.0), LaneTag(3,1))
-    @test lane.prev == RoadIndex(CurveIndex(1,1.0), LaneTag(1,1))
+    @test lane.exits[1].target == RoadIndex(CurveIndex(1,0.0), LaneTag(3,1))
+    @test lane.entrances[1].target == RoadIndex(CurveIndex(1,1.0), LaneTag(1,1))
 
     res = proj(VecSE2(1.0,0.0,0.0), lane, roadway)
     @test res.curveproj.ind == CurveIndex(2, 0.0)
@@ -105,13 +105,13 @@ let
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == prev_lane(lane, roadway).tag
 
     res = proj(VecSE2(4.25,0.2,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
-    @test res.tag == lane.next.tag
+    @test res.tag == next_lane(lane, roadway).tag
 
     res = proj(VecSE2(3.25,0.2,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(4, 0.25)
@@ -123,7 +123,7 @@ let
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
-    @test res.tag == lane.next.tag
+    @test res.tag == next_lane(lane, roadway).tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), next_lane(lane, roadway), roadway)
     @test res.curveproj.ind == CurveIndex(0, 0.25)
@@ -163,13 +163,13 @@ let
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == prev_lane(lane, roadway).tag
 
     res = proj(VecSE2(4.25,0.2,0.1), seg, roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
-    @test res.tag == lane.next.tag
+    @test res.tag == next_lane(lane, roadway).tag
 
     res = proj(VecSE2(3.25,0.2,0.1), seg, roadway)
     @test res.curveproj.ind == CurveIndex(4, 0.25)
@@ -181,7 +181,7 @@ let
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
-    @test res.tag == lane.next.tag
+    @test res.tag == next_lane(lane, roadway).tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), roadway[3], roadway)
     @test res.curveproj.ind == CurveIndex(0, 0.25)
@@ -225,19 +225,19 @@ let
     @test res.curveproj.ind == CurveIndex(2, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == prev_lane(lane, roadway).tag
 
     res = proj(VecSE2(-1.75,0.0,0.0), roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
-    @test res.tag == lane.prev.tag
+    @test res.tag == prev_lane(lane, roadway).tag
 
     res = proj(VecSE2(4.25,0.2,0.1), roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
-    @test res.tag == lane.next.tag
+    @test res.tag == next_lane(lane, roadway).tag
 
     res = proj(VecSE2(3.25,0.2,0.1), roadway)
     @test res.curveproj.ind == CurveIndex(4, 0.25)
@@ -249,7 +249,7 @@ let
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
-    @test res.tag == lane.next.tag
+    @test res.tag == next_lane(lane, roadway).tag
 
     res = proj(VecSE2(-0.75,0.0,0.0), roadway[3], roadway)
     @test res.curveproj.ind == CurveIndex(0, 0.25)
@@ -360,49 +360,51 @@ let
 
     for (line_orig, line_test) in zip(lines,
             [
-            "ROADWAY"
-            "2"
-            "1"
-            "    2"
-            "    1"
-            "        1.000"
-            "       solid white"
-            "        broken yellow"
-            "        -1 NaN -1 -1"
-            "        1 0.000000 2 2"
-            "        2"
-            "            (0.0000 0.0000 0.000000) 0.0000 NaN NaN"
-            "            (1.0000 0.0000 0.000000) 1.0000 NaN NaN"
-            "    2"
-            "        2.000"
-            "        double white"
-            "        unknown unknown"
-            "        -1 NaN -1 -1"
-            "        -1 NaN -1 -1"
-            "        2"
-            "            (0.0000 1.0000 0.000000) 0.0000 NaN NaN"
-            "            (1.0000 1.0000 0.000000) 1.0000 NaN NaN"
-            "2"
-            "    2"
-            "    1"
-            "        3.000"
-            "        unknown unknown"
-            "        unknown unknown"
-            "        -1 NaN -1 -1"
-            "        -1 NaN -1 -1"
-            "        2"
-            "            (4.0000 0.0000 0.000000) 0.0000 NaN NaN"
-            "            (5.0000 0.0000 0.000000) 1.0000 NaN NaN"
-            "    2"
-            "        3.000"
-            "        unknown unknown"
-            "        unknown unknown"
-            "        1 1.000000 1 1"
-            "        -1 NaN -1 -1"
-            "        2"
-            "            (4.0000 1.0000 0.000000) 0.0000 NaN NaN"
-            "            (5.0000 1.0000 0.000000) 1.0000 NaN NaN"
-             "3 4 0.1000"]
+             "ROADWAY",
+             "2",
+             "1",
+             "   2",
+             "   1",
+             "       1.000",
+             "       -Inf Inf",
+             "       solid white",
+             "       broken yellow",
+             "       1",
+             "           D (1 1.000000) 1 0.000000 2 2",
+             "       2",
+             "           (0.0000 0.0000 0.000000) 0.0000 NaN NaN",
+             "           (1.0000 0.0000 0.000000) 1.0000 NaN NaN",
+             "   2",
+             "       2.000",
+             "       -Inf Inf",
+             "       double white",
+             "       unknown unknown",
+             "       0",
+             "       2",
+             "           (0.0000 1.0000 0.000000) 0.0000 NaN NaN",
+             "           (1.0000 1.0000 0.000000) 1.0000 NaN NaN",
+             "2",
+             "   2",
+             "   1",
+             "       3.000",
+             "       -Inf Inf",
+             "       unknown unknown",
+             "       unknown unknown",
+             "       0",
+             "       2",
+             "           (4.0000 0.0000 0.000000) 0.0000 NaN NaN",
+             "           (5.0000 0.0000 0.000000) 1.0000 NaN NaN",
+             "   2",
+             "       3.000",
+             "       -Inf Inf",
+             "       unknown unknown",
+             "       unknown unknown",
+             "       1",
+             "           U (1 0.000000) 1 1.000000 1 1",
+             "       2",
+             "           (4.0000 1.0000 0.000000) 0.0000 NaN NaN",
+             "           (5.0000 1.0000 0.000000) 1.0000 NaN NaN",
+             ]
         )
         @test strip(line_orig) == strip(line_test)
     end
@@ -419,14 +421,26 @@ let
         for (lane1, lane2) in zip(seg1.lanes, seg2.lanes)
             @test lane1.tag == lane2.tag
             @test isapprox(lane1.width, lane2.width, atol=1e-3)
+            @test isapprox(lane1.speed_limit.lo, lane2.speed_limit.lo, atol=1e-3)
+            @test isapprox(lane1.speed_limit.hi, lane2.speed_limit.hi, atol=1e-3)
             @test lane1.boundary_left == lane2.boundary_left
             @test lane1.boundary_right == lane2.boundary_right
-            @test lane1.next.tag == lane2.next.tag
-            @test lane1.next.ind.i == lane2.next.ind.i
-            @test isnan(lane1.next.ind.t) || isapprox(lane1.next.ind.t, lane2.next.ind.t, atol=1e-5)
-            @test lane1.prev.tag == lane2.prev.tag
-            @test lane1.prev.ind.i == lane2.prev.ind.i
-            @test isnan(lane1.prev.ind.t) || isapprox(lane1.prev.ind.t, lane2.prev.ind.t, atol=1e-5)
+            for (conn1, conn2) in zip(lane1.exits, lane2.exits)
+                @test conn1.downstream == conn2.downstream
+                @test conn1.mylane.i == conn2.mylane.i
+                @test isapprox(conn1.mylane.t, conn2.mylane.t, atol=1e-3)
+                @test conn1.target.tag == conn2.target.tag
+                @test conn1.target.ind.i == conn2.target.ind.i
+                @test isapprox(conn1.target.ind.t, conn2.target.ind.t, atol=1e-3)
+            end
+            for (conn1, conn2) in zip(lane1.entrances, lane2.entrances)
+                @test conn1.downstream == conn2.downstream
+                @test conn1.mylane.i == conn2.mylane.i
+                @test isapprox(conn1.mylane.t, conn2.mylane.t, atol=1e-3)
+                @test conn1.target.tag == conn2.target.tag
+                @test conn1.target.ind.i == conn2.target.ind.i
+                @test isapprox(conn1.target.ind.t, conn2.target.ind.t, atol=1e-3)
+            end
             for (pt1, pt2) in zip(lane1.curve, lane2.curve)
                 @test abs2(convert(VecE2, pt1.pos) - convert(VecE2, pt2.pos)) < 0.01
                 @test angledist(pt1.pos.θ, pt2.pos.θ) < 1e-5

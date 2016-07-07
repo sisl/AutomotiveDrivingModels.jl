@@ -14,14 +14,19 @@ export
     CurveIndex,
     CurveProjection,
 
+    CURVEINDEX_START,
+
     get_lerp_time,
     index_closest_to_point,
     get_curve_index,
+    curveindex_end,
 
     # roadway
     LaneTag,
     LaneBoundary,
     Lane,
+    LaneConnection,
+    SpeedLimit,
     RoadSegment,
     Roadway,
     RoadProjection,
@@ -31,6 +36,7 @@ export
     NULL_LANETAG,
     NULL_ROADINDEX,
 
+    DEFAULT_SPEED_LIMIT,
     DEFAULT_LANE_WIDTH,
 
     is_at_curve_end,

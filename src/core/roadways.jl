@@ -15,13 +15,33 @@ immutable RoadIndex
 end
 const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
 
+Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
+
 #######################################
 
-immutable LaneBoundary
-    style::Symbol # ∈ :solid, :broken, :double
-    color::Symbol # ∈ :yellow, white
+immutable LaneConnection
+    downstream::Bool # if true, mylane → target, else target → mylane
+    mylane::CurveIndex
+    target::RoadIndex
 end
-const NULL_BOUNDARY = LaneBoundary(:unknown, :unknown)
+
+function Base.write(io::IO, c::LaneConnection)
+    @printf(io, "%s (%d %.6f) ", c.downstream ? "D" : "U", c.mylane.i, c.mylane.t)
+    write(io, c.target)
+end
+function Base.parse(::Type{LaneConnection}, line::AbstractString)
+    cleanedline = replace(line, r"(\(|\))", "")
+    tokens = split(cleanedline, ' ')
+
+    @assert(tokens[1] == "D" || tokens[1] == "U")
+    downstream = tokens[1] == "D"
+    mylane = CurveIndex(parse(Int, tokens[2]), parse(Float64, tokens[3]))
+    target = RoadIndex(
+                CurveIndex(parse(Int, tokens[4]), parse(Float64, tokens[5])),
+                LaneTag(parse(Int, tokens[6]), parse(Int, tokens[7]))
+            )
+    LaneConnection(downstream, mylane, target)
+end
 
 #######################################
 
@@ -31,40 +51,63 @@ type Lane
     tag            :: LaneTag
     curve          :: Curve
     width          :: Float64 # [m]
+    speed_limit    :: SpeedLimit
     boundary_left  :: LaneBoundary
     boundary_right :: LaneBoundary
-    prev           :: RoadIndex # connects some RoadIndex to the first point of this lane
-    next           :: RoadIndex # connects some the last point of this lane to some RoadIndex
+    exits          :: Vector{LaneConnection} # list of exits; put the primary exit (at end of lane) first
+    entrances      :: Vector{LaneConnection} # list of entrances; put the primary entrance (at start of lane) first
 
     function Lane(
         tag::LaneTag,
         curve::Curve;
         width::Float64 = DEFAULT_LANE_WIDTH,
+        speed_limit::SpeedLimit = DEFAULT_SPEED_LIMIT,
         boundary_left::LaneBoundary = NULL_BOUNDARY,
         boundary_right::LaneBoundary = NULL_BOUNDARY,
-        prev::RoadIndex = NULL_ROADINDEX,
-        next::RoadIndex = NULL_ROADINDEX,
+        exits::Vector{LaneConnection} = LaneConnection[],
+        entrances::Vector{LaneConnection} = LaneConnection[],
+        next::RoadIndex=NULL_ROADINDEX,
+        prev::RoadIndex=NULL_ROADINDEX,
         )
 
         retval = new()
         retval.tag = tag
         retval.curve = curve
         retval.width = width
+        retval.speed_limit = speed_limit
         retval.boundary_left = boundary_left
         retval.boundary_right = boundary_right
-        retval.prev = prev
-        retval.next = next
+        retval.exits = exits
+        retval.entrances = entrances
+
+        if next != NULL_ROADINDEX
+            unshift!(retval.exits, LaneConnection(true, curveindex_end(retval.curve), next))
+        end
+        if prev != NULL_ROADINDEX
+            unshift!(retval.entrances, LaneConnection(false, CURVEINDEX_START, prev))
+        end
+
         retval
     end
 end
 
-has_next(lane::Lane) = lane.next != NULL_ROADINDEX
-has_prev(lane::Lane) = lane.prev != NULL_ROADINDEX
+has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
+has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
 
-function connect!(prev::Lane, next::Lane)
-    prev.next = RoadIndex(CurveIndex(1,0.0), next.tag)
-    next.prev = RoadIndex(CurveIndex(length(prev.curve)-1,1.0), prev.tag)
-    (prev, next)
+function connect!(source::Lane, dest::Lane)
+    # place these at the front
+
+    cindS = curveindex_end(source.curve)
+    cindD = CURVEINDEX_START
+
+    unshift!(source.exits,   LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
+    unshift!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, source.tag)))
+    (source, dest)
+end
+function connect!(source::Lane, cindS::CurveIndex, dest::Lane, cindD::CurveIndex)
+    push!(source.exits,   LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
+    push!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, source.tag)))
+    (source, dest)
 end
 
 #######################################
@@ -95,10 +138,16 @@ function Base.write(io::IO, roadway::Roadway)
             @assert(lane.tag.lane == i)
             @printf(io, "\t%d\n", i)
             @printf(io, "\t\t%.3f\n", lane.width)
+            @printf(io, "\t\t%.3f %.3f\n", lane.speed_limit.lo, lane.speed_limit.hi)
             println(io, "\t\t", lane.boundary_left.style, " ", lane.boundary_left.color)
             println(io, "\t\t", lane.boundary_right.style, " ", lane.boundary_right.color)
-            @printf(io, "\t\t%d %.6f %d %d\n", lane.prev.ind.i, lane.prev.ind.t, lane.prev.tag.segment, lane.prev.tag.lane)
-            @printf(io, "\t\t%d %.6f %d %d\n", lane.next.ind.i, lane.next.ind.t, lane.next.tag.segment, lane.next.tag.lane)
+            println(io, "\t\t", length(lane.exits) + length(lane.entrances))
+            for conn in lane.exits
+                print(io, "\t\t\t"); write(io, conn); print(io, "\n")
+            end
+            for conn in lane.entrances
+                print(io, "\t\t\t"); write(io, conn); print(io, "\n")
+            end
             println(io, "\t\t", length(lane.curve))
             for pt in lane.curve
                 @printf(io, "\t\t\t(%.4f %.4f %.6f) %.4f %.8f %.8f\n", pt.pos.x, pt.pos.y, pt.pos.θ, pt.s, pt.k, pt.kd)
@@ -131,20 +180,21 @@ function Base.read(io::IO, ::Type{Roadway})
             width = parse(Float64, advance!())
 
             tokens = split(advance!(), ' ')
+            speed_limit = SpeedLimit(parse(Float64, tokens[1]), parse(Float64, tokens[2]))
+
+            tokens = split(advance!(), ' ')
             boundary_left = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
 
             tokens = split(advance!(), ' ')
             boundary_right = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
 
-            tokens = split(advance!(), ' ')
-            curveind = CurveIndex(parse(Int, tokens[1]), parse(Float64, tokens[2]))
-            prev_tag = LaneTag(parse(Int, tokens[3]), parse(Int, tokens[4]))
-            prev = RoadIndex(curveind, prev_tag)
-
-            tokens = split(advance!(), ' ')
-            curveind = CurveIndex(parse(Int, tokens[1]), parse(Float64, tokens[2]))
-            next_tag = LaneTag(parse(Int, tokens[3]), parse(Int, tokens[4]))
-            next = RoadIndex(curveind, next_tag)
+            entrances = LaneConnection[]
+            exits = LaneConnection[]
+            n_conns = parse(Int, advance!())
+            for i_conn in 1:n_conns
+                conn = parse(LaneConnection, advance!())
+                conn.downstream ? push!(exits, conn) : push!(exits, conn)
+            end
 
             npts = parse(Int, advance!())
             curve = Array(CurvePt, npts)
@@ -161,8 +211,10 @@ function Base.read(io::IO, ::Type{Roadway})
                 curve[i_pt] = CurvePt(VecSE2(x,y,θ), s, k, kd)
             end
 
-            seg.lanes[i_lane] = Lane(tag, curve, width=width, boundary_left=boundary_left,
-                                     boundary_right=boundary_right, prev=prev, next=next)
+            seg.lanes[i_lane] = Lane(tag, curve, width=width, speed_limit=speed_limit,
+                                     boundary_left=boundary_left,
+                                     boundary_right=boundary_right,
+                                     entrances=entrances, exits=exits)
         end
         roadway.segments[i_seg] = seg
     end
@@ -215,10 +267,10 @@ function Base.getindex(roadway::Roadway, tag::LaneTag)
     seg.lanes[tag.lane]
 end
 
-next_lane(lane::Lane, roadway::Roadway) = roadway[lane.next.tag]
-prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.prev.tag]
-next_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.next]
-prev_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.prev]
+next_lane(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target.tag]
+prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target.tag]
+next_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target]
+prev_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target]
 
 function has_segment(roadway::Roadway, segid::Int)
     for seg in roadway.segments
@@ -263,7 +315,7 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
             ind = CurveIndex(0, t)
             curveproj = get_curve_projection(posG, footpoint, ind)
         end
-    elseif curveproj.ind == CurveIndex(length(lane.curve)-1,1.0) && has_next(lane)
+    elseif curveproj.ind == curveindex_end(lane.curve) && has_next(lane)
         pt_lo = lane.curve[end]
         pt_hi = next_lane_point(lane, roadway)
 
@@ -364,7 +416,7 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
 
             if curvept.s + Δs < -s_gap
                 lane_prev = prev_lane(lane, roadway)
-                curveind = CurveIndex(length(lane_prev.curve)-1,1.0)
+                curveind = curveindex_end(lane_prev.curve)
                 roadind = RoadIndex(curveind, lane_prev.tag)
                 return move_along(roadind, roadway, Δs + curvept.s + s_gap, depth+1)
             else # in the gap between lanes
@@ -385,22 +437,22 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
 
             if curvept.s + Δs ≥ pt_lo.s + s_gap
                 curveind = CurveIndex(1,0.0)
-                roadind = RoadIndex(curveind, lane.next.tag)
+                roadind = RoadIndex(curveind, lane.exits[1].target.tag)
                 return move_along(roadind, roadway, Δs - (lane.curve[end].s + s_gap - curvept.s))
             else # in the gap between lanes
                 t = (Δs - (lane.curve[end].s - curvept.s)) / s_gap
                 curveind = CurveIndex(0, t)
-                RoadIndex(curveind, lane.next.tag)
+                RoadIndex(curveind, lane.exits[1].target.tag)
             end
         else # no next lane, return the end of this lane
-            curveind = CurveIndex(length(lane.curve)-1, 1.0)
+            curveind = curveindex_end(lane.curve)
             return RoadIndex(curveind, roadind.tag)
         end
     else
         if roadind.ind.i == 0
             ind = get_curve_index(CurveIndex(1,0.0), lane.curve, curvept.s+Δs)
         elseif roadind.ind.i == length(lane.curve)
-            ind = get_curve_index(CurveIndex(length(lane.curve)-1,1.0), lane.curve, curvept.s+Δs)
+            ind = get_curve_index(curveindex_end(lane.curve), lane.curve, curvept.s+Δs)
         else
             ind = get_curve_index(roadind.ind, lane.curve, Δs)
         end
@@ -645,14 +697,14 @@ function read_dxf(io::IO, ::Type{Roadway};
         lane = retval[lane_new_dict[tag_old]]
         next_tag_new = lane_new_dict[next_tag_old]
         roadproj = proj(VecSE2(next_pt, 0.0), retval[next_tag_new], retval)
-        lane.next = RoadIndex(roadproj)
+        unshift!(lane.exits, LaneConnection(true, curveindex_end(lane.curve), RoadIndex(roadproj)))
     end
     for (tag_old, tup) in lane_prev_dict
         prev_pt, prev_tag_old = tup
         lane = retval[lane_new_dict[tag_old]]
         prev_tag_new = lane_new_dict[prev_tag_old]
         roadproj = proj(VecSE2(prev_pt, 0.0), retval[prev_tag_new], retval)
-        lane.prev = RoadIndex(roadproj)
+        unshift!(lane.entrances, LaneConnection(false, CURVEINDEX_START, RoadIndex(roadproj)))
     end
 
     retval
