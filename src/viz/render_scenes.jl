@@ -24,7 +24,10 @@ function render(scene::Scene, roadway::Roadway;
     render!(rendermodel, roadway)
     render!(rendermodel, scene)
 
-    camera_fit_to_content!(rendermodel, canvas_width, canvas_height)
+
+    camera_set_pos!(rendermodel, get_camera_center(scene))
+    camera_setzoom!(rendermodel, 1.0)
+
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end

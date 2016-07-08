@@ -1,6 +1,6 @@
 function get_test_trajdata()
     roadway = get_test_roadway()
-    trajdata = Trajdata(roadway, 1)
+    trajdata = Trajdata(roadway)
 
     trajdata.vehdefs[1] = VehicleDef(1, AgentClass.CAR, 5.0, 3.0)
     trajdata.vehdefs[2] = VehicleDef(2, AgentClass.CAR, 5.0, 3.0)
@@ -56,7 +56,6 @@ let
 
     for (line_orig, line_test) in zip(lines,
             ["TRAJDATA",
-             "1",
              "2",
              "2 1 5.000 3.000",
              "1 1 5.000 3.000",

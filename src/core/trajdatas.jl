@@ -11,20 +11,17 @@ Base.length(frame::TrajdataFrame) = frame.hi - frame.lo + 1 # number of cars in 
 
 type Trajdata
     roadway::Roadway
-    id::Int                    # id assigned to this trajdata
-
     vehdefs::Dict{Int, VehicleDef} # vehicle id -> vehdef
     states::Vector{TrajdataState} # list of vehicle states (for each scene)
     frames::Vector{TrajdataFrame} # list of frames
 end
-Trajdata(roadway::Roadway, trajdata_id::Int=0) = Trajdata(roadway, trajdata_id, Dict{Int, VehicleDef}(), TrajdataState[], TrajdataFrame[])
+Trajdata(roadway::Roadway) = Trajdata(roadway, Dict{Int, VehicleDef}(), TrajdataState[], TrajdataFrame[])
 
 function Base.write(io::IO, trajdata::Trajdata)
     # writes to a text file
     # - does not write the roadway
 
     println(io, "TRAJDATA")
-    println(io, trajdata.id)
 
     # vehdefs
     println(io, length(trajdata.vehdefs)) # number of vehdefs
@@ -64,8 +61,6 @@ function Base.read(io::IO, ::Type{Trajdata})
         line_index += 1
         line
     end
-
-    trajdata_id = parse(Int, advance!())
 
     vehdefs = Dict{Int, VehicleDef}()
     N = parse(Int, advance!())
@@ -109,7 +104,7 @@ function Base.read(io::IO, ::Type{Trajdata})
         frames[i] = TrajdataFrame(lo, hi, t)
     end
 
-    Trajdata(Roadway(), trajdata_id, vehdefs, states, frames)
+    Trajdata(Roadway(), vehdefs, states, frames)
 end
 
 nframes(trajdata::Trajdata) = length(trajdata.frames)

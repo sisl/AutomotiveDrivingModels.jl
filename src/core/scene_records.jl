@@ -2,10 +2,10 @@ type SceneRecord
     scenes::Vector{Scene}
     nscenes::Int # number of active scenes
 
-    function SceneRecord(max_n_scenes::Int, max_n_vehicles::Int=500, trajdataid::Int=-1)
+    function SceneRecord(max_n_scenes::Int, max_n_vehicles::Int=500)
         scenes = Array(Scene, max_n_scenes)
         for i in 1 : length(scenes)
-            scenes[i] = Scene(max_n_vehicles, trajdataid=trajdataid)
+            scenes[i] = Scene(max_n_vehicles)
         end
         new(scenes, 0)
     end

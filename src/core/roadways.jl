@@ -534,35 +534,37 @@ function read_dxf(io::IO, ::Type{Roadway};
         i = findnext(lines, "  8\n", i)
         if i != 0 # segment identifier found in LWPOLYLINE
 
-            segid = parse(Int, match(r"(?<=seg)(\d*)", lines[i+1]).match)
+            if ismatch(r"(?<=seg)(\d*)", lines[i+1])
+                segid = parse(Int, match(r"(?<=seg)(\d*)", lines[i+1]).match)
 
-                i = findnext(lines, "AcDbPolyline\n", i)
-            i != 0 || error("AcDbPolyline not found in LWPOLYLINE!")
-            i = findnext(lines, " 90\n", i)
-            i != 0 || error("Number of vertices not found in AcDbPolyline!")
+                    i = findnext(lines, "AcDbPolyline\n", i)
+                i != 0 || error("AcDbPolyline not found in LWPOLYLINE!")
+                i = findnext(lines, " 90\n", i)
+                i != 0 || error("Number of vertices not found in AcDbPolyline!")
 
-            N = parse(Int, lines[i+1])
-            N > 0 || error("Empty line segment!")
+                N = parse(Int, lines[i+1])
+                N > 0 || error("Empty line segment!")
 
-            pts = Array(VecE2, N)
+                pts = Array(VecE2, N)
 
-            i = findnext(lines, " 10\n", i)
-            i != 0 || error("First point not found in AcDbPolyline!")
+                i = findnext(lines, " 10\n", i)
+                i != 0 || error("First point not found in AcDbPolyline!")
 
-            for j in 1 : N
-                x = parse(Float64, lines[i+1])
-                y = parse(Float64, lines[i+3])
-                i += 4
-                pts[j] = VecE2(x,y)
-            end
-
-            laneid = 1
-            for tag in keys(lane_pts_dict)
-                if tag.segment == segid
-                    laneid += 1
+                for j in 1 : N
+                    x = parse(Float64, lines[i+1])
+                    y = parse(Float64, lines[i+3])
+                    i += 4
+                    pts[j] = VecE2(x,y)
                 end
+
+                laneid = 1
+                for tag in keys(lane_pts_dict)
+                    if tag.segment == segid
+                        laneid += 1
+                    end
+                end
+                lane_pts_dict[LaneTag(segid, laneid)] = pts
             end
-            lane_pts_dict[LaneTag(segid, laneid)] = pts
 
             i = findnext(lines, "LWPOLYLINE\n", i)
         end
@@ -691,20 +693,31 @@ function read_dxf(io::IO, ::Type{Roadway};
     end
 
     ###################################################
-    # Connect the lanes via next / prev
+    # Connect the lanes
     for (tag_old, tup) in lane_next_dict
         next_pt, next_tag_old = tup
         lane = retval[lane_new_dict[tag_old]]
         next_tag_new = lane_new_dict[next_tag_old]
-        roadproj = proj(VecSE2(next_pt, 0.0), retval[next_tag_new], retval)
-        unshift!(lane.exits, LaneConnection(true, curveindex_end(lane.curve), RoadIndex(roadproj)))
+        dest = retval[next_tag_new]
+        roadproj = proj(VecSE2(next_pt, 0.0), dest, retval)
+
+        cindS = curveindex_end(lane.curve)
+        cindD = roadproj.curveproj.ind
+        unshift!(lane.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
+        push!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, lane.tag)))
     end
     for (tag_old, tup) in lane_prev_dict
         prev_pt, prev_tag_old = tup
         lane = retval[lane_new_dict[tag_old]]
         prev_tag_new = lane_new_dict[prev_tag_old]
-        roadproj = proj(VecSE2(prev_pt, 0.0), retval[prev_tag_new], retval)
-        unshift!(lane.entrances, LaneConnection(false, CURVEINDEX_START, RoadIndex(roadproj)))
+        prev = retval[prev_tag_new]
+        roadproj = proj(VecSE2(prev_pt, 0.0), prev, retval)
+
+
+        cindS = roadproj.curveproj.ind
+        cindD = CURVEINDEX_START
+        push!(prev.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, lane.tag)))
+        unshift!(lane.entrances, LaneConnection(false, cindD, RoadIndex(cindS, prev.tag)))
     end
 
     retval

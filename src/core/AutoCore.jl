@@ -91,6 +91,7 @@ export
     Scene,
     SceneRecord,
 
+    get_by_id,
     get_index_of_first_vehicle_with_id,
     record_length,
     get_scene,

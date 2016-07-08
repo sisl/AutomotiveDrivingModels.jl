@@ -32,6 +32,7 @@ const DEFAULT_CANVAS_HEIGHT = 600
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "colorscheme.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "rendermodels.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "camera.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_roadways.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_vehicles.jl"))

@@ -15,6 +15,8 @@ let
         @test scene2[i].def == get_vehicledef(trajdata, i)
     end
 
+    @test get_by_id(scene, 1) == scene[1]
+
     empty!(scene2)
     @test length(scene2) == 0
 
