@@ -99,6 +99,8 @@ function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, sc
 
         add_instruction!( rendermodel, render_text, (@sprintf("v  = %10.3f m/s", veh.state.v), 10, text_y, 15, overlay.color), incameraframe=false)
         text_y += text_y_jump
+        add_instruction!( rendermodel, render_text, (@sprintf("t  = %10.3f m/s", veh.state.posF.t), 10, text_y, 15, overlay.color), incameraframe=false)
+        text_y += text_y_jump
 
         foreinfo = get_neighbor_fore_along_lane(scene, veh_index, roadway)
         if foreinfo.ind != 0
