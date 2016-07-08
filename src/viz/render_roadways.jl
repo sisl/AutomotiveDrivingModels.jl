@@ -9,11 +9,11 @@ function render!(
     )
 
     marker_color = boundary.color == :yellow ? COLOR_LANE_MARKINGS_YELLOW : COLOR_LANE_MARKINGS_WHITE
-    if boundary.style == :broken
-        add_instruction!(rendermodel, render_dashed_line, (pts, marker_color, lane_marking_width, lane_dash_len, lane_dash_spacing, lane_dash_offset))
-    else
+    # if boundary.style == :broken
+    #     add_instruction!(rendermodel, render_dashed_line, (pts, marker_color, lane_marking_width, lane_dash_len, lane_dash_spacing, lane_dash_offset))
+    # else
         add_instruction!(rendermodel, render_line, (pts, marker_color, lane_marking_width))
-    end
+    # end
     rendermodel
 end
 
@@ -52,34 +52,54 @@ function render!(rendermodel::RenderModel, roadway::Roadway;
             laneL = seg.lanes[end]
 
             pts = Array(Float64, 2, length(laneL.curve) + has_next(laneL) +
-                                    length(laneR.curve) + has_next(laneR))
-            i = 0
+                                        length(laneR.curve) + has_next(laneR) +
+                                        2*length(seg.lanes))
+            pts_index = 0
             for pt in laneL.curve
                 edgept = pt.pos + polar(laneL.width/2, pt.pos.θ + π/2)
-                i += 1
-                pts[1,i] = edgept.x
-                pts[2,i] = edgept.y
+                pts_index += 1
+                pts[1, pts_index] = edgept.x
+                pts[2, pts_index] = edgept.y
             end
             if has_next(laneL)
                 pt = next_lane_point(laneL, roadway)
                 edgept = pt.pos + polar(laneL.width/2, pt.pos.θ + π/2)
-                i += 1
-                pts[1,i] = edgept.x
-                pts[2,i] = edgept.y
+                pts_index += 1
+                pts[1, pts_index] = edgept.x
+                pts[2, pts_index] = edgept.y
             end
+            for i in reverse(1:length(seg.lanes))
+                lane = seg.lanes[i]
+                if has_next(lane)
+                    pt = next_lane_point(lane, roadway).pos
+                else
+                    pt = lane.curve[end].pos
+                end
+                pts_index += 1
+                pts[1, pts_index] = pt.x
+                pts[2, pts_index] = pt.y
+            end
+
             if has_next(laneR)
                 pt = next_lane_point(laneR, roadway)
                 edgept = pt.pos + polar(laneR.width/2, pt.pos.θ - π/2)
-                i += 1
-                pts[1,i] = edgept.x
-                pts[2,i] = edgept.y
+                pts_index += 1
+                pts[1, pts_index] = edgept.x
+                pts[2, pts_index] = edgept.y
             end
             for j in length(laneR.curve) : -1 : 1
                 pt = laneR.curve[j]
                 edgept = pt.pos + polar(laneR.width/2, pt.pos.θ - π/2)
-                i += 1
-                pts[1,i] = edgept.x
-                pts[2,i] = edgept.y
+                pts_index += 1
+                pts[1, pts_index] = edgept.x
+                pts[2, pts_index] = edgept.y
+            end
+            for i in 1:length(seg.lanes)
+                lane = seg.lanes[i]
+                pt = lane.curve[1].pos
+                pts_index += 1
+                pts[1, pts_index] = pt.x
+                pts[2, pts_index] = pt.y
             end
 
             add_instruction!(rendermodel, render_fill_region, (pts, color_asphalt))
@@ -141,6 +161,7 @@ function render(roadway::Roadway;
     canvas_width::Int=DEFAULT_CANVAS_WIDTH,
     canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
     rendermodel = RenderModel(),
+    cam::Camera = FitToContentCamera(),
     )
 
     s = CairoRGBSurface(canvas_width, canvas_height)
@@ -149,7 +170,7 @@ function render(roadway::Roadway;
 
     render!(rendermodel, roadway)
 
-    camera_fit_to_content!(rendermodel, canvas_width, canvas_height)
+    camera_set!(rendermodel, cam, canvas_width, canvas_height)
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end

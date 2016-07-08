@@ -316,14 +316,23 @@ function render_fill_region{T<:Real}(
 
     save(ctx)
     set_source_rgba(ctx,color)
-
     move_to(ctx, pts[1,1], pts[2,1])
     for i = 2 : size(pts,2)
         line_to(ctx, pts[1,i], pts[2,i])
     end
     close_path(ctx)
-
     fill(ctx)
+    restore(ctx)
+
+    save(ctx)
+    set_source_rgba(ctx,color)
+    set_line_width(ctx,1.0)
+    move_to(ctx, pts[1,1], pts[2,1])
+    for i = 2 : size(pts,2)
+        line_to(ctx, pts[1,i], pts[2,i])
+    end
+    close_path(ctx)
+    stroke(ctx)
     restore(ctx)
 end
 function render_line_segment(

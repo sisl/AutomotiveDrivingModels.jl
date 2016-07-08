@@ -15,7 +15,8 @@ end
 function render(scene::Scene, roadway::Roadway;
     canvas_width::Int=DEFAULT_CANVAS_WIDTH,
     canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
-    rendermodel = RenderModel(),
+    rendermodel::RenderModel=RenderModel(),
+    cam::Camera=SceneFollowCamera(),
     )
 
     s, ctx = get_surface_and_context(canvas_width, canvas_height)
@@ -24,9 +25,7 @@ function render(scene::Scene, roadway::Roadway;
     render!(rendermodel, roadway)
     render!(rendermodel, scene)
 
-
-    camera_set_pos!(rendermodel, get_camera_center(scene))
-    camera_setzoom!(rendermodel, 1.0)
+    camera_set!(rendermodel, cam, scene, roadway, canvas_width, canvas_height)
 
     render(rendermodel, ctx, canvas_width, canvas_height)
     s

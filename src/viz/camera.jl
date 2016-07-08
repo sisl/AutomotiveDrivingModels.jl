@@ -1,25 +1,42 @@
 export
     Camera,
+    StaticCamera,
     FitToContentCamera,
     CarFollowCamera,
     SceneFollowCamera
 
 abstract Camera
+
 camera_set!(::RenderModel, cam::Camera, ::Scene, ::Roadway, canvas_width::Int, canvas_height::Int) = error("camera_set! not implemented for Camera $cam")
+
+type StaticCamera <: Camera
+    pos::VecE2
+    zoom::Float64 # [pix/meter]
+    StaticCamera(pos::VecE2, zoom::Float64=3.0) = new(pos, zoom)
+end
+function camera_set!(rendermodel::RenderModel, cam::StaticCamera, canvas_width::Int, canvas_height::Int)
+
+    camera_set_pos!(rendermodel, cam.pos)
+    camera_setzoom!(rendermodel, cam.zoom)
+
+    rendermodel
+end
+camera_set!(rendermodel::RenderModel, cam::StaticCamera, scene::Scene, roadway::Roadway, canvas_width::Int, canvas_height::Int) = camera_set!(rendermodel, cam, canvas_width, canvas_height)
 
 type FitToContentCamera <: Camera
     percent_border::Float64
     FitToContentCamera(percent_border::Float64=0.1) = new(percent_border)
 end
-function camera_set!(rendermodel::RenderModel, cam::FitToContentCamera, scene::Scene, roadway::Roadway, canvas_width::Int, canvas_height::Int)
-    camera_fit_to_content!(rendermodel, canvas_width, canvas_height, cam.percent_border)
+function camera_set!(rendermodel::RenderModel, cam::FitToContentCamera, canvas_width::Int, canvas_height::Int)
+    camera_fit_to_content!(rendermodel, canvas_width, canvas_height, percent_border=cam.percent_border)
     rendermodel
 end
+camera_set!(rendermodel::RenderModel, cam::FitToContentCamera, scene::Scene, roadway::Roadway, canvas_width::Int, canvas_height::Int) = camera_set!(rendermodel, cam, canvas_width, canvas_height)
 
 type CarFollowCamera <: Camera
     targetid::Int
     zoom::Float64 # [pix/meter]
-    CarFollowCamera(targetid::Int, zoom::Float64=1.0) = new(targetid, zoom)
+    CarFollowCamera(targetid::Int, zoom::Float64=3.0) = new(targetid, zoom)
 end
 function camera_set!(rendermodel::RenderModel, cam::CarFollowCamera, scene::Scene, roadway::Roadway, canvas_width::Int, canvas_height::Int)
 
@@ -37,6 +54,7 @@ end
 
 type SceneFollowCamera <: Camera
     zoom::Float64 # [pix/meter]
+    SceneFollowCamera(zoom::Float64=3.0) = new(zoom)
 end
 function camera_set!(rendermodel::RenderModel, cam::SceneFollowCamera, scene::Scene, roadway::Roadway, canvas_width::Int, canvas_height::Int)
 
@@ -53,7 +71,7 @@ function camera_set!(rendermodel::RenderModel, cam::SceneFollowCamera, scene::Sc
         camera_set_pos!(rendermodel, C)
         camera_setzoom!(rendermodel, cam.zoom)
     else
-        add_instruction!( rendermodel, render_text, ("SceneFollowCamera did not find any vehicles"), 10, 15, 15, colorant"white"), incameraframe=false)
+        add_instruction!( rendermodel, render_text, ("SceneFollowCamera did not find any vehicles", 10, 15, 15, colorant"white"), incameraframe=false)
         camera_fit_to_content!(rendermodel, canvas_width, canvas_height, cam.percent_border)
     end
 

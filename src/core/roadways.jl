@@ -701,10 +701,22 @@ function read_dxf(io::IO, ::Type{Roadway};
         dest = retval[next_tag_new]
         roadproj = proj(VecSE2(next_pt, 0.0), dest, retval)
 
+        # println("connecting $(lane.tag) to $(dest.tag)")
+
         cindS = curveindex_end(lane.curve)
         cindD = roadproj.curveproj.ind
-        unshift!(lane.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
-        push!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, lane.tag)))
+
+        if cindD == CURVEINDEX_START # a standard connection
+            connect!(lane, dest)
+            # remove any similar connection from lane_prev_dict
+            if haskey(lane_prev_dict, next_tag_old) && lane_prev_dict[next_tag_old][2] == tag_old
+                delete!(lane_prev_dict, next_tag_old)
+            end
+        else
+            # otherwise connect as before
+            unshift!(lane.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
+            push!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, lane.tag)))
+        end
     end
     for (tag_old, tup) in lane_prev_dict
         prev_pt, prev_tag_old = tup
@@ -713,11 +725,19 @@ function read_dxf(io::IO, ::Type{Roadway};
         prev = retval[prev_tag_new]
         roadproj = proj(VecSE2(prev_pt, 0.0), prev, retval)
 
+        # println("connecting $(lane.tag) from $(prev.tag)")
 
         cindS = roadproj.curveproj.ind
         cindD = CURVEINDEX_START
-        push!(prev.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, lane.tag)))
-        unshift!(lane.entrances, LaneConnection(false, cindD, RoadIndex(cindS, prev.tag)))
+
+        if cindS == curveindex_end(prev) # a standard connection
+            @assert(!has_prev(prev))
+            connect!(prev, lane)
+        else
+            # a standard connection
+            push!(prev.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, lane.tag)))
+            unshift!(lane.entrances, LaneConnection(false, cindD, RoadIndex(cindS, prev.tag)))
+        end
     end
 
     retval
