@@ -101,6 +101,11 @@ function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, sc
         text_y += text_y_jump
         add_instruction!( rendermodel, render_text, (@sprintf("t  = %10.3f m/s", veh.state.posF.t), 10, text_y, 15, overlay.color), incameraframe=false)
         text_y += text_y_jump
+        add_instruction!( rendermodel, render_text, ("posG: " * string(veh.state.posG), 10, text_y, 15, overlay.color), incameraframe=false)
+        text_y += text_y_jump
+        add_instruction!( rendermodel, render_text, ("posF: " * string(veh.state.posF), 10, text_y, 15, overlay.color), incameraframe=false)
+        text_y += text_y_jump
+
 
         foreinfo = get_neighbor_fore_along_lane(scene, veh_index, roadway)
         if foreinfo.ind != 0
@@ -109,6 +114,11 @@ function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, sc
             add_instruction!( rendermodel, render_text, (@sprintf("Δv = %10.3f m/s", rel_speed), 10, text_y, 15, overlay.color), incameraframe=false)
             text_y += text_y_jump
             add_instruction!( rendermodel, render_text, (@sprintf("Δs = %10.3f m/s", foreinfo.Δs), 10, text_y, 15, overlay.color), incameraframe=false)
+            text_y += text_y_jump
+            add_instruction!( rendermodel, render_text, ("posG: " * string(v2.state.posG), 10, text_y, 15, overlay.color), incameraframe=false)
+            text_y += text_y_jump
+            add_instruction!( rendermodel, render_text, ("posF: " * string(v2.state.posF), 10, text_y, 15, overlay.color), incameraframe=false)
+            text_y += text_y_jump
         else
             add_instruction!( rendermodel, render_text, (@sprintf("no front vehicle"), 10, text_y, 15, overlay.color), incameraframe=false)
         end
