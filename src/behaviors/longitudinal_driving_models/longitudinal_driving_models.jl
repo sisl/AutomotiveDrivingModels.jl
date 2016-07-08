@@ -14,6 +14,7 @@ Distributions.logpdf(model::LongitudinalDriverModel, a_lon::Float64) = error("lo
 
 type StaticLongitudinalDriver <: LongitudinalDriverModel
     a::Float64
+    StaticLongitudinalDriver(a::Float64=NaN) = new(a)
 end
 get_name(::StaticLongitudinalDriver) = "ProportionalSpeedTracker"
 Base.rand(model::StaticLongitudinalDriver) = model.a
