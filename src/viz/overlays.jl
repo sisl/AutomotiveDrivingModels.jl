@@ -122,7 +122,8 @@ end
 function render{O<:SceneOverlay}(scene::Scene, roadway::Roadway, overlays::AbstractVector{O};
     canvas_width::Int=DEFAULT_CANVAS_WIDTH,
     canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
-    rendermodel = RenderModel(),
+    rendermodel::RenderModel=RenderModel(),
+    cam::Camera=SceneFollowCamera(),
     )
 
     s = CairoRGBSurface(canvas_width, canvas_height)
@@ -136,7 +137,8 @@ function render{O<:SceneOverlay}(scene::Scene, roadway::Roadway, overlays::Abstr
         render!(rendermodel, overlay, scene, roadway)
     end
 
-    camera_fit_to_content!(rendermodel, canvas_width, canvas_height)
+    camera_set!(rendermodel, cam, scene, roadway, canvas_width, canvas_height)
+
     render(rendermodel, ctx, canvas_width, canvas_height)
     s
 end

@@ -9,6 +9,7 @@ function reel_drive_1d(
     roadway::Roadway;
     framerate::Int=10,
     overlays::Vector{SceneOverlay}=SceneOverlay[CarFollowingStatsOverlay(2)],
+    cam::Camera=FitToContentCamera(),
     )
 
     actions = Array(LatLonAccel, length(scene))
@@ -29,7 +30,7 @@ function reel_drive_1d(
         actions[2] = rand(model2)
 
         tick!(scene, roadway, actions, models)
-        push!(frames, render(scene, roadway, overlays))
+        push!(frames, render(scene, roadway, overlays, cam=cam))
     end
 
     Reel.write(gif_filename, frames) # Write to a gif file
