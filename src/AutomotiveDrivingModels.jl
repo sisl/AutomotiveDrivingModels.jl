@@ -23,5 +23,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "prerecorded_driv
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "lat_lon_separable_drivers.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "roadway_generation.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "julia_sim.jl"))
 
 end # module

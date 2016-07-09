@@ -9,11 +9,11 @@ function render!(
     )
 
     marker_color = boundary.color == :yellow ? COLOR_LANE_MARKINGS_YELLOW : COLOR_LANE_MARKINGS_WHITE
-    # if boundary.style == :broken
-    #     add_instruction!(rendermodel, render_dashed_line, (pts, marker_color, lane_marking_width, lane_dash_len, lane_dash_spacing, lane_dash_offset))
-    # else
+    if boundary.style == :broken
+        add_instruction!(rendermodel, render_dashed_line, (pts, marker_color, lane_marking_width, lane_dash_len, lane_dash_spacing, lane_dash_offset))
+    else
         add_instruction!(rendermodel, render_line, (pts, marker_color, lane_marking_width))
-    # end
+    end
     rendermodel
 end
 

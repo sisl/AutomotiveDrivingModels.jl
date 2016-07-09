@@ -4,6 +4,7 @@ immutable LaneTag
     segment :: Int # segment id
     lane    :: Int # index in segment.lanes of this lane
 end
+Base.show(io::IO, tag::LaneTag) = @printf(io, "LaneTag(%d, %d)", tag.segment, tag.lane)
 hash(id::LaneTag, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
 const NULL_LANETAG = LaneTag(0,0)
 
@@ -15,6 +16,7 @@ immutable RoadIndex
 end
 const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
 
+Base.show(io::IO, r::RoadIndex) = @printf(io, "RoadIndex({%d, %3.f}, {%d, %d})", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
 Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
 
 #######################################
@@ -25,6 +27,7 @@ immutable LaneConnection
     target::RoadIndex
 end
 
+Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, c.target)
 function Base.write(io::IO, c::LaneConnection)
     @printf(io, "%s (%d %.6f) ", c.downstream ? "D" : "U", c.mylane.i, c.mylane.t)
     write(io, c.target)

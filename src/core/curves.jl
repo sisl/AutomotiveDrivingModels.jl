@@ -7,6 +7,7 @@ immutable CurvePt
 
     CurvePt(pos::VecSE2, s::Float64, k::Float64=NaN, kd::Float64=NaN) = new(pos, s, k, kd)
 end
+Base.show(io::IO, pt::CurvePt) = @printf(io, "CurvePt({%.3f, %.3f, %.3f}, %.3f, %.3f, %.3f)", pt.pos.x, pt.pos.y, pt.pos.θ, pt.s, pt.k, pt.kd)
 
 Vec.lerp(a::CurvePt, b::CurvePt, t::Float64) = CurvePt(lerp(a.pos, b.pos, t), a.s + (b.s - a.s)*t, a.k + (b.k - a.k)*t, a.kd + (b.kd - a.kd)*t)
 
@@ -43,6 +44,7 @@ immutable CurveIndex
     t::Float64 # ∈ [0,1] for linear interpolation
 end
 const CURVEINDEX_START = CurveIndex(1,0.0)
+Base.show(io::IO, ind::CurveIndex) = @printf(io, "CurveIndex(%d, %.3f)", ind.i, ind.t)
 
 curveindex_end(curve::Curve) = CurveIndex(length(curve)-1,1.0)
 
@@ -198,6 +200,7 @@ immutable CurveProjection
     t::Float64 # lane offset
     ϕ::Float64 # lane-relative heading [rad]
 end
+Base.show(io::IO, curveproj::CurveProjection) = @printf(io, "CurveProjection({%d, %.3f}, %.3f, %.3f)", curveproj.ind.i, curveproj.ind.t, curveproj.t, curveproj.ϕ)
 function get_curve_projection(posG::VecSE2, footpoint::VecSE2, ind::CurveIndex)
     F = inertial2body(posG, footpoint)
     CurveProjection(ind, F.y, F.θ)

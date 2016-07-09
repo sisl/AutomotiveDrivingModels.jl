@@ -14,6 +14,8 @@ end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
 
 const NULL_FRENET = Frenet(NULL_ROADINDEX, NaN, NaN, NaN)
+
+Base.show(io::IO, frenet::Frenet) = print(io, "Frenet(", frenet.roadind, @sprintf(", %.3f, %.3f, %.3f)", frenet.s, frenet.t, frenet.ϕ))
 function Base.isapprox(a::Frenet, b::Frenet;
     rtol::Real=cbrt(eps(Float64)),
     atol::Real=sqrt(eps(Float64))
@@ -37,6 +39,7 @@ immutable VehicleState
     VehicleState(posG::VecSE2, posF::Frenet, v::Float64) = new(posG, posF, v)
     VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
 end
+Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 
 baremodule AgentClass
     const CAR        = 1
@@ -51,6 +54,7 @@ immutable VehicleDef
     width::Float64
 end
 const NULL_VEHICLEDEF = VehicleDef(0, AgentClass.CAR, NaN, NaN)
+Base.show(io::IO, d::VehicleDef) = @printf(io, "VehicleDef(%d, %s, %.3f, %.3f)", d.id, d.class == AgentClass.CAR ? "CAR" : d.class == AgentClass.MOTORCYCLE ? "MOTORCYCLE" : "TRUCK", d.length, d.width)
 
 type Vehicle
     state::VehicleState # position is at the center
@@ -63,6 +67,7 @@ type Vehicle
         new(state,def)
     end
 end
+Base.show(io::IO, v::Vehicle) = print(io, "Vehicle(", v.state, ", ", v.def, ")")
 function Base.copy!(veh1::Vehicle, veh2::Vehicle)
     veh1.state = veh2.state
     veh1.def = veh2.def
