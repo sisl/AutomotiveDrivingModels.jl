@@ -8,7 +8,7 @@ function reel_drive_1d(
     model2::DriverModel{LatLonAccel, IntegratedContinuous}, # StaticLognitudinal
     roadway::Roadway;
     framerate::Int=10,
-    overlays::Vector{SceneOverlay}=SceneOverlay[CarFollowingStatsOverlay(2)],
+    overlays::Vector{SceneOverlay}=SceneOverlay[], # CarFollowingStatsOverlay(2)
     cam::Camera=FitToContentCamera(),
     )
 
@@ -17,10 +17,9 @@ function reel_drive_1d(
     models[1] = model1
     models[2] = model2
 
-
     frames = Reel.Frames(MIME("image/png"), fps=framerate)
 
-    push!(frames, render(scene, roadway, overlays))
+    push!(frames, render(scene, roadway, overlays, cam=cam))
     for frame_index in 1:length(veh2_actions)
 
         actions[1] = rand(observe!(model1, scene, roadway, 1))
