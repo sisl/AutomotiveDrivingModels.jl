@@ -40,7 +40,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "render_scenes.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "overlays.jl"))
 
-include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "reel_drive.jl"))
+# include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "reel_drive.jl"))
 # include(Pkg.dir("AutomotiveDrivingModels", "src", "viz", "gtk.jl"))
 
 end # module
