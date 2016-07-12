@@ -11,6 +11,8 @@ using Reexport
 include("core/AutoCore.jl")
 @reexport using .AutoCore
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "features.jl"))
+
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "actions.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "driver_models.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "simulation.jl"))
