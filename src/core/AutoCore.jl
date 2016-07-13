@@ -82,6 +82,7 @@ export
     carsinframe,
     nth_carid,
     iscarinframe,
+    get_elapsed_time,
     get_vehiclestate,
     get_vehicledef,
     get_vehicle!,
@@ -89,7 +90,6 @@ export
 
     # scene
     Scene,
-    SceneRecord,
 
     get_by_id,
     get_index_of_first_vehicle_with_id,
@@ -99,7 +99,12 @@ export
     update!,
 
     NeighborForeResult,
-    get_neighbor_fore_along_lane
+    get_neighbor_fore_along_lane,
+
+    # scene record
+    SceneRecord,
+
+    pastframe_inbounds
 
 
 

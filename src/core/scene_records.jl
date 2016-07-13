@@ -1,20 +1,31 @@
 type SceneRecord
     scenes::Vector{Scene}
+    timestep::Float64
     nscenes::Int # number of active scenes
 
-    function SceneRecord(max_n_scenes::Int, max_n_vehicles::Int=500)
+    function SceneRecord(max_n_scenes::Int, timestep::Float64, max_n_vehicles::Int=500)
         scenes = Array(Scene, max_n_scenes)
         for i in 1 : length(scenes)
             scenes[i] = Scene(max_n_vehicles)
         end
-        new(scenes, 0)
+        new(scenes, timestep, 0)
     end
 end
 
 Base.length(rec::SceneRecord) = rec.nscenes
 
 record_length(rec::SceneRecord) = length(rec.scenes)
+pastframe_inbounds(rec::SceneRecord, pastframe::Int) = 1 ≤ 1-pastframe ≤ rec.nscenes
 get_scene(rec::SceneRecord, pastframe::Int) = rec.scenes[1 - pastframe]
+get_elapsed_time(rec::SceneRecord, pastframe::Int) = (1-pastframe)*rec.timestep
+function get_elapsed_time(
+    rec::SceneRecord,
+    pastframe_farthest_back::Int,
+    pastframe_most_recent::Int,
+    )
+
+    (pastframe_most_recent - pastframe_farthest_back)*rec.timestep
+end
 
 function Base.empty!(rec::SceneRecord)
     rec.nscenes = 0
