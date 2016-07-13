@@ -8,39 +8,6 @@ export
     allfeatures,
     symbol2feature
 
-
-# export POSFYAW, POSFT, SPEED, VELBX, VELBY, VELFS, VELFT, SCENE_SPEED_DIFFERENCE
-# export TURNRATE, ACC, ACCFS, ACCFT, ACCBX, ACCBY, JERK
-# export MARKERDIST_LEFT, MARKERDIST_RIGHT, DIST_FROM_CENTERLINE
-# export DIST_MERGE, DIST_SPLIT
-# export SUMO, IDM
-# export HAS_FRONT, DIST_FRONT, D_Y_FRONT, DELTA_V_FRONT, DELTA_V_Y_FRONT, YAW_FRONT, TURNRATE_FRONT, ACC_REQ_FRONT, INV_TTC_FRONT, INV_TIMEGAP_FRONT, GAINING_ON_FRONT
-# export HAS_REAR,  DIST_REAR,  D_Y_REAR,  DELTA_V_REAR,  DELTA_V_Y_REAR,  YAW_REAR,  TURNRATE_REAR,  ACC_REQ_REAR,  INV_TTC_REAR,  INV_TIMEGAP_REAR,  REAR_IS_GAINING
-# export HAS_LEFT,  DIST_LEFT,  D_Y_LEFT,  DELTA_V_LEFT,  DELTA_V_Y_LEFT,  YAW_LEFT,  TURNRATE_LEFT,  ACC_REQ_LEFT,  INV_TTC_LEFT,  INV_TIMEGAP_LEFT,  LEFT_IS_GAINING
-# export HAS_RIGHT, DIST_RIGHT, D_Y_RIGHT, DELTA_V_RIGHT, DELTA_V_Y_RIGHT, YAW_RIGHT, TURNRATE_RIGHT, ACC_REQ_RIGHT, INV_TTC_RIGHT, INV_TIMEGAP_RIGHT, RIGHT_IS_GAINING
-# export TIMETOCROSSING_LEFT, TIMETOCROSSING_RIGHT, ESTIMATEDTIMETOLANECROSSING, A_REQ_STAYINLANE
-# export N_LANE_LEFT, N_LANE_RIGHT, HAS_LANE_RIGHT, HAS_LANE_LEFT, LANECURVATURE
-# export TIME_CONSECUTIVE_BRAKE, TIME_CONSECUTIVE_ACCEL, TIME_CONSECUTIVE_THROTTLE
-# export FUTUREACCELERATION, FUTUREDESIREDANGLE, FUTURETURNRATE, FUTUREVELFT, FUTURE_DELTA_ACCEL
-# export Feature_IsClean, Feature_Past
-# export Feature_Mean_Over_History, Feature_Std_Over_History, Feature_Max_Over_History, Feature_Min_Over_History
-
-# export
-#     get_feature,
-#     symbol2feature,
-#     is_symbol_a_feature,
-#     is_feature_na,
-#     allfeatures,
-#     units,
-#     isint,
-#     isbool,
-#     upperbound,
-#     lowerbound,
-#     couldna,
-#     replace_na,
-#     lsymbol,
-#     get_feature_derivative_backwards
-
 """
     Features can be extracted from SceneRecords.
 They always return a FeatureValue, which allows the encoding of discrete / continuous / missing values,
@@ -424,3 +391,9 @@ function Base.get(::Feature_Time_Consecutive_Throttle, rec::SceneRecord, roadway
     tc_brake = get(TIME_CONSECUTIVE_BRAKE, rec, roadway, vehicle_index, pastframe).v
     FeatureValue(tc_accel ≥ tc_brake ? tc_accel : -tc_brake)
 end
+
+#############################################
+#
+# FRONT
+#
+#############################################
