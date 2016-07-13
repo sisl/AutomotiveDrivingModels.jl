@@ -27,7 +27,7 @@ let
         @test scene2[i].def == get_vehicledef(trajdata, i)
     end
 
-    deleteat!(scene2, 1)
+    delete!(scene2, scene2[1])
     @test length(scene2) == 1
     @test scene2[1].state == get_vehiclestate(trajdata, 2, 1)
     @test scene2[1].def == get_vehicledef(trajdata, 2)

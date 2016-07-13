@@ -72,6 +72,7 @@ function Base.deleteat!(scene::Scene, vehicle_index::Int)
     scene.n_vehicles -= 1
     scene
 end
+Base.delete!(scene::Scene, veh::Vehicle) = deleteat!(scene, get_index_of_first_vehicle_with_id(scene, veh.def.id))
 
 function get_by_id(scene::Scene, id::Int)
     for i in 1 : scene.n_vehicles

@@ -40,6 +40,11 @@ immutable VehicleState
     VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
 end
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
+function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
+    posG = lerp(a.posG, b.posG, t)
+    v = lerp(a.v, b.v, t)
+    VehicleState(posG, roadway, v)
+end
 
 baremodule AgentClass
     const CAR        = 1
