@@ -111,6 +111,7 @@ nframes(trajdata::Trajdata) = length(trajdata.frames)
 frame_inbounds(trajdata::Trajdata, frame::Int) = 1 ≤ frame ≤ nframes(trajdata)
 carsinframe(trajdata::Trajdata, frame::Int) = length(trajdata.frames[frame])
 nth_carid(trajdata::Trajdata, frame::Int, n::Int=1) = trajdata.states[trajdata.frames[frame].lo + n-1].id
+get_time(trajdata::Trajdata, frame::Int) = trajdata.frames[frame].t
 get_elapsed_time(trajdata::Trajdata, frame_lo::Int, frame_hi::Int) = trajdata.frames[frame_hi].t - trajdata.frames[frame_lo].t
 
 function iscarinframe(trajdata::Trajdata, id::Int, frame::Int)

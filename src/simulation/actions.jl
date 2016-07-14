@@ -33,6 +33,7 @@ immutable AccelTurnrate <: DriveAction
     a::Float64
     ω::Float64
 end
+Base.show(io::IO, a::AccelTurnrate) = @printf(io, "AccelTurnrate(%6.3f,%6.3f)", a.a, a.ω)
 Base.length(::Type{AccelTurnrate}) = 2
 Base.convert(::Type{AccelTurnrate}, v::Vector{Float64}) = AccelTurnrate(v[1], v[2])
 function Base.copy!(v::Vector{Float64}, a::AccelTurnrate)
@@ -67,6 +68,7 @@ immutable AccelDesang <: DriveAction
     a::Float64
     ϕdes::Float64
 end
+Base.show(io::IO, a::AccelDesang) = @printf(io, "AccelDesang(%6.3f,%6.3f)", a.a, a.ϕdes)
 Base.length(::Type{AccelDesang}) = 2
 Base.convert(::Type{AccelDesang}, v::Vector{Float64}) = AccelDesang(v[1], v[2])
 function Base.copy!(v::Vector{Float64}, a::AccelDesang)
@@ -111,6 +113,7 @@ immutable LatLonAccel <: DriveAction
     a_lat::Float64
     a_lon::Float64
 end
+Base.show(io::IO, a::LatLonAccel) = @printf(io, "LatLonAccel(%6.3f, %6.3f)", a.a_lat, a.a_lon)
 Base.length(::Type{LatLonAccel}) = 2
 Base.convert(::Type{LatLonAccel}, v::Vector{Float64}) = LatLonAccel(v[1], v[2])
 function Base.copy!(v::Vector{Float64}, a::LatLonAccel)
@@ -155,7 +158,7 @@ end
 immutable NextState <: DriveAction
     s::VehicleState
 end
-
+Base.show(io::IO, a::NextState) = print(io, "NextState(", a.s, ")")
 Base.length(::Type{NextState}) = 11
 function Base.convert(::Type{NextState}, v::Vector{Float64})
     VehicleState(VecSE2(v[1],v[2],v[3]), # x, y, θ

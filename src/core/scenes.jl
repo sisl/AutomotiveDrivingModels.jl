@@ -158,9 +158,14 @@ function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway:
             break
         end
 
+        if !has_lanetag(roadway, tag_target)
+            println("tag: ", tag_target)
+            println("dist_searched: ", dist_searched)
+        end
+
         lane = roadway[tag_target]
         if !has_next(lane) ||
-           (tag_target == tag_start && best_dist != max_distance_fore) # exit after visiting this lane a 2nd time
+           (tag_target == tag_start && dist_searched != 0.0) # exit after visiting this lane a 2nd time
             break
         end
 

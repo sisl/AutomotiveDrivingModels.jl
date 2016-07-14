@@ -95,13 +95,11 @@ function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, sc
     if veh_index != 0
         veh = scene[veh_index]
 
-        add_instruction!( rendermodel, render_text, (@sprintf("v  = %10.3f m/s", veh.state.v), 10, text_y, font_size, overlay.color), incameraframe=false)
-        text_y += text_y_jump
-        add_instruction!( rendermodel, render_text, (@sprintf("t  = %10.3f m/s", veh.state.posF.t), 10, text_y, font_size, overlay.color), incameraframe=false)
-        text_y += text_y_jump
         add_instruction!( rendermodel, render_text, ("posG: " * string(veh.state.posG), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
         add_instruction!( rendermodel, render_text, ("posF: " * string(veh.state.posF), 10, text_y, font_size, overlay.color), incameraframe=false)
+        text_y += text_y_jump
+        add_instruction!( rendermodel, render_text, (@sprintf("speed: %.3f", veh.state.v), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
 
 
@@ -116,6 +114,8 @@ function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, sc
             add_instruction!( rendermodel, render_text, ("posG: " * string(v2.state.posG), 10, text_y, font_size, overlay.color), incameraframe=false)
             text_y += text_y_jump
             add_instruction!( rendermodel, render_text, ("posF: " * string(v2.state.posF), 10, text_y, font_size, overlay.color), incameraframe=false)
+            text_y += text_y_jump
+            add_instruction!( rendermodel, render_text, (@sprintf("speed: %.3f", v2.state.v), 10, text_y, font_size, overlay.color), incameraframe=false)
             text_y += text_y_jump
         else
             add_instruction!( rendermodel, render_text, (@sprintf("no front vehicle"), 10, text_y, font_size, overlay.color), incameraframe=false)

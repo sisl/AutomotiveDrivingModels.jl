@@ -83,6 +83,7 @@ export
     carsinframe,
     nth_carid,
     iscarinframe,
+    get_time,
     get_elapsed_time,
     get_vehiclestate,
     get_vehicledef,

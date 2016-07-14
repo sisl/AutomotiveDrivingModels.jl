@@ -10,13 +10,10 @@ function get_actions!{A<:DriveAction, D<:DriverModel}(
     )
 
 
-    i = 0
-    for veh in scene
-        if haskey(models, veh.def.id)
-            model = models[veh.def.id]
-            observe!(model, scene, roadway, veh.def.id)
-            actions[i+=1] = rand(model)
-        end
+    for (i,veh) in enumerate(scene)
+        model = models[veh.def.id]
+        observe!(model, scene, roadway, veh.def.id)
+        actions[i] = rand(model)
     end
 
     actions
