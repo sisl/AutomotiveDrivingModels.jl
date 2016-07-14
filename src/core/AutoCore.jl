@@ -85,6 +85,7 @@ export
     iscarinframe,
     get_time,
     get_elapsed_time,
+    get_mean_timestep,
     get_vehiclestate,
     get_vehicledef,
     get_vehicle!,
