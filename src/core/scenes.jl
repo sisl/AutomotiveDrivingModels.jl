@@ -159,17 +159,14 @@ function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway:
         end
 
         lane = roadway[tag_target]
-        if !has_next(lane)
+        if !has_next(lane) ||
+           (tag_target == tag_start && best_dist != max_distance_fore) # exit after visiting this lane a 2nd time
             break
         end
 
         dist_searched += (lane.curve[end].s - s_base)
         s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
         tag_target = next_lane(lane, roadway).tag
-
-        if tag_target == tag_start
-            break
-        end
     end
 
     NeighborForeResult(best_ind, best_dist)

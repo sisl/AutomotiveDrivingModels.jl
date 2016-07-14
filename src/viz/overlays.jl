@@ -84,46 +84,44 @@ type CarFollowingStatsOverlay <: SceneOverlay
 end
 function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, scene::Scene, roadway::Roadway)
 
-    if overlay.target_id < 0
-        target_inds = 1:length(scene)
-    else
-        target_inds = overlay.target_id:overlay.target_id
-    end
+    text_y = 10
+    text_y_jump = 12
+    font_size = 10
 
-    text_y = 15
-    text_y_jump = 20
+    add_instruction!( rendermodel, render_text, (@sprintf("id = %d", overlay.target_id), 10, text_y, font_size, overlay.color), incameraframe=false)
+        text_y += text_y_jump
 
     veh_index = get_index_of_first_vehicle_with_id(scene, overlay.target_id)
     if veh_index != 0
         veh = scene[veh_index]
 
-        add_instruction!( rendermodel, render_text, (@sprintf("v  = %10.3f m/s", veh.state.v), 10, text_y, 15, overlay.color), incameraframe=false)
+        add_instruction!( rendermodel, render_text, (@sprintf("v  = %10.3f m/s", veh.state.v), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
-        add_instruction!( rendermodel, render_text, (@sprintf("t  = %10.3f m/s", veh.state.posF.t), 10, text_y, 15, overlay.color), incameraframe=false)
+        add_instruction!( rendermodel, render_text, (@sprintf("t  = %10.3f m/s", veh.state.posF.t), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
-        add_instruction!( rendermodel, render_text, ("posG: " * string(veh.state.posG), 10, text_y, 15, overlay.color), incameraframe=false)
+        add_instruction!( rendermodel, render_text, ("posG: " * string(veh.state.posG), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
-        add_instruction!( rendermodel, render_text, ("posF: " * string(veh.state.posF), 10, text_y, 15, overlay.color), incameraframe=false)
+        add_instruction!( rendermodel, render_text, ("posF: " * string(veh.state.posF), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
 
 
-        foreinfo = get_neighbor_fore_along_lane(scene, veh_index, roadway)
+        foreinfo = get_neighbor_fore_along_lane(scene, veh_index, roadway; max_distance_fore=Inf)
         if foreinfo.ind != 0
             v2 = scene[foreinfo.ind]
             rel_speed = v2.state.v - veh.state.v
-            add_instruction!( rendermodel, render_text, (@sprintf("Δv = %10.3f m/s", rel_speed), 10, text_y, 15, overlay.color), incameraframe=false)
+            add_instruction!( rendermodel, render_text, (@sprintf("Δv = %10.3f m/s", rel_speed), 10, text_y, font_size, overlay.color), incameraframe=false)
             text_y += text_y_jump
-            add_instruction!( rendermodel, render_text, (@sprintf("Δs = %10.3f m/s", foreinfo.Δs), 10, text_y, 15, overlay.color), incameraframe=false)
+            add_instruction!( rendermodel, render_text, (@sprintf("Δs = %10.3f m/s", foreinfo.Δs), 10, text_y, font_size, overlay.color), incameraframe=false)
             text_y += text_y_jump
-            add_instruction!( rendermodel, render_text, ("posG: " * string(v2.state.posG), 10, text_y, 15, overlay.color), incameraframe=false)
+            add_instruction!( rendermodel, render_text, ("posG: " * string(v2.state.posG), 10, text_y, font_size, overlay.color), incameraframe=false)
             text_y += text_y_jump
-            add_instruction!( rendermodel, render_text, ("posF: " * string(v2.state.posF), 10, text_y, 15, overlay.color), incameraframe=false)
+            add_instruction!( rendermodel, render_text, ("posF: " * string(v2.state.posF), 10, text_y, font_size, overlay.color), incameraframe=false)
             text_y += text_y_jump
         else
-            add_instruction!( rendermodel, render_text, (@sprintf("no front vehicle"), 10, text_y, 15, overlay.color), incameraframe=false)
+            add_instruction!( rendermodel, render_text, (@sprintf("no front vehicle"), 10, text_y, font_size, overlay.color), incameraframe=false)
         end
     else
-        add_instruction!( rendermodel, render_text, (@sprintf("vehicle %d not found", overlay.target_id), 10, text_y, 15, overlay.color), incameraframe=false)
+        add_instruction!( rendermodel, render_text, (@sprintf("vehicle %d not found", overlay.target_id), 10, text_y, font_size, overlay.color), incameraframe=false)
     end
 
     rendermodel
