@@ -76,6 +76,7 @@ export
     TrajdataFrame,
     TrajdataState,
     Trajdata,
+    TrajdataVehicleIterator,
 
     nframes,
     frame_inbounds,

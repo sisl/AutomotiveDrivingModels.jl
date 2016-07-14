@@ -2,7 +2,8 @@ export
     TrajdataEditMode,
 
     remove_offroad_vehicles!,
-    remove_unaligned_vehicles!
+    remove_unaligned_vehicles!,
+    interpolate_to_timestep!
 
 type TrajdataEditMode
     roadway::Roadway
@@ -11,7 +12,7 @@ type TrajdataEditMode
 end
 function Base.convert(::Type{TrajdataEditMode}, trajdata::Trajdata)
     roadway = trajdata.roadway
-    scenes = Scene[get!(Scene(carsinframe(trajdata, frame)), trajdata, frame) for i in 1 : nframes(trajdata)]
+    scenes = Scene[get!(Scene(carsinframe(trajdata, frame)), trajdata, frame) for frame in 1 : nframes(trajdata)]
     time = Float64[frame.t for frame in trajdata.frames]
     TrajdataEditMode(roadway, scenes, time)
 end
@@ -40,20 +41,28 @@ function Base.convert(::Type{Trajdata}, tdem::TrajdataEditMode)
 end
 
 function remove_offroad_vehicles!(tdem::TrajdataEditMode, threshold_lane_lateral_offset::Float64=2.5)
-    for scene in scenes
-        for veh in scene
+    for scene in tdem.scenes
+        i = 0
+        while i < length(scene)
+            i += 1
+            veh = scene[i]
             if abs(veh.state.posF.t) > threshold_lane_lateral_offset
-                delete!(scene, veh)
+                deleteat!(scene, i)
+                i -= 1
             end
         end
     end
     tdem
 end
 function remove_unaligned_vehicles!(tdem::TrajdataEditMode, threshold_lane_angle::Float64=deg2rad(45))
-    for scene in scenes
-        for veh in scene
-            if abs(veh.state.posF.ϕ) > threshold_lane_angle
-                delete!(scene, veh)
+    for scene in tdem.scenes
+        i = 0
+        while i < length(scene)
+            i += 1
+            veh = scene[i]
+            if abs(veh.state.posF.t) > threshold_lane_angle
+                deleteat!(scene, i)
+                i -= 1
             end
         end
     end
@@ -84,12 +93,12 @@ function interpolate_to_timestep!(tdem::TrajdataEditMode, timestep::Float64)
         # if a vehicle is not in both scenes, do not inlude it
         scenes[i] = Scene(min(length(scene_lo), length(scene_hi)))
         for veh_lo in scene_lo
-            id = veh.def.id
+            id = veh_lo.def.id
             veh_index = get_index_of_first_vehicle_with_id(scene_hi, id)
             if veh_index != 0
                 veh_hi = scene_hi[veh_index]
                 @assert(veh_lo.def == veh_hi.def)
-                veh_interp = Vehicle(veh_lo.def, lerp(veh_lo.state, veh_hi.state, γ, tdem.roadway))
+                veh_interp = Vehicle(lerp(veh_lo.state, veh_hi.state, γ, tdem.roadway), veh_lo.def)
                 push!(scenes[i], veh_interp)
             end
         end

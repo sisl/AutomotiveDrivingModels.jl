@@ -142,3 +142,32 @@ function get_vehicle!(veh::Vehicle, trajdata::Trajdata, id::Int, frame::Int)
     veh
 end
 get_vehicle(trajdata::Trajdata, id::Int, frame::Int) = get_vehicle!(Vehicle(), trajdata, id, frame)
+
+
+#################################
+
+immutable TrajdataVehicleIterator
+    trajdata::Trajdata
+    id::Int
+end
+function Base.start(iter::TrajdataVehicleIterator)
+    frame = 1
+    while frame < nframes(iter.trajdata) &&
+          !iscarinframe(iter.trajdata, iter.id, frame)
+
+        frame += 1
+    end
+    frame
+end
+Base.done(iter::TrajdataVehicleIterator, frame::Int) = frame > nframes(iter.trajdata)
+function Base.next(iter::TrajdataVehicleIterator, frame::Int)
+    item = (frame, get_vehicle(iter.trajdata, iter.id, frame))
+    frame += 1
+    while frame < nframes(iter.trajdata) &&
+          !iscarinframe(iter.trajdata, iter.id, frame)
+
+        frame += 1
+    end
+    (item, frame)
+end
+

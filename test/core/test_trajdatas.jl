@@ -43,7 +43,6 @@ let
     @test isapprox(get_elapsed_time(trajdata, 1, 2),  0.1)
     @test isapprox(get_elapsed_time(trajdata, 2, 1), -0.1)
 
-
     veh = get_vehicle(trajdata, 1, 1)
     @test veh.state == VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0)
     @test_throws ErrorException get_vehicle(trajdata, 10, 1)
@@ -51,6 +50,24 @@ let
 
     get_vehicle!(veh, trajdata, 1, 2)
     @test veh.state == VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0)
+
+    let
+        iter = TrajdataVehicleIterator(trajdata, 1)
+        vehs = collect(iter)
+        @test length(vehs) == 2
+        @test vehs[1][1] == 1
+        @test vehs[1][2].state == get_vehiclestate(trajdata, 1, 1)
+        @test vehs[2][1] == 2
+        @test vehs[2][2].state == get_vehiclestate(trajdata, 1, 2)
+
+        iter = TrajdataVehicleIterator(trajdata, 2)
+        vehs = collect(iter)
+        @test length(vehs) == 2
+        @test vehs[1][1] == 1
+        @test vehs[1][2].state == get_vehiclestate(trajdata, 2, 1)
+        @test vehs[2][1] == 2
+        @test vehs[2][2].state == get_vehiclestate(trajdata, 2, 2)
+    end
 
     path, io = mktemp()
     write(io, trajdata)

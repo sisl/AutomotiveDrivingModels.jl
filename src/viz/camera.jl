@@ -40,9 +40,9 @@ type CarFollowCamera <: Camera
 end
 function camera_set!(rendermodel::RenderModel, cam::CarFollowCamera, scene::Scene, roadway::Roadway, canvas_width::Int, canvas_height::Int)
 
-    veh_index = get_index_of_first_vehicle_with_id(scene, cam.id)
+    veh_index = get_index_of_first_vehicle_with_id(scene, cam.targetid)
     if veh_index != 0
-        camera_set_pos!(rendermodel, scene[veh_index].pos)
+        camera_set_pos!(rendermodel, scene[veh_index].state.posG)
         camera_setzoom!(rendermodel, cam.zoom)
     else
         add_instruction!( rendermodel, render_text, (@sprintf("CarFollowCamera did not find id %d", cam.targetid), 10, 15, 15, colorant"white"), incameraframe=false)

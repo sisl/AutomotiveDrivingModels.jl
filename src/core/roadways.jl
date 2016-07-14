@@ -684,7 +684,9 @@ function read_dxf(io::IO, ::Type{Roadway};
                 pt_matrix[2,k] = P.y
             end
 
+            println("fitting curve ", length(pts), "  "); tic()
             curve = _fit_curve(pt_matrix, desired_distance_between_curve_samples)
+            toc()
 
             tag_new = LaneTag(seg.id, length(seg.lanes)+1)
             lane = Lane(tag_new, curve,
