@@ -6,6 +6,7 @@ using Base.Test
 using AutomotiveDrivingModels
 
 include(Pkg.dir("AutomotiveDrivingModels", "test", "core", "test_core.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "test", "viz", "test_viz.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "test", "test_actions.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "test", "test_driver_models.jl"))
