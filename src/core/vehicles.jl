@@ -13,6 +13,12 @@ function Frenet(roadproj::RoadProjection, roadway::Roadway)
 end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
 
+function get_posG(frenet::Frenet, roadway::Roadway)
+    curvept = roadway[frenet.roadind]
+    pos = curvept.pos + polar(frenet.t, curvept.pos.θ + π/2)
+    VecSE2(pos.x, pos.y, frenet.ϕ + curvept.pos.θ)
+end
+
 const NULL_FRENET = Frenet(NULL_ROADINDEX, NaN, NaN, NaN)
 
 Base.show(io::IO, frenet::Frenet) = print(io, "Frenet(", frenet.roadind, @sprintf(", %.3f, %.3f, %.3f)", frenet.s, frenet.t, frenet.ϕ))
@@ -38,6 +44,7 @@ immutable VehicleState
     VehicleState(posG::VecSE2, v::Float64) = new(posG, NULL_FRENET, v)
     VehicleState(posG::VecSE2, posF::Frenet, v::Float64) = new(posG, posF, v)
     VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
+    VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = new(get_posG(posF, roadway), posF, v)
 end
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
@@ -83,31 +90,3 @@ get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
-
-# """
-#     get_headway_dist_between(veh_rear::Vehicle, veh_fore::Vehicle)
-# Return the distance from the front of the rear vehicle to the rear of the front vehicle
-# """
-# function get_headway_dist_between(veh_rear::Vehicle, veh_fore::Vehicle)
-#     active_lanetag = veh_rear.state.posF.roadind.tag
-#     if veh_fore.state.posF.roadind.tag != active_lanetag
-#         NaN
-#     else
-#         s1 = veh_rear.state.posF.s
-#         s2 = veh_fore.state.posF.s
-#         s2 - s1 - veh_fore.length
-#     end
-# end
-# function get_headway_time_between(veh_rear::Vehicle, veh_fore::Vehicle)
-
-#     active_laneid = veh_rear.state.posF.laneid
-
-#     if veh_fore.state.posF.laneid != active_laneid
-#         NaN
-#     else
-#         s1 = veh_rear.state.posF.s
-#         s2 = veh_fore.state.posF.s
-#         Δs = s2 - s1 - veh_fore.length
-#         Δs/veh_rear.state.v
-#     end
-# end

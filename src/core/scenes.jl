@@ -146,7 +146,7 @@ function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway:
         for (i,veh) in enumerate(scene)
             if i != vehicle_index && veh.state.posF.roadind.tag == tag_target
                 s_target = veh.state.posF.s
-                dist = s_target - s_base
+                dist = s_target - s_base + dist_searched
                 if 0.0 ≤ dist < best_dist
                     best_dist = dist
                     best_ind = i
@@ -156,11 +156,6 @@ function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway:
 
         if best_ind != 0
             break
-        end
-
-        if !has_lanetag(roadway, tag_target)
-            println("tag: ", tag_target)
-            println("dist_searched: ", dist_searched)
         end
 
         lane = roadway[tag_target]

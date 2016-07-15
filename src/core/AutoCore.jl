@@ -68,6 +68,7 @@ export
     NULL_VEHICLEDEF,
     NULL_FRENET,
 
+    get_posG,
     get_vel_s,
     get_vel_t,
     get_footpoint,
