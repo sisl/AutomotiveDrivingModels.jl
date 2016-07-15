@@ -8,6 +8,7 @@ export
     AccelTurnrate,
     AccelDesang,
     LatLonAccel,
+    LaneFollowingAccel,
 
     propagate
 
@@ -153,6 +154,38 @@ function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinu
     # VehicleState(posG, posF, v₂)
 end
 
+###############
+
+"""
+    LaneFollowingAccel
+Longitudinal acceleration
+"""
+immutable LaneFollowingAccel <: DriveAction
+    a::Float64
+end
+Base.show(io::IO, a::LaneFollowingAccel) = @printf(io, "LaneFollowingAccel(%6.3f)", a.a)
+Base.length(::Type{LaneFollowingAccel}) = 1
+Base.convert(::Type{LaneFollowingAccel}, v::Vector{Float64}) = LaneFollowingAccel(v[1])
+function Base.copy!(v::Vector{Float64}, a::LaneFollowingAccel)
+    v[1] = a.a
+    v
+end
+function propagate(veh::Vehicle, action::LaneFollowingAccel, context::IntegratedContinuous, roadway::Roadway)
+
+    a_lon = action.a
+
+    ds = veh.state.v
+
+    ΔT = context.Δt
+    ΔT² = ΔT*ΔT
+    Δs = ds*ΔT + 0.5*a_lon*ΔT²
+
+    v₂ = ds + a_lon*ΔT
+
+    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    posG = roadway[roadind].pos
+    VehicleState(posG, roadway, v₂)
+end
 ###############
 
 immutable NextState <: DriveAction

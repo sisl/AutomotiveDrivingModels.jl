@@ -48,6 +48,48 @@ let
 
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 1, trajdata.roadway) == NeighborForeResult(2, 3.0)
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 2, trajdata.roadway) == NeighborForeResult(0, 250.0)
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 1, trajdata.roadway) == NeighborForeResult(2, 2.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 1, trajdata.roadway) == NeighborForeResult(2, 4.0)
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 2, trajdata.roadway) == NeighborForeResult(0, 250.0)
+end
+
+let
+    roadway = gen_stadium_roadway(1)
+    scene = Scene(2)
+
+    function place_at(s)
+        roadproj = proj(VecSE2(0.0,0.0,0.0), roadway)
+        roadind = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
+        roadind = move_along(roadind, roadway, s)
+        frenet = Frenet(roadind, roadway[roadind].s, 0.0, 0.0)
+        VehicleState(frenet, roadway, 0.0)
+    end
+
+    push!(scene, Vehicle(place_at(0.0), VehicleDef(1, AgentClass.CAR, 2.0, 1.0)))
+    push!(scene, Vehicle(place_at(0.0), VehicleDef(2, AgentClass.CAR, 2.0, 1.0)))
+    foreinfo = get_neighbor_fore_along_lane(scene, 1, roadway, max_distance_fore=Inf)
+    @test isapprox(foreinfo.Δs, 0.0)
+
+    scene[2].state = place_at(100.0)
+    foreinfo = get_neighbor_fore_along_lane(scene, 1, roadway, max_distance_fore=Inf)
+    @test foreinfo.ind == 2
+    @test isapprox(foreinfo.Δs, 100.0)
+
+    foreinfo = get_neighbor_fore_along_lane(scene, 2, roadway, max_distance_fore=Inf)
+    @test foreinfo.ind == 1
+    @test isapprox(foreinfo.Δs, 277.07, atol=1e-2)
+
+    scene[2].state = place_at(145.0)
+    foreinfo = get_neighbor_fore_along_lane(scene, 1, roadway, max_distance_fore=Inf)
+    @test foreinfo.ind == 2
+    @test isapprox(foreinfo.Δs, 145.0, atol=1e-5)
+
+    scene[2].state = place_at(240.0)
+    foreinfo = get_neighbor_fore_along_lane(scene, 1, roadway, max_distance_fore=Inf)
+    @test foreinfo.ind == 2
+    @test isapprox(foreinfo.Δs, 240.0, atol=1e-5)
+
+    scene[1].state = place_at(240.0)
+    foreinfo = get_neighbor_fore_along_lane(scene, 1, roadway, max_distance_fore=Inf)
+    @test foreinfo.ind == 2
+    @test isapprox(foreinfo.Δs, 0.0, atol=1e-5)
 end
