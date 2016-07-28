@@ -128,23 +128,20 @@ immutable NeighborForeResult
     ind::Int # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
-function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
-    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+function get_neighbor_fore_along_lane(scene::Scene, roadway::Roadway, tag_start::LaneTag, s_base::Float64;
+    max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
+    index_to_ignore::Int=-1,
     )
 
     best_ind = 0
     best_dist = max_distance_fore
-
-    veh_target = scene[vehicle_index]
-    tag_start = veh_target.state.posF.roadind.tag
     tag_target = tag_start
-    s_base = veh_target.state.posF.s
 
     dist_searched = 0.0
     while dist_searched < max_distance_fore
 
         for (i,veh) in enumerate(scene)
-            if i != vehicle_index && veh.state.posF.roadind.tag == tag_target
+            if i != index_to_ignore && veh.state.posF.roadind.tag == tag_target
                 s_target = veh.state.posF.s
                 dist = s_target - s_base + dist_searched
                 if 0.0 ≤ dist < best_dist
@@ -170,4 +167,15 @@ function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway:
     end
 
     NeighborForeResult(best_ind, best_dist)
+end
+function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    veh_target = scene[vehicle_index]
+    tag_start = veh_target.state.posF.roadind.tag
+    s_base = veh_target.state.posF.s
+
+    get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+        max_distance_fore=max_distance_fore, index_to_ignore=vehicle_index)
 end

@@ -244,6 +244,38 @@ function Base.get(::Feature_MarkerDist_Right, rec::SceneRecord, roadway::Roadway
     lane = roadway[veh.state.posF.roadind.tag]
     FeatureValue(lane.width/2 + offset)
 end
+generate_feature_functions("MarkerDist_Left_Left", :d_mll, Float64, "m", can_be_missing=true)
+function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    #=
+    Distance to the left lane marker one lane to the left
+    =#
+
+    veh = rec[vehicle_index, pastframe]
+    lane = roadway[veh.state.posF.roadind.tag]
+    if n_lanes_left(lane, roadway) > 0
+        offset = veh.state.posF.t
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        FeatureValue(lane.width/2 - offset + lane_left.width)
+    else
+        FeatureValue(NaN, FeatureState.MISSING) # there is no left lane
+    end
+end
+generate_feature_functions("MarkerDist_Right_Right", :d_mrr, Float64, "m", can_be_missing=true)
+function Base.get(::Feature_MarkerDist_Right_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    #=
+    Distance to the right lane marker one lane to the right
+    =#
+
+    veh = rec[vehicle_index, pastframe]
+    lane = roadway[veh.state.posF.roadind.tag]
+    if n_lanes_right(lane, roadway) > 0
+        offset = veh.state.posF.t
+        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        FeatureValue(lane.width/2 + offset + lane_right.width)
+    else
+        FeatureValue(NaN, FeatureState.MISSING) # there is no right lane
+    end
+end
 generate_feature_functions("RoadEdgeDist_Left", :d_edgel, Float64, "m")
 function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[vehicle_index, pastframe]
@@ -397,3 +429,84 @@ end
 # FRONT
 #
 #############################################
+
+generate_feature_functions("Dist_Front", :d_front, Float64, "m", lowerbound=0.0, can_be_missing=true)
+function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborForeResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway)
+    )
+
+    if neighborfore.ind == 0
+        FeatureValue(NaN, FeatureState.MISSING)
+    else
+        len_ego = rec[vehicle_index, pastframe].def.length
+        len_oth = rec[neighborfore.ind, pastframe].def.length
+        FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
+    end
+end
+
+#############################################
+#
+# FRONT LEFT
+#
+#############################################
+
+generate_feature_functions("Dist_Front_Left", :d_front_left, Float64, "m", lowerbound=0.0, can_be_missing=true)
+function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+
+    retval = FeatureValue(NaN, FeatureState.MISSING)
+
+    scene = get_scene(rec, pastframe)
+    veh_target = scene[vehicle_index]
+
+    lane = roadway[veh_target.state.posF.roadind.tag]
+    if n_lanes_left(lane, roadway) > 0
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        roadproj = proj(veh_target.state.posG, lane_left, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_left.curve[roadproj.curveproj.ind].s
+
+        neighborfore = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+                                                    index_to_ignore=vehicle_index)
+
+        if neighborfore.ind != 0
+            len_ego = rec[vehicle_index, pastframe].def.length
+            len_oth = rec[neighborfore.ind, pastframe].def.length
+            retval = FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
+        end
+    end
+
+    retval
+end
+
+#############################################
+#
+# FRONT RIGHT
+#
+#############################################
+
+generate_feature_functions("Dist_Front_Right", :d_front_right, Float64, "m", lowerbound=0.0, can_be_missing=true)
+function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+
+    retval = FeatureValue(NaN, FeatureState.MISSING)
+
+    scene = get_scene(rec, pastframe)
+    veh_target = scene[vehicle_index]
+
+    lane = roadway[veh_target.state.posF.roadind.tag]
+    if n_lanes_right(lane, roadway) > 0
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        roadproj = proj(veh_target.state.posG, lane_left, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_left.curve[roadproj.curveproj.ind].s
+        neighborfore = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+                                                    index_to_ignore=vehicle_index)
+
+        if neighborfore.ind != 0
+            len_ego = rec[vehicle_index, pastframe].def.length
+            len_oth = rec[neighborfore.ind, pastframe].def.length
+            retval = FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
+        end
+    end
+
+    retval
+end

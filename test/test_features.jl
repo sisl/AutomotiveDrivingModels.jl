@@ -1,0 +1,26 @@
+let
+
+    roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
+    rec = SceneRecord(1, 0.1, 5)
+    update!(rec, Scene([
+            Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(1, AgentClass.CAR, 5.0, 2.0)),
+            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(2, AgentClass.CAR, 5.0, 2.0)),
+        ]))
+
+    @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 10.0 - 5.0)
+    @test isnan(convert(Float64, get(DIST_FRONT, rec, roadway, 2)))
+
+    update!(rec, Scene([
+            Vehicle(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(1, AgentClass.CAR, 5.0, 2.0)),
+            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(2, AgentClass.CAR, 5.0, 2.0)),
+            Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(3, AgentClass.CAR, 5.0, 2.0)),
+            Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(4, AgentClass.CAR, 5.0, 2.0)),
+        ]))
+
+    @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 9.0 - 5.0)
+    @test isapprox(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 1)), 11.0 - 5.0)
+    @test isnan(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 1)))
+    @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 4)), 12.0 - 5.0)
+    @test isnan(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 4)))
+    @test isapprox(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 4)), 1.0 - 5.0)
+end
