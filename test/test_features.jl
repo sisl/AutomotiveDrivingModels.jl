@@ -7,6 +7,15 @@ let
             Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(2, AgentClass.CAR, 5.0, 2.0)),
         ]))
 
+    @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 1)), 0.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 2)), 0.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 1)), 0.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 2)), 0.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 1)), 1.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 2)), 1.5)
+    @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 1)))
+    @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 2)))
+
     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 10.0 - 5.0)
     @test isnan(convert(Float64, get(DIST_FRONT, rec, roadway, 2)))
 
@@ -16,6 +25,11 @@ let
             Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(3, AgentClass.CAR, 5.0, 2.0)),
             Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(4, AgentClass.CAR, 5.0, 2.0)),
         ]))
+
+    @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 3)), 0.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 3)), 0.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 3)), 1.5)
+    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 3)), 1.5)
 
     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 9.0 - 5.0)
     @test isapprox(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 1)), 11.0 - 5.0)
