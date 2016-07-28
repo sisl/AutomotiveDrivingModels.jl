@@ -180,7 +180,7 @@ function get_feature_derivative_backwards(
 end
 
 generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
-function Base.get(::Feature_TurnRateG, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=-1; frames_back::Int=1)
+function Base.get(::Feature_TurnRateG, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1)
 
     id = rec[vehicle_index].def.id
 
@@ -202,11 +202,11 @@ function Base.get(::Feature_TurnRateG, rec::SceneRecord, roadway::Roadway, vehic
     retval
 end
 generate_feature_functions("TurnRateF", :turnrateF, Float64, "rad/s")
-function Base.get(::Feature_TurnRateF, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=-1)
+function Base.get(::Feature_TurnRateF, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(POSFYAW, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("Acc", :acc, Float64, "m/s^2")
-function Base.get(::Feature_Acc, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=-1)
+function Base.get(::Feature_Acc, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(SPEED, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AccFs", :accFs, Float64, "m/s²")
@@ -463,7 +463,7 @@ function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway,
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         roadproj = proj(veh_target.state.posG, lane_left, roadway)
         tag_start = roadproj.tag
-        s_base = lane_left.curve[roadproj.curveproj.ind].s
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s
 
         neighborfore = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
                                                     index_to_ignore=vehicle_index)
@@ -497,7 +497,7 @@ function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(veh_target.state.posG, lane_left, roadway)
         tag_start = roadproj.tag
-        s_base = lane_left.curve[roadproj.curveproj.ind].s
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s
         neighborfore = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
                                                     index_to_ignore=vehicle_index)
 
