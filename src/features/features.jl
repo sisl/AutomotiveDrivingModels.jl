@@ -140,12 +140,12 @@ function Base.get(::Feature_Speed, rec::SceneRecord, roadway::Roadway, vehicle_i
 end
 
 generate_feature_functions("VelFs", :velFs, Float64, "m/s")
-function Base.get(::Feature_Speed, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Feature_VelFs, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[vehicle_index, pastframe]
     FeatureValue(veh.state.v*cos(veh.state.posF.ϕ))
 end
 generate_feature_functions("VelFt", :velFt, Float64, "m/s")
-function Base.get(::Feature_Speed, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Feature_VelFt, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[vehicle_index, pastframe]
     FeatureValue(veh.state.v*sin(veh.state.posF.ϕ))
 end
@@ -169,10 +169,10 @@ function get_feature_derivative_backwards(
         veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
 
         if veh_index_prev != 0
-            curr = get(f, rec, roadway, veh_index_curr, pastframe)
-            past = get(f, rec, roadway, veh_index_prev, pastframe2)
+            curr = convert(Float64, get(f, rec, roadway, veh_index_curr, pastframe))
+            past = convert(Float64, get(f, rec, roadway, veh_index_prev, pastframe2))
             Δt = get_elapsed_time(rec, pastframe2, pastframe)
-            FeatureValue((curr - past) / Δt)
+            retval = FeatureValue((curr - past) / Δt)
         end
     end
 
