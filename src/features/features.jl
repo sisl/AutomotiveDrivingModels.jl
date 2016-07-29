@@ -163,7 +163,7 @@ function get_feature_derivative_backwards(
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     pastframe2 = pastframe - frames_back
-    if !pastframe_inbounds(rec, pastframe2)
+    if pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = get_index_of_first_vehicle_with_id(rec, id, pastframe)
         veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
