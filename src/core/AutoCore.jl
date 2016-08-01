@@ -104,6 +104,8 @@ export
 
     NeighborForeResult,
     get_neighbor_fore_along_lane,
+    get_neighbor_fore_along_left_lane,
+    get_neighbor_fore_along_right_lane,
 
     # scene record
     SceneRecord,

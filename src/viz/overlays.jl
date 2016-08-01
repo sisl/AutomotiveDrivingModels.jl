@@ -132,6 +132,7 @@ function render{O<:SceneOverlay}(scene::Scene, roadway::Roadway, overlays::Abstr
     canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
     rendermodel::RenderModel=RenderModel(),
     cam::Camera=SceneFollowCamera(),
+    special_car_colors::Dict{Int,Colorant}=Dict{Int,Colorant}(),
     )
 
     s = CairoRGBSurface(canvas_width, canvas_height)
@@ -139,7 +140,7 @@ function render{O<:SceneOverlay}(scene::Scene, roadway::Roadway, overlays::Abstr
     clear_setup!(rendermodel)
 
     render!(rendermodel, roadway)
-    render!(rendermodel, scene)
+    render!(rendermodel, scene, special_car_colors=special_car_colors)
 
     for overlay in overlays
         render!(rendermodel, overlay, scene, roadway)

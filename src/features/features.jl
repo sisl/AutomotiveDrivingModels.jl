@@ -443,6 +443,17 @@ function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehi
         FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
     end
 end
+generate_feature_functions("Speed_Front", :v_front, Float64, "m/s", can_be_missing=true)
+function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborForeResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway)
+    )
+
+    if neighborfore.ind == 0
+        FeatureValue(NaN, FeatureState.MISSING)
+    else
+        FeatureValue(rec[neighborfore.ind, pastframe].state.v)
+    end
+end
 
 #############################################
 #
@@ -451,31 +462,17 @@ end
 #############################################
 
 generate_feature_functions("Dist_Front_Left", :d_front_left, Float64, "m", lowerbound=0.0, can_be_missing=true)
-function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborForeResult = get_neighbor_fore_along_left_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    )
 
-    retval = FeatureValue(NaN, FeatureState.MISSING)
-
-    scene = get_scene(rec, pastframe)
-    veh_target = scene[vehicle_index]
-
-    lane = roadway[veh_target.state.posF.roadind.tag]
-    if n_lanes_left(lane, roadway) > 0
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        roadproj = proj(veh_target.state.posG, lane_left, roadway)
-        tag_start = roadproj.tag
-        s_base = lane_left[roadproj.curveproj.ind, roadway].s
-
-        neighborfore = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
-                                                    index_to_ignore=vehicle_index)
-
-        if neighborfore.ind != 0
-            len_ego = rec[vehicle_index, pastframe].def.length
-            len_oth = rec[neighborfore.ind, pastframe].def.length
-            retval = FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
-        end
+    if neighborfore.ind == 0
+        FeatureValue(NaN, FeatureState.MISSING)
+    else
+        len_ego = rec[vehicle_index, pastframe].def.length
+        len_oth = rec[neighborfore.ind, pastframe].def.length
+        FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
     end
-
-    retval
 end
 
 #############################################
@@ -485,28 +482,15 @@ end
 #############################################
 
 generate_feature_functions("Dist_Front_Right", :d_front_right, Float64, "m", lowerbound=0.0, can_be_missing=true)
-function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborForeResult = get_neighbor_fore_along_right_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    )
 
-    retval = FeatureValue(NaN, FeatureState.MISSING)
-
-    scene = get_scene(rec, pastframe)
-    veh_target = scene[vehicle_index]
-
-    lane = roadway[veh_target.state.posF.roadind.tag]
-    if n_lanes_right(lane, roadway) > 0
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
-        roadproj = proj(veh_target.state.posG, lane_left, roadway)
-        tag_start = roadproj.tag
-        s_base = lane_left[roadproj.curveproj.ind, roadway].s
-        neighborfore = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
-                                                    index_to_ignore=vehicle_index)
-
-        if neighborfore.ind != 0
-            len_ego = rec[vehicle_index, pastframe].def.length
-            len_oth = rec[neighborfore.ind, pastframe].def.length
-            retval = FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
-        end
+    if neighborfore.ind == 0
+        FeatureValue(NaN, FeatureState.MISSING)
+    else
+        len_ego = rec[vehicle_index, pastframe].def.length
+        len_oth = rec[neighborfore.ind, pastframe].def.length
+        FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
     end
-
-    retval
 end

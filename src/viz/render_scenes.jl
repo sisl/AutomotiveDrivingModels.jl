@@ -17,13 +17,14 @@ function render(scene::Scene, roadway::Roadway;
     canvas_height::Int=DEFAULT_CANVAS_HEIGHT,
     rendermodel::RenderModel=RenderModel(),
     cam::Camera=SceneFollowCamera(),
+    special_car_colors::Dict{Int,Colorant}=Dict{Int,Colorant}(),
     )
 
     s, ctx = get_surface_and_context(canvas_width, canvas_height)
     clear_setup!(rendermodel)
 
     render!(rendermodel, roadway)
-    render!(rendermodel, scene)
+    render!(rendermodel, scene, special_car_colors=special_car_colors)
 
     camera_set!(rendermodel, cam, scene, roadway, canvas_width, canvas_height)
 

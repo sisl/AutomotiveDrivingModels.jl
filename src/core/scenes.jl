@@ -179,3 +179,45 @@ function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway:
     get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
         max_distance_fore=max_distance_fore, index_to_ignore=vehicle_index)
 end
+function get_neighbor_fore_along_left_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    retval = NeighborForeResult(0, max_distance_fore)
+
+    veh_target = scene[vehicle_index]
+    lane = roadway[veh_target.state.posF.roadind.tag]
+    if n_lanes_left(lane, roadway) > 0
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        roadproj = proj(veh_target.state.posG, lane_left, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s
+
+        retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+                                              index_to_ignore=vehicle_index,
+                                              max_distance_fore=max_distance_fore)
+    end
+
+    retval
+end
+function get_neighbor_fore_along_right_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    retval = NeighborForeResult(0, max_distance_fore)
+
+    veh_target = scene[vehicle_index]
+    lane = roadway[veh_target.state.posF.roadind.tag]
+    if n_lanes_right(lane, roadway) > 0
+        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        roadproj = proj(veh_target.state.posG, lane_right, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_right[roadproj.curveproj.ind, roadway].s
+
+        retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+                                                    index_to_ignore=vehicle_index,
+                                                    max_distance_fore=max_distance_fore)
+    end
+
+    retval
+end
