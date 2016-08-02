@@ -74,19 +74,21 @@ end
 type CarFollowingStatsOverlay <: SceneOverlay
     target_id::Int
     color::Colorant
+    font_size::Int
 
     function CarFollowingStatsOverlay(target_id::Int;
         color::Colorant=colorant"white",
+        font_size::Int=10,
         )
 
-        new(target_id, color)
+        new(target_id, color,font_size)
     end
 end
 function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, scene::Scene, roadway::Roadway)
 
-    text_y = 10
-    text_y_jump = 12
-    font_size = 10
+    font_size = overlay.font_size
+    text_y = font_size
+    text_y_jump = round(Int, font_size*1.2)
 
     add_instruction!( rendermodel, render_text, (@sprintf("id = %d", overlay.target_id), 10, text_y, font_size, overlay.color), incameraframe=false)
         text_y += text_y_jump
