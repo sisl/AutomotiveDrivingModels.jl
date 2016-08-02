@@ -466,13 +466,7 @@ function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway,
     neighborfore::NeighborForeResult = get_neighbor_fore_along_left_lane(get_scene(rec, pastframe), vehicle_index, roadway),
     )
 
-    if neighborfore.ind == 0
-        FeatureValue(NaN, FeatureState.MISSING)
-    else
-        len_ego = rec[vehicle_index, pastframe].def.length
-        len_oth = rec[neighborfore.ind, pastframe].def.length
-        FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
-    end
+    get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
 end
 
 #############################################
@@ -486,11 +480,5 @@ function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway
     neighborfore::NeighborForeResult = get_neighbor_fore_along_right_lane(get_scene(rec, pastframe), vehicle_index, roadway),
     )
 
-    if neighborfore.ind == 0
-        FeatureValue(NaN, FeatureState.MISSING)
-    else
-        len_ego = rec[vehicle_index, pastframe].def.length
-        len_oth = rec[neighborfore.ind, pastframe].def.length
-        FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
-    end
+    get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
 end

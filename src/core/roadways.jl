@@ -380,15 +380,15 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
                 best_dist2 = dist2
                 best_proj = roadproj
             end
-
-            # if lane.tag.lane == 3
-            #     println("proj")
-            #     println("roadproj: ", roadproj)
-            #     println("dist2: ", dist2)
-            #     println("best_dist2: ", best_dist2)
-            # end
         end
     end
+
+    # if best_proj.tag.segment == 0
+    #     println("proj")
+    #     println("best_proj: ", best_proj)
+    #     println("best_dist2: ", best_dist2)
+    #     println("posG: ", posG)
+    # end
 
     best_proj
 end
