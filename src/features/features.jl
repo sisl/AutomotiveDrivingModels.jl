@@ -460,7 +460,6 @@ end
 # FRONT LEFT
 #
 #############################################
-
 generate_feature_functions("Dist_Front_Left", :d_front_left, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
     neighborfore::NeighborForeResult = get_neighbor_fore_along_left_lane(get_scene(rec, pastframe), vehicle_index, roadway),

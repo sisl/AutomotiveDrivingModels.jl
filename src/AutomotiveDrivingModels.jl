@@ -24,7 +24,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "static_gaussian_
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "prerecorded_drivers.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "lat_lon_separable_drivers.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "lane_following_drivers.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "princeton_drivers.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "tim2d_drivers.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "roadway_generation.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "trajdata_cleaning.jl"))

@@ -2,6 +2,7 @@ export
         SceneOverlay,
         LineToCenterlineOverlay,
         LineToFrontOverlay,
+        NeighborsOverlay,
         CarFollowingStatsOverlay
 
 abstract SceneOverlay
@@ -63,6 +64,7 @@ function render!(rendermodel::RenderModel, overlay::LineToFrontOverlay, scene::S
         veh_ind_front = get_neighbor_fore_along_lane(scene, ind, roadway).ind
         if veh_ind_front != 0
             v2 = scene[veh_ind_front]
+            println((veh.state.posG.x, veh.state.posG.y, v2.state.posG.x, v2.state.posG.y, overlay.color, overlay.line_width))
             add_instruction!(rendermodel, render_line_segment,
                 (veh.state.posG.x, veh.state.posG.y, v2.state.posG.x, v2.state.posG.y, overlay.color, overlay.line_width))
         end
@@ -134,6 +136,92 @@ function render!(rendermodel::RenderModel, overlay::CarFollowingStatsOverlay, sc
 
     rendermodel
 end
+
+type NeighborsOverlay <: SceneOverlay
+    target_id::Int
+    color_L::Colorant
+    color_M::Colorant
+    color_R::Colorant
+    line_width::Float64
+    function NeighborsOverlay(target_id::Int;
+        color_L::Colorant=colorant"blue",
+        color_M::Colorant=colorant"green",
+        color_R::Colorant=colorant"red",
+        line_width::Float64=0.5, # [m]
+        )
+
+        new(target_id, color_L, color_M, color_R, line_width)
+    end
+end
+function render!(rendermodel::RenderModel, overlay::NeighborsOverlay, scene::Scene, roadway::Roadway)
+
+    vehicle_index = get_index_of_first_vehicle_with_id(scene, overlay.target_id)
+
+    if vehicle_index != 0
+
+        veh_ego = scene[vehicle_index]
+        t = veh_ego.state.posF.t
+        ϕ = veh_ego.state.posF.ϕ
+        v = veh_ego.state.v
+        len_ego = veh_ego.def.length
+
+        # line from me to lead
+        fore_M = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        if fore_M.ind != 0
+            veh_oth = scene[fore_M.ind]
+            A = get_footpoint(veh_ego) + polar(veh_ego.def.length/2, veh_ego.state.posG.θ)
+            B = get_footpoint(veh_oth) - polar(veh_oth.def.length/2, veh_oth.state.posG.θ)
+            add_instruction!(rendermodel, render_line_segment,
+                (A.x, A.y, B.x, B.y, overlay.color_M, overlay.line_width))
+        end
+
+        fore_L = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        if fore_L.ind != 0
+            veh_oth = scene[fore_L.ind]
+            A = get_footpoint(veh_ego) - polar(veh_ego.def.length/2, veh_ego.state.posG.θ)
+            B = get_footpoint(veh_oth) - polar(veh_oth.def.length/2, veh_oth.state.posG.θ)
+            add_instruction!(rendermodel, render_line_segment,
+                (A.x, A.y, B.x, B.y, overlay.color_L, overlay.line_width))
+
+            font_size = 14
+            text_y = font_size
+            text_y_jump = round(Int, font_size*1.2)
+
+            add_instruction!( rendermodel, render_text, (string(fore_L), 10, text_y, font_size, colorant"white"), incameraframe=false)
+        end
+
+        rear_L = get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
+        if rear_L.ind != 0
+            veh_oth = scene[rear_L.ind]
+            A = get_footpoint(veh_ego) - polar(veh_ego.def.length/2, veh_ego.state.posG.θ)
+            B = get_footpoint(veh_oth) + polar(veh_oth.def.length/2, veh_oth.state.posG.θ)
+            add_instruction!(rendermodel, render_line_segment,
+                (A.x, A.y, B.x, B.y, overlay.color_L, overlay.line_width))
+        end
+
+
+        fore_R = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        if fore_R.ind != 0
+            veh_oth = scene[fore_R.ind]
+            A = get_footpoint(veh_ego) - polar(veh_ego.def.length/2, veh_ego.state.posG.θ)
+            B = get_footpoint(veh_oth) - polar(veh_oth.def.length/2, veh_oth.state.posG.θ)
+            add_instruction!(rendermodel, render_line_segment,
+                (A.x, A.y, B.x, B.y, overlay.color_R, overlay.line_width))
+        end
+
+        rear_R = get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
+        if rear_R.ind != 0
+            veh_oth = scene[rear_R.ind]
+            A = get_footpoint(veh_ego) - polar(veh_ego.def.length/2, veh_ego.state.posG.θ)
+            B = get_footpoint(veh_oth) + polar(veh_oth.def.length/2, veh_oth.state.posG.θ)
+            add_instruction!(rendermodel, render_line_segment,
+                (A.x, A.y, B.x, B.y, overlay.color_R, overlay.line_width))
+        end
+    end
+
+    rendermodel
+end
+
 
 function render{O<:SceneOverlay}(scene::Scene, roadway::Roadway, overlays::AbstractVector{O};
     canvas_width::Int=DEFAULT_CANVAS_WIDTH,

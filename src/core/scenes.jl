@@ -128,7 +128,152 @@ immutable NeighborForeResult
     ind::Int # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
-function get_neighbor_fore_along_lane(scene::Scene, roadway::Roadway, tag_start::LaneTag, s_base::Float64;
+
+export
+    VehicleTargetPoint,
+    VehicleTargetPointFront,
+    VehicleTargetPointCenter,
+    VehicleTargetPointRear,
+    get_targetpoint_delta
+
+abstract VehicleTargetPoint
+immutable VehicleTargetPointFront <: VehicleTargetPoint end
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.length/2*cos(veh.state.posF.ϕ)
+immutable VehicleTargetPointCenter <: VehicleTargetPoint end
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = 0.0
+immutable VehicleTargetPointRear <: VehicleTargetPoint end
+get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.length/2*cos(veh.state.posF.ϕ)
+
+function get_neighbor_fore_along_lane(
+    scene::Scene,
+    roadway::Roadway,
+    tag_start::LaneTag,
+    s_base::Float64,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
+    index_to_ignore::Int=-1,
+    )
+
+    best_ind = 0
+    best_dist = max_distance_fore
+    tag_target = tag_start
+
+    dist_searched = 0.0
+    while dist_searched < max_distance_fore
+
+        for (i,veh) in enumerate(scene)
+            if i != index_to_ignore && veh.state.posF.roadind.tag == tag_target
+                s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh)
+                dist_valid = s_valid - s_base + dist_searched
+                if dist_valid ≥ 0.0
+                    s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh)
+                    dist = s_primary - s_base + dist_searched
+                    if 0.0 ≤ dist < best_dist
+                        best_dist = dist
+                        best_ind = i
+                    end
+                end
+            end
+        end
+
+        if best_ind != 0
+            break
+        end
+
+        lane = roadway[tag_target]
+        if !has_next(lane) ||
+           (tag_target == tag_start && dist_searched != 0.0) # exit after visiting this lane a 2nd time
+            break
+        end
+
+        dist_searched += (lane.curve[end].s - s_base)
+        s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
+        tag_target = next_lane(lane, roadway).tag
+    end
+
+    NeighborForeResult(best_ind, best_dist)
+end
+function get_neighbor_fore_along_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    veh_ego = scene[vehicle_index]
+    tag_start = veh_ego.state.posF.roadind.tag
+    s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, veh_ego)
+
+    get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+        targetpoint_primary, targetpoint_valid,
+        max_distance_fore=max_distance_fore, index_to_ignore=vehicle_index)
+end
+function get_neighbor_fore_along_left_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    retval = NeighborForeResult(0, max_distance_fore)
+
+    veh_ego = scene[vehicle_index]
+    lane = roadway[veh_ego.state.posF.roadind.tag]
+    if n_lanes_left(lane, roadway) > 0
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        roadproj = proj(veh_ego.state.posG, lane_left, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
+
+        retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+                                              targetpoint_primary, targetpoint_valid,
+                                              index_to_ignore=vehicle_index,
+                                              max_distance_fore=max_distance_fore)
+    end
+
+    retval
+end
+function get_neighbor_fore_along_right_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    retval = NeighborForeResult(0, max_distance_fore)
+
+    veh_ego = scene[vehicle_index]
+    lane = roadway[veh_ego.state.posF.roadind.tag]
+    if n_lanes_right(lane, roadway) > 0
+        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        roadproj = proj(veh_ego.state.posG, lane_right, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_right[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
+
+        retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+                                              targetpoint_primary, targetpoint_valid,
+                                              index_to_ignore=vehicle_index,
+                                              max_distance_fore=max_distance_fore)
+    end
+
+    retval
+end
+
+function get_neighbor_fore_along_lane(
+    scene::Scene,
+    roadway::Roadway,
+    tag_start::LaneTag,
+    s_base::Float64;
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     index_to_ignore::Int=-1,
     )
@@ -217,6 +362,113 @@ function get_neighbor_fore_along_right_lane(scene::Scene, vehicle_index::Int, ro
         retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
                                                     index_to_ignore=vehicle_index,
                                                     max_distance_fore=max_distance_fore)
+    end
+
+    retval
+end
+
+function get_neighbor_rear_along_lane(
+    scene::Scene,
+    roadway::Roadway,
+    tag_start::LaneTag,
+    s_base::Float64,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_rear::Float64 = 250.0, # max distance to search rearward [m]
+    index_to_ignore::Int=-1,
+    )
+
+    best_ind = 0
+    best_dist = max_distance_rear
+    tag_target = tag_start
+
+    dist_searched = 0.0
+    while dist_searched < max_distance_rear
+
+        for (i,veh) in enumerate(scene)
+            if i != index_to_ignore && veh.state.posF.roadind.tag == tag_target
+                s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh)
+                dist_valid = s_base - s_valid + dist_searched
+                if dist_valid ≥ 0.0
+                    s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh)
+                    dist = s_base - s_primary + dist_searched
+                    if 0.0 ≤ dist < best_dist
+                        best_dist = dist
+                        best_ind = i
+                    end
+                end
+            end
+        end
+
+        if best_ind != 0
+            break
+        end
+
+        lane = roadway[tag_target]
+        if !has_prev(lane) ||
+           (tag_target == tag_start && dist_searched != 0.0) # exit after visiting this lane a 2nd time
+            break
+        end
+
+        dist_searched += s_base
+        s_base = lane.curve[end].s + abs(lane.curve[end].pos - prev_lane_point(lane, roadway).pos) # end of prev lane plus crossover
+        tag_target = prev_lane(lane, roadway).tag
+    end
+
+    NeighborForeResult(best_ind, best_dist)
+end
+function get_neighbor_rear_along_left_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    retval = NeighborForeResult(0, max_distance_rear)
+
+    veh_ego = scene[vehicle_index]
+    lane = roadway[veh_ego.state.posF.roadind.tag]
+    if n_lanes_left(lane, roadway) > 0
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        roadproj = proj(veh_ego.state.posG, lane_left, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
+
+        retval = get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
+                                              targetpoint_primary, targetpoint_valid,
+                                              index_to_ignore=vehicle_index,
+                                              max_distance_rear=max_distance_rear)
+    end
+
+    retval
+end
+function get_neighbor_rear_along_right_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    retval = NeighborForeResult(0, max_distance_rear)
+
+    veh_ego = scene[vehicle_index]
+    lane = roadway[veh_ego.state.posF.roadind.tag]
+    if n_lanes_right(lane, roadway) > 0
+        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        roadproj = proj(veh_ego.state.posG, lane_right, roadway)
+        tag_start = roadproj.tag
+        s_base = lane_right[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
+
+        retval = get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
+                                              targetpoint_primary, targetpoint_valid,
+                                              index_to_ignore=vehicle_index,
+                                              max_distance_rear=max_distance_rear)
     end
 
     retval
