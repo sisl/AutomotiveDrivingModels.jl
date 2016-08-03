@@ -159,14 +159,15 @@ function get_feature_derivative_backwards(
     frames_back::Int=1,
     )
 
-    id = rec[vehicle_index].def.id
+    id = rec[vehicle_index, pastframe].def.id
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     pastframe2 = pastframe - frames_back
     if pastframe_inbounds(rec, pastframe2)
 
-        veh_index_curr = get_index_of_first_vehicle_with_id(rec, id, pastframe)
+        veh_index_curr = vehicle_index
         veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
+        @assert(veh_index_prev != 0)
 
         if veh_index_prev != 0
             curr = convert(Float64, get(f, rec, roadway, veh_index_curr, pastframe))
@@ -182,20 +183,20 @@ end
 generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
 function Base.get(::Feature_TurnRateG, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1)
 
-    id = rec[vehicle_index].def.id
+    id = rec[vehicle_index, pastframe].def.id
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     pastframe2 = pastframe - frames_back
-    if !pastframe_inbounds(rec, pastframe2)
+    if pastframe_inbounds(rec, pastframe2)
 
-        veh_index_curr = get_index_of_first_vehicle_with_id(rec, id, pastframe)
+        veh_index_curr = vehicle_index
         veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
 
         if veh_index_prev != 0
-            curr = rec[vehicle_index, veh_index_curr].state.posG.θ
-            past = rec[vehicle_index, veh_index_prev].state.posG.θ
+            curr = rec[veh_index_curr, pastframe].state.posG.θ
+            past = rec[veh_index_prev, pastframe2].state.posG.θ
             Δt = get_elapsed_time(rec, pastframe2, pastframe)
-            FeatureValue((curr - past) / Δt)
+            retval = FeatureValue(deltaangle(past, curr) / Δt)
         end
     end
 
