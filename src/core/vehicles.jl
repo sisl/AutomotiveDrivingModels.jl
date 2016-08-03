@@ -54,8 +54,8 @@ function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway
 end
 
 baremodule AgentClass
-    const CAR        = 1
-    const MOTORCYCLE = 2
+    const MOTORCYCLE = 1
+    const CAR        = 2
     const TRUCK      = 3
 end
 
