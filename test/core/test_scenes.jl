@@ -46,10 +46,10 @@ let
     @test veh.state == get_vehiclestate(trajdata, 2, 1)
     @test veh.def == get_vehicledef(trajdata, 2)
 
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 1, trajdata.roadway) == NeighborForeResult(2, 3.0)
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 2, trajdata.roadway) == NeighborForeResult(0, 250.0)
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 1, trajdata.roadway) == NeighborForeResult(2, 4.0)
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 2, trajdata.roadway) == NeighborForeResult(0, 250.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 1, trajdata.roadway) == NeighborLongitudinalResult(2, 3.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 2, trajdata.roadway) == NeighborLongitudinalResult(0, 250.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 1, trajdata.roadway) == NeighborLongitudinalResult(2, 4.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 2, trajdata.roadway) == NeighborLongitudinalResult(0, 250.0)
 end
 
 let

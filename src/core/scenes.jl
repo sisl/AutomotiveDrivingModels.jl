@@ -124,7 +124,7 @@ in front of it with the smallest distance along the lane
     will continue to travel along the lane following next_lane(lane, roadway).
     If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
 """
-immutable NeighborForeResult
+immutable NeighborLongitudinalResult
     ind::Int # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
@@ -140,9 +140,11 @@ abstract VehicleTargetPoint
 immutable VehicleTargetPointFront <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.length/2*cos(veh.state.posF.ϕ)
 immutable VehicleTargetPointCenter <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = 0.0
+get_targetpoint_delta(::VehicleTargetPointCenter, veh::Vehicle) = 0.0
 immutable VehicleTargetPointRear <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.length/2*cos(veh.state.posF.ϕ)
+
+const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
 function get_neighbor_fore_along_lane(
     scene::Scene,
@@ -192,7 +194,7 @@ function get_neighbor_fore_along_lane(
         tag_target = next_lane(lane, roadway).tag
     end
 
-    NeighborForeResult(best_ind, best_dist)
+    NeighborLongitudinalResult(best_ind, best_dist)
 end
 function get_neighbor_fore_along_lane(
     scene::Scene,
@@ -222,7 +224,7 @@ function get_neighbor_fore_along_left_lane(
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    retval = NeighborForeResult(0, max_distance_fore)
+    retval = NeighborLongitudinalResult(0, max_distance_fore)
 
     veh_ego = scene[vehicle_index]
     lane = roadway[veh_ego.state.posF.roadind.tag]
@@ -250,7 +252,7 @@ function get_neighbor_fore_along_right_lane(
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    retval = NeighborForeResult(0, max_distance_fore)
+    retval = NeighborLongitudinalResult(0, max_distance_fore)
 
     veh_ego = scene[vehicle_index]
     lane = roadway[veh_ego.state.posF.roadind.tag]
@@ -278,93 +280,34 @@ function get_neighbor_fore_along_lane(
     index_to_ignore::Int=-1,
     )
 
-    best_ind = 0
-    best_dist = max_distance_fore
-    tag_target = tag_start
-
-    dist_searched = 0.0
-    while dist_searched < max_distance_fore
-
-        for (i,veh) in enumerate(scene)
-            if i != index_to_ignore && veh.state.posF.roadind.tag == tag_target
-                s_target = veh.state.posF.s
-                dist = s_target - s_base + dist_searched
-                if 0.0 ≤ dist < best_dist
-                    best_dist = dist
-                    best_ind = i
-                end
-            end
-        end
-
-        if best_ind != 0
-            break
-        end
-
-        lane = roadway[tag_target]
-        if !has_next(lane) ||
-           (tag_target == tag_start && dist_searched != 0.0) # exit after visiting this lane a 2nd time
-            break
-        end
-
-        dist_searched += (lane.curve[end].s - s_base)
-        s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
-        tag_target = next_lane(lane, roadway).tag
-    end
-
-    NeighborForeResult(best_ind, best_dist)
+    get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        max_distance_fore=max_distance_fore,
+        index_to_ignore=index_to_ignore)
 end
 function get_neighbor_fore_along_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    veh_target = scene[vehicle_index]
-    tag_start = veh_target.state.posF.roadind.tag
-    s_base = veh_target.state.posF.s
-
-    get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
-        max_distance_fore=max_distance_fore, index_to_ignore=vehicle_index)
+    get_neighbor_fore_along_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
 end
 function get_neighbor_fore_along_left_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    retval = NeighborForeResult(0, max_distance_fore)
-
-    veh_target = scene[vehicle_index]
-    lane = roadway[veh_target.state.posF.roadind.tag]
-    if n_lanes_left(lane, roadway) > 0
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        roadproj = proj(veh_target.state.posG, lane_left, roadway)
-        tag_start = roadproj.tag
-        s_base = lane_left[roadproj.curveproj.ind, roadway].s
-
-        retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
-                                              index_to_ignore=vehicle_index,
-                                              max_distance_fore=max_distance_fore)
-    end
-
-    retval
+    get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
 end
 function get_neighbor_fore_along_right_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    retval = NeighborForeResult(0, max_distance_fore)
-
-    veh_target = scene[vehicle_index]
-    lane = roadway[veh_target.state.posF.roadind.tag]
-    if n_lanes_right(lane, roadway) > 0
-        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
-        roadproj = proj(veh_target.state.posG, lane_right, roadway)
-        tag_start = roadproj.tag
-        s_base = lane_right[roadproj.curveproj.ind, roadway].s
-
-        retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
-                                                    index_to_ignore=vehicle_index,
-                                                    max_distance_fore=max_distance_fore)
-    end
-
-    retval
+    get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
 end
 
 function get_neighbor_rear_along_lane(
@@ -415,7 +358,7 @@ function get_neighbor_rear_along_lane(
         tag_target = prev_lane(lane, roadway).tag
     end
 
-    NeighborForeResult(best_ind, best_dist)
+    NeighborLongitudinalResult(best_ind, best_dist)
 end
 function get_neighbor_rear_along_left_lane(
     scene::Scene,
@@ -427,7 +370,7 @@ function get_neighbor_rear_along_left_lane(
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    retval = NeighborForeResult(0, max_distance_rear)
+    retval = NeighborLongitudinalResult(0, max_distance_rear)
 
     veh_ego = scene[vehicle_index]
     lane = roadway[veh_ego.state.posF.roadind.tag]
@@ -455,7 +398,7 @@ function get_neighbor_rear_along_right_lane(
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
     )
 
-    retval = NeighborForeResult(0, max_distance_rear)
+    retval = NeighborLongitudinalResult(0, max_distance_rear)
 
     veh_ego = scene[vehicle_index]
     lane = roadway[veh_ego.state.posF.roadind.tag]
@@ -472,4 +415,41 @@ function get_neighbor_rear_along_right_lane(
     end
 
     retval
+end
+
+function get_neighbor_rear_along_lane(
+    scene::Scene,
+    roadway::Roadway,
+    tag_start::LaneTag,
+    s_base::Float64;
+    max_distance_rear::Float64 = 250.0, # max distance to search rearward [m]
+    index_to_ignore::Int=-1,
+    )
+
+    get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        max_distance_rear=max_distance_rear,
+        index_to_ignore=index_to_ignore)
+end
+function get_neighbor_rear_along_left_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway;
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
+end
+function get_neighbor_rear_along_right_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway;
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
 end

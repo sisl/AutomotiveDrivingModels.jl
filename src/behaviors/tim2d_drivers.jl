@@ -142,9 +142,7 @@ function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::In
         v_des = min(speed_M*(1-exp(-driver.k_follow*dist_M/speed_M - 1)), driver.v_des)
         lane_offset = t
     elseif driver.state == :lanechange_left
-        lane = roadway[veh_ego.state.posF.roadind.tag]
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        lane_offset = t - lane.width/2 - lane_left.width/2
+        lane_offset = convert(Float64, get(LANEOFFSETLEFT, rec, roadway, vehicle_index))
 
         if fore_L.ind != 0
             v_des = min(scene[fore_L.ind].state.v, driver.v_des)
@@ -152,9 +150,7 @@ function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::In
             v_des = driver.v_des
         end
     elseif driver.state == :lanechange_right
-        lane = roadway[veh_ego.state.posF.roadind.tag]
-        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
-        lane_offset = t + lane.width/2 + lane_right.width/2
+        lane_offset = convert(Float64, get(LANEOFFSETRIGHT, rec, roadway, vehicle_index))
 
         if fore_R.ind != 0
             v_des = min(scene[fore_R.ind].state.v, driver.v_des)
