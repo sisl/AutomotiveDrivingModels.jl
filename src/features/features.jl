@@ -300,6 +300,30 @@ function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadw
     lane = roadway[roadproj.tag]
     FeatureValue(lane.width/2 + abs(curvept.pos - footpoint) + offset)
 end
+generate_feature_functions("LaneOffsetLeft", :posFtL, Float64, "m", can_be_missing=true)
+function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    veh_ego = rec[vehicle_index, pastframe]
+    if n_lanes_left(lane, roadway) > 0
+        lane = roadway[veh_ego.state.posF.roadind.tag]
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        lane_offset = t - lane.width/2 - lane_left.width/2
+        FeatureValue(lane_offset)
+    else
+        FeatureValue(NaN, FeatureState.MISSING)
+    end
+end
+generate_feature_functions("LaneOffsetRight", :posFtR, Float64, "m", can_be_missing=true)
+function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    veh_ego = rec[vehicle_index, pastframe]
+    if n_lanes_right(lane, roadway) > 0
+        lane = roadway[veh_ego.state.posF.roadind.tag]
+        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        lane_offset = t + lane.width/2 + lane_right.width/2
+        FeatureValue(lane_offset)
+    else
+        FeatureValue(NaN, FeatureState.MISSING)
+    end
+end
 generate_feature_functions("N_Lane_Right", :n_lane_right, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     nlr = rec[vehicle_index, pastframe].state.posF.roadind.tag.lane - 1
