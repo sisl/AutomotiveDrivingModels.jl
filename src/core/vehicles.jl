@@ -4,6 +4,11 @@ immutable Frenet
     t::Float64 # lane offset, positive is to left
     ϕ::Float64 # lane relative heading
 end
+function Frenet(roadind::RoadIndex, roadway::Roadway; t::Float64=0.0, ϕ::Float64=0.0)
+    s = roadway[roadind].s
+    ϕ = _mod2pi2(ϕ)
+    Frenet(roadind, s, t, ϕ)
+end
 function Frenet(roadproj::RoadProjection, roadway::Roadway)
     roadind = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
     s = roadway[roadind].s
@@ -90,3 +95,14 @@ get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
+
+function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
+    ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v
+    )
+
+    roadind = move_along(vehstate.posF.roadind, roadway, Δs)
+    footpoint = roadway[roadind]
+    posG = convert(VecE2, footpoint.pos) + polar(t₂, footpoint.pos.θ + π/2)
+    posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
+    VehicleState(posG, roadway, v₂)
+end
