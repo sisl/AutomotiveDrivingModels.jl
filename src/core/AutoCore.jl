@@ -72,6 +72,8 @@ export
     get_vel_s,
     get_vel_t,
     get_footpoint,
+    get_front_center,
+    get_rear_center,
 
     # trajdata
     TrajdataFrame,
