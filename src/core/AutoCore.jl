@@ -39,6 +39,8 @@ export
     DEFAULT_SPEED_LIMIT,
     DEFAULT_LANE_WIDTH,
 
+    is_in_exits,
+    is_in_entrances,
     is_at_curve_end,
     is_between_segments_lo,
     is_between_segments_hi,

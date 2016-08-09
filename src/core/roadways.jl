@@ -98,6 +98,10 @@ end
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
 
+is_in_exits(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.exits) != 0
+is_in_entrances(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.entrances) != 0
+
+
 function connect!(source::Lane, dest::Lane)
     # place these at the front
 
