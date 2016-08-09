@@ -40,6 +40,9 @@ export
     DEFAULT_LANE_WIDTH,
 
     is_at_curve_end,
+    is_between_segments_lo,
+    is_between_segments_hi,
+    is_between_segments,
     has_segment,
     has_lanetag,
     has_next,

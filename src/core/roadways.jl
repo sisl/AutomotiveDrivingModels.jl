@@ -6,6 +6,7 @@ immutable LaneTag
 end
 Base.show(io::IO, tag::LaneTag) = @printf(io, "LaneTag(%d, %d)", tag.segment, tag.lane)
 hash(id::LaneTag, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
+Base.(:(==))(a::LaneTag, b::LaneTag) = a.segment == b.segment && a.lane == b.lane
 const NULL_LANETAG = LaneTag(0,0)
 
 #######################################
@@ -269,6 +270,10 @@ function Base.getindex(roadway::Roadway, tag::LaneTag)
     seg = roadway[tag.segment]
     seg.lanes[tag.lane]
 end
+
+is_between_segments_lo(ind::CurveIndex) = ind.i == 0
+is_between_segments_hi(ind::CurveIndex) = ind.i == length(curve)
+is_between_segments(ind::CurveIndex) = is_between_segments_lo(ind) || is_between_segments_hi(ind)
 
 next_lane(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target.tag]
 prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target.tag]
