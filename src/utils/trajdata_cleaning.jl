@@ -60,7 +60,7 @@ function remove_unaligned_vehicles!(tdem::TrajdataEditMode, threshold_lane_angle
         while i < length(scene)
             i += 1
             veh = scene[i]
-            if abs(veh.state.posF.t) > threshold_lane_angle
+            if abs(veh.state.posF.ϕ) > threshold_lane_angle
                 deleteat!(scene, i)
                 i -= 1
             end
