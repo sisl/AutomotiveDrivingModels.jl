@@ -4,6 +4,10 @@ export
         LaneChangeModel,
         get_lane_offset,
 
+        DIR_RIGHT,
+        DIR_MIDDLE,
+        DIR_LEFT,
+
         TimLaneChanger
 
 abstract LaneChangeAction <: DriveAction
@@ -61,9 +65,9 @@ type TimLaneChanger <: LaneChangeModel
         v_des::Float64=29.0,
         rec::SceneRecord=SceneRecord(2,action_context.Δt),
         threshold_fore::Float64 = 50.0,
-        threshold_lane_change_gap_fore::Float64 = 5.0,
-        threshold_lane_change_gap_rear::Float64 = 5.0,
-        dir::Int=0,
+        threshold_lane_change_gap_fore::Float64 = 10.0,
+        threshold_lane_change_gap_rear::Float64 = 10.0,
+        dir::Int=DIR_MIDDLE,
         )
 
         retval = new()
@@ -88,10 +92,7 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
     vehicle_index = get_index_of_first_vehicle_with_id(rec, egoid)
 
     veh_ego = scene[vehicle_index]
-    t = veh_ego.state.posF.t
-    ϕ = veh_ego.state.posF.ϕ
     v = veh_ego.state.v
-    len_ego = veh_ego.def.length
 
     left_lane_exists = convert(Float64, get(N_LANE_LEFT, rec, roadway, vehicle_index)) > 0
     right_lane_exists = convert(Float64, get(N_LANE_RIGHT, rec, roadway, vehicle_index)) > 0
@@ -111,8 +112,8 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
 
             # consider changing to a different lane
             if right_lane_exists &&
-               fore_R.Δs > model.threshold_lane_change_gap_rear + len_ego && # there is space rear
-               rear_R.Δs > model.threshold_lane_change_gap_fore + len_ego && # there is space fore
+               fore_R.Δs > model.threshold_lane_change_gap_rear && # there is space rear
+               rear_R.Δs > model.threshold_lane_change_gap_fore && # there is space fore
                (rear_R.ind == 0 || scene[rear_R.ind].state.v ≤ v) && # we are faster than any follower
                (fore_R.ind == 0 || scene[fore_R.ind].state.v > speed_ahead) # we are faster than any leader
 
@@ -120,8 +121,8 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
                 model.dir = DIR_RIGHT
             end
             if left_lane_exists &&
-               fore_L.Δs > model.threshold_lane_change_gap_rear + len_ego && # there is space rear
-               rear_L.Δs > model.threshold_lane_change_gap_fore + len_ego && # there is space fore
+               fore_L.Δs > model.threshold_lane_change_gap_rear && # there is space rear
+               rear_L.Δs > model.threshold_lane_change_gap_fore && # there is space fore
                (rear_L.ind == 0 || scene[rear_L.ind].state.v ≤ v) && # we are faster than any follower
                (fore_L.ind == 0 || scene[fore_L.ind].state.v > speed_ahead) # we are faster than any leader
 

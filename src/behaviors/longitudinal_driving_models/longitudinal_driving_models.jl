@@ -178,6 +178,7 @@ type IntelligentDriverModel <: LongitudinalDriverModel
     s_min::Float64 # minimum acceptable gap [m]
     a_max::Float64 # maximum acceleration ability [m/s²]
     d_cmf::Float64 # comfortable deceleration [m/s²] (positive)
+    d_max::Float64 # maximum decelleration [m/s²] (positive)
 
     function IntelligentDriverModel(;
         σ::Float64     =     NaN,
@@ -188,6 +189,7 @@ type IntelligentDriverModel <: LongitudinalDriverModel
         s_min::Float64 =   5.0,
         a_max::Float64 =   3.0,
         d_cmf::Float64 =   2.0,
+        d_max::Float64 =   9.0,
         )
 
         retval = new()
@@ -199,6 +201,7 @@ type IntelligentDriverModel <: LongitudinalDriverModel
         retval.s_min = s_min
         retval.a_max = a_max
         retval.d_cmf = d_cmf
+        retval.d_max = d_max
         retval
     end
 end
@@ -213,10 +216,17 @@ function track_longitudinal!(model::IntelligentDriverModel, scene::Scene, roadwa
 
     if target_index > 0
         veh_target = scene[target_index]
-        s_gap = veh_target.state.posF.s - veh_ego.state.posF.s - veh_target.def.length/2 - veh_ego.def.length/2
-        Δv = veh_target.state.v - v
-        s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
-        a_idm = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
+
+        s_gap = get_frenet_relative_position(get_rear_center(veh_target),
+                                             veh_ego.state.posF.roadind, roadway).Δs
+
+        if s_gap > 0.0
+            Δv = veh_target.state.v - v
+            s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
+            a_idm = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
+        elseif s_gap > -veh_ego.def.length
+            a_idm = -model.d_max
+        end
         @assert(!isnan(a_idm))
 
         model.a = a_idm
@@ -226,7 +236,8 @@ function track_longitudinal!(model::IntelligentDriverModel, scene::Scene, roadwa
         model.a = Δv*model.k_spd # predicted accel to match target speed
     end
 
-    model.a = clamp(model.a, -model.d_cmf, model.a_max)
+    model.a = clamp(model.a, -model.d_max, model.a_max)
+
     model
 end
 function observe!(model::IntelligentDriverModel, scene::Scene, roadway::Roadway, egoid::Int)
@@ -235,7 +246,7 @@ function observe!(model::IntelligentDriverModel, scene::Scene, roadway::Roadway,
 
     vehicle_index = get_index_of_first_vehicle_with_id(scene, egoid)
     veh_ego = scene[vehicle_index]
-    fore_res = get_neighbor_fore_along_lane(scene, vehicle_index, roadway)
+    fore_res = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
 
     track_longitudinal!(model, scene, roadway, vehicle_index, fore_res.ind)
     model

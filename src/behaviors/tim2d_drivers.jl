@@ -9,7 +9,7 @@ type Tim2DDriver <: DriverModel{LatLonAccel, IntegratedContinuous}
 
     function Tim2DDriver(
         action_context::IntegratedContinuous;
-        mlon::LongitudinalDriverModel=PrincetonLongitudinalDriver(), #IntelligentDriverModel(),
+        mlon::LongitudinalDriverModel=IntelligentDriverModel(),
         mlat::LateralDriverModel=ProportionalLaneTracker(),
         mlane::LaneChangeModel=TimLaneChanger(action_context),
         rec::SceneRecord = SceneRecord(1, action_context.Δt)
@@ -46,10 +46,10 @@ function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::In
     if lane_change_action.dir == DIR_MIDDLE
         fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     elseif lane_change_action.dir == DIR_LEFT
-        fore = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        fore = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     else
         @assert(lane_change_action.dir == DIR_RIGHT)
-        fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     end
 
     track_lateral!(driver.mlat, laneoffset, lateral_speed)
