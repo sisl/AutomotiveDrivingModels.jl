@@ -117,6 +117,9 @@ export
     get_neighbor_rear_along_left_lane,
     get_neighbor_rear_along_right_lane,
 
+    FrenetRelativePosition,
+    get_frenet_relative_position,
+
     # scene record
     SceneRecord,
 

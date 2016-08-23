@@ -83,6 +83,12 @@ let
     @test isapprox(res.curveproj.ϕ, 0.0)
     @test res.tag == lane.tag
 
+    res = proj(VecSE2(1.0,0.0,0.0), lane, roadway, move_along_curves=false)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
     res = proj(VecSE2(1.5,0.25,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(2, 0.5)
     @test isapprox(res.curveproj.t, 0.25)
@@ -107,11 +113,23 @@ let
     @test isapprox(res.curveproj.ϕ, 0.0)
     @test res.tag == prev_lane(lane, roadway).tag
 
+    res = proj(VecSE2(-1.75,0.0,0.0), lane, roadway, move_along_curves=false)
+    @test res.curveproj.ind == CurveIndex(0, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
     res = proj(VecSE2(4.25,0.2,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
     @test res.tag == next_lane(lane, roadway).tag
+
+    res = proj(VecSE2(4.25,0.2,0.1), lane, roadway, move_along_curves=false)
+    @test res.curveproj.ind == CurveIndex(4, 1.0)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.tag
 
     res = proj(VecSE2(3.25,0.2,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(4, 0.25)

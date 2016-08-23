@@ -164,16 +164,38 @@ function get_neighbor_fore_along_lane(
     dist_searched = 0.0
     while dist_searched < max_distance_fore
 
+        lane = roadway[tag_target]
+
         for (i,veh) in enumerate(scene)
-            if i != index_to_ignore && veh.state.posF.roadind.tag == tag_target
-                s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh)
-                dist_valid = s_valid - s_base + dist_searched
-                if dist_valid ≥ 0.0
-                    s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh)
-                    dist = s_primary - s_base + dist_searched
-                    if 0.0 ≤ dist < best_dist
-                        best_dist = dist
-                        best_ind = i
+            if i != index_to_ignore
+
+                s_adjust = NaN
+                if veh.state.posF.roadind.tag == tag_target
+                    s_adjust = 0.0
+
+                elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
+                       is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
+
+                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos)
+                    s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
+
+                elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
+                       is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
+
+                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                    s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
+                end
+
+                if !isnan(s_adjust)
+                    s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh) + s_adjust
+                    dist_valid = s_valid - s_base + dist_searched
+                    if dist_valid ≥ 0.0
+                        s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh) + s_adjust
+                        dist = s_primary - s_base + dist_searched
+                        if dist < best_dist
+                            best_dist = dist
+                            best_ind = i
+                        end
                     end
                 end
             end
@@ -183,7 +205,6 @@ function get_neighbor_fore_along_lane(
             break
         end
 
-        lane = roadway[tag_target]
         if !has_next(lane) ||
            (tag_target == tag_start && dist_searched != 0.0) # exit after visiting this lane a 2nd time
             break
@@ -325,21 +346,109 @@ function get_neighbor_rear_along_lane(
     best_dist = max_distance_rear
     tag_target = tag_start
 
+    # shouldprint = (index_to_ignore == 1 && (tag_start==LaneTag(1,2) || tag_start==LaneTag(4,2)))
+    # if shouldprint
+    #     println("")
+    #     println("tag_start: ", tag_start)
+    #     println("s_base: ", s_base)
+    #     println("max_distance_rear: ", max_distance_rear)
+    #     println("index_to_ignore: ", index_to_ignore)
+    # end
+
     dist_searched = 0.0
     while dist_searched < max_distance_rear
 
+        # if shouldprint
+        #     println("s_base: ", s_base)
+        #     println("tag_target: ", tag_target)
+        # end
+
+        lane = roadway[tag_target]
+
         for (i,veh) in enumerate(scene)
-            if i != index_to_ignore && veh.state.posF.roadind.tag == tag_target
-                s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh)
-                dist_valid = s_base - s_valid + dist_searched
-                if dist_valid ≥ 0.0
-                    s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh)
-                    dist = s_base - s_primary + dist_searched
-                    if 0.0 ≤ dist < best_dist
-                        best_dist = dist
-                        best_ind = i
+            if i != index_to_ignore
+
+                s_adjust = NaN
+
+                if veh.state.posF.roadind.tag == tag_target
+                    s_adjust = 0.0
+
+                elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
+                       is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
+
+                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos)
+                    s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
+
+                elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
+                       is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
+
+                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                    s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
+                end
+
+                if !isnan(s_adjust)
+                    s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh) + s_adjust
+                    dist_valid = s_base - s_valid + dist_searched
+                    if dist_valid ≥ 0.0
+                        s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh) + s_adjust
+                        dist = s_base - s_primary + dist_searched
+                        if dist < best_dist
+                            best_dist = dist
+                            best_ind = i
+                        end
                     end
                 end
+
+                # if veh.state.posF.roadind.tag == tag_target
+                #     s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh)
+                #     dist_valid = s_base - s_valid + dist_searched
+                #     if dist_valid ≥ 0.0
+                #         s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh)
+                #         dist = s_base - s_primary + dist_searched
+                #         if dist < best_dist
+                #             best_dist = dist
+                #             best_ind = i
+                #         end
+                #     end
+                #     # if shouldprint
+                #     #     println("tag:        ", veh.state.posF.roadind.tag)
+                #     #     println("index:      ", i)
+                #     #     println("s_valid:    ", s_valid)
+                #     #     println("dist_valid: ", dist_valid)
+                #     #     println("best_dist:  ", best_dist)
+                #     #     println("best_ind:   ", best_ind)
+                #     # end
+                # else
+                #     # if shouldprint
+                #     #     println("is_between_segments_lo: ", is_between_segments_lo(veh.state.posF.roadind.ind))
+                #     #     println("in:                     ", is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag))
+                #     # end
+                #     if is_between_segments_lo(veh.state.posF.roadind.ind) &&
+                #        is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
+
+                #         distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                #         s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
+                #         s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh) + s_adjust
+                #         dist_valid = s_base - s_valid + dist_searched
+                #         if dist_valid ≥ 0.0
+                #             s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh) + s_adjust
+                #             dist = s_base - s_primary + dist_searched
+                #             if dist < best_dist
+                #                 best_dist = dist
+                #                 best_ind = i
+                #             end
+                #         end
+                #         # if shouldprint
+                #         #     println("IN BETWEEN CURVES")
+                #         #     println("tag:        ", veh.state.posF.roadind.tag)
+                #         #     println("index:      ", i)
+                #         #     println("s_valid:    ", s_valid)
+                #         #     println("dist_valid: ", dist_valid)
+                #         #     println("best_dist:  ", best_dist)
+                #         #     println("best_ind:   ", best_ind)
+                #         # end
+                #     end
+                # end
             end
         end
 
@@ -347,7 +456,6 @@ function get_neighbor_rear_along_lane(
             break
         end
 
-        lane = roadway[tag_target]
         if !has_prev(lane) ||
            (tag_target == tag_start && dist_searched != 0.0) # exit after visiting this lane a 2nd time
             break
@@ -359,6 +467,24 @@ function get_neighbor_rear_along_lane(
     end
 
     NeighborLongitudinalResult(best_ind, best_dist)
+end
+function get_neighbor_rear_along_lane(
+    scene::Scene,
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_rear::Float64 = 250.0 # max distance to search rearward [m]
+    )
+
+    veh_ego = scene[vehicle_index]
+    tag_start = veh_ego.state.posF.roadind.tag
+    s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, veh_ego)
+
+    get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
+        targetpoint_primary, targetpoint_valid,
+        max_distance_rear=max_distance_rear, index_to_ignore=vehicle_index)
 end
 function get_neighbor_rear_along_left_lane(
     scene::Scene,
@@ -452,4 +578,77 @@ function get_neighbor_rear_along_right_lane(
     get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
         VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
+end
+
+"""
+    Project the given point to the same lane as the given RoadIndex.
+This will return the projection of the point, along with the Δs along the lane from the RoadIndex.
+"""
+immutable FrenetRelativePosition
+    origin::RoadIndex
+    target::RoadIndex
+    Δs::Float64
+    t::Float64
+    ϕ::Float64
+end
+function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
+    max_distance_rear::Float64 = 250.0, # max distance to search backward [m]
+    improvement_threshold::Float64 = 1e-4,
+    )
+
+    # immutable CurveProjection
+    #     ind::CurveIndex
+    #     t::Float64 # lane offset
+    #     ϕ::Float64 # lane-relative heading [rad]
+    # end
+
+    # project to current lane first
+    tag_start = roadind.tag
+    lane_start = roadway[tag_start]
+    curveproj_start = proj(posG, lane_start, roadway, move_along_curves=false).curveproj
+    s_base = lane_start[roadind.ind, roadway].s
+    s_proj = lane_start[curveproj_start.ind, roadway].s
+    Δs = s_proj - s_base
+    retval = FrenetRelativePosition(roadind,
+                RoadIndex(curveproj_start.ind, tag_start), Δs, curveproj_start.t, curveproj_start.ϕ)
+
+
+    # search downstream
+    if has_next(lane_start)
+        dist_searched = lane_start.curve[end].s - s_base
+        s_base = -abs(lane_start.curve[end].pos - next_lane_point(lane_start, roadway).pos) # negative distance between lanes
+        tag_target = next_lane(lane_start, roadway).tag
+        while dist_searched < max_distance_fore
+
+            lane = roadway[tag_target]
+            curveproj = proj(posG, lane, roadway, move_along_curves=false).curveproj
+
+            if abs(curveproj.t) < abs(retval.t) - improvement_threshold
+
+                s_proj = lane[curveproj.ind, roadway].s
+                Δs = s_proj - s_base + dist_searched
+                retval = FrenetRelativePosition(
+                            roadind, RoadIndex(curveproj.ind, tag_target),
+                            Δs, curveproj.t, curveproj.ϕ)
+            end
+
+            if !has_next(lane)
+                break
+            end
+
+            dist_searched += (lane.curve[end].s - s_base)
+            s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
+            tag_target = next_lane(lane, roadway).tag
+
+            if tag_target == tag_start
+                break
+            end
+        end
+    end
+
+    # search upstream
+    # TODO: this
+
+    retval
 end

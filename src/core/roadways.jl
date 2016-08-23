@@ -276,8 +276,8 @@ function Base.getindex(roadway::Roadway, tag::LaneTag)
 end
 
 is_between_segments_lo(ind::CurveIndex) = ind.i == 0
-is_between_segments_hi(ind::CurveIndex) = ind.i == length(curve)
-is_between_segments(ind::CurveIndex) = is_between_segments_lo(ind) || is_between_segments_hi(ind)
+is_between_segments_hi(ind::CurveIndex, curve::Curve) = ind.i == length(curve)
+is_between_segments(ind::CurveIndex, curve::Curve) = is_between_segments_lo(ind) || is_between_segments_hi(ind, curve)
 
 next_lane(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target.tag]
 prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target.tag]
@@ -310,7 +310,9 @@ end
 Return the RoadProjection for projecting posG onto the lane.
 This will automatically project to the next or prev curve as appropriate.
 """
-function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
+function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway;
+    move_along_curves::Bool = true, # if false, will only project to lane.curve
+    )
     curveproj = proj(posG, lane.curve)
     rettag = lane.tag
 
@@ -319,10 +321,11 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         pt_hi = lane.curve[1]
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
-        if t ≤ 0.0
+        if t ≤ 0.0 && move_along_curves
             return proj(posG, prev_lane(lane, roadway), roadway)
         elseif t < 1.0 # for t == 1.0 we use the actual end of the lane
-            @assert(0.0 ≤ t < 1.0)
+            @assert(!move_along_curves || 0.0 ≤ t < 1.0)
+            t = clamp(t, 0.0, 1.0)
             footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
             ind = CurveIndex(0, t)
             curveproj = get_curve_projection(posG, footpoint, ind)
@@ -333,11 +336,12 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
 
-        if t ≥ 1.0
+        if t ≥ 1.0 && move_along_curves
              # for t == 1.0 we use the actual start of the lane
             return proj(posG, next_lane(lane, roadway), roadway)
         elseif t ≥ 0.0
-            @assert(0.0 ≤ t ≤ 1.0)
+            @assert(!move_along_curves || 0.0 ≤ t ≤ 1.0)
+            t = clamp(t, 0.0, 1.0)
             footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
             ind = CurveIndex(length(lane.curve), t)
             curveproj = get_curve_projection(posG, footpoint, ind)
@@ -391,13 +395,6 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
             end
         end
     end
-
-    # if best_proj.tag.segment == 0
-    #     println("proj")
-    #     println("best_proj: ", best_proj)
-    #     println("best_dist2: ", best_dist2)
-    #     println("posG: ", posG)
-    # end
 
     best_proj
 end
@@ -471,6 +468,7 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
         RoadIndex(ind, roadind.tag)
     end
 end
+
 
 n_lanes_right(lane::Lane, roadway::Roadway) = lane.tag.lane - 1
 function n_lanes_left(lane::Lane, roadway::Roadway)

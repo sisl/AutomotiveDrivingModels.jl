@@ -92,4 +92,41 @@ let
     foreinfo = get_neighbor_fore_along_lane(scene, 1, roadway, max_distance_fore=Inf)
     @test foreinfo.ind == 2
     @test isapprox(foreinfo.Δs, 0.0, atol=1e-5)
+
+    ################################################
+    # get_frenet_relative_position
+
+    scene[1].state = place_at(0.0)
+    scene[2].state = place_at(10.0)
+    frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
+    @test frp.origin == scene[1].state.posF.roadind
+    @test frp.target == RoadIndex(CurveIndex(0, 0.1), scene[1].state.posF.roadind.tag)
+    @test isapprox(frp.Δs, 10.0, atol=1e-5)
+    @test isapprox(frp.t, 0.0, atol=1e-5)
+    @test isapprox(frp.ϕ, 0.0, atol=1e-7)
+
+    scene[1].state = place_at(10.0)
+    scene[2].state = place_at(20.0)
+    frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
+    @test frp.origin == scene[1].state.posF.roadind
+    @test frp.target == RoadIndex(CurveIndex(0, 0.2), scene[1].state.posF.roadind.tag)
+    @test isapprox(frp.Δs, 10.0, atol=1e-5)
+    @test isapprox(frp.t, 0.0, atol=1e-5)
+    @test isapprox(frp.ϕ, 0.0, atol=1e-7)
+
+    scene[1].state = place_at(0.0)
+    scene[2].state = place_at(120.0)
+    frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
+    @test frp.target.tag == scene[1].state.posF.roadind.tag
+    @test isapprox(frp.Δs, 120.0, atol=1e-5)
+    @test isapprox(frp.t, 0.0, atol=1e-5)
+    @test isapprox(frp.ϕ, 0.0, atol=1e-7)
+
+    scene[1].state = place_at(0.0)
+    scene[2].state = place_at(250.0)
+    frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
+    @test frp.target.tag != scene[1].state.posF.roadind.tag
+    @test isapprox(frp.Δs, 250.0, atol=1e-5)
+    @test isapprox(frp.t, 0.0, atol=1e-5)
+    @test isapprox(frp.ϕ, 0.0, atol=1e-7)
 end
