@@ -94,6 +94,7 @@ end
 get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 
+get_center(veh::Vehicle) = veh.state.posG
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
 get_front_center(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
 get_rear_center(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)

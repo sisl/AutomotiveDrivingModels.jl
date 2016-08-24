@@ -19,6 +19,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "simulation.jl")
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "behaviors.jl"))
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "minkowski.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "roadway_generation.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "trajdata_cleaning.jl"))
 

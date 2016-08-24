@@ -76,6 +76,7 @@ export
     get_posG,
     get_vel_s,
     get_vel_t,
+    get_center,
     get_footpoint,
     get_front_center,
     get_rear_center,
