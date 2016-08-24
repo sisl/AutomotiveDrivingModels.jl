@@ -508,3 +508,19 @@ function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway
 
     get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
 end
+
+#############################################
+#
+# SCENE WISE
+#
+#############################################
+
+generate_feature_functions("Is_Colliding", :is_colliding, Bool, "-", lowerbound=0.0, upperbound=1.0)
+function Base.get(::Feature_Is_Colliding, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    mem::CPAMemory=CPAMemory(),
+    )
+
+    scene = get_scene(rec, pastframe)
+    is_colliding = convert(Float64, get_first_collision(scene, vehicle_index::Int, mem).is_colliding)
+    FeatureValue(is_colliding)
+end

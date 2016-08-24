@@ -496,7 +496,7 @@ function get_first_collision(scene::Scene, target_index::Int, mem::CPAMemory=CPA
     OBB!(mem.vehA, vehA)
     for (B,vehB) in enumerate(scene)
         if B != A
-            OBB!(mem.vehA, vehB)
+            OBB!(mem.vehB, vehB)
             if is_potentially_colliding(vehA, vehB) && is_colliding(mem)
                 return CollisionCheckResult(true, A, B)
             end

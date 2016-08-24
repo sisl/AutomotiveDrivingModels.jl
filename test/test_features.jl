@@ -7,6 +7,9 @@ let
             Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(2, AgentClass.CAR, 5.0, 2.0)),
         ]))
 
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 0.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
+
     @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 1)), 0.5)
     @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 2)), 0.5)
     @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 1)), 0.5)
@@ -37,4 +40,9 @@ let
     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 4)), 12.0 - 5.0)
     @test isnan(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 4)))
     @test isapprox(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 4)), 1.0 - 5.0)
+
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 0.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 4)) == 1.0
 end
