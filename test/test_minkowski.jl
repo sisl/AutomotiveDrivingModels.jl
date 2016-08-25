@@ -12,5 +12,5 @@ let
     @test col.A == 1
     @test col.B == 2
 
-    @test get_first_collision(get!(scene, td, 2), CPAMemory()).is_colliding == false
+    @test get_first_collision(get!(scene, td, 2), CPAMemory()).is_colliding == true
 end

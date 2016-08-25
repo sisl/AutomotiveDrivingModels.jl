@@ -236,21 +236,32 @@ function Base.get(::Feature_MarkerDist_Left, rec::SceneRecord, roadway::Roadway,
     veh_ego = rec[vehicle_index, pastframe]
     t = veh_ego.state.posF.t
     lane = roadway[veh_ego.state.posF.roadind.tag]
+
     if n_lanes_left(lane, roadway) > 0
-        # assume marker is at the midpoint between the lanes
+        footpoint = get_footpoint(veh_ego)
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        roadproj = proj(veh_ego.state.posG, lane_left, roadway)
-        FeatureValue(roadproj.curveproj.t)
+        lane_width = -proj(footpoint, lane_left, roadway).curveproj.t
     else
-        FeatureValue(lane.width/2 - t)
+        lane_width = lane.width
     end
+
+    FeatureValue(lane_width/2 - t)
 end
 generate_feature_functions("MarkerDist_Right", :d_mr, Float64, "m")
 function Base.get(::Feature_MarkerDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
-    offset = veh.state.posF.t
-    lane = roadway[veh.state.posF.roadind.tag]
-    FeatureValue(lane.width/2 + offset)
+    veh_ego = rec[vehicle_index, pastframe]
+    t = veh_ego.state.posF.t
+    lane = roadway[veh_ego.state.posF.roadind.tag]
+
+    if n_lanes_right(lane, roadway) > 0
+        footpoint = get_footpoint(veh_ego)
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+        lane_width = proj(footpoint, lane_left, roadway).curveproj.t
+    else
+        lane_width = lane.width
+    end
+
+    FeatureValue(lane_width/2 + t)
 end
 generate_feature_functions("MarkerDist_Left_Left", :d_mll, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)

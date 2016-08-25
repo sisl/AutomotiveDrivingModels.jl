@@ -42,7 +42,17 @@ let
     @test isapprox(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 4)), 1.0 - 5.0)
 
     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 0.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 1.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 4)) == 1.0
+
+    update!(rec, Scene([
+            Vehicle(VehicleState(VecSE2(  0.0,0.0,0.0), roadway, 10.0), VehicleDef(1, AgentClass.CAR, 5.0, 2.0)),
+            Vehicle(VehicleState(VecSE2(-10.0,1.0,0.0), roadway, 10.0), VehicleDef(2, AgentClass.CAR, 5.0, 2.0)),
+            Vehicle(VehicleState(VecSE2(  0.0,1.0,0.5), roadway, 10.0), VehicleDef(3, AgentClass.CAR, 5.0, 2.0)),
+        ]))
+
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
+    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
 end
