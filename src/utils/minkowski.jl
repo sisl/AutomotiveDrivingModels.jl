@@ -275,6 +275,12 @@ function OBB!(retval::ConvexPolygon, veh::Vehicle, center::VecE2 = convert(VecE2
 
     # get an oriented bounding box at the vehicle's position
 
+    @assert(veh.def.length > 0)
+    @assert(veh.def.width > 0)
+    @assert(!isnan(veh.state.posG.θ))
+    @assert(!isnan(veh.state.posG.x))
+    @assert(!isnan(veh.state.posG.y))
+
     x = polar(veh.def.length/2, veh.state.posG.θ)
     y = polar(veh.def.width/2, veh.state.posG.θ+π/2)
 
@@ -500,7 +506,6 @@ function get_first_collision(scene::Scene, target_index::Int, mem::CPAMemory=CPA
         if B != A
             OBB!(mem.vehB, vehB)
             if is_potentially_colliding(vehA, vehB) && is_colliding(mem)
-            # if is_colliding(mem)
                 return CollisionCheckResult(true, A, B)
             end
         end
