@@ -521,6 +521,6 @@ function Base.get(::Feature_Is_Colliding, rec::SceneRecord, roadway::Roadway, ve
     )
 
     scene = get_scene(rec, pastframe)
-    is_colliding = convert(Float64, get_first_collision(scene, vehicle_index::Int, mem).is_colliding)
+    is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
     FeatureValue(is_colliding)
 end

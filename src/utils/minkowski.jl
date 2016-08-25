@@ -461,13 +461,15 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
     (best_t_CPA, best_d_CPA)
 end
 
+_bounding_radius(veh::Vehicle) = sqrt(veh.def.length*veh.def.length/4 + veh.def.width*veh.def.width/4)
+
 """
 A fast collision check to remove things clearly not colliding
 """
 function is_potentially_colliding(A::Vehicle, B::Vehicle)
-    Δ² = abs2(A.state.posG - B.state.posG.x)
-    r_a = sqrt(A.def.length*A.def.length/4 + A.def.width*A.def.width/4)
-    r_b = sqrt(B.def.length*B.def.length/4 + B.def.width*B.def.width/4)
+    Δ² = abs2(A.state.posG - B.state.posG)
+    r_a = _bounding_radius(A)
+    r_b = _bounding_radius(B)
     Δ² ≤ r_a*r_a + 2*r_a*r_b + r_b*r_b
 end
 
@@ -498,6 +500,7 @@ function get_first_collision(scene::Scene, target_index::Int, mem::CPAMemory=CPA
         if B != A
             OBB!(mem.vehB, vehB)
             if is_potentially_colliding(vehA, vehB) && is_colliding(mem)
+            # if is_colliding(mem)
                 return CollisionCheckResult(true, A, B)
             end
         end
