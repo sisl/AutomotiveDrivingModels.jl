@@ -72,7 +72,7 @@ function get_signed_area(pts::Vector{VecE2}, npts::Int = length(pts))
     # https://en.wikipedia.org/wiki/Shoelace_formula
     # sign of -1 means clockwise, sign of 1 means counterclockwise
 
-    retval = pts[end].x*pts[1].y - pts[1].x*pts[end].y
+    retval = pts[npts].x*pts[1].y - pts[1].x*pts[npts].y
     for i in 1 : npts-1
         retval += pts[i].x * pts[i+1].y
         retval -= pts[i+1].x * pts[i].y
