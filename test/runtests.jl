@@ -14,3 +14,5 @@ include(Pkg.dir("AutomotiveDrivingModels", "test", "test_roadway_generation.jl")
 include(Pkg.dir("AutomotiveDrivingModels", "test", "test_minkowski.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "test", "test_features.jl"))
+
+include(Pkg.dir("AutomotiveDrivingModels", "test", "test_foldsets.jl"))
