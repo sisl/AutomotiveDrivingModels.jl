@@ -1,7 +1,7 @@
 let
     trajdata = get_test_trajdata()
     seg = TrajdataSegment(1, 1, 1, 2)
-    show(seg)
+    show(IOBuffer(), seg)
 
     @test seg == TrajdataSegment(1, 1, 1, 2)
     @test nsteps(seg) == 1
