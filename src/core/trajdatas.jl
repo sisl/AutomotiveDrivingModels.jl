@@ -16,6 +16,31 @@ type Trajdata
     frames::Vector{TrajdataFrame} # list of frames
 end
 Trajdata(roadway::Roadway) = Trajdata(roadway, Dict{Int, VehicleDef}(), TrajdataState[], TrajdataFrame[])
+function Trajdata(trajdata::Trajdata, frame_lo::Int, frame_hi::Int)
+    roadway = trajdata.roadway
+    vehdefs = Dict{Int, VehicleDef}()
+
+    nstates = 0
+    for frame in trajdata.frames[frame_lo : frame_hi]
+        nstates += length(frame)
+    end
+
+    states = Array(TrajdataState, nstates)
+    copy!(states, 1, trajdata.states, trajdata.frames[frame_lo].lo, nstates)
+    for s in states
+        if !haskey(vehdefs, s.id)
+            vehdefs[s.id] = trajdata.vehdefs[s.id]
+        end
+    end
+
+    frames = Array(TrajdataFrame, frame_hi - frame_lo + 1)
+    Δstate_index = trajdata.frames[frame_lo].lo - 1
+    for (i,frame) in enumerate(trajdata.frames[frame_lo : frame_hi])
+        frames[i] = TrajdataFrame(frame.lo - Δstate_index, frame.hi - Δstate_index, frame.t)
+    end
+
+    Trajdata(roadway, vehdefs, states, frames)
+end
 
 function Base.write(io::IO, trajdata::Trajdata)
     # writes to a text file

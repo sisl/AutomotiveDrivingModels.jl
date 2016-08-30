@@ -65,6 +65,62 @@ function Base.get!(scene::Scene, trajdata::Trajdata, frame::Int)
 
     scene
 end
+function Base.get!(scene::Scene, trajdata::Trajdata, frame_lo::Int, frame_hi::Int, γ::Float64)
+    # add all vehicles that exist in both the lower and upper frames
+
+    scene.n_vehicles = 0
+    for i in frame_lo.lo : frame_lo.hi
+        s = trajdata.states[i]
+        for j in frame_hi.lo : frame_hi.hi
+            s2 = trajdata.states[j]
+            if s2.id == s.id # we are good
+                # add it
+                scene.n_vehicles += 1
+
+                state_lo = s.state
+                state_hi = s2.state
+
+                veh = scene.vehicles[scene.n_vehicles]
+                veh.state = lerp(state_lo, state_hi, γ, trajdata.roadway)
+                veh.def = get_vehicledef(trajdata, s.id)
+                break
+            end
+        end
+    end
+
+    scene
+end
+function Base.get!(scene::Scene, trajdata::Trajdata, time::Float64)
+
+    # performs linear interpolation between frames
+
+    i = searchsortedfirst(trajdata.frames, time, by=frame_or_time->isa(frame_or_time, TrajdataFrame) ? frame_or_time.t : frame_or_time) # index of first frame ≥ t_current
+
+    if i == 1
+        lo, hi = 1, 2
+    elseif i ≤ nframes(model.trajdata)
+        lo, hi = i-1, i
+    else # t_current > all times in model.trajdata.frames
+        lo, hi = i-2, i-1
+    end
+
+    t_lo = get_time(model.trajdata, lo)
+    t_hi = get_time(model.trajdata, hi)
+    γ = (t - t_lo) / (t_hi - t_lo)
+
+    frame_lo = trajdata.frames[lo]
+    frame_hi = trajdata.frames[hi]
+
+    if isapprox(γ, 0.0)
+        get!(scene, trajdata, frame_lo)
+    elseif isapprox(γ, 1.0)
+        get!(scene, trajdata, frame_hi)
+    else
+        get!(scene, trajdata, frame_lo, frame_hi, γ)
+    end
+
+    scene
+end
 function Base.deleteat!(scene::Scene, vehicle_index::Int)
     for i in vehicle_index : scene.n_vehicles - 1
         copy!(scene.vehicles[i], scene.vehicles[i+1])

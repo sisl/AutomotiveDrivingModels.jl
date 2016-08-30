@@ -107,8 +107,56 @@ let
     for i in 1 : nframes(trajdata2)
         @test carsinframe(trajdata2, i) == carsinframe(trajdata, i)
         for j in 1 : carsinframe(trajdata, i)
-            veh1 = get_vehicle(trajdata, i, j)
-            veh2 = get_vehicle(trajdata2, i, j)
+            veh1 = get_vehicle(trajdata, j, i)
+            veh2 = get_vehicle(trajdata2, j, i)
+            @test veh1.def.id == veh2.def.id
+            @test veh1.def.class == veh2.def.class
+            @test isapprox(veh1.def.length, veh2.def.length)
+            @test isapprox(veh1.def.width, veh2.def.width)
+
+            @test isapprox(veh1.state.v, veh2.state.v)
+            @test isapprox(veh1.state.posG, veh2.state.posG, atol=1e-3)
+            @test isapprox(veh1.state.posF.s, veh2.state.posF.s, atol=1e-3)
+            @test isapprox(veh1.state.posF.t, veh2.state.posF.t, atol=1e-3)
+            @test isapprox(veh1.state.posF.ϕ, veh2.state.posF.ϕ, atol=1e-6)
+            @test veh1.state.posF.roadind.tag == veh2.state.posF.roadind.tag
+            @test veh1.state.posF.roadind.ind.i == veh2.state.posF.roadind.ind.i
+            @test isapprox(veh1.state.posF.roadind.ind.t, veh2.state.posF.roadind.ind.t, atol=1e-3)
+        end
+    end
+
+
+    trajdata3 = Trajdata(trajdata2, 1, nframes(trajdata2))
+    @test nframes(trajdata3) == nframes(trajdata2)
+    for i in 1 : nframes(trajdata3)
+        @test carsinframe(trajdata3, i) == carsinframe(trajdata2, i)
+        for j in 1 : carsinframe(trajdata2, i)
+            veh1 = get_vehicle(trajdata2, j, i)
+            veh2 = get_vehicle(trajdata3, j, i)
+            @test veh1.def.id == veh2.def.id
+            @test veh1.def.class == veh2.def.class
+            @test isapprox(veh1.def.length, veh2.def.length)
+            @test isapprox(veh1.def.width, veh2.def.width)
+
+            @test isapprox(veh1.state.v, veh2.state.v)
+            @test isapprox(veh1.state.posG, veh2.state.posG, atol=1e-3)
+            @test isapprox(veh1.state.posF.s, veh2.state.posF.s, atol=1e-3)
+            @test isapprox(veh1.state.posF.t, veh2.state.posF.t, atol=1e-3)
+            @test isapprox(veh1.state.posF.ϕ, veh2.state.posF.ϕ, atol=1e-6)
+            @test veh1.state.posF.roadind.tag == veh2.state.posF.roadind.tag
+            @test veh1.state.posF.roadind.ind.i == veh2.state.posF.roadind.ind.i
+            @test isapprox(veh1.state.posF.roadind.ind.t, veh2.state.posF.roadind.ind.t, atol=1e-3)
+        end
+    end
+
+    trajdata3 = Trajdata(trajdata2, 1, 1)
+    @test nframes(trajdata3) == 1
+    let
+        i = 1
+        @test carsinframe(trajdata3, i) == carsinframe(trajdata2, i)
+        for j in 1 : carsinframe(trajdata2, i)
+            veh1 = get_vehicle(trajdata2, j, i)
+            veh2 = get_vehicle(trajdata3, j, i)
             @test veh1.def.id == veh2.def.id
             @test veh1.def.class == veh2.def.class
             @test isapprox(veh1.def.length, veh2.def.length)

@@ -23,4 +23,9 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "behaviors.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "roadway_generation.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "trajdata_cleaning.jl"))
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "metrics.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "foldsets.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "trajdata_segments.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "evaluation_data.jl"))
+
 end # module
