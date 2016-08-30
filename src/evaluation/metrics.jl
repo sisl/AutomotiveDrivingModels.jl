@@ -1,20 +1,17 @@
 export
-    MetricExtractor,
-    FrameMetricExtractor,
     TraceMetricExtractor,
 
-    get_symbol,
     get_score,
     reset!,
     extract!,
+
+    extract_sum_square_jerk,
 
     RootWeightedSquareError,
     SumSquareJerk,
     EmergentKLDivergence
 
-abstract MetricExtractor
-abstract FrameMetricExtractor <: MetricExtractor
-abstract TraceMetricExtractor <: MetricExtractor
+abstract TraceMetricExtractor
 
 ########################################
 #        RootWeightedSquareError       #
