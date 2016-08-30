@@ -60,9 +60,12 @@ let
 
     lanetag = LaneTag(1,1)
     lane = Lane(lanetag, curve)
+    show(IOBuffer(), lanetag)
 
     @test !has_next(lane)
     @test !has_prev(lane)
+
+    show(IOBuffer(), RoadIndex(CurveIndex(1,0.0), lanetag))
 
     roadway = get_test_roadway()
 
@@ -468,4 +471,9 @@ let
             end
         end
     end
+end
+
+let
+    lc = LaneConnection(true, CurveIndex(1,0.0), RoadIndex(CurveIndex(2,0.0), LaneTag(2,2)))
+    show(IOBuffer(), lc)
 end
