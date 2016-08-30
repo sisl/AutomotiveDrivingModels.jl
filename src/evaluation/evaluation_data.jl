@@ -6,6 +6,7 @@ type EvaluationData
     trajdatas::Vector{Trajdata}
     segments::Vector{TrajdataSegment}
 end
+EvaluationData() = EvaluationData(Trajdata[], TrajdataSegment[])
 
 function calc_trace_metrics!(
     metrics_df::DataFrame,

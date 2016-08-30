@@ -24,7 +24,7 @@ type RootWeightedSquareError{F<:AbstractFeature} <: TraceMetricExtractor
     running_sum::Float64
     n_obs::Int
 end
-RootWeightedSquareError{F<:AbstractFeature}(f::F, horizon::Float64) = RootWeightedSquareError(f, horizon, running_sum, n_obs)
+RootWeightedSquareError{F<:AbstractFeature}(f::F, horizon::Float64) = RootWeightedSquareError(f, horizon, 0.0, 0)
 
 get_symbol(m::RootWeightedSquareError) = symbol(@sprintf("RWSE_%s_%d_%02d", string(symbol(m.f)), floor(Int, m.horizon), floor(Int, 100*rem(m.horizon, 1.0))))
 get_score(m::RootWeightedSquareError) = sqrt(m.running_sum / m.n_obs)
