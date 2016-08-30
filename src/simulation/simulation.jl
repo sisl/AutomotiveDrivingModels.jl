@@ -95,6 +95,7 @@ function simulate!(
 
     # run simulation
     t = time_start
+    context = action_context(model)
     while t < time_end
 
         # pull orig scene
@@ -103,13 +104,13 @@ function simulate!(
         # propagate ego vehicle and set
         ego_action = rand(model)
         ego_veh = get_by_id(scene, egoid)
-        ego_veh.state = propagate(veh, ego_action, context, roadway)
+        ego_veh.state = propagate(ego_veh, ego_action, context, roadway)
 
         # update record
         update!(rec, scene)
 
         # observe
-        observe!(model, scene, roadway, veh.def.id)
+        observe!(model, scene, roadway, ego_veh.def.id)
 
         # update time
         t += Δt

@@ -1,5 +1,7 @@
 export
     EvaluationData,
+
+    allocate_metrics_dataframe,
     calc_trace_metrics!
 
 type EvaluationData
@@ -7,6 +9,16 @@ type EvaluationData
     segments::Vector{TrajdataSegment}
 end
 EvaluationData() = EvaluationData(Trajdata[], TrajdataSegment[])
+
+pull_record(seg::TrajdataSegment, evaldata::EvaluationData) = pull_record(seg, evaldata.trajdatas[seg.trajdata_index])
+
+function allocate_metrics_dataframe{M<:TraceMetricExtractor}(metrics::Vector{M}, nfolds::Int)
+    df = DataFrame()
+    for m in metrics
+        df[symbol(m)] = Array(Float64, nfolds)
+    end
+    df
+end
 
 function calc_trace_metrics!(
     metrics_df::DataFrame,
@@ -24,6 +36,7 @@ function calc_trace_metrics!(
     end
 
     # simulate traces and perform online metric extraction
+    scene = Scene()
     for seg_index in foldset_seg_test
 
         seg = evaldata.segments[seg_index]
@@ -31,10 +44,14 @@ function calc_trace_metrics!(
 
         for sim_index in 1 : n_simulations_per_trace
 
-            rec_orig = pull_record(seg, evaldata) # TODO
+            rec_orig = pull_record(seg, evaldata) # TODO - make efficient
             rec_sim = deepcopy(rec_orig)
 
-            simulate!(rec_sim, model, seg.egoid, trajdata, 1, nsteps(seg))
+            time_start = get_time(trajdata, seg.frame_lo)
+            time_end = get_time(trajdata, seg.frame_hi)
+
+            simulate!(rec_sim, model, seg.egoid, trajdata,
+                      time_start, time_end, scene=scene)
 
             for metric in metrics
                 extract!(metric, rec_orig, rec_sim, trajdata.roadway, seg.egoid)
@@ -44,7 +61,7 @@ function calc_trace_metrics!(
 
     # compute metric scores
     for metric in metrics
-        metrics_df[df_index, get_symbol(metric)] = get_score(metric)
+        metrics_df[df_index, symbol(metric)] = get_score(metric)
     end
 
     metrics_df

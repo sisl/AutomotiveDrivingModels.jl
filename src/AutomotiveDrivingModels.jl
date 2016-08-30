@@ -3,6 +3,7 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
 module AutomotiveDrivingModels
 
 using Reexport
+using Discretizers
 
 @reexport using DataFrames
 @reexport using Distributions

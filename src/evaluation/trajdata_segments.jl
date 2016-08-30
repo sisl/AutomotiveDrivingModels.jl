@@ -2,6 +2,7 @@ export
     TrajdataSegment,
 
     nsteps,
+    pull_record,
     pull_continuous_segments
 
 immutable TrajdataSegment
@@ -26,6 +27,16 @@ end
 
 nsteps(seg::TrajdataSegment) = seg.frame_hi - seg.frame_lo # total number of sim steps
 AutoCore.nframes(seg::TrajdataSegment) = nsteps(seg) + 1 # total number of frames spanned by trajdata segment
+
+function pull_record(seg::TrajdataSegment, trajdata::Trajdata)
+    rec = SceneRecord(nframes(seg), get_mean_timestep(trajdata))
+    scene = Scene()
+    for frame in seg.frame_lo : seg.frame_hi
+        get!(scene, trajdata, frame)
+        update!(rec, scene)
+    end
+    rec
+end
 
 """
     pull_continuous_segments(trajdata::Trajdata, trajdata_index::Int)

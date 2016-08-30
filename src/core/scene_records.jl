@@ -13,6 +13,13 @@ type SceneRecord
 end
 
 Base.length(rec::SceneRecord) = rec.nscenes
+function Base.deepcopy(rec::SceneRecord)
+    retval = SceneRecord(length(rec.scenes), rec.timestep, length(rec.scenes[1].vehicles))
+    for i in 1 : rec.nscenes
+        copy!(retval.scenes[i], rec.scenes[i])
+    end
+    retval
+end
 
 record_length(rec::SceneRecord) = length(rec.scenes)
 pastframe_inbounds(rec::SceneRecord, pastframe::Int) = 1 ≤ 1-pastframe ≤ rec.nscenes

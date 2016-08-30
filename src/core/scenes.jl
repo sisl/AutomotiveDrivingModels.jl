@@ -98,25 +98,22 @@ function Base.get!(scene::Scene, trajdata::Trajdata, time::Float64)
 
     if i == 1
         lo, hi = 1, 2
-    elseif i ≤ nframes(model.trajdata)
+    elseif i ≤ nframes(trajdata)
         lo, hi = i-1, i
-    else # t_current > all times in model.trajdata.frames
+    else # t_current > all times in trajdata.frames
         lo, hi = i-2, i-1
     end
 
-    t_lo = get_time(model.trajdata, lo)
-    t_hi = get_time(model.trajdata, hi)
-    γ = (t - t_lo) / (t_hi - t_lo)
-
-    frame_lo = trajdata.frames[lo]
-    frame_hi = trajdata.frames[hi]
+    t_lo = get_time(trajdata, lo)
+    t_hi = get_time(trajdata, hi)
+    γ = (time - t_lo) / (t_hi - t_lo)
 
     if isapprox(γ, 0.0)
-        get!(scene, trajdata, frame_lo)
+        get!(scene, trajdata, lo)
     elseif isapprox(γ, 1.0)
-        get!(scene, trajdata, frame_hi)
+        get!(scene, trajdata, hi)
     else
-        get!(scene, trajdata, frame_lo, frame_hi, γ)
+        get!(scene, trajdata, lo, hi, γ)
     end
 
     scene
