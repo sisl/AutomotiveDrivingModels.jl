@@ -9,7 +9,8 @@ export
         is_colliding,
         is_potentially_colliding,
         get_first_collision,
-        get_time_and_dist_of_closest_approach
+        get_time_and_dist_of_closest_approach,
+        is_collision_free
 
 ######################################
 
@@ -517,12 +518,14 @@ end
 """
 Loops through the scene and finds the first collision between any two vehicles
 """
-function get_first_collision(scene::Scene, mem::CPAMemory=CPAMemory())
-    N = length(scene)
-    for A in 1 : N
+function get_first_collision(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory())
+
+    N = length(vehicle_indeces)
+    for (a,A) in enumerate(vehicle_indeces)
         vehA = scene[A]
         OBB!(mem.vehA, vehA)
-        for B in A+1 : N
+        for b in a +1 : length(vehicle_indeces)
+            B = vehicle_indeces[b]
             vehB = scene[B]
             if is_potentially_colliding(vehA, vehB)
                 OBB!(mem.vehB, vehB)
@@ -535,3 +538,6 @@ function get_first_collision(scene::Scene, mem::CPAMemory=CPAMemory())
 
     CollisionCheckResult(false, 0, 0)
 end
+get_first_collision(scene::Scene, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, 1:length(scene), mem)
+is_collision_free(scene::Scene, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, mem).is_colliding
+is_collision_free(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, vehicle_indeces, mem).is_colliding

@@ -545,6 +545,14 @@ function get_neighbor_rear_along_lane(
         max_distance_rear=max_distance_rear,
         index_to_ignore=index_to_ignore)
 end
+function get_neighbor_rear_along_lane(scene::Scene, vehicle_index::Int, roadway::Roadway;
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    get_neighbor_rear_along_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
+end
 function get_neighbor_rear_along_left_lane(
     scene::Scene,
     vehicle_index::Int,
