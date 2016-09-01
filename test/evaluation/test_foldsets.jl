@@ -5,4 +5,6 @@ let
 
     @test collect(foldset1) == find(assignment .== 1)
     @test collect(foldset2) == find(v-> v != 2, assignment)
+
+
 end

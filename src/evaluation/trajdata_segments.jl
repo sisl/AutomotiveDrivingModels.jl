@@ -71,7 +71,7 @@ function pull_continuous_segments(trajdata::Trajdata, trajdata_index::Int)
 
         for iip in values(segments_in_progress)
             if !iip.updated
-                push!(segments, Interval(iip.id, iip.frame_lo, frameindex-1))
+                push!(segments, TrajdataSegment(trajdata_index, iip.id, iip.frame_lo, frameindex-1))
             end
         end
         filter!((id,iip)->iip.updated, segments_in_progress)

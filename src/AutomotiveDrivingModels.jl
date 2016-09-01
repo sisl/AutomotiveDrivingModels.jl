@@ -27,6 +27,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "trajdata_cleaning.jl
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "metrics.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "foldsets.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "fold_assigners.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "trajdata_segments.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "evaluation_data.jl"))
 

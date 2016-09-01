@@ -4,7 +4,6 @@ export
     FOLD_TRAIN,
     FOLD_TEST,
 
-
     foldset_match,
     foldset_withhold,
 
@@ -29,7 +28,9 @@ function check_fold_match(fold::Integer, fold_assignment::Integer, match_fold::B
 end
 check_fold_match(value::Integer, foldset::FoldSet) = check_fold_match(foldset.fold, value, foldset.match_fold)
 
-# iterator
+#########################################
+# Iterator
+
 function _find_next_valid_fold_match(foldset::FoldSet, state::Int)
     while state < length(foldset.assignment)
         state += 1
