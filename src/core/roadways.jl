@@ -28,7 +28,7 @@ immutable LaneConnection
     target::RoadIndex
 end
 
-Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, c.target)
+Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, ", ", c.target)
 function Base.write(io::IO, c::LaneConnection)
     @printf(io, "%s (%d %.6f) ", c.downstream ? "D" : "U", c.mylane.i, c.mylane.t)
     write(io, c.target)
@@ -196,12 +196,12 @@ function Base.read(io::IO, ::Type{Roadway})
             tokens = split(advance!(), ' ')
             boundary_right = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
 
-            entrances = LaneConnection[]
             exits = LaneConnection[]
+            entrances = LaneConnection[]
             n_conns = parse(Int, advance!())
             for i_conn in 1:n_conns
                 conn = parse(LaneConnection, advance!())
-                conn.downstream ? push!(exits, conn) : push!(exits, conn)
+                conn.downstream ? push!(exits, conn) : push!(entrances, conn)
             end
 
             npts = parse(Int, advance!())
