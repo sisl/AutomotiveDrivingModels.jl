@@ -1,8 +1,13 @@
 export
     EvaluationData,
 
+    get_trajdata,
+    pull_record,
+
     allocate_metrics_dataframe,
-    calc_trace_metrics!
+    calc_trace_metrics!,
+
+    create_evaldata_with_random_subsegments_of_equal_length
 
 type EvaluationData
     trajdatas::Vector{Trajdata}
@@ -10,12 +15,48 @@ type EvaluationData
 end
 EvaluationData() = EvaluationData(Trajdata[], TrajdataSegment[])
 
-pull_record(seg::TrajdataSegment, evaldata::EvaluationData) = pull_record(seg, evaldata.trajdatas[seg.trajdata_index])
+get_trajdata(evaldata::EvaluationData, seg::TrajdataSegment) = evaldata.trajdatas[seg.trajdata_index]
+pull_record(seg::TrajdataSegment, evaldata::EvaluationData, prime_history::Int=0) = pull_record(seg, get_trajdata(evaldata, seg), prime_history)
 
-function allocate_metrics_dataframe{M<:TraceMetricExtractor}(metrics::Vector{M}, nfolds::Int)
+"""
+    create_evaldata_with_random_subsegments_of_equal_length(evaldata::EvaluationData; nsegs::Int=1, nframes::Int=101)
+"""
+function create_evaldata_with_random_subsegments_of_equal_length(evaldata::EvaluationData; nsegs::Int=1, nframes::Int=101)
+    segments = Array(TrajdataSegment, nsegs)
+    i = 0
+    while i < nsegs
+        seg = evaldata.segments[rand(1:length(evaldata.segments))]
+        if AutoCore.nframes(seg) ≥ nframes
+            segments[i+=1] = sample_random_subinterval(seg, nframes)
+        end
+    end
+
+    EvaluationData(evaldata.trajdatas, segments)
+end
+function create_evaldata_with_random_subsegments_of_equal_length(evaldata::EvaluationData, foldset::FoldSet; nsegs::Int=1, nframes::Int=101)
+    segments = Array(TrajdataSegment, nsegs)
+    indeces = collect(foldset)
+    i = 0
+    while i < nsegs
+        seg = evaldata.segments[indeces[rand(1:length(indeces))]]
+        if AutoCore.nframes(seg) ≥ nframes
+            segments[i+=1] = sample_random_subinterval(seg, nframes)
+        end
+    end
+
+    EvaluationData(evaldata.trajdatas, segments)
+end
+
+function allocate_metrics_dataframe{M<:TraceMetricExtractor}(
+    metrics::Vector{M},
+    nrows::Int;
+    )
+
     df = DataFrame()
+    df[:time] = Array(ASCIIString, nrows)
+    df[:logl] = Array(Float64, nrows)
     for m in metrics
-        df[symbol(m)] = Array(Float64, nfolds)
+        df[symbol(m)] = Array(Float64, nrows)
     end
     df
 end
@@ -27,13 +68,18 @@ function calc_trace_metrics!(
     evaldata::EvaluationData,
     foldset_seg_test::FoldSet; # should match the test segments in evaldata
     n_simulations_per_trace::Int = 10,
-    df_index::Int = foldset_seg_test.fold, # row in metrics_df to write to
+    row::Int = foldset_seg_test.fold, # row in metrics_df to write to
+    prime_history::Int = 0,
+    calc_logl::Bool = true,
     )
 
     # reset metrics
     for metric in metrics
         reset!(metric)
     end
+
+    logl = 0.0
+    n_traces = 0
 
     # simulate traces and perform online metric extraction
     scene = Scene()
@@ -42,16 +88,19 @@ function calc_trace_metrics!(
         seg = evaldata.segments[seg_index]
         trajdata = evaldata.trajdatas[seg.trajdata_index]
 
+        rec_orig = pull_record(seg, evaldata, prime_history) # TODO - make efficient
+        rec_sim = deepcopy(rec_orig)
+
+        time_start = get_time(trajdata, seg.frame_lo)
+        time_end = get_time(trajdata, seg.frame_hi)
+
+        logl += extract_log_likelihood(model, rec_orig, trajdata.roadway, seg.egoid, prime_history=prime_history)
+        n_traces += 1
+
         for sim_index in 1 : n_simulations_per_trace
 
-            rec_orig = pull_record(seg, evaldata) # TODO - make efficient
-            rec_sim = deepcopy(rec_orig)
-
-            time_start = get_time(trajdata, seg.frame_lo)
-            time_end = get_time(trajdata, seg.frame_hi)
-
             simulate!(rec_sim, model, seg.egoid, trajdata,
-                      time_start, time_end, scene=scene)
+                      time_start, time_end, scene=scene, prime_history=prime_history)
 
             for metric in metrics
                 extract!(metric, rec_orig, rec_sim, trajdata.roadway, seg.egoid)
@@ -61,8 +110,10 @@ function calc_trace_metrics!(
 
     # compute metric scores
     for metric in metrics
-        metrics_df[df_index, symbol(metric)] = get_score(metric)
+        metrics_df[row, symbol(metric)] = get_score(metric)
     end
+    metrics_df[row, :time] = string(now())
+    metrics_df[row, :logl] = logl/n_traces
 
     metrics_df
 end

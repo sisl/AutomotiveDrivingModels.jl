@@ -32,3 +32,17 @@ function prime_with_history!(model::DriverModel, trajdata::Trajdata, roadway::Ro
 
     model
 end
+function prime_with_history!(model::DriverModel, rec::SceneRecord, roadway::Roadway, egoid::Int;
+    pastframe_start::Int=1-length(rec),
+    pastframe_end::Int=0,
+    )
+
+    reset_hidden_state!(model)
+
+    for pastframe in pastframe_start : pastframe_end
+        scene = get_scene(rec, pastframe)
+        observe!(model, scene, roadway, egoid)
+    end
+
+    model
+end

@@ -5,6 +5,7 @@ export
     reset!,
     extract!,
 
+    extract_log_likelihood,
     extract_sum_square_jerk,
 
     RootWeightedSquareError,
@@ -157,7 +158,6 @@ function extract!(
     egoid::Int,
     )
 
-
     v_orig, v_sim = NaN, NaN
     if isa(metric.f, AbstractFeature)
         F::AbstractFeature = metric.f
@@ -177,4 +177,28 @@ function extract!(
     metric.counts_sim[encode(metric.disc, v_sim)] += 1
 
     metric
+end
+
+########################################
+#            LogLikelihood             #
+########################################
+
+function extract_log_likelihood(model::DriverModel, rec::SceneRecord, roadway::Roadway, egoid::Int;
+    prime_history::Int = 0,
+    scene::Scene = Scene(),
+    )
+
+    A = action_type(model)
+
+    pastframe_prime = prime_history-length(rec)
+    prime_with_history!(model, rec, roadway, egoid, pastframe_end=pastframe_prime)
+
+    logl = 0.0
+    for pastframe in pastframe_prime+1 : -1
+        observe!(model, get_scene(rec, pastframe), roadway, egoid)
+        vehicle_index = get_index_of_first_vehicle_with_id(rec, egoid, pastframe+1)
+        action = get(A, rec, roadway, vehicle_index, pastframe+1)
+        logl += logpdf(model, action)
+    end
+    logl
 end

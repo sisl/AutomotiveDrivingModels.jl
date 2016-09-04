@@ -12,6 +12,8 @@ type SceneRecord
     end
 end
 
+Base.show(io::IO, rec::SceneRecord) = print(io, "SceneRecord(nscenes=", rec.nscenes, ")")
+
 Base.length(rec::SceneRecord) = rec.nscenes
 function Base.deepcopy(rec::SceneRecord)
     retval = SceneRecord(length(rec.scenes), rec.timestep, length(rec.scenes[1].vehicles))
@@ -84,7 +86,7 @@ end
 function update!(rec::SceneRecord, scene::Scene)
     push_back_records!(rec)
     insert!(rec, scene, 0)
-    rec.nscenes += 1
+    rec.nscenes = min(rec.nscenes+1, record_length(rec))
     rec
 end
 

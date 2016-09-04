@@ -55,4 +55,9 @@ let
     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
+
+    # super-simple test
+    for f in allfeatures()
+        get(f, rec, roadway, 3)
+    end
 end

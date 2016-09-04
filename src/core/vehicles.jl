@@ -104,6 +104,11 @@ function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
     )
 
     roadind = move_along(vehstate.posF.roadind, roadway, Δs)
+    try
+        footpoint = roadway[roadind]
+    catch
+        println(roadind)
+    end
     footpoint = roadway[roadind]
     posG = convert(VecE2, footpoint.pos) + polar(t₂, footpoint.pos.θ + π/2)
     posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)

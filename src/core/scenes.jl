@@ -68,10 +68,21 @@ end
 function Base.get!(scene::Scene, trajdata::Trajdata, frame_lo::Int, frame_hi::Int, γ::Float64)
     # add all vehicles that exist in both the lower and upper frames
 
+    if frame_hi != frame_lo+1 && frame_hi != frame_lo
+        # NOTE: frame_hi should pretty much always be frame_lo + 1
+        #       the most frequent exception would be frame_lo = frame_hi
+        #       you otherwise pretty much never want another case
+        warn("get!(scene, trajdata, frame_lo, frame_hi, γ) used with frame_hi = frame_lo + $(frame_hi - frame_lo)!")
+    end
+
     scene.n_vehicles = 0
-    for i in frame_lo.lo : frame_lo.hi
+
+    tdframe_lo = trajdata.frames[frame_lo]
+    tdframe_hi = trajdata.frames[frame_hi]
+
+    for i in tdframe_lo.lo : tdframe_lo.hi
         s = trajdata.states[i]
-        for j in frame_hi.lo : frame_hi.hi
+        for j in tdframe_hi.lo : tdframe_hi.hi
             s2 = trajdata.states[j]
             if s2.id == s.id # we are good
                 # add it
@@ -597,12 +608,13 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
     tag_start = roadind.tag
     lane_start = roadway[tag_start]
     curveproj_start = proj(posG, lane_start, roadway, move_along_curves=false).curveproj
+    curvept_start = lane_start[curveproj_start.ind, roadway]
     s_base = lane_start[roadind.ind, roadway].s
-    s_proj = lane_start[curveproj_start.ind, roadway].s
+    s_proj = curvept_start.s
     Δs = s_proj - s_base
+    sq_dist_to_curve = abs2(posG - curvept_start.pos)
     retval = FrenetRelativePosition(roadind,
                 RoadIndex(curveproj_start.ind, tag_start), Δs, curveproj_start.t, curveproj_start.ϕ)
-
 
     # search downstream
     if has_next(lane_start)
@@ -613,9 +625,11 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
 
             lane = roadway[tag_target]
             curveproj = proj(posG, lane, roadway, move_along_curves=false).curveproj
+            sq_dist_to_curve2 = abs2(posG - lane[curveproj.ind, roadway].pos)
 
-            if abs(curveproj.t) < abs(retval.t) - improvement_threshold
+            if sq_dist_to_curve2 < sq_dist_to_curve - improvement_threshold
 
+                sq_dist_to_curve = sq_dist_to_curve2
                 s_proj = lane[curveproj.ind, roadway].s
                 Δs = s_proj - s_base + dist_searched
                 retval = FrenetRelativePosition(
@@ -639,16 +653,19 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
 
     # search upstream
     if has_prev(lane_start)
-        dist_searched = lane_start.curve[end].s - s_base
-        s_base = -abs(lane_start.curve[end].pos - next_lane_point(lane_start, roadway).pos) # negative distance between lanes
-        tag_target = next_lane(lane_start, roadway).tag
+        dist_searched = s_base
+        tag_target = prev_lane(lane_start, roadway).tag
+        s_base = roadway[tag_target].curve[end].s + abs(lane_start.curve[1].pos - prev_lane_point(lane_start, roadway).pos) # end of the lane
+
         while dist_searched < max_distance_fore
 
             lane = roadway[tag_target]
             curveproj = proj(posG, lane, roadway, move_along_curves=false).curveproj
+            sq_dist_to_curve2 = abs2(posG - lane[curveproj.ind, roadway].pos)
 
-            if abs(curveproj.t) < abs(retval.t) - improvement_threshold
+            if sq_dist_to_curve2 < sq_dist_to_curve - improvement_threshold
 
+                sq_dist_to_curve = sq_dist_to_curve2
                 s_proj = lane[curveproj.ind, roadway].s
                 dist = s_base - s_proj  + dist_searched
                 Δs = -dist
@@ -662,7 +679,7 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
             end
 
             dist_searched += s_base
-            s_base = lane.curve[end].s + abs(lane.curve[end].pos - prev_lane_point(lane, roadway).pos) # end of prev lane plus crossover
+            s_base = lane.curve[end].s + abs(lane.curve[1].pos - prev_lane_point(lane, roadway).pos) # length of this lane plus crossover
             tag_target = prev_lane(lane, roadway).tag
 
             if tag_target == tag_start
@@ -673,3 +690,4 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
 
     retval
 end
+get_frenet_relative_position(veh_fore::Vehicle, veh_rear::Vehicle, roadway::Roadway) = get_frenet_relative_position(veh_fore.state.posG, veh_rear.state.posF.roadind, roadway)

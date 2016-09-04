@@ -1,6 +1,7 @@
 export
         get_actions!,
-        tick!
+        tick!,
+        simulate!
 
 function get_actions!{A<:DriveAction, D<:DriverModel}(
     actions::Vector{A},
@@ -96,15 +97,17 @@ function simulate!(
     # run simulation
     t = time_start
     context = action_context(model)
+    prev_ego_state = get_by_id(scene, egoid).state
     while t < time_end
 
         # pull orig scene
-        get!(scene, trajdata, time_start)
+        get!(scene, trajdata, t)
 
         # propagate ego vehicle and set
         ego_action = rand(model)
         ego_veh = get_by_id(scene, egoid)
-        ego_veh.state = propagate(ego_veh, ego_action, context, roadway)
+        ego_veh.state = prev_ego_state
+        prev_ego_state = ego_veh.state = propagate(ego_veh, ego_action, context, roadway)
 
         # update record
         update!(rec, scene)

@@ -163,11 +163,14 @@ function get_feature_derivative_backwards(
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     pastframe2 = pastframe - frames_back
-    if pastframe_inbounds(rec, pastframe2)
+
+
+    # println(f, "  ", pastframe, " ", pastframe2, " ", length(rec), "  ", record_length(rec), "  ", pastframe_inbounds(rec, pastframe2))
+
+    if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
         veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
-        @assert(veh_index_prev != 0)
 
         if veh_index_prev != 0
             curr = convert(Float64, get(f, rec, roadway, veh_index_curr, pastframe))
@@ -223,11 +226,11 @@ function Base.get(::Feature_Jerk, rec::SceneRecord, roadway::Roadway, vehicle_in
     get_feature_derivative_backwards(ACC, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("JerkFs", :jerkFs, Float64, "m/s³")
-function Base.get(::Feature_Jerk, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Feature_JerkFs, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(ACCFS, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("JerkFt", :jerkFt, Float64, "m/s³")
-function Base.get(::Feature_Jerk, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Feature_JerkFt, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(ACCFT, rec, roadway, vehicle_index, pastframe)
 end
 
@@ -303,7 +306,7 @@ function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadwa
     seg = roadway[veh.state.posF.roadind.tag.segment]
     lane = seg.lanes[end]
     roadproj = proj(footpoint, lane, roadway)
-    curvept = roadway(RoadIndex(roadproj))
+    curvept = roadway[RoadIndex(roadproj)]
     lane = roadway[roadproj.tag]
     FeatureValue(lane.width/2 + abs(curvept.pos - footpoint) - offset)
 end
@@ -315,7 +318,7 @@ function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadw
     seg = roadway[veh.state.posF.roadind.tag.segment]
     lane = seg.lanes[1]
     roadproj = proj(footpoint, lane, roadway)
-    curvept = roadway(RoadIndex(roadproj))
+    curvept = roadway[RoadIndex(roadproj)]
     lane = roadway[roadproj.tag]
     FeatureValue(lane.width/2 + abs(curvept.pos - footpoint) + offset)
 end
@@ -370,7 +373,8 @@ end
 generate_feature_functions("LaneCurvature", :curvature, Float64, "1/m")
 function Base.get(::Feature_LaneCurvature, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[vehicle_index, pastframe]
-    FeatureValue(get_footpoint(veh).k)
+    curvept = roadway[veh.state.posF.roadind]
+    FeatureValue(curvept.k)
 end
 
 # Dist_Merge
@@ -428,7 +432,7 @@ end
 generate_feature_functions("Time_Consecutive_Brake", :time_consec_brake, Float64, "s", lowerbound=0.0)
 function Base.get(::Feature_Time_Consecutive_Brake, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
 
-    prev_accel = get(ACC, rec, roadway, vehicle_index, pastframe)
+    prev_accel = convert(Float64, get(ACC, rec, roadway, vehicle_index, pastframe))
     if prev_accel ≥ 0.0
         FeatureValue(0.0)
     else
@@ -446,7 +450,7 @@ end
 generate_feature_functions("Time_Consecutive_Accel", :time_consec_accel, Float64, "s", lowerbound=0.0)
 function Base.get(::Feature_Time_Consecutive_Accel, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
 
-    prev_accel = get(ACC, rec, roadway, vehicle_index, pastframe)
+    prev_accel = convert(Float64, get(ACC, rec, roadway, vehicle_index, pastframe))
     if prev_accel ≤ 0.0
         FeatureValue(0.0)
     else

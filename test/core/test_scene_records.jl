@@ -20,6 +20,7 @@ let
     @test rec[1,0].def == get_vehicledef(trajdata, 1)
     @test rec[2,0].state == get_vehiclestate(trajdata, 2, 1)
     @test rec[2,0].def == get_vehicledef(trajdata, 2)
+    show(IOBuffer(), rec)
 
 
     get!(scene, trajdata, 2)

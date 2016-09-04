@@ -64,6 +64,11 @@ function propagate(veh::Vehicle, action::AccelTurnrate, context::IntegratedConti
     posG = VecSE2(x, y, θ)
     VehicleState(posG, roadway, v)
 end
+function Base.get(::Type{AccelTurnrate}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    accel = get(ACC, rec, roadway, vehicle_index, pastframe)
+    turnrate = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
+    AccelTurnrate(accel, turnrate)
+end
 
 immutable AccelDesang <: DriveAction
     a::Float64
@@ -152,6 +157,11 @@ function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinu
 
     # posF = Frenet(roadind, footpoint.s, t + Δt, ϕ₂)
     # VehicleState(posG, posF, v₂)
+end
+function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    accel_lat = get(ACCFT, rec, roadway, vehicle_index, pastframe)
+    accel_lon = get(ACCFS, rec, roadway, vehicle_index, pastframe)
+    LatLonAccel(accel_lat, accel_lon)
 end
 
 ###############

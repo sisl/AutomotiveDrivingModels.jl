@@ -3,7 +3,9 @@ export
 
     nsteps,
     pull_record,
-    pull_continuous_segments
+    pull_continuous_segments,
+
+    sample_random_subinterval
 
 immutable TrajdataSegment
     trajdata_index :: Int # index within EvaluationData.trajdatas of the relevant trajdata
@@ -11,7 +13,7 @@ immutable TrajdataSegment
     frame_lo       :: Int # the starting frame in trajdata (does not count any sort of history)
     frame_hi       :: Int # the ending frame in trajdata, simulation is from frame_lo and propagates until frame_hi
 end
-function Base.(:(==))(a::TrajdataSegment, b::TrajdataSegment)
+@compat function Base.:(==)(a::TrajdataSegment, b::TrajdataSegment)
     a.trajdata_index   == b.trajdata_index &&
     a.egoid            == b.egoid &&
     a.frame_lo         == b.frame_lo &&
@@ -28,14 +30,40 @@ end
 nsteps(seg::TrajdataSegment) = seg.frame_hi - seg.frame_lo # total number of sim steps
 AutoCore.nframes(seg::TrajdataSegment) = nsteps(seg) + 1 # total number of frames spanned by trajdata segment
 
-function pull_record(seg::TrajdataSegment, trajdata::Trajdata)
-    rec = SceneRecord(nframes(seg), get_mean_timestep(trajdata))
+function pull_record(seg::TrajdataSegment, trajdata::Trajdata, prime_history::Int=0)
+    rec = SceneRecord(nframes(seg)+prime_history, get_mean_timestep(trajdata))
     scene = Scene()
+
+    # prime_history
+    for i in 1 : prime_history
+        frame = seg.frame_lo - i
+        get!(scene, trajdata, frame)
+        update!(rec, scene)
+    end
+
     for frame in seg.frame_lo : seg.frame_hi
         get!(scene, trajdata, frame)
         update!(rec, scene)
     end
     rec
+end
+
+"""
+    sample_random_subinterval(seg::TrajdataSegment, nframes::Int)
+Returns a new TrajdataSegment containing a uniformly random subinterval of length nframes
+from the given segment.
+Throws an error if the TrajdataSegment is too short
+"""
+function sample_random_subinterval(seg::TrajdataSegment, nframes::Int)
+    len = AutoCore.nframes(seg)
+
+    dom_hi = len - nframes + 1
+    domain = 1 : dom_hi
+
+    frame_lo = rand(domain) + seg.frame_lo - 1
+    frame_hi = frame_lo + nframes - 1
+
+    TrajdataSegment(seg.trajdata_index, seg.egoid, frame_lo, frame_hi)
 end
 
 """

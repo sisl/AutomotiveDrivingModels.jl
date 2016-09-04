@@ -436,8 +436,8 @@ end
 is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
 function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAMemory=CPAMemory())
 
-    set_to_oriented_bounding_box!(mem.vehA, a)
-    set_to_oriented_bounding_box!(mem.vehB, b)
+    OBB!(mem.vehA, a)
+    OBB!(mem.vehB, b)
     minkowksi_sum!(mem.mink, mem.vehA, mem.vehB)
 
     rel_pos = convert(VecE2, b.state.posG) - a.state.posG
