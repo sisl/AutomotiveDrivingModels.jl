@@ -15,6 +15,11 @@ Vec.lerp(a::CurvePt, b::CurvePt, t::Float64) = CurvePt(lerp(a.pos, b.pos, t), a.
 
 typealias Curve Vector{CurvePt}
 
+"""
+    get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
+Get the interpolation scalar t for the point on the line AB closest to Q
+This point is P = A + (B-A)*t
+"""
 function get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
 
     a = Q - A
@@ -23,12 +28,15 @@ function get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
 
     if b.x != 0.0
         t = c.x / b.x
-    else
+    elseif b.y != 0.0
         t = c.y / b.y
+    else
+        t = 0.0 # no lerping to be done
     end
 
     t
 end
+get_lerp_time_unclamped(A::VecSE2, B::VecSE2, Q::VecSE2) = get_lerp_time_unclamped(convert(VecE2, A), convert(VecE2, B), convert(VecE2, Q))
 get_lerp_time_unclamped(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time_unclamped(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
 
 """

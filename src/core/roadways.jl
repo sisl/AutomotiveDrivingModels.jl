@@ -305,6 +305,57 @@ immutable RoadProjection
     tag::LaneTag
 end
 
+function get_closest_perpendicular_point_between_points(A::VecSE2, B::VecSE2, Q::VecSE2;
+    tolerance::Float64 = 0.01, # acceptable error in perpendicular component
+    max_iter::Int = 50, # maximum number of iterations
+    )
+
+    # CONDITIONS: a < b, either f(a) < 0 and f(b) > 0 or f(a) > 0 and f(b) < 0
+    # OUTPUT: value which differs from a root of f(x)=0 by less than TOL
+
+    a = 0.0
+    b = 1.0
+
+    f_a = inertial2body(Q, A).x
+    f_b = inertial2body(Q, B).x
+
+    if sign(f_a) == sign(f_b) # both are wrong - use the old way
+        t = get_lerp_time_unclamped(A, B, Q)
+        t = clamp(t, 0.0, 1.0)
+        return (t, lerp(A,B,t))
+    end
+
+    iter = 1
+    while iter ≤ max_iter
+        c = (a+b)/2 # new midpoint
+        footpoint = lerp(A, B, c)
+        f_c = inertial2body(Q, footpoint).x
+        if abs(f_c) < tolerance # solution found
+            return (c, footpoint)
+        end
+        if sign(f_c) == sign(f_a)
+            a, f_a = c, f_c
+        else
+            b = c
+        end
+        iter += 1
+    end
+
+    # Maximum number of iterations passed
+    # This will occur when we project with a point that is not actually in the range,
+    # and we converge towards one edge
+
+    if a == 0.0
+        return (0.0, A)
+    elseif b == 1.0
+        return (1.0, B)
+    else
+        warn("get_closest_perpendicular_point_between_points - should not happen")
+        c = (a+b)/2 # should not happen
+        return (c, lerp(A,B,c))
+    end
+end
+
 """
     proj(posG::VecSE2, lane::Lane, roadway::Roadway)
 Return the RoadProjection for projecting posG onto the lane.
@@ -325,8 +376,13 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway;
             return proj(posG, prev_lane(lane, roadway), roadway)
         elseif t < 1.0 # for t == 1.0 we use the actual end of the lane
             @assert(!move_along_curves || 0.0 ≤ t < 1.0)
-            t = clamp(t, 0.0, 1.0)
-            footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
+
+            # t was computed assuming a constant angle
+            # this is not valid for the large distances and angle disparities between lanes
+            # thus we now use a bisection search to find the appropriate location
+
+            t, footpoint = get_closest_perpendicular_point_between_points(pt_lo.pos, pt_hi.pos, posG)
+
             ind = CurveIndex(0, t)
             curveproj = get_curve_projection(posG, footpoint, ind)
         end
@@ -341,8 +397,13 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway;
             return proj(posG, next_lane(lane, roadway), roadway)
         elseif t ≥ 0.0
             @assert(!move_along_curves || 0.0 ≤ t ≤ 1.0)
-            t = clamp(t, 0.0, 1.0)
-            footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
+
+            # t was computed assuming a constant angle
+            # this is not valid for the large distances and angle disparities between lanes
+            # thus we now use a bisection search to find the appropriate location
+
+            t, footpoint = get_closest_perpendicular_point_between_points(pt_lo.pos, pt_hi.pos, posG)
+
             ind = CurveIndex(length(lane.curve), t)
             curveproj = get_curve_projection(posG, footpoint, ind)
         end
@@ -385,7 +446,7 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
 
     for seg in roadway.segments
         for lane in seg.lanes
-            roadproj = proj(posG, lane, roadway)
+            roadproj = proj(posG, lane, roadway, move_along_curves=false)
             targetlane = roadway[roadproj.tag]
             footpoint = targetlane[roadproj.curveproj.ind, roadway]
             dist2 = abs2(posG - footpoint.pos)
