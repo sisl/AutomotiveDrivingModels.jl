@@ -4,9 +4,12 @@ get_test_curve1() = [CurvePt(VecSE2(0.0,0.0,0.0), 0.0),
 
 let
     p = lerp(CurvePt(VecSE2(0.0,0.0,0.0), 0.0), CurvePt(VecSE2(1.0,2.0,3.0), 4.0), 0.25)
+    show(IOBuffer(), p)
     @test isapprox(convert(VecE2, p.pos), VecE2(0.25, 0.5))
     @test isapprox(p.pos.θ, 0.75)
     @test isapprox(p.s, 1.0)
+
+    show(IOBuffer(), CurveIndex(1,0.0))
 
     @test isapprox(get_lerp_time(VecE2(0.0,0.0), VecE2(1.0,0.0), VecE2(1.0,0.0)), 1.0)
     @test isapprox(get_lerp_time(VecE2(0.0,0.0), VecE2(1.0,0.0), VecE2(0.5,0.0)), 0.5)
@@ -44,6 +47,7 @@ let
     @test get_curve_index(CurveIndex(2, 0.0), curve, -0.50) == CurveIndex(1,0.50)
 
     res = proj(VecSE2(0.0,0.0,0.0), curve)
+    show(IOBuffer(), res)
     @test res.ind == CurveIndex(1, 0.0)
     @test isapprox(res.t, 0.0)
     @test isapprox(res.ϕ, 0.0)

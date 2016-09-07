@@ -117,26 +117,25 @@ function _fit_open(pts::Matrix{Float64}) # 2×n {x,y}
 
     Y = Array(Float64, n+1)
 
-    M = zeros(Float64, n+1,n+1)
-    for i = 1 : n
-        M[i,i] = 4
-        M[i,i+1] = 1
-        M[i+1,i] = 1
+    M = sparse(Int[], Int[], Float64[], n+1,n+1)
+    for i in 1 : n
+        M[i,i] = 4.0
+        M[i,i+1] = 1.0
+        M[i+1,i] = 1.0
     end
-    M[n+1,n+1] = 2
-    M[1,1] = 2
-    iM = inv(M)
+    M[n+1,n+1] = 2.0
+    M[1,1] = 2.0
 
     retval = Array(Matrix{Float64}, d)
-    for k = 1 : d
+    for k in 1 : d
 
-        for i = 1 : n+1
+        for i in 1 : n+1
             ind_hi = min(i+1,n)
             ind_lo = max(1,i-1)
             Y[i] = 3*(pts[k,ind_hi] - pts[k,ind_lo])
         end
 
-        D = iM*Y
+        D = M \ Y
 
         spline_coeffs = Array(Float64, 4, n) # col is <a,b,c,d> for a + b⋅t + c⋅t² + d⋅t³
         spline_coeffs[1,:] = pts[k,1:n] # x₀

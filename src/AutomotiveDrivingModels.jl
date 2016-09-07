@@ -2,7 +2,9 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
 
 module AutomotiveDrivingModels
 
+using Compat
 using Reexport
+using Discretizers
 
 @reexport using DataFrames
 @reexport using Distributions
@@ -11,17 +13,23 @@ using Reexport
 include("core/AutoCore.jl")
 @reexport using .AutoCore
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "minkowski.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "features.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "feature_extractors.jl"))
+
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "actions.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "driver_models.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "driver_models.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "simulation.jl"))
 
-include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "lateral_driving_models",  "lateral_driving_models.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "longitudinal_driving_models",  "longitudinal_driving_models.jl"))
-
-include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "static_gaussian_drivers.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "prerecorded_drivers.jl"))
-include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "lat_lon_separable_drivers.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "behaviors.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "roadway_generation.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "trajdata_cleaning.jl"))
+
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "metrics.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "foldsets.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "fold_assigners.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "trajdata_segments.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "evaluation_data.jl"))
 
 end # module

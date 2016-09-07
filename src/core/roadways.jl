@@ -6,6 +6,7 @@ immutable LaneTag
 end
 Base.show(io::IO, tag::LaneTag) = @printf(io, "LaneTag(%d, %d)", tag.segment, tag.lane)
 hash(id::LaneTag, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
+Base.(:(==))(a::LaneTag, b::LaneTag) = a.segment == b.segment && a.lane == b.lane
 const NULL_LANETAG = LaneTag(0,0)
 
 #######################################
@@ -27,7 +28,7 @@ immutable LaneConnection
     target::RoadIndex
 end
 
-Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, c.target)
+Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, ", ", c.target)
 function Base.write(io::IO, c::LaneConnection)
     @printf(io, "%s (%d %.6f) ", c.downstream ? "D" : "U", c.mylane.i, c.mylane.t)
     write(io, c.target)
@@ -96,6 +97,10 @@ end
 
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
+
+is_in_exits(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.exits) != 0
+is_in_entrances(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.entrances) != 0
+
 
 function connect!(source::Lane, dest::Lane)
     # place these at the front
@@ -191,12 +196,12 @@ function Base.read(io::IO, ::Type{Roadway})
             tokens = split(advance!(), ' ')
             boundary_right = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
 
-            entrances = LaneConnection[]
             exits = LaneConnection[]
+            entrances = LaneConnection[]
             n_conns = parse(Int, advance!())
             for i_conn in 1:n_conns
                 conn = parse(LaneConnection, advance!())
-                conn.downstream ? push!(exits, conn) : push!(exits, conn)
+                conn.downstream ? push!(exits, conn) : push!(entrances, conn)
             end
 
             npts = parse(Int, advance!())
@@ -270,6 +275,10 @@ function Base.getindex(roadway::Roadway, tag::LaneTag)
     seg.lanes[tag.lane]
 end
 
+is_between_segments_lo(ind::CurveIndex) = ind.i == 0
+is_between_segments_hi(ind::CurveIndex, curve::Curve) = ind.i == length(curve)
+is_between_segments(ind::CurveIndex, curve::Curve) = is_between_segments_lo(ind) || is_between_segments_hi(ind, curve)
+
 next_lane(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target.tag]
 prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target.tag]
 next_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target]
@@ -296,12 +305,65 @@ immutable RoadProjection
     tag::LaneTag
 end
 
+function get_closest_perpendicular_point_between_points(A::VecSE2, B::VecSE2, Q::VecSE2;
+    tolerance::Float64 = 0.01, # acceptable error in perpendicular component
+    max_iter::Int = 50, # maximum number of iterations
+    )
+
+    # CONDITIONS: a < b, either f(a) < 0 and f(b) > 0 or f(a) > 0 and f(b) < 0
+    # OUTPUT: value which differs from a root of f(x)=0 by less than TOL
+
+    a = 0.0
+    b = 1.0
+
+    f_a = inertial2body(Q, A).x
+    f_b = inertial2body(Q, B).x
+
+    if sign(f_a) == sign(f_b) # both are wrong - use the old way
+        t = get_lerp_time_unclamped(A, B, Q)
+        t = clamp(t, 0.0, 1.0)
+        return (t, lerp(A,B,t))
+    end
+
+    iter = 1
+    while iter ≤ max_iter
+        c = (a+b)/2 # new midpoint
+        footpoint = lerp(A, B, c)
+        f_c = inertial2body(Q, footpoint).x
+        if abs(f_c) < tolerance # solution found
+            return (c, footpoint)
+        end
+        if sign(f_c) == sign(f_a)
+            a, f_a = c, f_c
+        else
+            b = c
+        end
+        iter += 1
+    end
+
+    # Maximum number of iterations passed
+    # This will occur when we project with a point that is not actually in the range,
+    # and we converge towards one edge
+
+    if a == 0.0
+        return (0.0, A)
+    elseif b == 1.0
+        return (1.0, B)
+    else
+        warn("get_closest_perpendicular_point_between_points - should not happen")
+        c = (a+b)/2 # should not happen
+        return (c, lerp(A,B,c))
+    end
+end
+
 """
     proj(posG::VecSE2, lane::Lane, roadway::Roadway)
 Return the RoadProjection for projecting posG onto the lane.
 This will automatically project to the next or prev curve as appropriate.
 """
-function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
+function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway;
+    move_along_curves::Bool = true, # if false, will only project to lane.curve
+    )
     curveproj = proj(posG, lane.curve)
     rettag = lane.tag
 
@@ -310,11 +372,17 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
         pt_hi = lane.curve[1]
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
-        if t ≤ 0.0
+        if t ≤ 0.0 && move_along_curves
             return proj(posG, prev_lane(lane, roadway), roadway)
         elseif t < 1.0 # for t == 1.0 we use the actual end of the lane
-            @assert(0.0 ≤ t < 1.0)
-            footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
+            @assert(!move_along_curves || 0.0 ≤ t < 1.0)
+
+            # t was computed assuming a constant angle
+            # this is not valid for the large distances and angle disparities between lanes
+            # thus we now use a bisection search to find the appropriate location
+
+            t, footpoint = get_closest_perpendicular_point_between_points(pt_lo.pos, pt_hi.pos, posG)
+
             ind = CurveIndex(0, t)
             curveproj = get_curve_projection(posG, footpoint, ind)
         end
@@ -324,12 +392,18 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway)
 
         t = get_lerp_time_unclamped(pt_lo, pt_hi, posG)
 
-        if t ≥ 1.0
+        if t ≥ 1.0 && move_along_curves
              # for t == 1.0 we use the actual start of the lane
             return proj(posG, next_lane(lane, roadway), roadway)
         elseif t ≥ 0.0
-            @assert(0.0 ≤ t ≤ 1.0)
-            footpoint = lerp(pt_lo.pos, pt_hi.pos, t)
+            @assert(!move_along_curves || 0.0 ≤ t ≤ 1.0)
+
+            # t was computed assuming a constant angle
+            # this is not valid for the large distances and angle disparities between lanes
+            # thus we now use a bisection search to find the appropriate location
+
+            t, footpoint = get_closest_perpendicular_point_between_points(pt_lo.pos, pt_hi.pos, posG)
+
             ind = CurveIndex(length(lane.curve), t)
             curveproj = get_curve_projection(posG, footpoint, ind)
         end
@@ -372,7 +446,7 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
 
     for seg in roadway.segments
         for lane in seg.lanes
-            roadproj = proj(posG, lane, roadway)
+            roadproj = proj(posG, lane, roadway, move_along_curves=false)
             targetlane = roadway[roadproj.tag]
             footpoint = targetlane[roadproj.curveproj.ind, roadway]
             dist2 = abs2(posG - footpoint.pos)
@@ -380,13 +454,6 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
                 best_dist2 = dist2
                 best_proj = roadproj
             end
-
-            # if lane.tag.lane == 3
-            #     println("proj")
-            #     println("roadproj: ", roadproj)
-            #     println("dist2: ", dist2)
-            #     println("best_dist2: ", best_dist2)
-            # end
         end
     end
 
@@ -462,6 +529,7 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
         RoadIndex(ind, roadind.tag)
     end
 end
+
 
 n_lanes_right(lane::Lane, roadway::Roadway) = lane.tag.lane - 1
 function n_lanes_left(lane::Lane, roadway::Roadway)
@@ -684,7 +752,9 @@ function read_dxf(io::IO, ::Type{Roadway};
                 pt_matrix[2,k] = P.y
             end
 
+            println("fitting curve ", length(pts), "  "); tic()
             curve = _fit_curve(pt_matrix, desired_distance_between_curve_samples)
+            toc()
 
             tag_new = LaneTag(seg.id, length(seg.lanes)+1)
             lane = Lane(tag_new, curve,

@@ -1,6 +1,7 @@
 export
         LateralDriverModel,
-        ProportionalLaneTracker
+        ProportionalLaneTracker,
+        track_lane!
 
 abstract LateralDriverModel
 get_name(::LateralDriverModel) = "???"
@@ -18,8 +19,8 @@ type ProportionalLaneTracker <: LateralDriverModel
 
     function ProportionalLaneTracker(;
         σ::Float64 = NaN,
-        kp::Float64 = 1.0,
-        kd::Float64 = 0.1,
+        kp::Float64 = 3.0,
+        kd::Float64 = 2.0,
         )
 
         retval = new()
@@ -31,6 +32,10 @@ type ProportionalLaneTracker <: LateralDriverModel
     end
 end
 get_name(::ProportionalLaneTracker) = "ProportionalLaneTracker"
+function track_lateral!(model::ProportionalLaneTracker, laneoffset::Float64, lateral_speed::Float64)
+    model.a = -laneoffset*model.kp - lateral_speed*model.kd
+    model
+end
 function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway, egoid::Int)
 
     ego_index = get_index_of_first_vehicle_with_id(scene, egoid)

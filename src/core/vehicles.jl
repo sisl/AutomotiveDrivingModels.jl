@@ -4,6 +4,11 @@ immutable Frenet
     t::Float64 # lane offset, positive is to left
     ϕ::Float64 # lane relative heading
 end
+function Frenet(roadind::RoadIndex, roadway::Roadway; t::Float64=0.0, ϕ::Float64=0.0)
+    s = roadway[roadind].s
+    ϕ = _mod2pi2(ϕ)
+    Frenet(roadind, s, t, ϕ)
+end
 function Frenet(roadproj::RoadProjection, roadway::Roadway)
     roadind = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
     s = roadway[roadind].s
@@ -12,6 +17,12 @@ function Frenet(roadproj::RoadProjection, roadway::Roadway)
     Frenet(roadind, s, t, ϕ)
 end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
+
+function get_posG(frenet::Frenet, roadway::Roadway)
+    curvept = roadway[frenet.roadind]
+    pos = curvept.pos + polar(frenet.t, curvept.pos.θ + π/2)
+    VecSE2(pos.x, pos.y, frenet.ϕ + curvept.pos.θ)
+end
 
 const NULL_FRENET = Frenet(NULL_ROADINDEX, NaN, NaN, NaN)
 
@@ -38,12 +49,18 @@ immutable VehicleState
     VehicleState(posG::VecSE2, v::Float64) = new(posG, NULL_FRENET, v)
     VehicleState(posG::VecSE2, posF::Frenet, v::Float64) = new(posG, posF, v)
     VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
+    VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = new(get_posG(posF, roadway), posF, v)
 end
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
+function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
+    posG = lerp(a.posG, b.posG, t)
+    v = lerp(a.v, b.v, t)
+    VehicleState(posG, roadway, v)
+end
 
 baremodule AgentClass
-    const CAR        = 1
-    const MOTORCYCLE = 2
+    const MOTORCYCLE = 1
+    const CAR        = 2
     const TRUCK      = 3
 end
 
@@ -77,32 +94,23 @@ end
 get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 
+get_center(veh::Vehicle) = veh.state.posG
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
+get_front_center(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
+get_rear_center(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
 
-# """
-#     get_headway_dist_between(veh_rear::Vehicle, veh_fore::Vehicle)
-# Return the distance from the front of the rear vehicle to the rear of the front vehicle
-# """
-# function get_headway_dist_between(veh_rear::Vehicle, veh_fore::Vehicle)
-#     active_lanetag = veh_rear.state.posF.roadind.tag
-#     if veh_fore.state.posF.roadind.tag != active_lanetag
-#         NaN
-#     else
-#         s1 = veh_rear.state.posF.s
-#         s2 = veh_fore.state.posF.s
-#         s2 - s1 - veh_fore.length
-#     end
-# end
-# function get_headway_time_between(veh_rear::Vehicle, veh_fore::Vehicle)
+function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
+    ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v
+    )
 
-#     active_laneid = veh_rear.state.posF.laneid
-
-#     if veh_fore.state.posF.laneid != active_laneid
-#         NaN
-#     else
-#         s1 = veh_rear.state.posF.s
-#         s2 = veh_fore.state.posF.s
-#         Δs = s2 - s1 - veh_fore.length
-#         Δs/veh_rear.state.v
-#     end
-# end
+    roadind = move_along(vehstate.posF.roadind, roadway, Δs)
+    try
+        footpoint = roadway[roadind]
+    catch
+        println(roadind)
+    end
+    footpoint = roadway[roadind]
+    posG = convert(VecE2, footpoint.pos) + polar(t₂, footpoint.pos.θ + π/2)
+    posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
+    VehicleState(posG, roadway, v₂)
+end

@@ -1,21 +1,37 @@
 let
     trajdata = get_test_trajdata()
 
-    rec = SceneRecord(5)
+    Δt = 0.1
+    rec = SceneRecord(5, Δt)
     @test record_length(rec) == 5
     @test length(rec) == 0
+    @test !pastframe_inbounds(rec, 0)
+    @test !pastframe_inbounds(rec, -1)
+    @test !pastframe_inbounds(rec, 1)
 
     scene = get!(Scene(), trajdata, 1)
     update!(rec, scene)
     @test length(rec) == 1
+    @test pastframe_inbounds(rec, 0)
+    @test !pastframe_inbounds(rec, -1)
+    @test !pastframe_inbounds(rec, 1)
+    @test isapprox(get_elapsed_time(rec, 0), Δt)
     @test rec[1,0].state == get_vehiclestate(trajdata, 1, 1)
     @test rec[1,0].def == get_vehicledef(trajdata, 1)
     @test rec[2,0].state == get_vehiclestate(trajdata, 2, 1)
     @test rec[2,0].def == get_vehicledef(trajdata, 2)
+    show(IOBuffer(), rec)
+
 
     get!(scene, trajdata, 2)
     update!(rec, scene)
     @test length(rec) == 2
+    @test pastframe_inbounds(rec, 0)
+    @test pastframe_inbounds(rec, -1)
+    @test !pastframe_inbounds(rec, 1)
+    @test isapprox(get_elapsed_time(rec,  0),  Δt)
+    @test isapprox(get_elapsed_time(rec, -1), 2Δt)
+    @test isapprox(get_elapsed_time(rec, -1, 0), Δt)
     @test rec[1,0].state == get_vehiclestate(trajdata, 1, 2)
     @test rec[1,0].def == get_vehicledef(trajdata, 1)
     @test rec[2,0].state == get_vehiclestate(trajdata, 2, 2)

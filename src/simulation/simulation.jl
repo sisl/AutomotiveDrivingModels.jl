@@ -1,6 +1,7 @@
 export
         get_actions!,
-        tick!
+        tick!,
+        simulate!
 
 function get_actions!{A<:DriveAction, D<:DriverModel}(
     actions::Vector{A},
@@ -10,13 +11,10 @@ function get_actions!{A<:DriveAction, D<:DriverModel}(
     )
 
 
-    i = 0
-    for veh in scene
-        if haskey(models, veh.def.id)
-            model = models[veh.def.id]
-            observe!(model, scene, roadway, veh.def.id)
-            actions[i+=1] = rand(model)
-        end
+    for (i,veh) in enumerate(scene)
+        model = models[veh.def.id]
+        observe!(model, scene, roadway, veh.def.id)
+        actions[i] = rand(model)
     end
 
     actions
@@ -62,4 +60,64 @@ function tick!{A<:DriveAction}(
     end
 
     scene
+end
+
+"""
+    Run a simulation and store the resulting scenes in the provided SceneRecord.
+Only the ego vehicle is simulated; the other vehicles are as they were in the provided trajdata
+Other vehicle states will be interpolated
+"""
+function simulate!(
+    rec::SceneRecord,
+    model::DriverModel,
+    egoid::Int,
+    trajdata::Trajdata,
+    time_start::Float64,
+    time_end::Float64;
+    prime_history::Int=0, # no prime-ing
+    scene::Scene = Scene(),
+    )
+
+    Δt = rec.timestep
+    roadway = trajdata.roadway
+
+    # prime with history
+    empty!(rec)
+    reset_hidden_state!(model)
+    for h in 1:prime_history
+        t = time_start - Δt * (prime_history - h + 1)
+        update!(rec, get!(scene, trajdata, t))
+        observe!(model, scene, roadway, egoid)
+    end
+
+    # add current frame
+    update!(rec, get!(scene, trajdata, time_start))
+    observe!(model, scene, roadway, egoid)
+
+    # run simulation
+    t = time_start
+    context = action_context(model)
+    prev_ego_state = get_by_id(scene, egoid).state
+    while t < time_end
+
+        # pull orig scene
+        get!(scene, trajdata, t)
+
+        # propagate ego vehicle and set
+        ego_action = rand(model)
+        ego_veh = get_by_id(scene, egoid)
+        ego_veh.state = prev_ego_state
+        prev_ego_state = ego_veh.state = propagate(ego_veh, ego_action, context, roadway)
+
+        # update record
+        update!(rec, scene)
+
+        # observe
+        observe!(model, scene, roadway, ego_veh.def.id)
+
+        # update time
+        t += Δt
+    end
+
+    rec
 end

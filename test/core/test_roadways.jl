@@ -60,9 +60,12 @@ let
 
     lanetag = LaneTag(1,1)
     lane = Lane(lanetag, curve)
+    show(IOBuffer(), lanetag)
 
     @test !has_next(lane)
     @test !has_prev(lane)
+
+    show(IOBuffer(), RoadIndex(CurveIndex(1,0.0), lanetag))
 
     roadway = get_test_roadway()
 
@@ -78,6 +81,12 @@ let
     @test lane.entrances[1].target == RoadIndex(CurveIndex(1,1.0), LaneTag(1,1))
 
     res = proj(VecSE2(1.0,0.0,0.0), lane, roadway)
+    @test res.curveproj.ind == CurveIndex(2, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
+    res = proj(VecSE2(1.0,0.0,0.0), lane, roadway, move_along_curves=false)
     @test res.curveproj.ind == CurveIndex(2, 0.0)
     @test isapprox(res.curveproj.t, 0.0)
     @test isapprox(res.curveproj.ϕ, 0.0)
@@ -107,11 +116,23 @@ let
     @test isapprox(res.curveproj.ϕ, 0.0)
     @test res.tag == prev_lane(lane, roadway).tag
 
+    res = proj(VecSE2(-1.75,0.0,0.0), lane, roadway, move_along_curves=false)
+    @test res.curveproj.ind == CurveIndex(0, 0.0)
+    @test isapprox(res.curveproj.t, 0.0)
+    @test isapprox(res.curveproj.ϕ, 0.0)
+    @test res.tag == lane.tag
+
     res = proj(VecSE2(4.25,0.2,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(1, 0.25)
     @test isapprox(res.curveproj.t, 0.2)
     @test isapprox(res.curveproj.ϕ, 0.1)
     @test res.tag == next_lane(lane, roadway).tag
+
+    res = proj(VecSE2(4.25,0.2,0.1), lane, roadway, move_along_curves=false)
+    @test res.curveproj.ind == CurveIndex(4, 1.0)
+    @test isapprox(res.curveproj.t, 0.2)
+    @test isapprox(res.curveproj.ϕ, 0.1)
+    @test res.tag == lane.tag
 
     res = proj(VecSE2(3.25,0.2,0.1), lane, roadway)
     @test res.curveproj.ind == CurveIndex(4, 0.25)
@@ -450,4 +471,9 @@ let
             end
         end
     end
+end
+
+let
+    lc = LaneConnection(true, CurveIndex(1,0.0), RoadIndex(CurveIndex(2,0.0), LaneTag(2,2)))
+    show(IOBuffer(), lc)
 end

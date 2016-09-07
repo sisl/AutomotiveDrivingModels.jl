@@ -4,6 +4,7 @@ export
     get_name,
     action_type,
     action_context,
+    set_desired_speed!,
     observe!,
     reset_hidden_state!,
     prime_with_history!
@@ -13,6 +14,7 @@ abstract DriverModel{DriveAction, ActionContext}
 get_name(::DriverModel) = "???"
 action_type{A,C}(::DriverModel{A, C}) = A
 action_context{A,C}(model::DriverModel{A, C}) = error("action_context not implemented for model $model")
+set_desired_speed!(model::DriverModel, v_des::Float64) = model # do nothing by default
 reset_hidden_state!(model::DriverModel) = model # do nothing by default
 observe!(model::DriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
 Base.rand{A}(model::DriverModel{A}) = error("rand not implemented for model $model")
@@ -25,6 +27,20 @@ function prime_with_history!(model::DriverModel, trajdata::Trajdata, roadway::Ro
 
     for frame in frame_start : frame_end
         get!(scene, trajdata, frame)
+        observe!(model, scene, roadway, egoid)
+    end
+
+    model
+end
+function prime_with_history!(model::DriverModel, rec::SceneRecord, roadway::Roadway, egoid::Int;
+    pastframe_start::Int=1-length(rec),
+    pastframe_end::Int=0,
+    )
+
+    reset_hidden_state!(model)
+
+    for pastframe in pastframe_start : pastframe_end
+        scene = get_scene(rec, pastframe)
         observe!(model, scene, roadway, egoid)
     end
 

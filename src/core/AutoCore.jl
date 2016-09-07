@@ -39,7 +39,12 @@ export
     DEFAULT_SPEED_LIMIT,
     DEFAULT_LANE_WIDTH,
 
+    is_in_exits,
+    is_in_entrances,
     is_at_curve_end,
+    is_between_segments_lo,
+    is_between_segments_hi,
+    is_between_segments,
     has_segment,
     has_lanetag,
     has_next,
@@ -68,20 +73,28 @@ export
     NULL_VEHICLEDEF,
     NULL_FRENET,
 
+    get_posG,
     get_vel_s,
     get_vel_t,
+    get_center,
     get_footpoint,
+    get_front_center,
+    get_rear_center,
 
     # trajdata
     TrajdataFrame,
     TrajdataState,
     Trajdata,
+    TrajdataVehicleIterator,
 
     nframes,
     frame_inbounds,
     carsinframe,
     nth_carid,
     iscarinframe,
+    get_time,
+    get_elapsed_time,
+    get_mean_timestep,
     get_vehiclestate,
     get_vehicledef,
     get_vehicle!,
@@ -89,7 +102,6 @@ export
 
     # scene
     Scene,
-    SceneRecord,
 
     get_by_id,
     get_index_of_first_vehicle_with_id,
@@ -98,8 +110,21 @@ export
     push_back_records!,
     update!,
 
-    NeighborForeResult,
-    get_neighbor_fore_along_lane
+    NeighborLongitudinalResult,
+    get_neighbor_fore_along_lane,
+    get_neighbor_fore_along_left_lane,
+    get_neighbor_fore_along_right_lane,
+    get_neighbor_rear_along_lane,
+    get_neighbor_rear_along_left_lane,
+    get_neighbor_rear_along_right_lane,
+
+    FrenetRelativePosition,
+    get_frenet_relative_position,
+
+    # scene record
+    SceneRecord,
+
+    pastframe_inbounds
 
 
 

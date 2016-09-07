@@ -1,20 +1,40 @@
 type SceneRecord
     scenes::Vector{Scene}
+    timestep::Float64
     nscenes::Int # number of active scenes
 
-    function SceneRecord(max_n_scenes::Int, max_n_vehicles::Int=500)
+    function SceneRecord(max_n_scenes::Int, timestep::Float64, max_n_vehicles::Int=500)
         scenes = Array(Scene, max_n_scenes)
         for i in 1 : length(scenes)
             scenes[i] = Scene(max_n_vehicles)
         end
-        new(scenes, 0)
+        new(scenes, timestep, 0)
     end
 end
 
+Base.show(io::IO, rec::SceneRecord) = print(io, "SceneRecord(nscenes=", rec.nscenes, ")")
+
 Base.length(rec::SceneRecord) = rec.nscenes
+function Base.deepcopy(rec::SceneRecord)
+    retval = SceneRecord(length(rec.scenes), rec.timestep, length(rec.scenes[1].vehicles))
+    for i in 1 : rec.nscenes
+        copy!(retval.scenes[i], rec.scenes[i])
+    end
+    retval
+end
 
 record_length(rec::SceneRecord) = length(rec.scenes)
+pastframe_inbounds(rec::SceneRecord, pastframe::Int) = 1 ≤ 1-pastframe ≤ rec.nscenes
 get_scene(rec::SceneRecord, pastframe::Int) = rec.scenes[1 - pastframe]
+get_elapsed_time(rec::SceneRecord, pastframe::Int) = (1-pastframe)*rec.timestep
+function get_elapsed_time(
+    rec::SceneRecord,
+    pastframe_farthest_back::Int,
+    pastframe_most_recent::Int,
+    )
+
+    (pastframe_most_recent - pastframe_farthest_back)*rec.timestep
+end
 
 function Base.empty!(rec::SceneRecord)
     rec.nscenes = 0
@@ -66,7 +86,7 @@ end
 function update!(rec::SceneRecord, scene::Scene)
     push_back_records!(rec)
     insert!(rec, scene, 0)
-    rec.nscenes += 1
+    rec.nscenes = min(rec.nscenes+1, record_length(rec))
     rec
 end
 

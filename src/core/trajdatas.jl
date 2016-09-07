@@ -16,6 +16,31 @@ type Trajdata
     frames::Vector{TrajdataFrame} # list of frames
 end
 Trajdata(roadway::Roadway) = Trajdata(roadway, Dict{Int, VehicleDef}(), TrajdataState[], TrajdataFrame[])
+function Trajdata(trajdata::Trajdata, frame_lo::Int, frame_hi::Int)
+    roadway = trajdata.roadway
+    vehdefs = Dict{Int, VehicleDef}()
+
+    nstates = 0
+    for frame in trajdata.frames[frame_lo : frame_hi]
+        nstates += length(frame)
+    end
+
+    states = Array(TrajdataState, nstates)
+    copy!(states, 1, trajdata.states, trajdata.frames[frame_lo].lo, nstates)
+    for s in states
+        if !haskey(vehdefs, s.id)
+            vehdefs[s.id] = trajdata.vehdefs[s.id]
+        end
+    end
+
+    frames = Array(TrajdataFrame, frame_hi - frame_lo + 1)
+    Δstate_index = trajdata.frames[frame_lo].lo - 1
+    for (i,frame) in enumerate(trajdata.frames[frame_lo : frame_hi])
+        frames[i] = TrajdataFrame(frame.lo - Δstate_index, frame.hi - Δstate_index, frame.t)
+    end
+
+    Trajdata(roadway, vehdefs, states, frames)
+end
 
 function Base.write(io::IO, trajdata::Trajdata)
     # writes to a text file
@@ -111,6 +136,9 @@ nframes(trajdata::Trajdata) = length(trajdata.frames)
 frame_inbounds(trajdata::Trajdata, frame::Int) = 1 ≤ frame ≤ nframes(trajdata)
 carsinframe(trajdata::Trajdata, frame::Int) = length(trajdata.frames[frame])
 nth_carid(trajdata::Trajdata, frame::Int, n::Int=1) = trajdata.states[trajdata.frames[frame].lo + n-1].id
+get_time(trajdata::Trajdata, frame::Int) = trajdata.frames[frame].t
+get_elapsed_time(trajdata::Trajdata, frame_lo::Int, frame_hi::Int) = trajdata.frames[frame_hi].t - trajdata.frames[frame_lo].t
+get_mean_timestep(trajdata::Trajdata) = (trajdata.frames[end].t - trajdata.frames[1].t) / (nframes(trajdata)-1)
 
 function iscarinframe(trajdata::Trajdata, id::Int, frame::Int)
     frame = trajdata.frames[frame]
@@ -141,3 +169,32 @@ function get_vehicle!(veh::Vehicle, trajdata::Trajdata, id::Int, frame::Int)
     veh
 end
 get_vehicle(trajdata::Trajdata, id::Int, frame::Int) = get_vehicle!(Vehicle(), trajdata, id, frame)
+
+
+#################################
+
+immutable TrajdataVehicleIterator
+    trajdata::Trajdata
+    id::Int
+end
+function Base.start(iter::TrajdataVehicleIterator)
+    frame = 1
+    while frame < nframes(iter.trajdata) &&
+          !iscarinframe(iter.trajdata, iter.id, frame)
+
+        frame += 1
+    end
+    frame
+end
+Base.done(iter::TrajdataVehicleIterator, frame::Int) = frame > nframes(iter.trajdata)
+function Base.next(iter::TrajdataVehicleIterator, frame::Int)
+    item = (frame, get_vehicle(iter.trajdata, iter.id, frame))
+    frame += 1
+    while frame < nframes(iter.trajdata) &&
+          !iscarinframe(iter.trajdata, iter.id, frame)
+
+        frame += 1
+    end
+    (item, frame)
+end
+

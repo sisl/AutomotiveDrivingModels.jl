@@ -8,6 +8,7 @@ export
     AccelTurnrate,
     AccelDesang,
     LatLonAccel,
+    LaneFollowingAccel,
 
     propagate
 
@@ -33,6 +34,7 @@ immutable AccelTurnrate <: DriveAction
     a::Float64
     ω::Float64
 end
+Base.show(io::IO, a::AccelTurnrate) = @printf(io, "AccelTurnrate(%6.3f,%6.3f)", a.a, a.ω)
 Base.length(::Type{AccelTurnrate}) = 2
 Base.convert(::Type{AccelTurnrate}, v::Vector{Float64}) = AccelTurnrate(v[1], v[2])
 function Base.copy!(v::Vector{Float64}, a::AccelTurnrate)
@@ -62,11 +64,17 @@ function propagate(veh::Vehicle, action::AccelTurnrate, context::IntegratedConti
     posG = VecSE2(x, y, θ)
     VehicleState(posG, roadway, v)
 end
+function Base.get(::Type{AccelTurnrate}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    accel = get(ACC, rec, roadway, vehicle_index, pastframe)
+    turnrate = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
+    AccelTurnrate(accel, turnrate)
+end
 
 immutable AccelDesang <: DriveAction
     a::Float64
     ϕdes::Float64
 end
+Base.show(io::IO, a::AccelDesang) = @printf(io, "AccelDesang(%6.3f,%6.3f)", a.a, a.ϕdes)
 Base.length(::Type{AccelDesang}) = 2
 Base.convert(::Type{AccelDesang}, v::Vector{Float64}) = AccelDesang(v[1], v[2])
 function Base.copy!(v::Vector{Float64}, a::AccelDesang)
@@ -111,6 +119,7 @@ immutable LatLonAccel <: DriveAction
     a_lat::Float64
     a_lon::Float64
 end
+Base.show(io::IO, a::LatLonAccel) = @printf(io, "LatLonAccel(%6.3f, %6.3f)", a.a_lat, a.a_lon)
 Base.length(::Type{LatLonAccel}) = 2
 Base.convert(::Type{LatLonAccel}, v::Vector{Float64}) = LatLonAccel(v[1], v[2])
 function Base.copy!(v::Vector{Float64}, a::LatLonAccel)
@@ -149,13 +158,50 @@ function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinu
     # posF = Frenet(roadind, footpoint.s, t + Δt, ϕ₂)
     # VehicleState(posG, posF, v₂)
 end
+function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    accel_lat = get(ACCFT, rec, roadway, vehicle_index, pastframe)
+    accel_lon = get(ACCFS, rec, roadway, vehicle_index, pastframe)
+    LatLonAccel(accel_lat, accel_lon)
+end
 
+###############
+
+"""
+    LaneFollowingAccel
+Longitudinal acceleration
+"""
+immutable LaneFollowingAccel <: DriveAction
+    a::Float64
+end
+Base.show(io::IO, a::LaneFollowingAccel) = @printf(io, "LaneFollowingAccel(%6.3f)", a.a)
+Base.length(::Type{LaneFollowingAccel}) = 1
+Base.convert(::Type{LaneFollowingAccel}, v::Vector{Float64}) = LaneFollowingAccel(v[1])
+function Base.copy!(v::Vector{Float64}, a::LaneFollowingAccel)
+    v[1] = a.a
+    v
+end
+function propagate(veh::Vehicle, action::LaneFollowingAccel, context::IntegratedContinuous, roadway::Roadway)
+
+    a_lon = action.a
+
+    ds = veh.state.v
+
+    ΔT = context.Δt
+    ΔT² = ΔT*ΔT
+    Δs = ds*ΔT + 0.5*a_lon*ΔT²
+
+    v₂ = ds + a_lon*ΔT
+
+    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    posG = roadway[roadind].pos
+    VehicleState(posG, roadway, v₂)
+end
 ###############
 
 immutable NextState <: DriveAction
     s::VehicleState
 end
-
+Base.show(io::IO, a::NextState) = print(io, "NextState(", a.s, ")")
 Base.length(::Type{NextState}) = 11
 function Base.convert(::Type{NextState}, v::Vector{Float64})
     VehicleState(VecSE2(v[1],v[2],v[3]), # x, y, θ
