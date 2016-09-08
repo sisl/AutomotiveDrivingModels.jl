@@ -510,7 +510,7 @@ function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle
     censor_hi::Float64 = 10.0,
     )
 
-    v = rec[vehicle_index].state.v
+    v = rec[vehicle_index, pastframe].state.v
 
     if v ≤ 0.0 || neighborfore.ind == 0
         FeatureValue(10.0, FeatureState.CENSORED_HI)
@@ -544,6 +544,7 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
         len_oth = veh_rear.def.length
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
+
         Δv = veh_fore.state.v - veh_rear.state.v
 
         if Δs < 0.0 # collision!
@@ -560,7 +561,6 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
         end
     end
 end
-
 
 #############################################
 #
