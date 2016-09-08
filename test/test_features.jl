@@ -20,7 +20,7 @@ let
     @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 2)))
 
     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 10.0 - 5.0)
-    @test isnan(convert(Float64, get(DIST_FRONT, rec, roadway, 2)))
+    @test convert(Float64, get(DIST_FRONT, rec, roadway, 2, censor_hi=100.0)) == 100.0
 
     update!(rec, Scene([
             Vehicle(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(1, AgentClass.CAR, 5.0, 2.0)),
@@ -36,9 +36,9 @@ let
 
     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 9.0 - 5.0)
     @test isapprox(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 1)), 11.0 - 5.0)
-    @test isnan(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 1)))
+    @test convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 1)) == 100.0
     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 4)), 12.0 - 5.0)
-    @test isnan(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 4)))
+    @test convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 4)) == 100.0
     @test isapprox(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 4)), 1.0 - 5.0)
 
     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
