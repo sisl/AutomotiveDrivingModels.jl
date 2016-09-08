@@ -481,11 +481,12 @@ end
 
 generate_feature_functions("Dist_Front", :d_front, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway)
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    censor_hi::Float64=100.0,
     )
 
     if neighborfore.ind == 0
-        FeatureValue(NaN, FeatureState.MISSING)
+        FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         len_ego = rec[vehicle_index, pastframe].def.length
         len_oth = rec[neighborfore.ind, pastframe].def.length
@@ -494,15 +495,72 @@ function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehi
 end
 generate_feature_functions("Speed_Front", :v_front, Float64, "m/s", can_be_missing=true)
 function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway)
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
     )
 
     if neighborfore.ind == 0
-        FeatureValue(NaN, FeatureState.MISSING)
+        FeatureValue(0.0, FeatureState.MISSING)
     else
         FeatureValue(rec[neighborfore.ind, pastframe].state.v)
     end
 end
+generate_feature_functions("Timegap", :timegap, Float64, "s", can_be_missing=true)
+function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    censor_hi::Float64 = 10.0,
+    )
+
+    v = rec[vehicle_index].state.v
+
+    if v ≤ 0.0 || neighborfore.ind == 0
+        FeatureValue(10.0, FeatureState.CENSORED_HI)
+    else
+        len_ego = rec[vehicle_index, pastframe].def.length
+        len_oth = rec[neighborfore.ind, pastframe].def.length
+        Δs = neighborfore.Δs - len_ego/2 - len_oth/2
+
+        if Δs > 0.0
+            FeatureValue(Δs / v)
+        else
+            FeatureValue(0.0) # collision!
+        end
+    end
+end
+generate_feature_functions("Inv_TTC", :inv_ttc, Float64, "1/s", can_be_missing=true)
+function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    missing_surrogate::Float64 = 0.0,
+    censor_hi::Float64 = 10.0,
+    )
+
+
+    if neighborfore.ind == 0
+        FeatureValue(0.0, FeatureState.MISSING)
+    else
+        veh_fore = rec[vehicle_index, pastframe]
+        veh_rear = rec[neighborfore.ind, pastframe]
+
+        len_ego = veh_fore.def.length
+        len_oth = veh_rear.def.length
+        Δs = neighborfore.Δs - len_ego/2 - len_oth/2
+
+        Δv = veh_fore.state.v - veh_rear.state.v
+
+        if Δs < 0.0 # collision!
+            FeatureValue(censor_hi, FeatureState.CENSORED_HI)
+        elseif Δv > 0.0 # front car is pulling away
+            FeatureValue(0.0)
+        else
+            f = -Δv/Δs
+            if f > censor_hi
+                FeatureValue(f, FeatureState.CENSORED_HI)
+            else
+                FeatureValue(f)
+            end
+        end
+    end
+end
+
 
 #############################################
 #
