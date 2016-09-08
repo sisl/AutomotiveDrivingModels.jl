@@ -503,6 +503,56 @@ function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, veh
         FeatureValue(rec[neighborfore.ind, pastframe].state.v)
     end
 end
+generate_feature_functions("Timegap", :timegap, Float64, "s", can_be_missing=true)
+function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    censor_hi::Float64 = 10.0,
+    )
+
+    v = rec[vehicle_index, pastframe].state.v
+
+    if v ≤ 0.0 || neighborfore.ind == 0
+        FeatureValue(10.0, FeatureState.MISSING)
+    else
+        len_ego = rec[vehicle_index, pastframe].def.length
+        len_oth = rec[neighborfore.ind, pastframe].def.length
+        Δs = neighborfore.Δs - len_ego/2 - len_oth/2
+        if Δs > 0.0
+            FeatureValue(Δs/v)
+        else
+            FeatureValue(10.0, FeatureState.CENSORED_HI)
+        end
+    end
+end
+generate_feature_functions("Inv_TTC", :inv_ttc, Float64, "1/s", can_be_missing=true)
+function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    censor_hi::Float64 = 10.0,
+    )
+
+    if neighborfore.ind == 0
+        FeatureValue(0.0)
+    else
+        veh_rear = rec[vehicle_index, pastframe]
+        veh_fore = rec[neighborfore.ind, pastframe]
+
+        len_ego = veh_fore.def.length
+        len_oth = veh_rear.def.length
+        Δs = neighborfore.Δs - len_ego/2 - len_oth/2
+        Δv = veh_fore.state.v - veh_rear.state.v
+
+        if Δs ≤ 0.0 || Δv < 0.0
+            FeatureValue(0.0)
+        else
+            f = Δv/Δs
+            if f ≤ 10.0
+                FeatureValue(f)
+            else
+                FeatureValue(10.0, FeatureState.CENSORED_HI)
+            end
+        end
+    end
+end
 
 #############################################
 #
