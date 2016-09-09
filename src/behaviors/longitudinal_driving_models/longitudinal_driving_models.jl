@@ -153,7 +153,7 @@ function Distributions.pdf(model::PrincetonLongitudinalDriver, a_lon::Float64)
         pdf(Normal(model.a, model.σ), a_lon)
     end
 end
-function Distributions.logpdf(model::ProportionalSpeedTracker, a_lon::Float64)
+function Distributions.logpdf(model::PrincetonLongitudinalDriver, a_lon::Float64)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
