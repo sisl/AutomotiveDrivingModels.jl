@@ -11,7 +11,7 @@ export
 abstract AbstractFeatureExtractor
 rec_length(::AbstractFeatureExtractor) = 1 # length of the SceneRecord for best results
 Base.length(::AbstractFeatureExtractor) = error("Not Impemeneted")
-pull_features!{F<:AbstractFloat}(::AbstractFeatureExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int) = error("Not Implemented")
+pull_features!{F<:AbstractFloat}(::AbstractFeatureExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) = error("Not Implemented")
 
 ###############################################################
 # FeatureExtractor
@@ -24,12 +24,12 @@ type FeatureExtractor <: AbstractFeatureExtractor
 end
 rec_length(ext::FeatureExtractor) = ext.rec_length # length of the SceneRecord for best results
 Base.length(ext::FeatureExtractor) = length(ext.features)
-function pull_features!{F<:AbstractFloat}(ext::FeatureExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int)
+function pull_features!{F<:AbstractFloat}(ext::FeatureExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
 
     # NOTE(tim): this is an interation over an abstract vector
     #            as such, this will be slow
     for (i,f) in enumerate(ext.features)
-        features[i] = convert(Float64, get(f, rec, roadway, vehicle_index))
+        features[i] = convert(Float64, get(f, rec, roadway, vehicle_index, pastframe))
     end
     features
 end
@@ -45,8 +45,8 @@ end
 SubsetExtractor{G<:AbstractFloat}(extractor::AbstractFeatureExtractor, subset::Vector{Int}, ::Type{G}=Float64) = SubsetExtractor(extractor, subset, Array(G, length(extractor)))
 rec_length(ext::SubsetExtractor) = rec_length(ext.extractor)
 Base.length(ext::SubsetExtractor) = length(ext.subset)
-function pull_features!{F<:AbstractFloat}(ext::SubsetExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int)
-    pull_features!(ext.extractor, ext.features, rec, roadway, vehicle_index)
+function pull_features!{F<:AbstractFloat}(ext::SubsetExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    pull_features!(ext.extractor, ext.features, rec, roadway, vehicle_index, pastframe)
     for (i,j) in enumerate(ext.subset)
         features[i] = ext.features[j]
     end
@@ -63,8 +63,8 @@ type StandardizingExtractor{F<:AbstractFeatureExtractor} <: AbstractFeatureExtra
 end
 rec_length(ext::StandardizingExtractor) = rec_length(ext.extractor)
 Base.length(ext::StandardizingExtractor) = length(ext.extractor)
-function pull_features!{F<:AbstractFloat}(ext::StandardizingExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int)
-    pull_features!(ext.extractor, features, rec, roadway, vehicle_index)
+function pull_features!{F<:AbstractFloat}(ext::StandardizingExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    pull_features!(ext.extractor, features, rec, roadway, vehicle_index, pastframe)
     for i in 1 : length(features)
         features[i] = (features[i] - ext.μ[i]) / ext.σ[i]
     end

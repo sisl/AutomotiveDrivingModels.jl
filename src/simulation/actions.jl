@@ -10,6 +10,7 @@ export
     LatLonAccel,
     LaneFollowingAccel,
 
+    pull_action!,
     propagate
 
 
@@ -68,6 +69,11 @@ function Base.get(::Type{AccelTurnrate}, rec::SceneRecord, roadway::Roadway, veh
     accel = get(ACC, rec, roadway, vehicle_index, pastframe)
     turnrate = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
     AccelTurnrate(accel, turnrate)
+end
+function pull_action!(::Type{AccelTurnrate}, a::Vector{Float64}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    a[1] = get(ACC, rec, roadway, vehicle_index, pastframe)
+    a[2] = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
+    a
 end
 
 immutable AccelDesang <: DriveAction
@@ -162,6 +168,11 @@ function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehic
     accel_lat = get(ACCFT, rec, roadway, vehicle_index, pastframe)
     accel_lon = get(ACCFS, rec, roadway, vehicle_index, pastframe)
     LatLonAccel(accel_lat, accel_lon)
+end
+function pull_action!(::Type{LatLonAccel}, a::Vector{Float64}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    a[1] = get(ACCFT, rec, roadway, vehicle_index, pastframe)
+    a[2] = get(ACCFS, rec, roadway, vehicle_index, pastframe)
+    a
 end
 
 ###############

@@ -6,3 +6,4 @@ DataArrays
 DataFrames
 Discretizers
 Distributions
+GaussianMixtures
