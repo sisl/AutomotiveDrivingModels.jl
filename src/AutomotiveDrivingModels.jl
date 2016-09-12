@@ -32,4 +32,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "fold_assigners.
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "trajdata_segments.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "evaluation_data.jl"))
 
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "gaussian_mixture_regression_models", "gaussian_mixture_regression.jl"))
+
 end # module

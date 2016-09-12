@@ -17,3 +17,5 @@ include(Pkg.dir("AutomotiveDrivingModels", "test", "test_features.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "test", "test_feature_extractors.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "test", "evaluation", "test_evaluation.jl"))
+
+include(Pkg.dir("AutomotiveDrivingModels", "test", "behaviors", "test_behaviors.jl"))

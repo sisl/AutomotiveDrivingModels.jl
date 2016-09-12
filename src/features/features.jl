@@ -507,7 +507,7 @@ end
 generate_feature_functions("Timegap", :timegap, Float64, "s", can_be_missing=true)
 function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
     neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
-    censor_hi::Float64 = 10.0,
+    censor_hi::Float64 = 100.0,
     )
 
     v = rec[vehicle_index, pastframe].state.v
