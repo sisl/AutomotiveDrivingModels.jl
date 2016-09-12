@@ -57,6 +57,7 @@ function GMR{M<:MvNormal}(mix::MixtureModel{Multivariate,Continuous,M}, n_target
     mixture_Obs = MixtureModel(vec_H, weights) # p(obs), all pre-computed, should never be edited
     GMR(vec_A, vec_b, mixture_Obs, mixture_Act_given_Obs)
 end
+
 function Base.print(model::GMR)
     println("GMR:")
     for (i, mat) in enumerate(model.vec_A)
@@ -75,7 +76,6 @@ function Base.print(model::GMR)
     println("\tmixture_Obs: ")
     println("\t\tprior: ", model.mixture_Obs.prior)
 end
-
 
 n_learned_components(gmr::GMR) = length(gmr.vec_A)
 function nsuffstats(gmr::GMR)
