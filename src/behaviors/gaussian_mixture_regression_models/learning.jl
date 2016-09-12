@@ -3,7 +3,7 @@ export
     calc_bic_score,
     train
 
-using GaussianMixtures
+import GaussianMixtures
 
 type GMRTrainParams{A<:DriveAction}
     max_n_indicators::Int
@@ -32,7 +32,7 @@ function GMRTrainParams{A<:DriveAction}(::Type{A},
         method, nInit, nIter, extractor, context)
 end
 
-GMR(gmm::GMM, n_targets::Int=2) = GMR(MixtureModel(gmm), n_targets)
+GMR(gmm::GaussianMixtures.GMM, n_targets::Int=2) = GMR(GaussianMixtures.MixtureModel(gmm), n_targets)
 function calc_bic_score(gmr::GMR, YX::Matrix{Float64}, chosen_indicators::Vector{Int})
 
     bic = -Inf
@@ -146,7 +146,7 @@ function train{A}(
 
     max_n_indicators = min(params.max_n_indicators, n_indicators)
     chosen_indicators = Int[] # start with no parents
-    best_model = GMR(GMM(params.n_components, YX[:,1:action_len],
+    best_model = GMR(GaussianMixtures.GMM(params.n_components, YX[:,1:action_len],
                       method = params.method,
                       kind = :full,
                       nInit = params.nInit,
@@ -173,7 +173,7 @@ function train{A}(
                 test_score = -Inf
 
                 try
-                    test_model = GMR(GMM(params.n_components, YX[:,columns],
+                    test_model = GMR(GaussianMixtures.GMM(params.n_components, YX[:,columns],
                                       method = params.method,
                                       kind = :full,
                                       nInit = params.nInit,
