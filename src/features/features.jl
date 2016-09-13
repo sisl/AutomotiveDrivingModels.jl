@@ -233,6 +233,25 @@ generate_feature_functions("JerkFt", :jerkFt, Float64, "m/s³")
 function Base.get(::Feature_JerkFt, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(ACCFT, rec, roadway, vehicle_index, pastframe)
 end
+generate_feature_functions("DesiredAngle", :desang, Float64, "rad")
+function Base.get(::Feature_DesiredAngle, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    kp_desired_angle::Float64 = 1.0,
+    )
+
+    retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
+    if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe-1)
+
+        id = rec[vehicle_index, pastframe].def.id
+
+        pastϕ = get_vehiclestate(rec, id, pastframe-1).posF.ϕ
+        currϕ = get_vehiclestate(rec, id, pastframe).posF.ϕ
+
+        Δt = rec.timestep
+        expconst = exp(-kp_desired_angle*Δt)
+        retval = FeatureValue((currϕ - pastϕ*expconst) / (1.0 - expconst))
+    end
+    retval
+end
 
 generate_feature_functions("MarkerDist_Left", :d_ml, Float64, "m")
 function Base.get(::Feature_MarkerDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
