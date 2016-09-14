@@ -31,3 +31,4 @@ Distributions.pdf{A,F}(driver::GaussianMixtureRegressionDriver{A,F}, a::A) = pdf
 Distributions.logpdf{A,F}(driver::GaussianMixtureRegressionDriver{A,F}, a::A) = logpdf(driver.gmr.mixture_Act_given_Obs, convert(Vector{Float64}, a))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "gaussian_mixture_regression_models", "learning.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "gaussian_mixture_regression_models", "io.jl"))

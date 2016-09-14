@@ -3,36 +3,98 @@ export
     calc_bic_score,
     train
 
-import GaussianMixtures
+# import GaussianMixtures
+using PyCall
+const SKLEARN_MIXTURE = PyCall.PyNULL()
+function __init__()
+    copy!(SKLEARN_MIXTURE, pyimport("sklearn.mixture"))
+end
 
 type GMRTrainParams{A<:DriveAction}
-    max_n_indicators::Int
-    max_n_train_examples::Int
-    n_components::Int
-    prime_history::Int
-    method::Symbol
-    nInit::Int
-    nIter::Int
     extractor::AbstractFeatureExtractor
     context::IntegratedContinuous
+
+    max_n_indicators::Int
+    max_n_train_examples::Int
+
+    n_components::Int
+    random_state::Int
+    n_iter::Int
+    n_init::Int
+    min_covar::Float64
+    tol::Float64
+    verbose::Int
+
+    prime_history::Int
 end
 function GMRTrainParams{A<:DriveAction}(::Type{A},
     extractor::AbstractFeatureExtractor,
     context::IntegratedContinuous;
-    max_n_indicators::Int = 5,
+    max_n_indicators::Int = 3,
     max_n_train_examples::Int = typemax(Int),
-    n_components::Int = 3,
+    n_components::Int = 2,
+    random_state::Int = 1,
+    n_init::Int = 3,
+    n_iter::Int = 100,
+    min_covar::Float64 = 1e-6,
+    tol::Float64 = 1e-3,
+    verbose::Int = 0,
     prime_history::Int = 0,
-    method::Symbol = :kmeans,
-    nInit::Int = 50,
-    nIter::Int = 10,
     )
 
-    GMRTrainParams{A}(max_n_indicators, max_n_train_examples, n_components, prime_history,
-        method, nInit, nIter, extractor, context)
+    GMRTrainParams{A}(extractor, context, max_n_indicators, max_n_train_examples,
+                      n_components, random_state, n_iter, n_init, min_covar, tol, verbose, prime_history)
 end
 
-GMR(gmm::GaussianMixtures.GMM, n_targets::Int=2) = GMR(GaussianMixtures.MixtureModel(gmm), n_targets)
+# GMR(gmm::GaussianMixtures.GMM, n_targets::Int=2) = GMR(GaussianMixtures.MixtureModel(gmm), n_targets)
+function GMR(gmm::PyObject, n_targets::Int=2)
+
+    println(gmm[:converged_])
+
+    if gmm[:converged_]
+
+        weights = deepcopy(gmm[:weights_]::Vector{Float64})
+        means = deepcopy(gmm[:means_]::Matrix{Float64})     # [n_components, n_features]
+        covars = deepcopy(gmm[:covars_]::Array{Float64, 3}) # shape depends on covariance_type
+        @assert(gmm[:covariance_type] == "full")
+
+        n_components = length(weights)
+        n_indicators = size(means, 2) - n_targets
+
+        vec_A = Array(Matrix{Float64}, n_components) # μ₁₋₂ = μ₁ + Σ₁₂ * Σ₂₂⁻¹ * (x₂ - μ₂) = A*x₂ + b
+        vec_b = Array(Vector{Float64}, n_components)
+        vec_G = Array(MvNormal, n_components)
+        vec_H = Array(MvNormal, n_components)
+
+        for i = 1 : n_components
+
+            μₐ = vec(means[i,1:n_targets])
+            μₚ = vec(means[i,n_targets+1:end])
+
+            Σ = reshape(covars[i, :, :], (n_targets + n_indicators,n_targets + n_indicators))
+
+            Σₐₐ = Σ[1:n_targets,1:n_targets]
+            Σₐₚ = Σ[1:n_targets,n_targets+1:end]
+            Σₚₚ = nearestSPD(Σ[n_targets+1:end,n_targets+1:end])
+            iΣₚₚ = inv(Σₚₚ)
+
+            A = Σₐₚ * iΣₚₚ
+            vec_A[i] = A
+            vec_b[i] = vec(μₐ - A*μₚ)
+            C = nearestSPD(Σₐₐ - Σₐₚ * iΣₚₚ * ((Σₐₚ)'))
+
+            vec_G[i] = MvNormal(Array(Float64, n_targets), C) # p(action|obs), mean and weighting must be updated with each observation, cov is pre-computed
+            vec_H[i] = MvNormal(μₚ, Σₚₚ) # p(obs), all pre-computed, should never be edited
+        end
+
+        mixture_Act_given_Obs = MixtureModel(vec_G) # p(action|obs), mean and weighting must be updated with each observation, cov is pre-computed
+        mixture_Obs = MixtureModel(vec_H, weights) # p(obs), all pre-computed, should never be edited
+        GMR(vec_A, vec_b, mixture_Obs, mixture_Act_given_Obs)
+    else
+        GMR(Matrix{Float64}[], Vector{Float64}[], MvNormal[], MvNormal[])
+    end
+end
+
 function calc_bic_score(gmr::GMR, YX::Matrix{Float64}, chosen_indicators::Vector{Int})
 
     bic = -Inf
@@ -57,6 +119,60 @@ function calc_bic_score(gmr::GMR, YX::Matrix{Float64}, chosen_indicators::Vector
 
 
     logl - log(m)*nsuffstats(gmr)/2
+end
+function nearestSPD(A::Matrix{Float64})
+
+    # see http://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+
+    # output:
+    #  α, β ≥ 0.0 such that
+    #         α ≤ δ₂(A) ≤ β ≤ α + 2 max(fα, tol)
+    #  and a PSD matrix X such that |A - X|₂ = β
+
+    n = size(A, 1)
+    @assert(n == size(A, 2)) # ensure it is square
+
+    I = eye(n)
+
+    # symmetrize A into B
+    B = (A+A')./2
+
+    # Compute the symmetric polar factor of B. Call it H.
+    # Clearly H is itself SPD.
+    U, σ, V = svd(B)
+    H = V*diagm(σ)*V'
+
+    # get Ahat in the above formula
+    Ahat = (B+H)/2
+
+    # ensure symmetry
+    Ahat = (Ahat + Ahat')/2;
+
+    # test that Ahat is in fact PD. if it is not so, then tweak it just a bit.
+    worked = false
+    iteration_count = 0
+    while !worked && iteration_count < 100
+
+        iteration_count += 1
+
+        try
+            chol(Ahat)
+            worked = true
+        catch
+            # do nothing
+        end
+
+        if !worked
+            # Ahat failed the chol test. It must have been just a hair off,
+            # due to floating point trash, so it is simplest now just to
+            # tweak by adding a tiny multiple of an identity matrix.
+
+            min_eig = minimum(eigvals(Ahat))
+            Ahat = Ahat + (-min_eig*iteration_count.^2 + eps(Float32))*I
+        end
+    end
+
+    Ahat
 end
 
 function train{A}(
@@ -85,9 +201,7 @@ function train{A}(
     action = Array(Float64, action_len)
     features = Array(Float64, n_indicators)
 
-
     let
-
         println("extracting features"); tic()
 
         row = 0
@@ -129,8 +243,16 @@ function train{A}(
         for j in 1 : n_indicators
             means[j] = mean(YX[:,j+action_len])
             stdevs[j] = stdm(YX[:,j+action_len], means[j])
-            for i in 1:rowcount
-                YX[i,j+action_len] = (YX[i,j+action_len] - means[j]) / stdevs[j]
+
+            if stdevs[j] == 0.0 || isnan(stdevs[j]) || isinf(stdevs[j])
+                warn("stdev was bad for column $j")
+                for i in 1:rowcount
+                    YX[i,j+action_len] = 0.0
+                end
+            else
+                for i in 1:rowcount
+                    YX[i,j+action_len] = (YX[i,j+action_len] - means[j]) / stdevs[j]
+                end
             end
         end
         toc()
@@ -146,55 +268,79 @@ function train{A}(
 
     max_n_indicators = min(params.max_n_indicators, n_indicators)
     chosen_indicators = Int[] # start with no parents
-    best_model = GMR(GaussianMixtures.GMM(params.n_components, YX[:,1:action_len],
-                      method = params.method,
-                      kind = :full,
-                      nInit = params.nInit,
-                      nIter = params.nIter,
-                    ))
+    columns = collect(1:action_len)
+
+    gmm = SKLEARN_MIXTURE[:GMM](
+            n_components = params.n_components, # int, optional. Number of mixture components. Defaults to 1.
+            covariance_type = "full", # string, optional. ‘spherical’, ‘tied’, ‘diag’, ‘full’. Defaults to ‘diag’
+            random_state    = params.random_state, # RandomState or an int seed (None by default)
+            min_covar       = params.min_covar, # float, optional
+            n_iter          = params.n_iter,
+            n_init          = params.n_init,
+            tol             = params.tol,
+            verbose         = params.verbose
+        )
+
+    gmm[:fit](YX[:,columns])
+    best_model = GMR(gmm)
+
+    # best_model = GMR(GaussianMixtures.GMM(params.n_components, deepcopy(YX[:,columns]),
+    #                   method = params.method,
+    #                   kind = :full,
+    #                   nInit = params.nInit,
+    #                   nIter = params.nIter,
+    #                 ))
+
     best_score = calc_bic_score(best_model, YX, chosen_indicators)
+    println("best_score: ", best_score)
 
     toc()
 
     finished = false
     while !finished && length(chosen_indicators) < max_n_indicators
 
-        finished = true
         push!(chosen_indicators, 0)
+        push!(columns, 0)
 
-        println("tring n_indicators: ", length(chosen_indicators))
+        println("trying n_indicators: ", length(chosen_indicators))
         best_indicator = 0
 
         for i in 1:n_indicators
             if i ∉ chosen_indicators
-                chosen_indicators[end] = i
 
-                columns = append!(collect(1:action_len), chosen_indicators .+ action_len)
-                test_score = -Inf
+                chosen_indicators[end] = i
+                columns[end] = i + action_len
 
                 try
-                    test_model = GMR(GaussianMixtures.GMM(params.n_components, YX[:,columns],
-                                      method = params.method,
-                                      kind = :full,
-                                      nInit = params.nInit,
-                                      nIter = params.nIter,
-                                    ))
+                    # test_model = GMR(GaussianMixtures.GMM(params.n_components, deepcopy(YX[:,columns]),
+                    #                   method = params.method,
+                    #                   kind = :full,
+                    #                   nInit = params.nInit,
+                    #                   nIter = params.nIter,
+                    #                 ))
+                    gmm[:fit](YX[:,columns])
+                    test_model = GMR(gmm)
                     test_score = calc_bic_score(test_model, YX, chosen_indicators)
+                    println(chosen_indicators, " -> bic ", test_score)
 
                     if test_score > best_score
+                        println("better than ", best_score)
                         best_score = test_score
                         best_model = test_model
                         best_indicator = i
-                        finished = false
                     end
                 catch
-                    warn("FAILED to train")
+                    warn("FAILED to train with $chosen_indicators")
                 end
             end
         end
 
+        chosen_indicators[end] = best_indicator
+        columns[end] = best_indicator + action_len
         if best_indicator == 0
             pop!(chosen_indicators)
+            pop!(columns)
+            finished = true
         end
     end
 

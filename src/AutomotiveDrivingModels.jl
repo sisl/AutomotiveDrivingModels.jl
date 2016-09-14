@@ -1,4 +1,4 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
+__precompile__()
 
 module AutomotiveDrivingModels
 
@@ -33,5 +33,6 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "trajdata_segmen
 include(Pkg.dir("AutomotiveDrivingModels", "src", "evaluation", "evaluation_data.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "gaussian_mixture_regression_models", "gaussian_mixture_regression_models.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "conditional_linear_gaussian_models", "conditional_linear_gaussian_drivers.jl"))
 
 end # module

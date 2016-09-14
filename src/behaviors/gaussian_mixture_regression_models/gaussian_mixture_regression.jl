@@ -7,8 +7,8 @@ export
 type GMR{M<:MvNormal}
 
     # μ₁₋₂ = μ₁ + Σ₁₂ * Σ₂₂⁻¹ * (x₂ - μ₂) = A*x₂ + b
-    vec_A::Vector{Matrix{Float64}} # [n_components [2×nindicators]]
-    vec_b::Vector{Vector{Float64}} # [n_components [2]]
+    vec_A::Vector{Matrix{Float64}} # [n_components [ntargets×nindicators]]
+    vec_b::Vector{Vector{Float64}} # [n_components [ntargets]]
 
     # pdf(p), all pre-computed. Used to compute βⱼ(p)
     mixture_Obs::MixtureModel{Multivariate,Continuous,M} # p(obs), all pre-computed, should never be edited
@@ -77,7 +77,9 @@ function Base.print(model::GMR)
     println("\t\tprior: ", model.mixture_Obs.prior)
 end
 
-n_learned_components(gmr::GMR) = length(gmr.vec_A)
+n_targets(gmr::GMR) = size(gmr.vec_A[1], 1)
+n_features(gmr::GMR) = size(gmr.vec_A[1], 2)
+n_components(gmr::GMR) = length(gmr.vec_A)
 function nsuffstats(gmr::GMR)
     dimA = length(gmr.vec_A[1])
     n_learned_components(gmr) * (2*dimA + 2 # bias
