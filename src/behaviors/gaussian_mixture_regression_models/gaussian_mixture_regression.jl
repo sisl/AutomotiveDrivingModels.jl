@@ -164,9 +164,16 @@ end
 
     # normalize the β values
     sum_β = sum(mixture_Act_given_Obs.prior.p)
-    @assert(sum_β > 0.0 && !isnan(sum_β) && !isinf(sum_β))
-    for i in 1 : nc
-        mixture_Act_given_Obs.prior.p[i] /= sum_β
+
+    if sum_β > 0.0 && !isnan(sum_β) && !isinf(sum_β)
+        for i in 1 : nc
+            mixture_Act_given_Obs.prior.p[i] /= sum_β
+        end
+    else
+        fill!(mixture_Act_given_Obs.prior.p, 1/nc) # set all to equal weight
+        for i in 1 : nc
+            fill!(mixture_Act_given_Obs.components[i].μ, 0.0) # set mean to zero
+        end
     end
 
     mixture_Act_given_Obs
