@@ -25,6 +25,9 @@ type GMRTrainParams{A<:DriveAction}
     tol::Float64
     verbose::Int
 
+    unlearned_component::MvNormal
+    unlearned_component_weight::Float64
+
     prime_history::Int
 end
 function GMRTrainParams{A<:DriveAction}(::Type{A},
@@ -40,10 +43,13 @@ function GMRTrainParams{A<:DriveAction}(::Type{A},
     tol::Float64 = 1e-3,
     verbose::Int = 0,
     prime_history::Int = 0,
+    unlearned_component_weight::Float64 = NaN,
+    unlearned_component::MvNormal = MvNormal(eye(length(A))),
     )
 
     GMRTrainParams{A}(extractor, context, max_n_indicators, max_n_train_examples,
-                      n_components, random_state, n_iter, n_init, min_covar, tol, verbose, prime_history)
+                      n_components, random_state, n_iter, n_init, min_covar, tol, verbose,
+                      unlearned_component, unlearned_component_weight, prime_history)
 end
 
 # GMR(gmm::GaussianMixtures.GMM, n_targets::Int=2) = GMR(GaussianMixtures.MixtureModel(gmm), n_targets)
@@ -86,6 +92,59 @@ function GMR(gmm::PyObject, n_targets::Int=2)
             vec_G[i] = MvNormal(Array(Float64, n_targets), C) # p(action|obs), mean and weighting must be updated with each observation, cov is pre-computed
             vec_H[i] = MvNormal(μₚ, Σₚₚ) # p(obs), all pre-computed, should never be edited
         end
+
+        mixture_Act_given_Obs = MixtureModel(vec_G) # p(action|obs), mean and weighting must be updated with each observation, cov is pre-computed
+        mixture_Obs = MixtureModel(vec_H, weights) # p(obs), all pre-computed, should never be edited
+        GMR(vec_A, vec_b, mixture_Obs, mixture_Act_given_Obs)
+    else
+        GMR(Matrix{Float64}[], Vector{Float64}[], MvNormal[], MvNormal[])
+    end
+end
+function GMR(gmm::PyObject, unlearned_component::MvNormal, unlearned_component_weight::Float64)
+
+    println(gmm[:converged_])
+
+    if gmm[:converged_]
+
+        weights = deepcopy(gmm[:weights_]::Vector{Float64})
+        means = deepcopy(gmm[:means_]::Matrix{Float64})     # [n_components, n_features]
+        covars = deepcopy(gmm[:covars_]::Array{Float64, 3}) # shape depends on covariance_type
+        @assert(gmm[:covariance_type] == "full")
+
+        n_components = length(weights)
+        n_targets = length(unlearned_component)
+        n_indicators = size(means, 2) - n_targets
+
+        vec_A = Array(Matrix{Float64}, n_components+1) # μ₁₋₂ = μ₁ + Σ₁₂ * Σ₂₂⁻¹ * (x₂ - μ₂) = A*x₂ + b
+        vec_b = Array(Vector{Float64}, n_components+1)
+        vec_G = Array(MvNormal, n_components+1)
+        vec_H = Array(MvNormal, n_components+1)
+
+        for i = 1 : n_components
+
+            μₐ = vec(means[i,1:n_targets])
+            μₚ = vec(means[i,n_targets+1:end])
+
+            Σ = reshape(covars[i, :, :], (n_targets + n_indicators,n_targets + n_indicators))
+
+            Σₐₐ = Σ[1:n_targets,1:n_targets]
+            Σₐₚ = Σ[1:n_targets,n_targets+1:end]
+            Σₚₚ = nearestSPD(Σ[n_targets+1:end,n_targets+1:end])
+            iΣₚₚ = inv(Σₚₚ)
+
+            A = Σₐₚ * iΣₚₚ
+            vec_A[i] = A
+            vec_b[i] = vec(μₐ - A*μₚ)
+            C = nearestSPD(Σₐₐ - Σₐₚ * iΣₚₚ * ((Σₐₚ)'))
+
+            vec_G[i] = MvNormal(Array(Float64, n_targets), C) # p(action|obs), mean and weighting must be updated with each observation, cov is pre-computed
+            vec_H[i] = MvNormal(μₚ, Σₚₚ) # p(obs), all pre-computed, should never be edited
+        end
+
+        # unlearned component
+        vec_A[end] = zeros(Float64, n_targets, n_indicators)
+        vec_b[end] = deepcopy(unlearned_component.μ)
+        vec_G[end] = unlearned_component
 
         mixture_Act_given_Obs = MixtureModel(vec_G) # p(action|obs), mean and weighting must be updated with each observation, cov is pre-computed
         mixture_Obs = MixtureModel(vec_H, weights) # p(obs), all pre-computed, should never be edited
@@ -282,7 +341,7 @@ function train{A}(
         )
 
     gmm[:fit](YX[:,columns])
-    best_model = GMR(gmm)
+    best_model = GMR(gmm, params.unlearned_component, params.unlearned_component_weight)
 
     # best_model = GMR(GaussianMixtures.GMM(params.n_components, deepcopy(YX[:,columns]),
     #                   method = params.method,

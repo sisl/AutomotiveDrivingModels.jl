@@ -82,7 +82,7 @@ n_features(gmr::GMR) = size(gmr.vec_A[1], 2)
 n_components(gmr::GMR) = length(gmr.vec_A)
 function nsuffstats(gmr::GMR)
     dimA = length(gmr.vec_A[1])
-    n_learned_components(gmr) * (2*dimA + 2 # bias
+    n_components(gmr) * (2*dimA + 2 # bias
                                   + 3 # covariance in mixture_Act_given_Obs
                                   + div(dimA*dimA,2)) # covariance for mixture_Obs
 end
@@ -145,7 +145,7 @@ function Base.call(gmr::GMR, features::Vector{Float64})
 
     mixture_Act_given_Obs = gmr.mixture_Act_given_Obs
     mixture_Obs = gmr.mixture_Obs
-    nlc = n_learned_components(gmr)
+    nlc = n_components(gmr)
 
     for j in 1 : nlc
 
