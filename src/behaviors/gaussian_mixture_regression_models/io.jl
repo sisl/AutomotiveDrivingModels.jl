@@ -4,6 +4,11 @@ function _write_array{F<:AbstractFloat}(io::IO, arr::Array{F})
         @printf(io, "%.16e ", v)
     end
 end
+function _write_array{I<:Integer}(io::IO, arr::Array{I})
+    for v in arr
+        @printf(io, "%d ", v)
+    end
+end
 
 function Base.write(io::IO, gmr::GMR)
     println(io, "Gaussian Mixture Regressor:")
@@ -121,6 +126,9 @@ function Base.write{A,F}(io::IO, model::GaussianMixtureRegressionDriver{A,F})
     write(io, model.gmr)
 
     println(io, "action: ", A)
+    print(io, "standardization_means: "); _write_array(io, model.extractor.μ); print(io, "\n")
+    print(io, "standardization_stdevs: "); _write_array(io, model.extractor.σ); print(io, "\n")
+    print(io, "chosen_indeces: "); _write_array(io, model.extractor.extractor.subset); print(io, "\n")
 end
 function Base.read(io::IO, ::Type{GaussianMixtureRegressionDriver}, extractor::AbstractFeatureExtractor)
     lines = readlines(io)
@@ -161,7 +169,23 @@ function Base.read(io::IO, ::Type{GaussianMixtureRegressionDriver}, extractor::A
         A = AccelTurnrate
     end
 
+    line = advance_until!("standardization_means")
+    tokens = split(line)
+    μ = map!(token->parse(Float64, token), Array(Float64, length(tokens)-1), tokens[2:end])
 
-    GaussianMixtureRegressionDriver{A, typeof(extractor)}(rec, context, gmr,
-        extractor, Array(Float64, length(extractor)), Array(Float64, length(A)))
+    line = advance_until!("standardization_stdevs")
+    tokens = split(line)
+    σ = map!(token->parse(Float64, token), Array(Float64, length(tokens)-1), tokens[2:end])
+
+    line = advance_until!("chosen_indeces")
+    tokens = split(line)
+    chosen_indicators = map!(token->parse(Int, token), Array(Int, length(tokens)-1), tokens[2:end])
+
+    subset_extractor = SubsetExtractor(extractor, chosen_indicators)
+    standardizing_extractor = StandardizingExtractor(subset_extractor, μ, σ)
+
+    GaussianMixtureRegressionDriver{A, typeof(standardizing_extractor)}(rec, context,
+        gmr, standardizing_extractor,
+        Array(Float64, length(standardizing_extractor)),
+        Array(Float64, length(A)))
 end

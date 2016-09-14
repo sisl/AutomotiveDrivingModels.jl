@@ -141,7 +141,7 @@ function nearestSPD(A::Matrix{Float64})
     Ahat
 end
 
-function Base.call(gmr::GMR, features::Vector{Float64})
+@compat function (gmr::GMR)(features::Vector{Float64})
 
     mixture_Act_given_Obs = gmr.mixture_Act_given_Obs
     mixture_Obs = gmr.mixture_Obs
