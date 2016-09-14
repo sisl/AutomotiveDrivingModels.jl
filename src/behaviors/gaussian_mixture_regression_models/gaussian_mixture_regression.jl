@@ -145,9 +145,9 @@ end
 
     mixture_Act_given_Obs = gmr.mixture_Act_given_Obs
     mixture_Obs = gmr.mixture_Obs
-    nlc = n_components(gmr)
+    nc = n_components(gmr)
 
-    for j in 1 : nlc
+    for j in 1 : nc
 
         # compute the β value, unweighted
         # βⱼ(f) ∝ wⱼ Nⱼ(μₚ, Σₚ)
@@ -165,7 +165,7 @@ end
     # normalize the β values
     sum_β = sum(mixture_Act_given_Obs.prior.p)
     @assert(sum_β > 0.0 && !isnan(sum_β) && !isinf(sum_β))
-    for i in 1 : nlc
+    for i in 1 : nc
         mixture_Act_given_Obs.prior.p[i] /= sum_β
     end
 

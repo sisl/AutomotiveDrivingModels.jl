@@ -26,7 +26,7 @@ function observe!{A,F}(driver::GaussianMixtureRegressionDriver{A,F}, scene::Scen
     driver.gmr(driver.features)
     driver
 end
-Base.rand{A,F}(driver::GaussianMixtureRegressionDriver{A,F}) = convert(A, rand!(driver.action, driver.gmr.mixture_Act_given_Obs))
+Base.rand{A,F}(driver::GaussianMixtureRegressionDriver{A,F}) = convert(A, rand(driver.gmr.mixture_Act_given_Obs))
 Distributions.pdf{A,F}(driver::GaussianMixtureRegressionDriver{A,F}, a::A) = pdf(driver.gmr.mixture_Act_given_Obs, convert(Vector{Float64}, a))
 Distributions.logpdf{A,F}(driver::GaussianMixtureRegressionDriver{A,F}, a::A) = logpdf(driver.gmr.mixture_Act_given_Obs, convert(Vector{Float64}, a))
 

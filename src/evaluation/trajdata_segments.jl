@@ -35,7 +35,7 @@ function pull_record(seg::TrajdataSegment, trajdata::Trajdata, prime_history::In
     scene = Scene()
 
     # prime_history
-    for i in 1 : prime_history
+    for i in prime_history : -1 : 1
         frame = seg.frame_lo - i
         get!(scene, trajdata, frame)
         update!(rec, scene)

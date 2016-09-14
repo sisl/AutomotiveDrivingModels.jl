@@ -88,7 +88,7 @@ function calc_trace_metrics!(
         seg = evaldata.segments[seg_index]
         trajdata = evaldata.trajdatas[seg.trajdata_index]
 
-        rec_orig = pull_record(seg, evaldata, prime_history) # TODO - make efficient
+        rec_orig = pull_record(seg, evaldata) # TODO - make efficient
         rec_sim = deepcopy(rec_orig)
 
         time_start = get_time(trajdata, seg.frame_lo)

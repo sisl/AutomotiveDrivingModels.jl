@@ -64,7 +64,7 @@ function GMR(gmm::PyObject, n_targets::Int=2)
         vec_G = Array(MvNormal, n_components)
         vec_H = Array(MvNormal, n_components)
 
-        for i = 1 : n_components
+        for i in 1 : n_components
 
             μₐ = vec(means[i,1:n_targets])
             μₚ = vec(means[i,n_targets+1:end])
@@ -209,13 +209,13 @@ function _pull_YX_means_stdevs{A}(
     for i in foldset
         seg = data.segments[i]
         rec = pull_record(seg, data)
-        for pastframe in -length(rec) + params.prime_history + 1 : 0
+        for pastframe in -length(rec) + params.prime_history + 1 : -1
             row += 1
 
             trajdata = data.trajdatas[seg.trajdata_index]
             roadway = trajdata.roadway
             vehicle_index = get_index_of_first_vehicle_with_id(rec, seg.egoid, pastframe)
-            pull_action!(A, action, rec, roadway, vehicle_index, pastframe)
+            pull_action!(A, action, rec, roadway, vehicle_index, pastframe+1)
             for j in 1 : action_len
                 YX[row, j] = action[j]
             end
