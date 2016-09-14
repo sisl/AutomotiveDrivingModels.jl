@@ -88,12 +88,12 @@ function Base.read{S<:AbstractString}(io::IO, ::Type{GMR}, lines::Vector{S}=read
         line = advance!()
         tokens = split(line)
         @assert contains(tokens[1], "μ")
-        μ = map!(j->parse(Float64, tokens[j+1]), Array(Float64, n_targets), 1:n_targets)
+        μ = map!(j->parse(Float64, tokens[j+1]), Array(Float64, n_features), 1:n_features)
 
         line = advance!()
         tokens = split(line)
         @assert contains(tokens[1], "Σ")
-        Σ = map!(j->parse(Float64, tokens[j+1]), Array(Float64, n_targets, n_targets), 1:n_targets*n_targets)
+        Σ = map!(j->parse(Float64, tokens[j+1]), Array(Float64, n_features, n_features), 1:n_features*n_features)
 
         components[i] = MvNormal(μ, Σ)
     end
