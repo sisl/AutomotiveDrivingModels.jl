@@ -46,7 +46,7 @@ end
 #     logl - log(m)*nsuffstats(gmr)/2
 # end
 
-function _pull_training_dataframe(
+function _pull_training_dataframe{A}(
     data::EvaluationData,
     params::CLBNTrainParams{A},
     foldset::FoldSet,
