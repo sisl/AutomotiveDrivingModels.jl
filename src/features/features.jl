@@ -389,11 +389,16 @@ function Base.get(::Feature_Has_Lane_Left, rec::SceneRecord, roadway::Roadway, v
     val = get(N_LANE_LEFT, rec, roadway, vehicle_index, pastframe).v > 0.0
     FeatureValue(convert(Float64, val))
 end
-generate_feature_functions("LaneCurvature", :curvature, Float64, "1/m")
+generate_feature_functions("LaneCurvature", :curvature, Float64, "1/m", can_be_missing=true)
 function Base.get(::Feature_LaneCurvature, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[vehicle_index, pastframe]
     curvept = roadway[veh.state.posF.roadind]
-    FeatureValue(curvept.k)
+    val = curvept.k
+    if isnan(val)
+        FeatureValue(0.0, FeatureState.MISSING)
+    else
+        FeatureValue(val)
+    end
 end
 
 # Dist_Merge
