@@ -209,6 +209,14 @@ generate_feature_functions("TurnRateF", :turnrateF, Float64, "rad/s")
 function Base.get(::Feature_TurnRateF, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(POSFYAW, rec, roadway, vehicle_index, pastframe)
 end
+generate_feature_functions("AngularRateG", :angrateG, Float64, "rad/s²")
+function Base.get(::Feature_AngularRateG, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    get_feature_derivative_backwards(TURNRATEG, rec, roadway, vehicle_index, pastframe)
+end
+generate_feature_functions("AngularRateF", :angrateF, Float64, "rad/s²")
+function Base.get(::Feature_AngularRateF, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    get_feature_derivative_backwards(TURNRATEF, rec, roadway, vehicle_index, pastframe)
+end
 generate_feature_functions("Acc", :acc, Float64, "m/s^2")
 function Base.get(::Feature_Acc, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     get_feature_derivative_backwards(SPEED, rec, roadway, vehicle_index, pastframe)
