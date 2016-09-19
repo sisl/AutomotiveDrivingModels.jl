@@ -539,5 +539,5 @@ function get_first_collision(scene::Scene, vehicle_indeces::AbstractVector{Int},
     CollisionCheckResult(false, 0, 0)
 end
 get_first_collision(scene::Scene, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, 1:length(scene), mem)
-is_collision_free(scene::Scene, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, mem).is_colliding
+is_collision_free(scene::Scene, mem::CPAMemory=CPAMemory()) = !(get_first_collision(scene, mem).is_colliding)
 is_collision_free(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, vehicle_indeces, mem).is_colliding

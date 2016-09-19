@@ -16,6 +16,7 @@ include("core/AutoCore.jl")
 include(Pkg.dir("AutomotiveDrivingModels", "src", "utils", "minkowski.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "features.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "feature_extractors.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "aggregate.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "actions.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "driver_models.jl"))
