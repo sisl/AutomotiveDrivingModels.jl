@@ -87,6 +87,7 @@ export
     Trajdata,
     TrajdataVehicleIterator,
 
+    get_ids,
     nframes,
     frame_inbounds,
     carsinframe,
