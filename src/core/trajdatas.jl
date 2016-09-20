@@ -132,6 +132,7 @@ function Base.read(io::IO, ::Type{Trajdata}, roadway::Roadway=Roadway())
     Trajdata(roadway, vehdefs, states, frames)
 end
 
+get_ids(trajdata::Trajdata) = collect(values(trajdata.vehdefs))
 nframes(trajdata::Trajdata) = length(trajdata.frames)
 frame_inbounds(trajdata::Trajdata, frame::Int) = 1 ≤ frame ≤ nframes(trajdata)
 carsinframe(trajdata::Trajdata, frame::Int) = length(trajdata.frames[frame])
