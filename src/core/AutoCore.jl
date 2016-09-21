@@ -4,6 +4,7 @@ Defines the core Automotive Types
 """
 module AutoCore
 
+using Compat
 using Vec
 
 export

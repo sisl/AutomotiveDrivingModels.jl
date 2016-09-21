@@ -191,10 +191,10 @@ function Base.read(io::IO, ::Type{Roadway})
             speed_limit = SpeedLimit(parse(Float64, tokens[1]), parse(Float64, tokens[2]))
 
             tokens = split(advance!(), ' ')
-            boundary_left = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
+            boundary_left = LaneBoundary(Symbol(tokens[1]), Symbol(tokens[2]))
 
             tokens = split(advance!(), ' ')
-            boundary_right = LaneBoundary(symbol(tokens[1]), symbol(tokens[2]))
+            boundary_right = LaneBoundary(Symbol(tokens[1]), Symbol(tokens[2]))
 
             exits = LaneConnection[]
             entrances = LaneConnection[]
