@@ -55,8 +55,8 @@ immutable LineSegment
     a::VecE2
     b::VecE2
 end
-Base.(:(+))(seg::LineSegment, v::VecE2) = LineSegment(seg.a + v, seg.b + v)
-Base.(:(-))(seg::LineSegment, v::VecE2) = LineSegment(seg.a - v, seg.b - v)
+@compat Base.:+(seg::LineSegment, v::VecE2) = LineSegment(seg.a + v, seg.b + v)
+@compat Base.:-(seg::LineSegment, v::VecE2) = LineSegment(seg.a - v, seg.b - v)
 
 function get_polar_angle(seg::LineSegment)
     θ = atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x)

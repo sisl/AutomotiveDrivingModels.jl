@@ -101,12 +101,12 @@ function generate_feature_functions(
     )
 
     for feature in values(SYMBOL_TO_FEATURE)
-        @assert(sym != symbol(feature), "symb: $name -> $feature")
+        @assert(sym != Symbol(feature), "symb: $name -> $feature")
     end
     @assert(lowerbound ≤ upperbound)
 
-    feature_name = symbol("Feature_" * name)
-    const_name   = symbol(uppercase(name))
+    feature_name = Symbol("Feature_" * name)
+    const_name   = Symbol(uppercase(name))
     sym_feature  = Meta.quot(sym)
 
     @eval begin
@@ -119,8 +119,8 @@ function generate_feature_functions(
         upperbound(     ::$feature_name)  = $(upperbound)
         can_be_missing( ::$feature_name)  = $(can_be_missing)
         history(        ::$feature_name)  = $(history)
-        Base.symbol(    ::$feature_name)  = $sym_feature
-        SYMBOL_TO_FEATURE[symbol($const_name)] = $const_name
+        Base.Symbol(    ::$feature_name)  = $sym_feature
+        SYMBOL_TO_FEATURE[Symbol($const_name)] = $const_name
     end
 end
 
