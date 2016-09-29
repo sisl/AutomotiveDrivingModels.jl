@@ -34,6 +34,8 @@ let
     @test nth_carid(trajdata, 2, 1) == 1
     @test nth_carid(trajdata, 2, 2) == 2
 
+    @test sort!(get_ids(trajdata)) == [1,2]
+
     @test iscarinframe(trajdata, 1, 1)
     @test iscarinframe(trajdata, 1, 2)
     @test iscarinframe(trajdata, 2, 1)

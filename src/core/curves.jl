@@ -221,10 +221,8 @@ function Vec.proj(posG::VecSE2, curve::Curve)
 
     ind = index_closest_to_point(curve, posG)::Int
 
-    # 2 - interpolate between points
     curveind = CurveIndex(0,NaN)
     footpoint = VecSE2(NaN, NaN, NaN)
-    d = NaN
 
     if ind > 1 && ind < length(curve)
         t_lo = get_lerp_time(curve[ind-1], curve[ind],   posG)
@@ -233,27 +231,23 @@ function Vec.proj(posG::VecSE2, curve::Curve)
         p_lo = lerp(curve[ind-1].pos, curve[ind].pos,   t_lo)
         p_hi = lerp(curve[ind].pos,   curve[ind+1].pos, t_hi)
 
-        d_lo = hypot(p_lo - posG )
-        d_hi = hypot(p_hi - posG )
+        d_lo = hypot(p_lo - posG)
+        d_hi = hypot(p_hi - posG)
 
         if d_lo < d_hi
             footpoint = p_lo
-            d = d_lo
             curveind = CurveIndex(ind-1, t_lo)
         else
             footpoint = p_hi
-            d = d_hi
             curveind = CurveIndex(ind, t_hi)
         end
     elseif ind == 1
         t = get_lerp_time( curve[1], curve[2], posG )
         footpoint = lerp( curve[1].pos, curve[2].pos, t)
-        d = hypot(footpoint - posG)
         curveind = CurveIndex(ind, t)
     else # ind == length(curve)
         t = get_lerp_time( curve[end-1], curve[end], posG )
         footpoint = lerp( curve[end-1].pos, curve[end].pos, t)
-        d = hypot(footpoint - posG)
         curveind = CurveIndex(ind-1, t)
     end
 

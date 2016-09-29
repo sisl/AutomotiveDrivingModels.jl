@@ -8,6 +8,7 @@ export
         OBB!,
         is_colliding,
         is_potentially_colliding,
+        get_collision_time,
         get_first_collision,
         get_time_and_dist_of_closest_approach,
         is_collision_free
@@ -421,6 +422,17 @@ function is_colliding(ray::VecSE2, poly::ConvexPolygon)
         end
     end
     false
+end
+function get_collision_time(ray::VecSE2, poly::ConvexPolygon, ray_speed::Float64)
+    min_col_time = Inf
+    for i in 1 : length(poly)
+        seg = get_edge(poly, i)
+        col_time = get_collision_time(ray, seg, ray_speed)
+        if !isnan(col_time) && col_time < min_col_time
+            min_col_time = col_time
+        end
+    end
+    min_col_time
 end
 
 ######################################
