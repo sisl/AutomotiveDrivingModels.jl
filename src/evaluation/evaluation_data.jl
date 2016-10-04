@@ -53,10 +53,10 @@ function allocate_metrics_dataframe{M<:TraceMetricExtractor}(
     )
 
     df = DataFrame()
-    df[:time] = Array(ASCIIString, nrows)
+    df[:time] = Array(String, nrows)
     df[:logl] = Array(Float64, nrows)
     for m in metrics
-        df[symbol(m)] = Array(Float64, nrows)
+        df[Symbol(m)] = Array(Float64, nrows)
     end
     df
 end
@@ -110,7 +110,7 @@ function calc_trace_metrics!(
 
     # compute metric scores
     for metric in metrics
-        metrics_df[row, symbol(metric)] = get_score(metric)
+        metrics_df[row, Symbol(metric)] = get_score(metric)
     end
     metrics_df[row, :time] = string(now())
     metrics_df[row, :logl] = logl/n_traces

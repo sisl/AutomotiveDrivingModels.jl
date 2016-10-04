@@ -34,6 +34,13 @@ let
     @test nth_carid(trajdata, 2, 1) == 1
     @test nth_carid(trajdata, 2, 2) == 2
 
+    @test get_first_frame_with_id(trajdata, 1) == 1
+    @test get_first_frame_with_id(trajdata, 2) == 1
+    @test get_first_frame_with_id(trajdata, -1) == -1
+    @test get_last_frame_with_id(trajdata, 1) == 2
+    @test get_last_frame_with_id(trajdata, 2) == 2
+    @test get_last_frame_with_id(trajdata, -1) == -1
+
     @test sort!(get_ids(trajdata)) == [1,2]
 
     @test iscarinframe(trajdata, 1, 1)

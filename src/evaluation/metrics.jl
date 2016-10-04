@@ -26,7 +26,7 @@ type RootWeightedSquareError{F<:AbstractFeature} <: TraceMetricExtractor
 end
 RootWeightedSquareError{F<:AbstractFeature}(f::F, horizon::Float64) = RootWeightedSquareError(f, horizon, 0.0, 0)
 
-Base.symbol(m::RootWeightedSquareError) = symbol(@sprintf("RWSE_%s_%d_%02d", string(symbol(m.f)), floor(Int, m.horizon), floor(Int, 100*rem(m.horizon, 1.0))))
+Base.Symbol(m::RootWeightedSquareError) = Symbol(@sprintf("RWSE_%s_%d_%02d", string(Symbol(m.f)), floor(Int, m.horizon), floor(Int, 100*rem(m.horizon, 1.0))))
 get_score(m::RootWeightedSquareError) = sqrt(m.running_sum / m.n_obs)
 function reset!(metric::RootWeightedSquareError)
     metric.running_sum = 0.0
@@ -70,7 +70,7 @@ type SumSquareJerk <: TraceMetricExtractor
 
     SumSquareJerk(running_sum::Float64=0.0, n_obs::Int=0) = new(running_sum, n_obs)
 end
-Base.symbol(::SumSquareJerk) = :sumsquarejerk
+Base.Symbol(::SumSquareJerk) = :sumsquarejerk
 get_score(m::SumSquareJerk) = m.running_sum / m.n_obs
 function reset!(metric::SumSquareJerk)
     metric.running_sum = 0.0
@@ -121,7 +121,7 @@ type EmergentKLDivergence <: TraceMetricExtractor
         new(f, disc, counts_orig, counts_sim)
     end
 end
-Base.symbol(metric::EmergentKLDivergence) = symbol("kldiv_" * string(symbol(metric.f)))
+Base.Symbol(metric::EmergentKLDivergence) = Symbol("kldiv_" * string(Symbol(metric.f)))
 
 function calc_kl_div_categorical{I<:Real, J<:Real}(counts_p::AbstractVector{I}, counts_q::AbstractVector{J})
 

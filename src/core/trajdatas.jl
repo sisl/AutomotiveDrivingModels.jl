@@ -141,6 +141,30 @@ get_time(trajdata::Trajdata, frame::Int) = trajdata.frames[frame].t
 get_elapsed_time(trajdata::Trajdata, frame_lo::Int, frame_hi::Int) = trajdata.frames[frame_hi].t - trajdata.frames[frame_lo].t
 get_mean_timestep(trajdata::Trajdata) = (trajdata.frames[end].t - trajdata.frames[1].t) / (nframes(trajdata)-1)
 
+function get_first_frame_with_id(trajdata::Trajdata, id::Int)
+    for (frame_index, frame) in enumerate(trajdata.frames)
+        for i in frame.lo : frame.hi
+            if trajdata.states[i].id == id
+                return frame_index
+            end
+        end
+    end
+
+    -1
+end
+function get_last_frame_with_id(trajdata::Trajdata, id::Int)
+    for frame_index in reverse(1:length(trajdata.frames))
+        frame = trajdata.frames[frame_index]
+        for i in frame.lo : frame.hi
+            if trajdata.states[i].id == id
+                return frame_index
+            end
+        end
+    end
+
+    -1
+end
+
 function iscarinframe(trajdata::Trajdata, id::Int, frame::Int)
     frame = trajdata.frames[frame]
     for i in frame.lo : frame.hi

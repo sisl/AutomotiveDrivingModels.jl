@@ -94,6 +94,8 @@ export
     carsinframe,
     nth_carid,
     iscarinframe,
+    get_first_frame_with_id,
+    get_last_frame_with_id,
     get_time,
     get_elapsed_time,
     get_mean_timestep,

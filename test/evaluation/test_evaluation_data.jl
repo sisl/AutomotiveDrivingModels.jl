@@ -24,7 +24,7 @@ let
     metric_df = allocate_metrics_dataframe(metrics, 10)
     @test ncol(metric_df) == 3
     @test nrow(metric_df) == 10
-    @test names(metric_df) == [:time, :logl, symbol(metrics[1])]
+    @test names(metric_df) == [:time, :logl, Symbol(metrics[1])]
 
     rec = pull_record(segments[1], evaldata)
     @test get_scene(rec, 0)[1].def == get_vehicle(trajdatas[1], 1, 2).def
