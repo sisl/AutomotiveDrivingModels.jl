@@ -53,8 +53,8 @@ function Base.get!(scene::Scene, trajdata::Trajdata, frame::Int)
     scene.n_vehicles = 0
 
     if frame_inbounds(trajdata, frame)
-        frame = trajdata.frames[frame]
-        for i in frame.lo : frame.hi
+        tdframe = trajdata.frames[frame]
+        for i in tdframe.lo : tdframe.hi
             scene.n_vehicles += 1
             veh = scene.vehicles[scene.n_vehicles]
             s = trajdata.states[i]

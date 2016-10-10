@@ -223,13 +223,11 @@ function track_longitudinal!(model::IntelligentDriverModel, scene::Scene, roadwa
         if s_gap > 0.0
             Δv = veh_target.state.v - v
             s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
-            a_idm = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
+            model.a = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
         elseif s_gap > -veh_ego.def.length
-            a_idm = -model.d_max
+            model.a = -model.d_max
         end
-        @assert(!isnan(a_idm))
-
-        model.a = a_idm
+        @assert(!isnan(model.a))
     else
         # no lead vehicle, just drive to match desired speed
         Δv = model.v_des - v
