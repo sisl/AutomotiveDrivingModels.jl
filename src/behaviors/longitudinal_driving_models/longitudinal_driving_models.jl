@@ -223,11 +223,32 @@ function track_longitudinal!(model::IntelligentDriverModel, scene::Scene, roadwa
         if s_gap > 0.0
             Δv = veh_target.state.v - v
             s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
-            model.a = model.a_max * (1.0 - (v/model.v_des)^model.δ - (s_des/s_gap)^2)
+            v_ratio = model.v_des > 0.0 ? (v/model.v_des) : 1.0
+            model.a = model.a_max * (1.0 - v_ratio^model.δ - (s_des/s_gap)^2)
         elseif s_gap > -veh_ego.def.length
             model.a = -model.d_max
+        else
+            Δv = model.v_des - v
+            model.a = Δv*model.k_spd
         end
-        @assert(!isnan(model.a))
+
+        if isnan(model.a)
+
+            warn("IDM acceleration was NaN!")
+            if s_gap > 0.0
+                Δv = veh_target.state.v - v
+                s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
+                println("\tΔv: ", Δv)
+                println("\ts_des: ", s_des)
+                println("\tv_des: ", model.v_des)
+                println("\tδ: ", model.δ)
+                println("\ts_gap: ", s_gap)
+            elseif s_gap > -veh_ego.def.length
+                println("\td_max: ", model.d_max)
+            end
+
+            model.a = 0.0
+        end
     else
         # no lead vehicle, just drive to match desired speed
         Δv = model.v_des - v

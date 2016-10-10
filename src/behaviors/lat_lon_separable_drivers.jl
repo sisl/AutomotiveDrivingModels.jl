@@ -8,6 +8,10 @@ end
 
 get_name(model::LatLonSeparableDriver) = @sprintf("%s + %s", get_name(model.mlat), get_name(model.mlon))
 action_context(model::LatLonSeparableDriver) = model.C
+function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
+    set_desired_speed!(model.mlon, v_des)
+    model
+end
 function observe!(model::LatLonSeparableDriver, scene::Scene, roadway::Roadway, egoid::Int)
     observe!(model.mlat, scene, roadway, egoid)
     observe!(model.mlon, scene, roadway, egoid)
