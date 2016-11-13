@@ -15,12 +15,6 @@ export
 
 ######################################
 
-function are_collinear(a::AbstractVec, b::AbstractVec, c::AbstractVec, tol::Float64=1e-8)
-    # http://mathworld.wolfram.com/Collinear.html
-    # if val = 0 then they are collinear
-    val = a.x*(b.y-c.y) + b.x*(c.y-a.y)+c.x*(a.y-b.y)
-    abs(val) < tol
-end
 function cyclic_shift_left!(arr::AbstractVector, d::Int, n::Int=length(a))
     #=
     Perform a cyclic rotation of the elements in the array, in place
