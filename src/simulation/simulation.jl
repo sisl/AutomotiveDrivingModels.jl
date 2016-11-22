@@ -69,7 +69,7 @@ Other vehicle states will be interpolated
 """
 function simulate!(
     rec::SceneRecord,
-    model::DriverModel,
+    models::DriverModel,
     egoid::Int,
     trajdata::Trajdata,
     time_start::Float64,

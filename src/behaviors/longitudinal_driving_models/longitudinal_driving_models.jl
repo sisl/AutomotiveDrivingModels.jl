@@ -181,7 +181,7 @@ type IntelligentDriverModel <: LongitudinalDriverModel
     d_max::Float64 # maximum decelleration [m/s²] (positive)
 
     function IntelligentDriverModel(;
-        σ::Float64     =     NaN,
+        σ::Float64     =   NaN,
         k_spd::Float64 =   1.0,
         δ::Float64     =   4.0,
         T::Float64     =   1.5,
@@ -193,7 +193,8 @@ type IntelligentDriverModel <: LongitudinalDriverModel
         )
 
         retval = new()
-        retval.a = NaN
+        retval.a     = NaN
+        retval.σ     = σ
         retval.k_spd = k_spd
         retval.δ     = δ
         retval.T     = T
