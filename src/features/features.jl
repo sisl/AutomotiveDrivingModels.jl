@@ -569,8 +569,8 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
     if neighborfore.ind == 0
         FeatureValue(0.0, FeatureState.MISSING)
     else
-        veh_fore = rec[vehicle_index, pastframe]
-        veh_rear = rec[neighborfore.ind, pastframe]
+        veh_fore = rec[neighborfore.ind, pastframe]
+        veh_rear = rec[vehicle_index, pastframe]
 
         len_ego = veh_fore.def.length
         len_oth = veh_rear.def.length
