@@ -11,7 +11,8 @@ export
         get_collision_time,
         get_first_collision,
         get_time_and_dist_of_closest_approach,
-        is_collision_free
+        is_collision_free,
+        get_distance
 
 ######################################
 
@@ -59,6 +60,27 @@ function get_polar_angle(seg::LineSegment)
         θ += 2π
     end
     θ
+end
+
+function get_distance(seg::LineSegment, p::VecE2)
+
+    ab = seg.b - seg.a
+    pb = p - seg.a
+
+    denom = abs2(ab)
+    if denom == 0.0
+        return 0.0
+    end
+
+    r = dot(ab, pb)/denom
+
+    if r ≤ 0.0
+        abs(p - seg.a)
+    elseif r ≥ 1.0
+        abs(p - seg.b)
+    else
+        abs(p - (seg.a + r*ab))
+    end
 end
 
 ######################################
@@ -143,6 +165,19 @@ function Base.show(io::IO, poly::ConvexPolygon)
     for i in 1 : length(poly)
         print(io, "\t"); show(io, poly.pts[i])
         print(io, "\n")
+    end
+end
+
+function get_distance(poly::ConvexPolygon, v::VecE2)
+    if contains(poly, v)
+        0.0
+    else
+        min_dist = Inf
+        for i in 1 : length(poly)
+            seg = get_edge(poly, i)
+            min_dist = min(min_dist, get_distance(seg, v))
+        end
+        min_dist
     end
 end
 
@@ -249,7 +284,7 @@ function minkowksi_sum!(retval::ConvexPolygon, P::ConvexPolygon, Q::ConvexPolygo
 
     retval
 end
-function minkowksi_difference!(retval::ConvexPolygon, P::ConvexPolygon, Q::ConvexPolygon)
+function minkowski_difference!(retval::ConvexPolygon, P::ConvexPolygon, Q::ConvexPolygon)
 
     #=
     The minkowski difference is what you get by taking the minkowski sum of a shape and the mirror of another shape.
@@ -263,8 +298,12 @@ function minkowksi_difference!(retval::ConvexPolygon, P::ConvexPolygon, Q::Conve
 end
 
 function is_colliding(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
-    minkowksi_difference!(temp, P, Q)
+    minkowski_difference!(temp, P, Q)
     contains(temp, VecE2(0,0))
+end
+function get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
+    minkowski_difference!(temp, P, Q)
+    get_distance(temp, VecE2(0,0))
 end
 
 function OBB!(retval::ConvexPolygon, veh::Vehicle, center::VecE2 = convert(VecE2, get_center(veh)))
@@ -440,6 +479,7 @@ immutable CPAMemory
     CPAMemory() = new(ConvexPolygon(4), ConvexPolygon(4), ConvexPolygon(8))
 end
 is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
+get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
 function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAMemory=CPAMemory())
 
     OBB!(mem.vehA, a)
@@ -488,11 +528,16 @@ end
 
 function is_colliding(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
     if is_potentially_colliding(A, B)
-        OBB!(mem.vehA, a)
-        OBB!(mem.vehB, b)
+        OBB!(mem.vehA, A)
+        OBB!(mem.vehB, B)
         return is_colliding(mem)
     end
     false
+end
+function get_distance(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
+    OBB!(mem.vehA, A)
+    OBB!(mem.vehB, B)
+    get_distance(mem)
 end
 
 immutable CollisionCheckResult
