@@ -76,8 +76,12 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
             accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
             veh_ego.state = egostate_R
             accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
+
+            body = inertial2body(get_rear_center(scene[rear_R.ind]), get_front_center(veh_ego)) # project target to be relative to ego
+            s_gap = body.x
+
             veh_ego.state = egostate_M
-            passes_safety_criterion = accel_n_test ≥ -model.safe_decel
+            passes_safety_criterion = accel_n_test ≥ -model.safe_decel && s_gap ≥ 0
             Δaccel_n = accel_n_test - accel_n_orig
         end
 
@@ -129,7 +133,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
             s_gap = body.x
 
             veh_ego.state = egostate_M
-            passes_safety_criterion = accel_n_test ≥ -model.safe_decel
+            passes_safety_criterion = accel_n_test ≥ -model.safe_decel && s_gap ≥ 0
             Δaccel_n = accel_n_test - accel_n_orig
         end
 
