@@ -8,6 +8,7 @@ Generate a roadway with a single straight segment whose rightmost lane center st
 and proceeds in the positive x direction.
 """
 function gen_straight_roadway(nlanes::Int, length::Float64=1000.0;
+    origin::VecSE2 = VecSE2(0.0,0.0,0.0),
     lane_width::Float64=DEFAULT_LANE_WIDTH, # [m]
     boundary_leftmost::LaneBoundary=LaneBoundary(:solid, :white),
     boundary_rightmost::LaneBoundary=LaneBoundary(:solid, :white),
@@ -17,7 +18,8 @@ function gen_straight_roadway(nlanes::Int, length::Float64=1000.0;
     seg = RoadSegment(1, Array(Lane, nlanes))
     for i in 1 : nlanes
         y = lane_width*(i-1)
-        seg.lanes[i] = Lane(LaneTag(1,i), [CurvePt(VecSE2(0.0,y,0.0), 0.0), CurvePt(VecSE2(length,y,0.0), length)],
+        seg.lanes[i] = Lane(LaneTag(1,i), [CurvePt(body2inertial(VecSE2(   0.0,y,0.0), origin),    0.0),
+                                           CurvePt(body2inertial(VecSE2(length,y,0.0), origin), length)],
                             width=lane_width,
                             boundary_left=(i == nlanes ? boundary_leftmost : boundary_middle),
                             boundary_right=(i == 1 ? boundary_rightmost : boundary_middle)

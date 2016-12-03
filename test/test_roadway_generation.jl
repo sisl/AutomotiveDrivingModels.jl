@@ -32,6 +32,15 @@ let
     @test isapprox(lane.width, 1.0)
     @test lane.curve[1] == CurvePt(VecSE2(0.0,2.0,0.0), 0.0)
     @test lane.curve[2] == CurvePt(VecSE2(500.0,2.0,0.0), 500.0)
+
+    origin = VecSE2(1.0,2.0,deg2rad(90))
+    roadway = gen_straight_roadway(1, 100.0, lane_width=1.0, origin=origin)
+    @test length(roadway.segments) == 1
+    lane = roadway[1].lanes[1]
+    @test lane.curve[1].pos == origin
+    @test isapprox(lane.curve[2].pos.x,         1.0, atol=1e-6)
+    @test isapprox(lane.curve[2].pos.y,       102.0, atol=1e-6)
+    @test isapprox(lane.curve[2].pos.θ, deg2rad(90), atol=1e-6)
 end
 
 let
