@@ -5,14 +5,19 @@ export
         CPAMemory,
         CollisionCheckResult,
 
+        LineSegment,
+
         OBB!,
+        OBB,
         is_colliding,
         is_potentially_colliding,
         get_collision_time,
         get_first_collision,
         get_time_and_dist_of_closest_approach,
         is_collision_free,
-        get_distance
+        get_distance,
+        get_center,
+        get_edge
 
 ######################################
 
@@ -168,6 +173,7 @@ function Base.show(io::IO, poly::ConvexPolygon)
     end
 end
 
+get_center(poly::ConvexPolygon) = sum(poly.pts) / poly.npts
 function get_distance(poly::ConvexPolygon, v::VecE2)
     if contains(poly, v)
         0.0
@@ -306,29 +312,38 @@ function get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=Co
     get_distance(temp, VecE2(0,0))
 end
 
-function OBB!(retval::ConvexPolygon, veh::Vehicle, center::VecE2 = convert(VecE2, get_center(veh)))
+function OBB!(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
 
-    # get an oriented bounding box at the vehicle's position
+    @assert(len > 0)
+    @assert(wid > 0)
+    @assert(!isnan(center.θ))
+    @assert(!isnan(center.x))
+    @assert(!isnan(center.y))
 
-    @assert(veh.def.length > 0)
-    @assert(veh.def.width > 0)
-    @assert(!isnan(veh.state.posG.θ))
-    @assert(!isnan(veh.state.posG.x))
-    @assert(!isnan(veh.state.posG.y))
+    x = polar(len/2, center.θ)
+    y = polar(wid/2, center.θ+π/2)
 
-    x = polar(veh.def.length/2, veh.state.posG.θ)
-    y = polar(veh.def.width/2, veh.state.posG.θ+π/2)
-
-    retval.pts[1] =  x - y + center
-    retval.pts[2] =  x + y + center
-    retval.pts[3] = -x + y + center
-    retval.pts[4] = -x - y + center
+    C = convert(VecE2,center)
+    retval.pts[1] =  x - y + C
+    retval.pts[2] =  x + y + C
+    retval.pts[3] = -x + y + C
+    retval.pts[4] = -x - y + C
     retval.npts = 4
 
-    ensure_pts_sorted_by_min_polar_angle!(retval)
+    AutomotiveDrivingModels.ensure_pts_sorted_by_min_polar_angle!(retval)
 
     retval
 end
+OBB(center::VecSE2, len::Float64, wid::Float64) = OBB!(ConvexPolygon(4), center, len, wid)
+function OBB!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2 = get_center(veh))
+
+    # get an oriented bounding box at the vehicle's position
+
+    OBB!(retval, center, veh.def.length, veh.def.with)
+
+    retval
+end
+OBB(veh::Vehicle, center::VecE2 = convert(VecE2, get_center(veh))) = OBB(ConvexPolygon(4), veh, center)
 
 ######################################
 
