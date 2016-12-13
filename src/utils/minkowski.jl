@@ -7,8 +7,8 @@ export
 
         LineSegment,
 
-        OBB!,
-        OBB,
+        to_oriented_bounding_box!,
+        get_oriented_bounding_box,
         is_colliding,
         is_potentially_colliding,
         get_collision_time,
@@ -311,7 +311,7 @@ function get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=Co
     get_distance(temp, VecE2(0,0))
 end
 
-function OBB!(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
+function to_oriented_bounding_box(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
 
     @assert(len > 0)
     @assert(wid > 0)
@@ -333,16 +333,16 @@ function OBB!(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
 
     retval
 end
-OBB(center::VecSE2, len::Float64, wid::Float64) = OBB!(ConvexPolygon(4), center, len, wid)
-function OBB!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2 = get_center(veh))
+get_oriented_bounding_box(center::VecSE2, len::Float64, wid::Float64) = to_oriented_bounding_box(ConvexPolygon(4), center, len, wid)
+function to_oriented_bounding_box(retval::ConvexPolygon, veh::Vehicle, center::VecSE2 = get_center(veh))
 
     # get an oriented bounding box at the vehicle's position
 
-    OBB!(retval, center, veh.def.length, veh.def.width)
+    to_oriented_bounding_box(retval, center, veh.def.length, veh.def.width)
 
     retval
 end
-OBB(veh::Vehicle, center::VecE2 = convert(VecE2, get_center(veh))) = OBB(ConvexPolygon(4), veh, center)
+get_oriented_bounding_box(veh::Vehicle, center::VecE2 = convert(VecE2, get_center(veh))) = get_oriented_bounding_box(ConvexPolygon(4), veh, center)
 
 ######################################
 
@@ -496,8 +496,8 @@ is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
 get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
 function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAMemory=CPAMemory())
 
-    OBB!(mem.vehA, a)
-    OBB!(mem.vehB, b)
+    to_oriented_bounding_box(mem.vehA, a)
+    to_oriented_bounding_box(mem.vehB, b)
     minkowksi_sum!(mem.mink, mem.vehA, mem.vehB)
 
     rel_pos = convert(VecE2, b.state.posG) - a.state.posG
@@ -542,15 +542,15 @@ end
 
 function is_colliding(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
     if is_potentially_colliding(A, B)
-        OBB!(mem.vehA, A)
-        OBB!(mem.vehB, B)
+        to_oriented_bounding_box(mem.vehA, A)
+        to_oriented_bounding_box(mem.vehB, B)
         return is_colliding(mem)
     end
     false
 end
 function get_distance(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
-    OBB!(mem.vehA, A)
-    OBB!(mem.vehB, B)
+    to_oriented_bounding_box(mem.vehA, A)
+    to_oriented_bounding_box(mem.vehB, B)
     get_distance(mem)
 end
 
@@ -567,10 +567,10 @@ Loops through the scene and finds the first collision between a vehicle and scen
 function get_first_collision(scene::Scene, target_index::Int, mem::CPAMemory=CPAMemory())
     A = target_index
     vehA = scene[A]
-    OBB!(mem.vehA, vehA)
+    to_oriented_bounding_box(mem.vehA, vehA)
     for (B,vehB) in enumerate(scene)
         if B != A
-            OBB!(mem.vehB, vehB)
+            to_oriented_bounding_box(mem.vehB, vehB)
             if is_potentially_colliding(vehA, vehB) && is_colliding(mem)
                 return CollisionCheckResult(true, A, B)
             end
@@ -588,12 +588,12 @@ function get_first_collision(scene::Scene, vehicle_indeces::AbstractVector{Int},
     N = length(vehicle_indeces)
     for (a,A) in enumerate(vehicle_indeces)
         vehA = scene[A]
-        OBB!(mem.vehA, vehA)
+        to_oriented_bounding_box(mem.vehA, vehA)
         for b in a +1 : length(vehicle_indeces)
             B = vehicle_indeces[b]
             vehB = scene[B]
             if is_potentially_colliding(vehA, vehB)
-                OBB!(mem.vehB, vehB)
+                to_oriented_bounding_box(mem.vehB, vehB)
                 if is_colliding(mem)
                     return CollisionCheckResult(true, A, B)
                 end
