@@ -41,6 +41,11 @@ let
     @test isapprox(lane.curve[2].pos.x,         1.0, atol=1e-6)
     @test isapprox(lane.curve[2].pos.y,       102.0, atol=1e-6)
     @test isapprox(lane.curve[2].pos.θ, deg2rad(90), atol=1e-6)
+
+    roadway = gen_straight_roadway(2, 100.0, lane_widths=[1.0, 2.0])
+    @test length(roadway.segments) == 1
+    @test isapprox(roadway[1].lanes[1].curve[1].pos.y, 0.0, atol=1e-6)
+    @test isapprox(roadway[1].lanes[2].curve[1].pos.y, 0.5 + 1.0, atol=1e-6)
 end
 
 let

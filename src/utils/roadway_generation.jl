@@ -1,30 +1,32 @@
 export
-        gen_straight_roadway!,
+        gen_straight_segment,
         gen_straight_roadway,
         gen_stadium_roadway
 
-function gen_straight_roadway!(roadway::Roadway, nlanes::Int, length::Float64=1000.0;
+function gen_straight_segment(seg_id::Int, nlanes::Int, length::Float64=1000.0;
     origin::VecSE2 = VecSE2(0.0,0.0,0.0),
     lane_width::Float64=DEFAULT_LANE_WIDTH, # [m]
+    lane_widths::Vector{Float64} = fill(lane_width, nlanes),
     boundary_leftmost::LaneBoundary=LaneBoundary(:solid, :white),
     boundary_rightmost::LaneBoundary=LaneBoundary(:solid, :white),
     boundary_middle::LaneBoundary=LaneBoundary(:broken, :white),
     )
 
-    seg_id = Base.length(roadway.segments)+1
     seg = RoadSegment(seg_id, Array(Lane, nlanes))
+    y = -lane_widths[1]/2
     for i in 1 : nlanes
-        y = lane_width*(i-1)
+        y += lane_widths[i]/2
         seg.lanes[i] = Lane(LaneTag(seg_id,i), [CurvePt(body2inertial(VecSE2(   0.0,y,0.0), origin),    0.0),
                                                 CurvePt(body2inertial(VecSE2(length,y,0.0), origin), length)],
-                            width=lane_width,
+                            width=lane_widths[i],
                             boundary_left=(i == nlanes ? boundary_leftmost : boundary_middle),
                             boundary_right=(i == 1 ? boundary_rightmost : boundary_middle)
                            )
+
+        y += lane_widths[i]/2
     end
 
-    push!(roadway.segments, seg)
-    roadway
+    return seg
 end
 
 """
@@ -35,17 +37,18 @@ and proceeds in the positive x direction.
 function gen_straight_roadway(nlanes::Int, length::Float64=1000.0;
     origin::VecSE2 = VecSE2(0.0,0.0,0.0),
     lane_width::Float64=DEFAULT_LANE_WIDTH, # [m]
+    lane_widths::Vector{Float64} = fill(lane_width, nlanes),
     boundary_leftmost::LaneBoundary=LaneBoundary(:solid, :white),
     boundary_rightmost::LaneBoundary=LaneBoundary(:solid, :white),
     boundary_middle::LaneBoundary=LaneBoundary(:broken, :white),
     )
 
     retval = Roadway()
-    gen_straight_roadway!(retval, nlanes, length,
-                          origin=origin, lane_width=lane_width,
-                          boundary_leftmost=boundary_leftmost,
-                          boundary_rightmost=boundary_rightmost,
-                          boundary_middle=boundary_middle)
+    push!(retval.segments, gen_straight_segment(1, nlanes, length,
+                                                origin=origin, lane_widths=lane_widths,
+                                                boundary_leftmost=boundary_leftmost,
+                                                boundary_rightmost=boundary_rightmost,
+                                                boundary_middle=boundary_middle))
     retval
 end
 

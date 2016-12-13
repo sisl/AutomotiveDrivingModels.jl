@@ -16,7 +16,6 @@ export
         get_time_and_dist_of_closest_approach,
         is_collision_free,
         get_distance,
-        get_center,
         get_edge
 
 ######################################
@@ -173,9 +172,9 @@ function Base.show(io::IO, poly::ConvexPolygon)
     end
 end
 
-get_center(poly::ConvexPolygon) = sum(poly.pts) / poly.npts
-function get_distance(poly::ConvexPolygon, v::VecE2)
-    if contains(poly, v)
+AutomotiveDrivingModels.get_center(poly::ConvexPolygon) = sum(poly.pts) / poly.npts
+function get_distance(poly::ConvexPolygon, v::VecE2; solid::Bool=true)
+    if solid && contains(poly, v)
         0.0
     else
         min_dist = Inf
@@ -339,7 +338,7 @@ function OBB!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2 = get_center(v
 
     # get an oriented bounding box at the vehicle's position
 
-    OBB!(retval, center, veh.def.length, veh.def.with)
+    OBB!(retval, center, veh.def.length, veh.def.width)
 
     retval
 end
