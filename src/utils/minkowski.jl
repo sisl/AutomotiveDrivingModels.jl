@@ -16,7 +16,8 @@ export
         get_time_and_dist_of_closest_approach,
         is_collision_free,
         get_distance,
-        get_edge
+        get_edge,
+        get_side
 
 ######################################
 
@@ -86,6 +87,8 @@ function get_distance(seg::LineSegment, p::VecE2)
         abs(p - (seg.a + r*ab))
     end
 end
+
+get_side(seg::LineSegment, p::VecE2) = sign((seg.b.x-seg.a.x) * (p.y-seg.a.y) - (seg.b.y-seg.a.y) * (p.x-seg.a.x))
 
 ######################################
 
