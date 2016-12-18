@@ -505,8 +505,8 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
             pt_hi = next_lane_point(lane, roadway)
             s_gap = abs(pt_hi.pos - pt_lo.pos)
 
-            if curvept.s + Δs ≥ pt_lo.s + s_gap
-                curveind = CurveIndex(1,0.0)
+            if curvept.s + Δs ≥ pt_lo.s + s_gap # extends beyond the gap
+                curveind = lane.exits[1].target.ind
                 roadind = RoadIndex(curveind, lane.exits[1].target.tag)
                 return move_along(roadind, roadway, Δs - (lane.curve[end].s + s_gap - curvept.s))
             else # in the gap between lanes

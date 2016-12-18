@@ -71,6 +71,7 @@ export
     AgentClass,
     VehicleDef,
 
+    DEFAULT_VEHICLE_DEF,
     NULL_VEHICLEDEF,
     NULL_FRENET,
 

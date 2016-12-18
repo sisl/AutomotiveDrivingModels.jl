@@ -71,6 +71,7 @@ immutable VehicleDef
     width::Float64
 end
 const NULL_VEHICLEDEF = VehicleDef(0, AgentClass.CAR, NaN, NaN)
+const DEFAULT_VEHICLE_DEF = VehicleDef(1, AgentClass.CAR, 3.5, 2.0)
 Base.show(io::IO, d::VehicleDef) = @printf(io, "VehicleDef(%d, %s, %.3f, %.3f)", d.id, d.class == AgentClass.CAR ? "CAR" : d.class == AgentClass.MOTORCYCLE ? "MOTORCYCLE" : "TRUCK", d.length, d.width)
 
 type Vehicle

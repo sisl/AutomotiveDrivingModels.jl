@@ -1,7 +1,8 @@
 export
         gen_straight_segment,
         gen_straight_roadway,
-        gen_stadium_roadway
+        gen_stadium_roadway,
+        gen_bezier_curve
 
 function gen_straight_segment(seg_id::Int, nlanes::Int, length::Float64=1000.0;
     origin::VecSE2 = VecSE2(0.0,0.0,0.0),
@@ -27,6 +28,42 @@ function gen_straight_segment(seg_id::Int, nlanes::Int, length::Float64=1000.0;
     end
 
     return seg
+end
+
+"""
+quadratic bezier lerp
+"""
+Vec.lerp(A::VecE2, B::VecE2, C::VecE2, t::Float64) = (1-t)^2*A + 2*(1-t)*t*B + t^2*B
+
+"""
+cubic bezier lerp
+"""
+Vec.lerp(A::VecE2, B::VecE2, C::VecE2, D::VecE2, t::Float64) = (1-t)^3*A + 3*(1-t)^2*t*B + 3*(1-t)*t^2*C + t^3*D
+
+function gen_bezier_curve(A::VecSE2, B::VecSE2, rA::Float64, rB::Float64, nsamples::Int)
+
+    a = convert(VecE2, A)
+    d = convert(VecE2, B)
+    b = a + polar( rA, A.θ)
+    c = d + polar(-rB, B.θ)
+
+    s = 0.0
+    curve = Array(CurvePt, nsamples)
+    for i in 1 : nsamples
+        t = (i-1)/(nsamples-1)
+        P = lerp(a,b,c,d,t)
+        P′ = 3*(1-t)^2*(b-a) + 6*(1-t)*t*(c-b) + 3*t^2*(d-c)
+        P′′ = 6*(1-t)*(c-2b+a) + 6t*(d-2*c+b)
+        θ = atan2(P′)
+        κ = (P′.x*P′′.y - P′.y*P′′.x)/(P′.x^2 + P′.y^2)^1.5 # signed curvature
+
+        curve[i] = CurvePt(VecSE2(P.x,P.y,θ), s, κ)
+        if i > 1
+            s += abs(convert(VecE2, curve[i].pos) - convert(VecE2, curve[i-1].pos)) # approximation, but should be good for many samples
+        end
+    end
+
+    return curve
 end
 
 """
