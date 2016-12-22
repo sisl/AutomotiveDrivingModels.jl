@@ -9,6 +9,9 @@ export
     AccelDesang,
     LatLonAccel,
     LaneFollowingAccel,
+    AccelSteeringAngle,
+
+    BicycleGeom,
 
     pull_action!,
     propagate
@@ -242,3 +245,76 @@ function Base.copy!(v::Vector{Float64}, a::NextState)
     v
 end
 propagate{C<:ActionContext}(veh::Vehicle, action::NextState, context::C, roadway::Roadway) = action.s
+
+###########
+
+@with_kw type BicycleGeom
+    wheel_base = 3.0 # distance between front and rear axle [m]
+    wheel_base_offset = -1.0 # distance along vehicle from state position where the rear axle is [m]
+end
+
+
+immutable AccelSteeringAngle <: DriveAction
+    a::Float64 # accel [m/s²]
+    δ::Float64 # steering angle [rad]
+end
+Base.show(io::IO, a::AccelSteeringAngle) = @printf(io, "AccelSteeringAngle(%6.3f,%6.3f)", a.a, a.δ)
+Base.length(::Type{AccelSteeringAngle}) = 2
+Base.convert(::Type{AccelSteeringAngle}, v::Vector{Float64}) = AccelSteeringAngle(v[1], v[2])
+function Base.copy!(v::Vector{Float64}, a::AccelSteeringAngle)
+    v[1] = a.a
+    v[2] = a.δ
+    v
+end
+function AutomotiveDrivingModels.propagate(veh::Vehicle, action::AccelSteeringAngle, context::IntegratedContinuous, roadway::Roadway,
+    geom::BicycleGeom=BicycleGeom(),
+    )
+
+    L = geom.wheel_base
+    l = geom.wheel_base_offset
+
+    a = action.a # accel [m/s²]
+    δ = action.δ # steering wheel angle [rad]
+
+    x = veh.state.posG.x
+    y = veh.state.posG.y
+    θ = veh.state.posG.θ
+    v = veh.state.v
+
+    Δt = context.Δt
+
+    s = v*Δt + a*Δt*Δt/2 # distance covered
+    v′ = v + a*Δt
+
+    if abs(δ) < 0.01 # just drive straight
+        posG = veh.state.posG + polar(s, θ)
+    else # drive in circle
+
+        R = L/tan(δ) # turn radius
+
+        β = s/R
+        xc = x - R*sin(θ) + l*cos(θ)
+        yc = y + R*cos(θ) + l*sin(θ)
+
+        θ′ = mod(θ+β, 2π)
+        x′ = xc + R*sin(θ+β) - l*cos(θ′)
+        y′ = yc - R*cos(θ+β) - l*sin(θ′)
+
+        posG = VecSE2(x′, y′, θ′)
+    end
+
+    VehicleState(posG, roadway, v′)
+end
+
+# function Base.get(::Type{AccelSteeringAngle}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0,
+#     geom::BicycleGeom=BicycleGeom(),
+#     )
+#     accel = get(ACC, rec, roadway, vehicle_index, pastframe)
+#     turnrate = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
+#     AccelSteeringAngle(accel, turnrate)
+# end
+# function AutomotiveDrivingModels.pull_action!(::Type{AccelSteeringAngle}, a::Vector{Float64}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+#     a[1] = get(ACC, rec, roadway, vehicle_index, pastframe)
+#     a[2] = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
+#     a
+# end

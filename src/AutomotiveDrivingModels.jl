@@ -5,6 +5,7 @@ module AutomotiveDrivingModels
 using Compat
 using Reexport
 using Discretizers
+using Parameters
 
 @reexport using DataFrames
 @reexport using Distributions
