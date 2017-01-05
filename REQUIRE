@@ -6,5 +6,4 @@ DataArrays
 DataFrames
 Discretizers
 Distributions
-GaussianMixtures
 Parameters
