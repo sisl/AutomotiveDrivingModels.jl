@@ -37,6 +37,7 @@ let
 
     @test get_index_of_first_vehicle_with_id(scene, 1) == 1
     @test get_index_of_first_vehicle_with_id(scene, 2) == 2
+    @test get_first_available_id(scene) == 3
 
     @test iscarinframe(scene, 1)
     @test iscarinframe(scene, 2)
@@ -50,6 +51,8 @@ let
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 2, trajdata.roadway) == NeighborLongitudinalResult(0, 250.0)
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 1, trajdata.roadway) == NeighborLongitudinalResult(2, 4.0)
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 2, trajdata.roadway) == NeighborLongitudinalResult(0, 250.0)
+
+    push!(scene, get_vehiclestate(trajdata, 1, 1))
 end
 
 let

@@ -110,6 +110,7 @@ export
 
     get_by_id,
     get_index_of_first_vehicle_with_id,
+    get_first_available_id,
     record_length,
     get_scene,
     push_back_records!,

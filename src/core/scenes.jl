@@ -38,6 +38,16 @@ function Base.push!(scene::Scene, veh::Vehicle)
     scene
 end
 
+function get_first_available_id(scene::Scene)
+    ids = Set{Int}([veh.def.id for veh in scene])
+    id = 1
+    while in(id, ids)
+        id += 1
+    end
+    return id
+end
+Base.push!(scene::Scene, state::VehicleState) = push!(scene, Vehicle(state, VehicleDef(get_first_available_id(scene))))
+
 Base.length(scene::Scene) = scene.n_vehicles
 Base.getindex(scene::Scene, i::Int) = scene.vehicles[i]
 function Base.setindex!(scene::Scene, veh::Vehicle, i::Int)
