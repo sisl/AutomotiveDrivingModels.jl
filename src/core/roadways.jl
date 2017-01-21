@@ -681,7 +681,7 @@ function read_dxf(io::IO, ::Type{Roadway};
             for (tag2, pts2) in lane_pts_dict
                 if tag2.segment != tag.segment
                     for (ind,pt) in enumerate(pts2)
-                        sq_dist = abs2(pt - pts[end])
+                        sq_dist = abs2(pt - pts[1])
                         if sq_dist < best_sq_dist
                             best_sq_dist = sq_dist
                             best_ind = ind
