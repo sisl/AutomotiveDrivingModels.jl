@@ -42,6 +42,7 @@ function Trajdata(trajdata::Trajdata, frame_lo::Int, frame_hi::Int)
     Trajdata(roadway, vehdefs, states, frames)
 end
 
+Base.show(io::IO, trajdata::Trajdata) = @printf(io, "Trajdata(%d frames)", nframes(trajdata))
 function Base.write(io::IO, trajdata::Trajdata)
     # writes to a text file
     # - does not write the roadway

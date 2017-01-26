@@ -134,6 +134,7 @@ type Roadway
     Roadway(segments::Vector{RoadSegment}=RoadSegment[]) = new(segments)
 end
 
+Base.show(io::IO, roadway::Roadway) = @printf(io, "Roadway")
 function Base.write(io::IO, roadway::Roadway)
     # writes to a text file
 
