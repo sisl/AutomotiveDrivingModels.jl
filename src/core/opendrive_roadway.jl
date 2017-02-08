@@ -135,6 +135,110 @@ let
     @test isapprox(get(lanegeo, 0.2), VecSE2(1.124, 1.156, 0.800), atol=1e-3)
 end
 
+"""
+    proj(posG, lanegeo, Float64)
+
+Returns a tuple (s,⟂) where
+s is the s-value of the closest footpoint of posG onto the lanegeo.
+    It is the absolute s value, ie not necessarily 0 at the start of the lanegeo
+
+⟂ is true if the projection posG is perpendicular to the lane geo (it is false when off either end).
+    If posG is exactly on the line it is considered perpendicular.
+"""
+function Vec.proj(posG::Union{VecE2, VecSE2}, lanegeo::LaneGeometryRecord{GeomLine}, ::Type{Float64};
+    # perp_tolerance::Float64=1e-8,
+    )
+
+    isfinite(posG) || throw(ArgumentError("posG must be finite"))
+
+    C = convert(VecE2, lanegeo.posG) # origin
+    P = convert(VecE2, posG)
+    D = P - C # 2D position wrt to start of lanegeo
+    Q = polar(1.0, lanegeo.posG.θ) # line unit ray vector
+    Δs = proj(D, Q, Float64) # get distance along
+
+    if Δs < 0.0
+        return (lanegeo.s, false)
+    elseif Δs > lanegeo.length
+        return (lanegeo.s + lanegeo.length, false)
+    else
+        # F = C+Δs*Q # footpoint
+        # ⟂ = isapprox(dot(Q, P-F), 0.0, atol=perp_tolerance) # whether it is perpendicular
+        return (lanegeo.s + Δs, true)
+    end
+end
+function Vec.proj(posG::Union{VecE2, VecSE2}, lanegeo::LaneGeometryRecord{GeomArc}, ::Type{Float64};
+    # perp_tolerance::Float64=1e-8,
+    critical_tolerance::Float64=1e-8,
+    warn_on_critical::Bool=false,
+    )
+
+    isfinite(posG) || throw(ArgumentError("posG must be finite"))
+
+    κ = lanegeo.geo.curvature
+    if isapprox(κ, 0.0) # treat it as a line
+        return proj(posG, LaneGeometryRecord(lanegeo.posG, lanegeo.length, GeomLine(), lanegeo.s))
+    end
+
+    r = 1/κ
+
+    O = convert(VecE2, lanegeo.posG) # origin
+    P = convert(VecE2, posG)
+    C = O + polar(r, lanegeo.posG.θ + π/2)
+    CP = P-C
+
+    if isapprox(abs2(CP), 0.0, atol=critical_tolerance) # on the C point
+        # This is a critical location, and any ψ is valid
+        # We will default to s = lanegeo.s
+        return (lanegeo.s, true)
+    end
+
+    ψ₀ = atan2(O-C)
+    ψ = atan2(CP) - ψ₀ # directed angle from O to P about C
+    Δs = r*ψ
+
+    if Δs < 0.0
+        return (lanegeo.s, false)
+    elseif Δs > lanegeo.length
+        return (lanegeo.s + lanegeo.length, false)
+    else
+        # F = C + polar(r, ψ + ψ₀) # footpoint
+        # ⟂ = isapprox(dot(Q, P-F), 0.0, atol=perp_tolerance) # whether it is perpendicular
+        return (lanegeo.s + Δs, true)
+    end
+
+
+    Δs = proj(D, Q, Float64) # get distance along
+end
+
+let
+    lanegeo = LaneGeometryRecord(VecSE2(0.0,0.0,0.0), 1.0, GeomLine())
+    (s, ⟂) = proj(VecSE2(0.0,0.0), lanegeo, Float64); @test isapprox(s,0.0); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.0,-1.0), lanegeo, Float64); @test isapprox(s,0.0); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.0, 1.0), lanegeo, Float64); @test isapprox(s,0.0); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.25, 0.0), lanegeo, Float64); @test isapprox(s,0.25); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.25,-1.0), lanegeo, Float64); @test isapprox(s,0.25); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.25, 1.0), lanegeo, Float64); @test isapprox(s,0.25); @test ⟂
+    (s, ⟂) = proj(VecSE2(1.0, 0.0), lanegeo, Float64); @test isapprox(s,1.00); @test ⟂
+    (s, ⟂) = proj(VecSE2(1.0,-1.0), lanegeo, Float64); @test isapprox(s,1.00); @test ⟂
+    (s, ⟂) = proj(VecSE2(1.0, 1.0), lanegeo, Float64); @test isapprox(s,1.00); @test ⟂
+    (s, ⟂) = proj(VecE2(1.25, 0.0), lanegeo, Float64); @test isapprox(s,1.00); @test !⟂
+    (s, ⟂) = proj(VecE2(1.25,-1.0), lanegeo, Float64); @test isapprox(s,1.00); @test !⟂
+
+    lanegeo = LaneGeometryRecord(VecSE2(1.0,2.0,π/4), 2.0, GeomLine())
+    (s, ⟂) = proj(VecSE2(3.0,2.0), lanegeo, Float64); @test isapprox(s,sqrt(2)); @test ⟂
+    (s, ⟂) = proj(VecSE2(1.0,4.0), lanegeo, Float64); @test isapprox(s,sqrt(2)); @test ⟂
+
+    lanegeo = LaneGeometryRecord(VecSE2(0.0,0.0,0.0), π/2, GeomArc(1.0))
+    (s, ⟂) = proj(VecSE2(0.0,0.0), lanegeo, Float64); @test isapprox(s,0.0); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.0,-1.0), lanegeo, Float64); @test isapprox(s,0.0); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.0, 1.0), lanegeo, Float64); @test isapprox(s,0.0); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.0, 2.0), lanegeo, Float64); @test isapprox(s,π/2); @test !⟂
+    (s, ⟂) = proj(VecSE2(-1.0, -2.0), lanegeo, Float64); @test isapprox(s,0.0); @test !⟂
+    (s, ⟂) = proj(VecSE2(0.0,1.0) + polar(1.1, 0.4-π/2), lanegeo, Float64); @test isapprox(s,0.4); @test ⟂
+    (s, ⟂) = proj(VecSE2(0.0,1.0) + polar(0.9, 0.4-π/2), lanegeo, Float64); @test isapprox(s,0.4); @test ⟂
+end
+
 type Road
     name::String
     length::Float64
@@ -145,6 +249,14 @@ type Road
     refline::Vector{LaneGeometryRecord}
     # sections::Vector{LaneSection}
 end
+function Road(;
+    name="UNNAMED",
+    id::UInt32=zero(UInt32),
+    )
+
+    return Road(name, 0.0, id, RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], LaneGeometryRecord[])
+end
+
 Base.length(road::Road) = road.length
 
 """
@@ -190,6 +302,31 @@ Any s values out of bounds will be clamped
 """
 Base.get(road::Road, ::Type{VecSE2}, s::Float64) = get(get(road, LaneGeometryRecord, s), s)
 
+"""
+    push!(road, lanegeo)
+
+Append the lane geometry record to the reference line and increment the road's length as appropriate
+"""
+function Base.push!(road::Road, lanegeo::LaneGeometryRecord)
+    @assert isapprox(lanegeo.s, road.length) # starts at end
+    road.length += lanegeo.length # add to total road length
+    push!(road.refline, lanegeo)
+    return road
+end
+
+"""
+    push!(road, length, geo)
+
+Construct and append the lane geometry record to the reference line and increment the road's length as appropriate
+Only works for non-empty reference lines
+"""
+function Base.push!{G<:LaneGeometries}(road::Road, length::Float64, geo::G)
+    !isempty(road.refline) || error("Cannot append to an empty road refline as we need a starting position")
+    posG = get(road, VecSE2, road.length) # starting pos is end of road
+    lanegeo = LaneGeometryRecord(posG, length, geo, road.length)
+    return push!(road, lanegeo)
+end
+
 let
     types =  [RoadTypeRecord(0.0, roadtype_unknown, 1.0),
               RoadTypeRecord(1.0, roadtype_unknown, 2.0),
@@ -210,15 +347,22 @@ end
 let
     lane_geometry_records = [
         LaneGeometryRecord(VecSE2(0.0,0.0,0.0), 1.0, GeomLine()),
-        LaneGeometryRecord(VecSE2(1.0,0.0,0.0), π/4, GeomArc(1.0), 1.0),
-        LaneGeometryRecord(VecSE2(2.0,1.0,π/4), 1.0, GeomLine(), 1.0+π/4),
+        LaneGeometryRecord(VecSE2(1.0,0.0,0.0), π/2, GeomArc(1.0), 1.0),
+        LaneGeometryRecord(VecSE2(2.0,1.0,π/2), 1.0, GeomLine(), 1.0+π/2),
     ]
-    road = Road("", 2+π/4, zero(UInt32), RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], lane_geometry_records)
+    road = Road("", 2+π/2, zero(UInt32), RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], lane_geometry_records)
     @test isapprox(get(road, VecSE2, 0.0), VecSE2(0.0,0.0,0.0))
     @test isapprox(get(road, VecSE2, 0.5), VecSE2(0.5,0.0,0.0))
     @test isapprox(get(road, VecSE2, 1.0), VecSE2(1.0,0.0,0.0))
-    # NOT CONVINCED ABOUT THIS TEST!
-    # println(get(road, VecSE2, 1.0+π/8))
-    # println(VecSE2(1.0+cos(π/8),0.0+sin(π/8),π/8))
-    # @test isapprox(get(road, VecSE2, 1.0+π/8), VecSE2(1.0+cos(π/8),0.0+sin(π/8),π/8), atol=1e-6)
+    @test isapprox(get(road, VecSE2, 1.0+π/4), VecSE2(1.0+cos(π/4),1-sin(π/4),π/4), atol=1e-6)
+
+    # this tests push - should get the same as above
+    road = Road()
+    push!(road, lane_geometry_records[1])
+    push!(road, lane_geometry_records[2].length, lane_geometry_records[2].geo)
+    push!(road, lane_geometry_records[3].length, lane_geometry_records[3].geo)
+    @test isapprox(get(road, VecSE2, 0.0), VecSE2(0.0,0.0,0.0))
+    @test isapprox(get(road, VecSE2, 0.5), VecSE2(0.5,0.0,0.0))
+    @test isapprox(get(road, VecSE2, 1.0), VecSE2(1.0,0.0,0.0))
+    @test isapprox(get(road, VecSE2, 1.0+π/4), VecSE2(1.0+cos(π/4),1-sin(π/4),π/4), atol=1e-6)
 end
