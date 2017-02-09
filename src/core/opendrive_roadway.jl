@@ -69,19 +69,4 @@ n_predecessors(road::Road) = length(road.predecessors)
 
 using Base.Test
 
-let
-    types =  [RoadTypeRecord(0.0, roadtype_unknown, 1.0),
-              RoadTypeRecord(1.0, roadtype_unknown, 2.0),
-              RoadTypeRecord(5.0, roadtype_unknown, 3.0),
-              RoadTypeRecord(7.0, roadtype_unknown, 4.0),
-             ]
-    road = Road("", NaN, zero(UInt32), types, RoadLinkRecord[], RoadLinkRecord[], LaneGeometryRecord[])
-    @test get(road, RoadTypeRecord,-1.0) === types[1]
-    @test get(road, RoadTypeRecord, 0.0) === types[1]
-    @test get(road, RoadTypeRecord, 0.5) === types[1]
-    @test get(road, RoadTypeRecord, 1.5) === types[2]
-    @test get(road, RoadTypeRecord, 5.0) === types[3]
-    @test get(road, RoadTypeRecord, 5.5) === types[3]
-    @test get(road, RoadTypeRecord, 7.0) === types[4]
-    @test get(road, RoadTypeRecord, 7.5) === types[4]
-end
+
