@@ -180,25 +180,25 @@ function Vec.proj(posG::Union{VecE2, VecSE2}, lanegeo::LaneGeometryRecord{GeomAr
     Δs = proj(D, Q, Float64) # get distance along
 end
 
-abstract LaneOffset
-immutable CubicOffset <: LaneOffset
+abstract Offset
+immutable CubicOffset <: Offset
     # offset = a + b⋅Δs + c⋅Δs² + d⋅Δs³
     a::Float64
     b::Float64
     c::Float64
     d::Float64
 end
-immutable DottedOffset <: LaneOffset
+immutable PiecewiseOffset <: Offset
     # TODO THIS
 end
-typealias LaneOffsets Union{CubicOffset,DottedOffset}
-immutable LaneOffsetRecord{O<:LaneOffsets,DottedOffset}
+typealias Offsets Union{CubicOffset,PiecewiseOffset}
+immutable OffsetRecord{O<:Offsets}
     s::Float64 # start position (s-coordinate)
     offset::O
 
-    function LaneOffsetRecord(offset, s::Float64)
-        s ≥ 0 || throw(ArgumentError("LaneOffsetRecord starting s must be nonnegative"))
-        new(offset, s)
+    function SpacingRecord(offset, s::Float64=0.0)
+        s ≥ 0 || throw(ArgumentError("SpacingRecord starting s must be nonnegative"))
+        new(s, offset)
     end
 end
 
@@ -206,22 +206,60 @@ function _get_offset(O::CubicOffset, Δs::Float64)
     a, b, c, d = O.a, O.b, O.c, O.d
     return a + Δs*(b + Δs*(c + Δs*d))
 end
-function _get_offset(O::DottedOffset, Δs::Float64)
+function _get_offset(O::PiecewiseOffset, Δs::Float64)
     error("NOT IMPLEMENTED")
+end
+
+@enum RoadMarkType roadmarktype_none=0 roadmarktype_solid=1 roadmarktype_broken=2 roadmarktype_solid_solid=3 roadmarktype_solid_broken=4 roadmarktype_broken_solid=5 roadmarktype_broken_broken=6 roadmarktype_botts_dots=7 roadmarktype_grass=8 roadmarktype_curb=9
+@enum RoadMarkWeight roadmarkweight_standard=0 roadmarkweight_bold=1
+@enum LaneType lanetype_none=0 lanetype_driving=1 lanetype_stop=2 lanetype_shoulder=3 lanetype_biking=4 lanetype_sidewalk=5 lanetype_border=6 lanetype_restricted=7 lanetype_parking=8 lanetype_bidirectional=9 lanetype_median=10 lanetype_special1=11 lanetype_special2=12 lanetype_special3=13 lanetype_roadWorks=14 lanetype_tram=15 lanetype_rail=16 lanetype_entry=17 lanetype_exit=18 lanetype_offramp=19 lanetype_onramp=20
+
+const DEFAULT_MARK_WIDTH = 0.1 # [m]
+
+immutable RoadMark
+    s::Float64 # start position relative to the position of the preceeding LaneSection
+    marktype::RoadMarkType
+    weight::RoadMarkWeight # (the center of the marking is on the border)
+    color::Colorant # typically white, blue, green, red, or yellow
+    width::Float64 # [m]
+    allows_lanechange_pos::Bool # allows lane changes in direction of positive ids
+    allows_lanechange_neg::Bool # allows lane changes in direction of negative ids
+end
+function RoadMark(s::Float64;
+    marktype::RoadMarkType = roadmarktype_solid,
+    weight::RoadMarkWeight = roadmarkweight_standard,
+    color::Colorant = colorant"white",
+    width::Float64 = DEFAULT_MARK_WIDTH,
+    )
+
+    new(s, marktype, weight, color)
 end
 
 @enum LaneType lanetype_unknown=0
 
+immutable LaneSpeedRecord
+    s::Float64 # start position relative to the position of the preceeding LaneSection
+    speed_limit::Float64 # [m/s]
+end
+
 type Lane
     lanetype::LaneType
-    
+    lanetype::LaneType
+    border::RoadMark
+    border_offset::Vector{OffsetRecord} # distance from ref to marking; for lane 0 this is the offset of the center
+    speeds::Vector{LaneSpeedRecord}
+    next::Int # id of next lane, 0 if none
+    prev::Int # id of prev lane, 0 if none
+    # TODO: material type / friction ?
+    # TODO: access record?
+    # TODO: rule record?
 end
 
 type LaneSection
     s::Float64 # start position [m]
-    left_lanes::Vector{LaneOffset}
-    right_lanes::Vector{LaneOffset}
-    center::LaneOffset
+    left_lanes::Vector{Lane} # positive id
+    right_lanes::Vector{Lane} # negative id
+    center::Lane # just used for its type?
 end
 
 
