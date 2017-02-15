@@ -8,6 +8,45 @@ export
         roadtype_pedestrian,
         roadtype_bicycle,
 
+        RoadMarkType,
+        roadmarktype_none,
+        roadmarktype_solid,
+        roadmarktype_broken,
+        roadmarktype_solid_solid,
+        roadmarktype_solid_broken,
+        roadmarktype_broken_solid,
+        roadmarktype_broken_broken,
+        roadmarktype_botts_dots,
+        roadmarktype_grass,
+        roadmarktype_curb,
+
+        RoadMarkWeight,
+        roadmarkweight_standard,
+        roadmarkweight_bold,
+
+        LaneType,
+        lanetype_none,
+        lanetype_driving,
+        lanetype_stop,
+        lanetype_shoulder,
+        lanetype_biking,
+        lanetype_sidewalk,
+        lanetype_border,
+        lanetype_restricted,
+        lanetype_parking,
+        lanetype_bidirectional,
+        lanetype_median,
+        lanetype_special1,
+        lanetype_special2,
+        lanetype_special3,
+        lanetype_roadworks,
+        lanetype_tram,
+        lanetype_rail,
+        lanetype_entry,
+        lanetype_exit,
+        lanetype_offramp,
+        lanetype_onramp,
+
         RoadTypeRecord,
         RoadLinkRecord,
 
@@ -17,14 +56,42 @@ export
         GeomLine,
         GeomArc,
 
+        Offset,
+        CubicOffset,
+        PiecewiseOffset,
+        Offsets,
+        OffsetRecord,
+
+        DEFAULT_MARK_WIDTH,
+        RoadMark,
+        LaneSpeedRecord,
+        Lane,
+        LaneSection,
+
+        n_lanes_left,
+        n_lanes_right,
+
         Road,
         n_successors,
-        n_predecessors
+        n_predecessors,
+        get_border_point,
+        get_center_point
 
 
 @enum RoadType roadtype_unknown=0 roadtype_rural=1 roadtype_motorway=2 roadtype_town=3 roadtype_low_speed=4 roadtype_pedestrian=5 roadtype_bicycle=6
 
 const DEFAULT_OFFSET_TOLERANCE = 1e-8
+
+function _get_based_on_s(sequential::Vector, s::Real)
+    # NOTE: only works on things with an 's' field
+    N = length(sequential)
+    @assert N ≥ 1
+    i = 1
+    while i < N && sequential[i+1].s ≤ s
+        i += 1
+    end
+    return sequential[i]
+end
 
 immutable RoadTypeRecord
     s::Float64 # starting location
@@ -195,11 +262,6 @@ typealias Offsets Union{CubicOffset,PiecewiseOffset}
 immutable OffsetRecord{O<:Offsets}
     s::Float64 # start position (s-coordinate)
     offset::O
-
-    function SpacingRecord(offset, s::Float64=0.0)
-        s ≥ 0 || throw(ArgumentError("SpacingRecord starting s must be nonnegative"))
-        new(s, offset)
-    end
 end
 
 function _get_offset(O::CubicOffset, Δs::Float64)
@@ -207,6 +269,15 @@ function _get_offset(O::CubicOffset, Δs::Float64)
     return a + Δs*(b + Δs*(c + Δs*d))
 end
 function _get_offset(O::PiecewiseOffset, Δs::Float64)
+    error("NOT IMPLEMENTED")
+end
+
+function _get_orientation(O::CubicOffset, Δs::Float64)
+    b, c, d = O.b, O.c, O.d
+    dt = b + Δs*(2c + Δs*3d)
+    atan2(dt, Δs)
+end
+function _get_orientation(O::PiecewiseOffset, Δs::Float64)
     error("NOT IMPLEMENTED")
 end
 
@@ -230,12 +301,12 @@ function RoadMark(s::Float64;
     weight::RoadMarkWeight = roadmarkweight_standard,
     color::Colorant = colorant"white",
     width::Float64 = DEFAULT_MARK_WIDTH,
+    allows_lanechange_pos::Bool = false,
+    allows_lanechange_neg::Bool = false,
     )
 
-    new(s, marktype, weight, color)
+    RoadMark(s, marktype, weight, color, width, allows_lanechange_pos, allows_lanechange_neg)
 end
-
-@enum LaneType lanetype_unknown=0
 
 immutable LaneSpeedRecord
     s::Float64 # start position relative to the position of the preceeding LaneSection
@@ -244,9 +315,8 @@ end
 
 type Lane
     lanetype::LaneType
-    lanetype::LaneType
-    border::RoadMark
-    border_offset::Vector{OffsetRecord} # distance from ref to marking; for lane 0 this is the offset of the center
+    borders::Vector{RoadMark}
+    border_offsets::Vector{OffsetRecord} # distance from refline to marking; for lane 0 this is the offset of the center
     speeds::Vector{LaneSpeedRecord}
     next::Int # id of next lane, 0 if none
     prev::Int # id of prev lane, 0 if none
@@ -256,10 +326,59 @@ type Lane
 end
 
 type LaneSection
+    center::Lane
+    lanes_left::Vector{Lane} # positive id
+    lanes_right::Vector{Lane} # negative id
     s::Float64 # start position [m]
-    left_lanes::Vector{Lane} # positive id
-    right_lanes::Vector{Lane} # negative id
-    center::Lane # just used for its type?
+end
+function LaneSection(center::Lane;
+    lanes_left::Vector{Lane} = Lane[],
+    lanes_right::Vector{Lane} = Lane[],
+    s::Float64 = 0.0,
+    )
+
+    return LaneSection(center, lanes_left, lanes_right, s)
+end
+
+n_lanes_left(section::LaneSection) = length(section.lanes_left)
+n_lanes_right(section::LaneSection) = length(section.lanes_right)
+
+"""
+    section[id]
+
+Returns the Lane for the given id.
+Positive ids are left, negative ids right, and 0 is the center.
+"""
+function Base.getindex(section::LaneSection, id::Int)
+    if id == 0
+        return section.center
+    elseif id > 0
+        return section.lanes_left[id]
+    else
+        return section.lanes_right[-id]
+    end
+end
+
+"""
+    get_offset(lane, s)
+
+Returns the offset of the lane outer border at s.
+Note that the returned t already has the correct sign:
+    postive indicates towards the left
+"""
+function get_offset(lane::Lane, s::Float64)
+    border_offset = _get_based_on_s(lane.border_offsets, s) # get the relevant offset
+    return _get_offset(border_offset.offset, s)
+end
+function get_orientation(lane::Lane, s::Float64)
+    border_offset = _get_based_on_s(lane.border_offsets, s)
+    return _get_orientation(border_offset.offset, s)
+end
+function get_offset_and_orientation(lane::Lane, s::Float64)
+    border_offset = _get_based_on_s(lane.border_offsets, s)
+    t = _get_offset(border_offset.offset, s)
+    θ = _get_orientation(border_offset.offset, s)
+    return (t,θ)
 end
 
 
@@ -278,7 +397,7 @@ function Road(;
     id::UInt32=zero(UInt32),
     )
 
-    return Road(name, 0.0, id, RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], LaneGeometryRecord[])
+    return Road(name, 0.0, id, RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], LaneGeometryRecord[], LaneSection[])
 end
 
 Base.length(road::Road) = road.length
@@ -289,33 +408,7 @@ Base.length(road::Road) = road.length
 Obtain the type record valid for the given s ∈ [0, road.length]
 Any s values out of bounds will be clamped
 """
-function Base.get(road::Road, ::Type{RoadTypeRecord}, s::Float64)
-    N = length(road.types)
-    @assert N ≥ 1
-    i = 1
-    while i < N && road.types[i+1].s ≤ s
-        i += 1
-    end
-    return road.types[i]
-end
-
-"""
-    get_offset_at(road, s)
-
-Returns the
-"""
-function Base.get(road::Road, ::Type{RoadTypeRecord}, s::Float64)
-    N = length(road.types)
-    @assert N ≥ 1
-    i = 1
-    while i < N && road.types[i+1].s ≤ s
-        i += 1
-    end
-    return road.types[i]
-end
-
-n_successors(road::Road) = length(road.successors)
-n_predecessors(road::Road) = length(road.predecessors)
+Base.get(road::Road, ::Type{RoadTypeRecord}, s::Float64) = _get_based_on_s(road.types, s)
 
 """
     get(road, LaneGeometryRecord, s)
@@ -323,15 +416,19 @@ n_predecessors(road::Road) = length(road.predecessors)
 Obtain the LaneGeometryRecord for the reference line containing s ∈ [0, road.length]
 Any s values out of bounds will be clamped
 """
-function Base.get(road::Road, ::Type{LaneGeometryRecord}, s::Float64)
-    N = length(road.refline)
-    @assert N ≥ 1
-    i = 1
-    while i < N && road.refline[i+1].s ≤ s
-        i += 1
-    end
-    return road.refline[i]
-end
+Base.get(road::Road, ::Type{LaneGeometryRecord}, s::Float64) = _get_based_on_s(road.refline, s)
+
+"""
+    get(road, LaneSection, s)
+
+Obtain the LaneSection containing s ∈ [0, road.length]
+Any s values out of bounds will be clamped
+"""
+Base.get(road::Road, ::Type{LaneSection}, s::Float64) = _get_based_on_s(road.sections, s)
+
+n_successors(road::Road) = length(road.successors)
+n_predecessors(road::Road) = length(road.predecessors)
+
 
 """
     get(road, VecSE2, s)
@@ -340,6 +437,38 @@ Obtain the position in global coordinates for the reference line containing s �
 Any s values out of bounds will be clamped
 """
 Base.get(road::Road, ::Type{VecSE2}, s::Float64) = get(get(road, LaneGeometryRecord, s), s)
+
+"""
+    get_border_point(road, section, lane, s)
+
+Obtain the position in global coordinates for the lane border containing at s
+Any s values out of bounds will be clamped
+"""
+function get_border_point(road::Road, section::LaneSection, lane::Lane, s::Float64)
+    t,θ = get_offset_and_orientation(lane, section.s - s)
+    P = get(road, VecSE2, s) # footpoint
+    return P + polar(t, P.θ + π/2, θ)
+end
+
+"""
+    get_center_point(road, section, lane, s)
+
+Obtain the position in global coordinates for the lane centerline containing at s
+Any s values out of bounds will be clamped
+"""
+function get_center_point(road::Road, section::LaneSection, laneid::Int, s::Float64)
+    if laneid == 0
+        return get_border_point(road, section, section[laneid], s)
+    elseif laneid > 0
+        outer = get_border_point(road, section, section[laneid], s)
+        inner = get_border_point(road, section, section[laneid-1], s)
+        return lerp(inner, outer, 0.5)
+    else
+        outer = get_border_point(road, section, section[laneid], s)
+        inner = get_border_point(road, section, section[laneid+1], s)
+        return lerp(inner, outer, 0.5)
+    end
+end
 
 """
     push!(road, lanegeo)

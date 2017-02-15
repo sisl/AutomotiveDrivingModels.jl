@@ -2,6 +2,7 @@ __precompile__()
 
 module AutomotiveDrivingModels
 
+using Colors
 using Compat
 using Reexport
 using Discretizers

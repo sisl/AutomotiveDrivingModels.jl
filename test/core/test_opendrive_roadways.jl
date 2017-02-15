@@ -86,7 +86,7 @@ let
               RoadTypeRecord(5.0, roadtype_unknown, 3.0),
               RoadTypeRecord(7.0, roadtype_unknown, 4.0),
              ]
-    road = Road("", NaN, zero(UInt32), types, RoadLinkRecord[], RoadLinkRecord[], LaneGeometryRecord[])
+    road = Road("", NaN, zero(UInt32), types, RoadLinkRecord[], RoadLinkRecord[], LaneGeometryRecord[], LaneSection[])
     @test get(road, RoadTypeRecord,-1.0) === types[1]
     @test get(road, RoadTypeRecord, 0.0) === types[1]
     @test get(road, RoadTypeRecord, 0.5) === types[1]
@@ -103,7 +103,7 @@ let
         LaneGeometryRecord(VecSE2(1.0,0.0,0.0), π/2, GeomArc(1.0), 1.0),
         LaneGeometryRecord(VecSE2(2.0,1.0,π/2), 1.0, GeomLine(), 1.0+π/2),
     ]
-    road = Road("", 2+π/2, zero(UInt32), RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], lane_geometry_records)
+    road = Road("", 2+π/2, zero(UInt32), RoadTypeRecord[], RoadLinkRecord[], RoadLinkRecord[], lane_geometry_records, LaneSection[])
     @test isapprox(get(road, VecSE2, 0.0), VecSE2(0.0,0.0,0.0))
     @test isapprox(get(road, VecSE2, 0.5), VecSE2(0.5,0.0,0.0))
     @test isapprox(get(road, VecSE2, 1.0), VecSE2(1.0,0.0,0.0))
