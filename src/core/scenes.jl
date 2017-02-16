@@ -50,6 +50,7 @@ Base.push!(scene::Scene, state::VehicleState) = push!(scene, Vehicle(state, Vehi
 
 Base.length(scene::Scene) = scene.n_vehicles
 Base.getindex(scene::Scene, i::Int) = scene.vehicles[i]
+Base.endof(scene::Scene) = scene.vehicles[scene.n_vehicles]
 function Base.setindex!(scene::Scene, veh::Vehicle, i::Int)
     scene.vehicles[i] = veh
     scene
