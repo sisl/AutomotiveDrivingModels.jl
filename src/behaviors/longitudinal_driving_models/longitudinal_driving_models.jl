@@ -166,45 +166,19 @@ end
 """
 Commonly referred to as IDM
 """
-type IntelligentDriverModel <: LongitudinalDriverModel
-    a::Float64 # predicted acceleration
-    σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
+@with_kw type IntelligentDriverModel <: LongitudinalDriverModel
+    a::Float64 = NaN # predicted acceleration
+    σ::Float64 = NaN # optional stdev on top of the model, set to zero or NaN for deterministic behavior
 
-    k_spd::Float64 # proportional constant for speed tracking when in freeflow [s⁻¹]
+    k_spd::Float64 = 1.0 # proportional constant for speed tracking when in freeflow [s⁻¹]
 
-    δ::Float64 # acceleration exponent [-]
-    T::Float64 # desired time headway [s]
-    v_des::Float64 # desired speed [m/s]
-    s_min::Float64 # minimum acceptable gap [m]
-    a_max::Float64 # maximum acceleration ability [m/s²]
-    d_cmf::Float64 # comfortable deceleration [m/s²] (positive)
-    d_max::Float64 # maximum decelleration [m/s²] (positive)
-
-    function IntelligentDriverModel(;
-        σ::Float64     =   NaN,
-        k_spd::Float64 =   1.0,
-        δ::Float64     =   4.0,
-        T::Float64     =   1.5,
-        v_des::Float64 =  29.0, # typically overwritten
-        s_min::Float64 =   5.0,
-        a_max::Float64 =   3.0,
-        d_cmf::Float64 =   2.0,
-        d_max::Float64 =   9.0,
-        )
-
-        retval = new()
-        retval.a     = NaN
-        retval.σ     = σ
-        retval.k_spd = k_spd
-        retval.δ     = δ
-        retval.T     = T
-        retval.v_des = v_des
-        retval.s_min = s_min
-        retval.a_max = a_max
-        retval.d_cmf = d_cmf
-        retval.d_max = d_max
-        retval
-    end
+    δ::Float64 = 4.0 # acceleration exponent [-]
+    T::Float64  = 1.5 # desired time headway [s]
+    v_des::Float64 = 29.0 # desired speed [m/s]
+    s_min::Float64 = 5.0 # minimum acceptable gap [m]
+    a_max::Float64 = 3.0 # maximum acceleration ability [m/s²]
+    d_cmf::Float64 = 2.0 # comfortable deceleration [m/s²] (positive)
+    d_max::Float64 = 9.0 # maximum decelleration [m/s²] (positive)
 end
 get_name(::IntelligentDriverModel) = "IDM"
 function set_desired_speed!(model::IntelligentDriverModel, v_des::Float64)
