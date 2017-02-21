@@ -623,6 +623,38 @@ end
 
 #############################################
 #
+# REAR
+#
+#############################################
+
+generate_feature_functions("Dist_Rear", :d_rear, Float64, "m", lowerbound=0.0, can_be_missing=true)
+function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    censor_hi::Float64=100.0,
+    )
+
+    if neighborrear.ind == 0
+        FeatureValue(100.0, FeatureState.CENSORED_HI)
+    else
+        len_ego = rec[vehicle_index, pastframe].def.length
+        len_oth = rec[neighborrear.ind, pastframe].def.length
+        FeatureValue(neighborrear.Δs - len_ego/2 - len_oth/2)
+    end
+end
+generate_feature_functions("Speed_Rear", :v_rear, Float64, "m/s", can_be_missing=true)
+function Base.get(::Feature_Speed_Rear, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    )
+
+    if neighborrear.ind == 0
+        FeatureValue(0.0, FeatureState.MISSING)
+    else
+        FeatureValue(rec[neighborrear.ind, pastframe].state.v)
+    end
+end
+
+#############################################
+#
 # SCENE WISE
 #
 #############################################
