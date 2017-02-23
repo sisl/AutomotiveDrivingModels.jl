@@ -558,10 +558,10 @@ function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle
         end
     end
 end
+
 generate_feature_functions("Inv_TTC", :inv_ttc, Float64, "1/s", can_be_missing=true)
 function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
     neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
-    missing_surrogate::Float64 = 0.0,
     censor_hi::Float64 = 10.0,
     )
 
@@ -591,6 +591,21 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
                 FeatureValue(f)
             end
         end
+    end
+end
+generate_feature_functions("TTC", :ttc, Float64, "s", can_be_missing=true)
+function Base.get(::Feature_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    censor_hi::Float64 = 10.0,
+    inv_ttc::FeatureValue = get(INV_TTC, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore, censor_hi=censor_hi),
+    )
+
+    if inv_ttc.i == FeatureState.MISSING
+        # if the value is missing then front car not found and set TTC to censor_hi
+        return FeatureValue(censor_hi, FeatureState.MISSING)
+    else
+        @assert is_feature_valid(inv_ttc) || inv_ttc.i == FeatureState.CENSORED_HI
+        return FeatureValue(min(1.0 / inv_ttc.v, censor_hi))
     end
 end
 
