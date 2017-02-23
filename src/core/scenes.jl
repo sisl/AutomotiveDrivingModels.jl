@@ -421,13 +421,15 @@ function get_neighbor_rear_along_lane(
     best_dist = max_distance_rear
     tag_target = tag_start
 
+    ignore = Set{Int}()
+
     dist_searched = 0.0
     while dist_searched < max_distance_rear
 
         lane = roadway[tag_target]
 
         for (i,veh) in enumerate(scene)
-            if i != index_to_ignore
+            if i != index_to_ignore && !in(veh.def.id, ignore)
 
                 s_adjust = NaN
 
@@ -457,6 +459,8 @@ function get_neighbor_rear_along_lane(
                             best_dist = dist
                             best_ind = i
                         end
+                    else
+                        push!(ignore, veh.def.id)
                     end
                 end
             end
