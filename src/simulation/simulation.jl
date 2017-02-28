@@ -63,6 +63,70 @@ function tick!{A<:DriveAction}(
 end
 
 """
+Run nticks of simulation and place all nticks+1 scenes into the SceneRecord
+"""
+function simulate!{D<:DriverModel}(
+    rec::SceneRecord,
+    scene::Scene,
+    roadway::Roadway,
+    models::Dict{Int,D},
+    nticks::Int
+    )
+
+    empty!(rec)
+    update!(rec, scene)
+    actions = Array(DriveAction, length(scene))
+
+    for tick in 1 : nticks
+        get_actions!(actions, scene, roadway, models)
+        tick!(scene, roadway, actions, models)
+        update!(rec, scene)
+    end
+
+    return rec
+end
+
+function _run_callbacks(rec, roadway, models, callbacks)
+    isdone = false
+    for callback in callbacks
+        isdone |= callback(rec, roadway, models)
+    end
+    return isdone
+end
+function simulate!{D<:DriverModel}(
+    rec::SceneRecord,
+    scene::Scene,
+    roadway::Roadway,
+    models::Dict{Int,D},
+    nticks::Int,
+    callbacks::Vector, # run after any scene is added to the SceneRecord
+                       # a callback need only implement eval(rec, roadway, models)
+                       # and return whether to terminate early
+    )
+
+    empty!(rec)
+    update!(rec, scene)
+
+    # potential early out right off the bat
+    if _run_callbacks(rec, roadway, models, callbacks)
+        return rec
+    end
+
+    actions = Array(DriveAction, length(scene))
+    for tick in 1 : nticks
+        get_actions!(actions, scene, roadway, models)
+        tick!(scene, roadway, actions, models)
+        update!(rec, scene)
+        if _run_callbacks(rec, roadway, models, callbacks)
+            break
+        end
+    end
+
+    return rec
+end
+
+
+"""
     Run a simulation and store the resulting scenes in the provided SceneRecord.
 Only the ego vehicle is simulated; the other vehicles are as they were in the provided trajdata
 Other vehicle states will be interpolated

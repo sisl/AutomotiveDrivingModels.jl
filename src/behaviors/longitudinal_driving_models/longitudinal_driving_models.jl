@@ -10,11 +10,30 @@ abstract LongitudinalDriverModel
 get_name(::LongitudinalDriverModel) = "???"
 set_desired_speed!(::LongitudinalDriverModel, v_des::Float64) = model # # do nothing by default
 reset_hidden_state!(model::LongitudinalDriverModel) = model # do nothing by default
-track_longitudinal!(model::LongitudinalDriverModel, scene::Scene, roadway::Roadway, ego_index::Int, target_index::Int) = model # do nothing by default
+track_longitudinal!(model::LongitudinalDriverModel, v_ego::Float64, v_oth::Float64, headway::Float64) = model # do nothing by default
 observe!(model::LongitudinalDriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
 Base.rand(model::LongitudinalDriverModel) = error("rand not implemented for model $model")
 Distributions.pdf(model::LongitudinalDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
 Distributions.logpdf(model::LongitudinalDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
+
+
+function track_longitudinal!(model::LongitudinalDriverModel, scene::Scene, roadway::Roadway, ego_index::Int, target_index::Int)
+    veh_ego = scene[ego_index]
+    v_ego = veh_ego.state.v
+    v_oth = NaN
+    headway = NaN
+
+    if target_index > 0 && target_index != ego_index
+        veh_target = scene[target_index]
+        s_gap = get_frenet_relative_position(get_rear_center(veh_target), veh_ego.state.posF.roadind, roadway).Δs
+        if s_gap > 0.0
+            headway = s_gap
+            v_oth = scene[target_index].state.v
+        end
+    end
+
+    return track_longitudinal!(model, v_ego, v_oth, headway)
+end
 
 ################################
 
@@ -54,14 +73,10 @@ function set_desired_speed!(model::ProportionalSpeedTracker, v_des::Float64)
     model.v_des = v_des
     model
 end
-function track_longitudinal!(model::ProportionalSpeedTracker, scene::Scene, roadway::Roadway, ego_index::Int, target_index::Int)
-    veh_ego = scene[ego_index]
-    v = veh_ego.state.v
-
-    Δv = model.v_des - v
+function track_longitudinal!(model::ProportionalSpeedTracker, v_ego::Float64, v_oth::Float64, headway::Float64)
+    Δv = model.v_des - v_ego
     model.a = Δv*model.k # predicted accel to match target speed
-
-    model
+    return model
 end
 function observe!(model::ProportionalSpeedTracker, scene::Scene, roadway::Roadway, egoid::Int)
     ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
@@ -117,20 +132,17 @@ function set_desired_speed!(model::PrincetonLongitudinalDriver, v_des::Float64)
     model.v_des = v_des
     model
 end
-function track_longitudinal!(model::PrincetonLongitudinalDriver, scene::Scene, roadway::Roadway, ego_index::Int, target_index::Int)
+function track_longitudinal!(model::PrincetonLongitudinalDriver, v_ego::Float64, v_oth::Float64, headway::Float64)
 
-    veh_ego = scene[ego_index]
     v_des = model.v_des
+    k = model.k
 
-    if target_index > 0
-        veh_target = scene[target_index]
-        speed_M = veh_target.state.v
-        dist_M = abs(veh_target.state.posG - veh_ego.state.posG) - veh_target.def.length/2 - veh_ego.def.length/2
-        v_des = min(speed_M*(1-exp(-model.k*dist_M/speed_M - 1)), model.v_des)
+    if !isnan(v_oth)
+        v_des = min(v_oth*(1-exp(-k*headway/v_oth - 1)), v_des)
     end
 
-    Δv = v_des - veh_ego.state.v
-    model.a = Δv*model.k # predicted accel to match target speed
+    Δv = v_des - v_ego
+    model.a = Δv*k # predicted accel to match target speed
 
     model
 end
@@ -185,50 +197,22 @@ function set_desired_speed!(model::IntelligentDriverModel, v_des::Float64)
     model.v_des = v_des
     model
 end
-function track_longitudinal!(model::IntelligentDriverModel, scene::Scene, roadway::Roadway, ego_index::Int, target_index::Int)
-    veh_ego = scene[ego_index]
-    v = veh_ego.state.v
+function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_oth::Float64, headway::Float64)
 
-    if target_index > 0
-        veh_target = scene[target_index]
+    if !isnan(v_oth)
+        @assert !isnan(headway) && headway > 0
 
-        s_gap = get_frenet_relative_position(get_rear_center(veh_target),
-                                             veh_ego.state.posF.roadind, roadway).Δs
-
-        if s_gap > 0.0
-            Δv = veh_target.state.v - v
-            s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
-            v_ratio = model.v_des > 0.0 ? (v/model.v_des) : 1.0
-            model.a = model.a_max * (1.0 - v_ratio^model.δ - (s_des/s_gap)^2)
-        elseif s_gap > -veh_ego.def.length
-            model.a = -model.d_max
-        else
-            Δv = model.v_des - v
-            model.a = Δv*model.k_spd
-        end
-
-        if isnan(model.a)
-
-            warn("IDM acceleration was NaN!")
-            if s_gap > 0.0
-                Δv = veh_target.state.v - v
-                s_des = model.s_min + v*model.T - v*Δv / (2*sqrt(model.a_max*model.d_cmf))
-                println("\tΔv: ", Δv)
-                println("\ts_des: ", s_des)
-                println("\tv_des: ", model.v_des)
-                println("\tδ: ", model.δ)
-                println("\ts_gap: ", s_gap)
-            elseif s_gap > -veh_ego.def.length
-                println("\td_max: ", model.d_max)
-            end
-
-            model.a = 0.0
-        end
+        Δv = v_oth - v_ego
+        s_des = model.s_min + v_ego*model.T - v_ego*Δv / (2*sqrt(model.a_max*model.d_cmf))
+        v_ratio = model.v_des > 0.0 ? (v_ego/model.v_des) : 1.0
+        model.a = model.a_max * (1.0 - v_ratio^model.δ - (s_des/headway)^2)
     else
         # no lead vehicle, just drive to match desired speed
-        Δv = model.v_des - v
+        Δv = model.v_des - v_ego
         model.a = Δv*model.k_spd # predicted accel to match target speed
     end
+
+    @assert !isnan(model.a)
 
     model.a = clamp(model.a, -model.d_max, model.a_max)
 
