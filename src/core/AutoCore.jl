@@ -82,6 +82,9 @@ export
     get_footpoint,
     get_front_center,
     get_rear_center,
+    get_lane_width,
+    get_markerdist_left,
+    get_markerdist_right,
 
     # trajdata
     TrajdataFrame,

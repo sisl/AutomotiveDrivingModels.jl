@@ -262,37 +262,13 @@ function Base.get(::Feature_DesiredAngle, rec::SceneRecord, roadway::Roadway, ve
 end
 
 generate_feature_functions("MarkerDist_Left", :d_ml, Float64, "m")
-function Base.get(::Feature_MarkerDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh_ego = rec[vehicle_index, pastframe]
-    t = veh_ego.state.posF.t
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+Base.get(::Feature_MarkerDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) =
+    FeatureValue(get_markerdist_left(rec[vehicle_index, pastframe], roadway, vehicle_index))
 
-    if n_lanes_left(lane, roadway) > 0
-        footpoint = get_footpoint(veh_ego)
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        lane_width = -proj(footpoint, lane_left, roadway).curveproj.t
-    else
-        lane_width = lane.width
-    end
-
-    FeatureValue(lane_width/2 - t)
-end
 generate_feature_functions("MarkerDist_Right", :d_mr, Float64, "m")
-function Base.get(::Feature_MarkerDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh_ego = rec[vehicle_index, pastframe]
-    t = veh_ego.state.posF.t
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+Base.get(::Feature_MarkerDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) =
+    FeatureValue(get_markerdist_right(rec[vehicle_index, pastframe], roadway, vehicle_index))
 
-    if n_lanes_right(lane, roadway) > 0
-        footpoint = get_footpoint(veh_ego)
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
-        lane_width = proj(footpoint, lane_left, roadway).curveproj.t
-    else
-        lane_width = lane.width
-    end
-
-    FeatureValue(lane_width/2 + t)
-end
 generate_feature_functions("MarkerDist_Left_Left", :d_mll, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     #=
