@@ -122,12 +122,12 @@ function get_lane_width(veh::Vehicle, roadway::Roadway)
     end
 end
 
-function get_markerdist_left(veh::Vehicle, roadway::Roadway, vehicle_index::Int)
+function get_markerdist_left(veh::Vehicle, roadway::Roadway)
     t = veh.state.posF.t
     lane_width = get_lane_width(veh, roadway)
     return lane_width/2 - t
 end
-function get_markerdist_right(veh::Vehicle, roadway::Roadway, vehicle_index::Int)
+function get_markerdist_right(veh::Vehicle, roadway::Roadway)
     t = veh.state.posF.t
     lane_width = get_lane_width(veh, roadway)
     return lane_width/2 + t
