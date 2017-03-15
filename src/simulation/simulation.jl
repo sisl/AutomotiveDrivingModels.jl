@@ -1,6 +1,7 @@
 export
         get_actions!,
         tick!,
+        reset_hidden_states!,
         simulate!
 
 function get_actions!{A<:DriveAction, D<:DriverModel}(
@@ -60,6 +61,13 @@ function tick!{A<:DriveAction}(
     end
 
     scene
+end
+
+function reset_hidden_states!{D<:DriverModel}(models::Dict{Int,D})
+    for model in values(models)
+        reset_hidden_state!(model)
+    end
+    return models
 end
 
 """
