@@ -263,11 +263,11 @@ end
 
 generate_feature_functions("MarkerDist_Left", :d_ml, Float64, "m")
 Base.get(::Feature_MarkerDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) =
-    FeatureValue(get_markerdist_left(rec[vehicle_index, pastframe], roadway, vehicle_index))
+    FeatureValue(get_markerdist_left(rec[vehicle_index, pastframe], roadway))
 
 generate_feature_functions("MarkerDist_Right", :d_mr, Float64, "m")
 Base.get(::Feature_MarkerDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) =
-    FeatureValue(get_markerdist_right(rec[vehicle_index, pastframe], roadway, vehicle_index))
+    FeatureValue(get_markerdist_right(rec[vehicle_index, pastframe], roadway))
 
 generate_feature_functions("MarkerDist_Left_Left", :d_mll, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
