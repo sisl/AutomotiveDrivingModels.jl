@@ -10,6 +10,13 @@ type TrajdataEditMode
     scenes::Vector{Scene}
     time::Vector{Float64}
 end
+function Base.push!(tdem::TrajdataEditMode, scene::Scene, Δt::Float64=1.0)
+    t = isempty(tdem.time) ? 0.0 : tdem.time[end] + Δt
+    push!(tdem.scenes, scene)
+    push!(tdem.time, t)
+    return tdem
+end
+
 function Base.convert(::Type{TrajdataEditMode}, trajdata::Trajdata)
     roadway = trajdata.roadway
     scenes = Scene[get!(Scene(carsinframe(trajdata, frame)), trajdata, frame) for frame in 1 : nframes(trajdata)]
