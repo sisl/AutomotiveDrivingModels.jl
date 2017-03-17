@@ -31,6 +31,7 @@ function Base.copy!(dest::Scene, src::Scene)
     dest.n_vehicles = src.n_vehicles
     dest
 end
+Base.copy(scene::Scene) = copy!(Scene(length(scene)), scene)
 
 function Base.push!(scene::Scene, veh::Vehicle)
     scene.n_vehicles += 1
