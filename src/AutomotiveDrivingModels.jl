@@ -22,6 +22,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "features", "aggregate.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "actions.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "driver_models.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "simulation.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "simulation", "callbacks.jl"))
 
 include(Pkg.dir("AutomotiveDrivingModels", "src", "behaviors", "behaviors.jl"))
 
