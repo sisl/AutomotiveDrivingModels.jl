@@ -95,3 +95,29 @@ function Base.get!(scene::Scene, rec::SceneRecord, pastframe::Int=0)
     copy!(scene, scene_internal)
     scene
 end
+
+function Base.convert(::Type{Trajdata}, rec::SceneRecord)
+
+    frames = Array(TrajdataFrame, length(rec))
+    states = Array(TrajdataState, nstates(rec))
+    defs = Dict{Int, VehicleDef}()
+
+    lo = 1
+    time = 0.0
+    for (i,pastframe) in enumerate(1-length(rec) : 0)
+        scene = get_scene(rec, pastframe)
+
+        hi = lo
+        for veh in scene
+            defs[veh.id] = veh.def
+            states[hi] = TrajdataState(veh.id, veh.state)
+            hi += 1
+        end
+
+        frames[i] = TrajdataFrame(lo, hi, time)
+        lo = hi
+        time += rec.timestep
+    end
+
+    return Trajdata(Roadway(), frames, states, defs)
+end

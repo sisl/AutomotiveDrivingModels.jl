@@ -75,6 +75,7 @@ function Base.write(io::IO, trajdata::Trajdata)
         @printf(io, "%d %d %.4f\n", tf.lo, tf.hi, tf.t)
     end
 end
+Base.write(io::IO, ::MIME"text/plain", trajdata::Trajdata) = write(io, trajdata)
 function Base.read(io::IO, ::Type{Trajdata}, roadway::Roadway=Roadway())
     lines = readlines(io)
     line_index = 1
@@ -132,6 +133,8 @@ function Base.read(io::IO, ::Type{Trajdata}, roadway::Roadway=Roadway())
 
     Trajdata(roadway, vehdefs, states, frames)
 end
+Base.read(io::IO, ::MIME"text/plain", ::Type{Trajdata}) = read(io, Trajdata)
+
 
 get_ids(trajdata::Trajdata) = collect(keys(trajdata.vehdefs))
 nframes(trajdata::Trajdata) = length(trajdata.frames)
