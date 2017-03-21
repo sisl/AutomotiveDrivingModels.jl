@@ -34,12 +34,12 @@ function Base.convert(::Type{Trajdata}, tdem::TrajdataEditMode)
         lo = states_index + 1
 
         for veh in scene
-            if !haskey(vehicles, veh.def.id)
-                vehicles[veh.def.id] = veh.def
+            if !haskey(vehicles, veh.id)
+                vehicles[veh.id] = veh.def
             else
-                @assert(vehicles[veh.def.id] == veh.def)
+                @assert(vehicles[veh.id] == veh.def)
             end
-            states[states_index+=1] = TrajdataState(veh.def.id, veh.state)
+            states[states_index+=1] = TrajdataState(veh.id, veh.state)
         end
         frames[frame_index] = TrajdataFrame(lo, states_index, tdem.time[frame_index])
     end
@@ -100,8 +100,8 @@ function interpolate_to_timestep!(tdem::TrajdataEditMode, timestep::Float64)
         # if a vehicle is not in both scenes, do not inlude it
         scenes[i] = Scene(min(length(scene_lo), length(scene_hi)))
         for veh_lo in scene_lo
-            id = veh_lo.def.id
-            veh_index = get_index_of_first_vehicle_with_id(scene_hi, id)
+            id = veh_lo.id
+            veh_index = findfirst(scene_hi, id)
             if veh_index != 0
                 veh_hi = scene_hi[veh_index]
                 @assert(veh_lo.def == veh_hi.def)

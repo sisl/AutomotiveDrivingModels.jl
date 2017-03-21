@@ -13,8 +13,8 @@ function get_actions!{A<:DriveAction, D<:DriverModel}(
 
 
     for (i,veh) in enumerate(scene)
-        model = models[veh.def.id]
-        observe!(model, scene, roadway, veh.def.id)
+        model = models[veh.id]
+        observe!(model, scene, roadway, veh.id)
         actions[i] = rand(model)
     end
 
@@ -29,7 +29,7 @@ function tick!{A<:DriveAction, D<:DriverModel}(
     )
 
     for (veh, action) in zip(scene, actions)
-        model = models[veh.def.id]
+        model = models[veh.id]
         context = action_context(model)
         veh.state = propagate(veh, action, context, roadway)
     end
@@ -146,7 +146,7 @@ function simulate!(
         update!(rec, scene)
 
         # observe
-        observe!(model, scene, roadway, ego_veh.def.id)
+        observe!(model, scene, roadway, ego_veh.id)
 
         # update time
         t += Δt

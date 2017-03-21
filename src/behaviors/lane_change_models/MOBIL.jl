@@ -42,7 +42,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
     rec = model.rec
     update!(rec, scene)
 
-    vehicle_index = get_index_of_first_vehicle_with_id(rec, egoid)
+    vehicle_index = findfirst(rec, egoid)
     veh_ego = scene[vehicle_index]
     v = veh_ego.state.v
     egostate_M = veh_ego.state
@@ -72,7 +72,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
         Δaccel_n = 0.0
         passes_safety_criterion = true
         if rear_R.ind != 0
-            id = scene[rear_R.ind].def.id
+            id = scene[rear_R.ind].id
             accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
             veh_ego.state = egostate_R
             accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
@@ -89,7 +89,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
 
             Δaccel_o = 0.0
             if rear_M.ind != 0
-                id = scene[rear_M.ind].def.id
+                id = scene[rear_M.ind].id
                 accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
                 veh_ego.state = egostate_R
                 accel_o_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
@@ -124,7 +124,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
         Δaccel_n = 0.0
         passes_safety_criterion = true
         if rear_L.ind != 0
-            id = scene[rear_L.ind].def.id
+            id = scene[rear_L.ind].id
             accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
             veh_ego.state = egostate_L
             accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
@@ -142,7 +142,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
 
             Δaccel_o = 0.0
             if rear_M.ind != 0
-                id = scene[rear_M.ind].def.id
+                id = scene[rear_M.ind].id
                 accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
                 veh_ego.state = egostate_L
                 accel_o_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))

@@ -10,6 +10,7 @@ using Parameters
 @reexport using DataFrames
 @reexport using Distributions
 @reexport using Vec
+@reexport using Records
 
 include("core/AutoCore.jl")
 @reexport using .AutoCore

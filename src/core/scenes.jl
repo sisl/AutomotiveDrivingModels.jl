@@ -1,195 +1,8 @@
-type Scene
-    vehicles::Vector{Vehicle} # this is a pre-allocated array that is at least as large as the maximum number of vehicles in a Trajdata frame
-    n_vehicles::Int
+typealias Scene Frame{Vehicle}
+Scene(n::Int=100) = Frame(Vehicle, n)
+Scene(arr::Vector{Vehicle}) = Frame{Vehicle}(arr, length(arr))
 
-    function Scene(n_vehicles::Int=500)
-        vehicles = Array(Vehicle, n_vehicles)
-        for i in 1 : length(vehicles)
-            vehicles[i] = Vehicle()
-        end
-        new(vehicles, 0)
-    end
-    function Scene(
-        vehicles::Vector{Vehicle},
-        n_vehicles::Int=length(vehicles);
-        )
-
-        new(vehicles, n_vehicles)
-    end
-end
-
-# iteration
-Base.start(scene::Scene) = 1
-Base.done(scene::Scene, i::Int) = i > length(scene)
-Base.next(scene::Scene, i::Int) = (scene.vehicles[i], i+1)
-
-# copying
-function Base.copy!(dest::Scene, src::Scene)
-    for i in 1 : src.n_vehicles
-        copy!(dest.vehicles[i], src.vehicles[i])
-    end
-    dest.n_vehicles = src.n_vehicles
-    dest
-end
-Base.copy(scene::Scene) = copy!(Scene(length(scene)), scene)
-
-function Base.push!(scene::Scene, veh::Vehicle)
-    scene.n_vehicles += 1
-    scene.vehicles[scene.n_vehicles] = veh
-    scene
-end
-
-function get_first_available_id(scene::Scene)
-    ids = Set{Int}([veh.def.id for veh in scene])
-    id = 1
-    while in(id, ids)
-        id += 1
-    end
-    return id
-end
-Base.push!(scene::Scene, state::VehicleState) = push!(scene, Vehicle(state, VehicleDef(get_first_available_id(scene))))
-
-Base.length(scene::Scene) = scene.n_vehicles
-Base.getindex(scene::Scene, i::Int) = scene.vehicles[i]
-Base.endof(scene::Scene) = scene.n_vehicles
-function Base.setindex!(scene::Scene, veh::Vehicle, i::Int)
-    scene.vehicles[i] = veh
-    scene
-end
-function Base.empty!(scene::Scene)
-    scene.n_vehicles = 0
-    scene
-end
-function Base.get!(scene::Scene, trajdata::Trajdata, frame::Int)
-
-    scene.n_vehicles = 0
-
-    if frame_inbounds(trajdata, frame)
-        tdframe = trajdata.frames[frame]
-        for i in tdframe.lo : tdframe.hi
-            scene.n_vehicles += 1
-            veh = scene.vehicles[scene.n_vehicles]
-            s = trajdata.states[i]
-            veh.state = s.state
-            veh.def = get_vehicledef(trajdata, s.id)
-        end
-    end
-
-    scene
-end
-function Base.get!(scene::Scene, trajdata::Trajdata, frame_lo::Int, frame_hi::Int, γ::Float64)
-    # add all vehicles that exist in both the lower and upper frames
-
-    if frame_hi != frame_lo+1 && frame_hi != frame_lo
-        # NOTE: frame_hi should pretty much always be frame_lo + 1
-        #       the most frequent exception would be frame_lo = frame_hi
-        #       you otherwise pretty much never want another case
-        warn("get!(scene, trajdata, frame_lo, frame_hi, γ) used with frame_hi = frame_lo + $(frame_hi - frame_lo)!")
-    end
-
-    scene.n_vehicles = 0
-
-    tdframe_lo = trajdata.frames[frame_lo]
-    tdframe_hi = trajdata.frames[frame_hi]
-
-    for i in tdframe_lo.lo : tdframe_lo.hi
-        s = trajdata.states[i]
-        for j in tdframe_hi.lo : tdframe_hi.hi
-            s2 = trajdata.states[j]
-            if s2.id == s.id # we are good
-                # add it
-                scene.n_vehicles += 1
-
-                state_lo = s.state
-                state_hi = s2.state
-
-                veh = scene.vehicles[scene.n_vehicles]
-                veh.state = lerp(state_lo, state_hi, γ, trajdata.roadway)
-                veh.def = get_vehicledef(trajdata, s.id)
-                break
-            end
-        end
-    end
-
-    scene
-end
-function Base.get!(scene::Scene, trajdata::Trajdata, time::Float64)
-
-    # performs linear interpolation between frames
-
-    i = searchsortedfirst(trajdata.frames, time, by=frame_or_time->isa(frame_or_time, TrajdataFrame) ? frame_or_time.t : frame_or_time) # index of first frame ≥ t_current
-
-    if i == 1
-        lo, hi = 1, 2
-    elseif i ≤ nframes(trajdata)
-        lo, hi = i-1, i
-    else # t_current > all times in trajdata.frames
-        lo, hi = i-2, i-1
-    end
-
-    t_lo = get_time(trajdata, lo)
-    t_hi = get_time(trajdata, hi)
-    γ = (time - t_lo) / (t_hi - t_lo)
-
-    if isapprox(γ, 0.0)
-        get!(scene, trajdata, lo)
-    elseif isapprox(γ, 1.0)
-        get!(scene, trajdata, hi)
-    else
-        get!(scene, trajdata, lo, hi, γ)
-    end
-
-    scene
-end
-function Base.deleteat!(scene::Scene, vehicle_index::Int)
-    for i in vehicle_index : scene.n_vehicles - 1
-        copy!(scene.vehicles[i], scene.vehicles[i+1])
-    end
-    scene.n_vehicles -= 1
-    scene
-end
-Base.delete!(scene::Scene, veh::Vehicle) = deleteat!(scene, get_index_of_first_vehicle_with_id(scene, veh.def.id))
-
-function get_by_id(scene::Scene, id::Int)
-    for i in 1 : scene.n_vehicles
-        if scene.vehicles[i].def.id == id
-            return scene.vehicles[i]
-        end
-    end
-    error("vehicle with id $id not found in scene")
-end
-function get_index_of_first_vehicle_with_id(scene::Scene, id::Int)
-    retval = 0
-    for i in 1 : scene.n_vehicles
-        if scene.vehicles[i].def.id == id
-            retval = i
-            break
-        end
-    end
-    retval
-end
-iscarinframe(scene::Scene, id::Int) = get_index_of_first_vehicle_with_id(scene, id) != 0
-
-function get_vehiclestate(scene::Scene, id::Int)
-    for i in 1 : scene.n_vehicles
-        if scene.vehicles[i].def.id == id
-            return scene.vehicles[i].state
-        end
-    end
-    error("get_vehiclestate: vehicle with id $id not found")
-end
-function get_vehicle!(veh::Vehicle, scene::Scene, id::Int)
-    for i in 1 : scene.n_vehicles
-        if scene.vehicles[i].def.id == id
-            copy!(veh, scene.vehicles[i])
-            return veh
-        end
-    end
-    error("get_vehicle!: vehicle with id $id not found")
-end
-get_vehicle(scene::Scene, id::Int) = get_vehicle!(Vehicle(), scene, id)
-
-########################
+Base.show(io, scene::Scene) = print(io, "Scene(with $(length(scene)) cars)")
 
 """
     get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)
@@ -430,7 +243,7 @@ function get_neighbor_rear_along_lane(
         lane = roadway[tag_target]
 
         for (i,veh) in enumerate(scene)
-            if i != index_to_ignore && !in(veh.def.id, ignore)
+            if i != index_to_ignore && !in(veh.id, ignore)
 
                 s_adjust = NaN
 
@@ -461,7 +274,7 @@ function get_neighbor_rear_along_lane(
                             best_ind = i
                         end
                     else
-                        push!(ignore, veh.def.id)
+                        push!(ignore, veh.id)
                     end
                 end
             end

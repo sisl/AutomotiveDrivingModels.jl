@@ -2,9 +2,9 @@ type FakeDriveAction <: DriveAction end
 type FakeActionContext <: ActionContext end
 
 let
-    trajdata = get_test_trajdata()
-    roadway = trajdata.roadway
-    veh = get_vehicle(trajdata, 1, 1)
+    roadway = get_test_roadway()
+    trajdata = get_test_trajdata(roadway)
+    veh = get(trajdata, 1, 1)
 
     @test_throws ErrorException length(FakeDriveAction)
     @test_throws ErrorException convert(FakeDriveAction, Float64[])

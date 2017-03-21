@@ -1,5 +1,6 @@
 let
-    trajdata = get_test_trajdata()
+    roadway = get_test_roadway()
+    trajdata = get_test_trajdata(roadway)
     seg = TrajdataSegment(1, 1, 1, 2)
     show(IOBuffer(), seg)
 

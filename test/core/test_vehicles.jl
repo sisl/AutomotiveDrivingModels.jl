@@ -10,8 +10,8 @@ let
     @test isapprox(get_vel_s(s), 10.0*cos(0.1))
     @test isapprox(get_vel_t(s), 10.0*sin(0.1))
 
-    vehdef = VehicleDef(1, AgentClass.CAR, 5.0, 3.0)
-    veh = Vehicle(s, vehdef)
+    vehdef = VehicleDef(AgentClass.CAR, 5.0, 3.0)
+    veh = Vehicle(s, vehdef, 1)
     @test isapprox(get_footpoint(veh), VecSE2(0.0,0.0,0.0))
     show(IOBuffer(), vehdef)
     show(IOBuffer(), veh)

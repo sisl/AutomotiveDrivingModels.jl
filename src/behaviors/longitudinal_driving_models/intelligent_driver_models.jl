@@ -45,7 +45,7 @@ function observe!(model::IntelligentDriverModel, scene::Scene, roadway::Roadway,
 
     # update the predicted accel
 
-    vehicle_index = get_index_of_first_vehicle_with_id(scene, egoid)
+    vehicle_index = findfirst(scene, egoid)
     veh_ego = scene[vehicle_index]
     fore_res = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
 

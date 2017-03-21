@@ -38,7 +38,7 @@ function track_longitudinal!(model::PrincetonLongitudinalDriver, v_ego::Float64,
     model
 end
 function observe!(model::PrincetonLongitudinalDriver, scene::Scene, roadway::Roadway, egoid::Int)
-    ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
+    ego_index = findfirst(scene, egoid)
     track_longitudinal!(model, scene, roadway, ego_index, 0)
     model
 end

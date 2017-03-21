@@ -128,25 +128,25 @@ end
 
 generate_feature_functions("PosFt", :posFt, Float64, "m")
 function Base.get(::Feature_PosFt, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    FeatureValue(rec[vehicle_index, pastframe].state.posF.t)
+    FeatureValue(rec[pastframe][vehicle_index].state.posF.t)
 end
 generate_feature_functions("PosFyaw", :posFyaw, Float64, "rad")
 function Base.get(::Feature_PosFyaw, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    FeatureValue(rec[vehicle_index, pastframe].state.posF.ϕ)
+    FeatureValue(rec[pastframe][vehicle_index].state.posF.ϕ)
 end
 generate_feature_functions("Speed", :speed, Float64, "m/s")
 function Base.get(::Feature_Speed, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    FeatureValue(rec[vehicle_index, pastframe].state.v)
+    FeatureValue(rec[pastframe][vehicle_index].state.v)
 end
 
 generate_feature_functions("VelFs", :velFs, Float64, "m/s")
 function Base.get(::Feature_VelFs, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     FeatureValue(veh.state.v*cos(veh.state.posF.ϕ))
 end
 generate_feature_functions("VelFt", :velFt, Float64, "m/s")
 function Base.get(::Feature_VelFt, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     FeatureValue(veh.state.v*sin(veh.state.posF.ϕ))
 end
 
@@ -159,18 +159,15 @@ function get_feature_derivative_backwards(
     frames_back::Int=1,
     )
 
-    id = rec[vehicle_index, pastframe].def.id
+    id = rec[pastframe][vehicle_index].id
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     pastframe2 = pastframe - frames_back
 
-
-    # println(f, "  ", pastframe, " ", pastframe2, " ", length(rec), "  ", record_length(rec), "  ", pastframe_inbounds(rec, pastframe2))
-
     if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
-        veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
+        veh_index_prev = findfirst(rec, id, pastframe2)
 
         if veh_index_prev != 0
             curr = convert(Float64, get(f, rec, roadway, veh_index_curr, pastframe))
@@ -186,18 +183,18 @@ end
 generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
 function Base.get(::Feature_TurnRateG, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1)
 
-    id = rec[vehicle_index, pastframe].def.id
+    id = rec[pastframe][vehicle_index].id
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     pastframe2 = pastframe - frames_back
     if pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
-        veh_index_prev = get_index_of_first_vehicle_with_id(rec, id, pastframe2)
+        veh_index_prev = findfirst(rec, id, pastframe2)
 
         if veh_index_prev != 0
-            curr = rec[veh_index_curr, pastframe].state.posG.θ
-            past = rec[veh_index_prev, pastframe2].state.posG.θ
+            curr = rec[pastframe][veh_index_curr].state.posG.θ
+            past = rec[pastframe2][veh_index_prev].state.posG.θ
             Δt = get_elapsed_time(rec, pastframe2, pastframe)
             retval = FeatureValue(deltaangle(past, curr) / Δt)
         end
@@ -249,10 +246,10 @@ function Base.get(::Feature_DesiredAngle, rec::SceneRecord, roadway::Roadway, ve
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe-1)
 
-        id = rec[vehicle_index, pastframe].def.id
+        id = rec[pastframe][vehicle_index].id
 
-        pastϕ = get_vehiclestate(rec, id, pastframe-1).posF.ϕ
-        currϕ = get_vehiclestate(rec, id, pastframe).posF.ϕ
+        pastϕ = get_state(rec, id, pastframe-1).posF.ϕ
+        currϕ = get_state(rec, id, pastframe).posF.ϕ
 
         Δt = rec.timestep
         expconst = exp(-kp_desired_angle*Δt)
@@ -263,11 +260,11 @@ end
 
 generate_feature_functions("MarkerDist_Left", :d_ml, Float64, "m")
 Base.get(::Feature_MarkerDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) =
-    FeatureValue(get_markerdist_left(rec[vehicle_index, pastframe], roadway))
+    FeatureValue(get_markerdist_left(rec[pastframe][vehicle_index], roadway))
 
 generate_feature_functions("MarkerDist_Right", :d_mr, Float64, "m")
 Base.get(::Feature_MarkerDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) =
-    FeatureValue(get_markerdist_right(rec[vehicle_index, pastframe], roadway))
+    FeatureValue(get_markerdist_right(rec[pastframe][vehicle_index], roadway))
 
 generate_feature_functions("MarkerDist_Left_Left", :d_mll, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
@@ -275,7 +272,7 @@ function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roa
     Distance to the left lane marker one lane to the left
     =#
 
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     lane = roadway[veh.state.posF.roadind.tag]
     if n_lanes_left(lane, roadway) > 0
         offset = veh.state.posF.t
@@ -291,7 +288,7 @@ function Base.get(::Feature_MarkerDist_Right_Right, rec::SceneRecord, roadway::R
     Distance to the right lane marker one lane to the right
     =#
 
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     lane = roadway[veh.state.posF.roadind.tag]
     if n_lanes_right(lane, roadway) > 0
         offset = veh.state.posF.t
@@ -303,7 +300,7 @@ function Base.get(::Feature_MarkerDist_Right_Right, rec::SceneRecord, roadway::R
 end
 generate_feature_functions("RoadEdgeDist_Left", :d_edgel, Float64, "m")
 function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     offset = veh.state.posF.t
     footpoint = get_footpoint(veh)
     seg = roadway[veh.state.posF.roadind.tag.segment]
@@ -315,7 +312,7 @@ function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadwa
 end
 generate_feature_functions("RoadEdgeDist_Right", :d_edger, Float64, "m")
 function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     offset = veh.state.posF.t
     footpoint = get_footpoint(veh)
     seg = roadway[veh.state.posF.roadind.tag.segment]
@@ -327,7 +324,7 @@ function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadw
 end
 generate_feature_functions("LaneOffsetLeft", :posFtL, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh_ego = rec[vehicle_index, pastframe]
+    veh_ego = rec[pastframe][vehicle_index]
     t = veh_ego.state.posF.t
     lane = roadway[veh_ego.state.posF.roadind.tag]
     if n_lanes_left(lane, roadway) > 0
@@ -340,7 +337,7 @@ function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, 
 end
 generate_feature_functions("LaneOffsetRight", :posFtR, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh_ego = rec[vehicle_index, pastframe]
+    veh_ego = rec[pastframe][vehicle_index]
     t = veh_ego.state.posF.t
     lane = roadway[veh_ego.state.posF.roadind.tag]
     if n_lanes_right(lane, roadway) > 0
@@ -353,12 +350,12 @@ function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway,
 end
 generate_feature_functions("N_Lane_Right", :n_lane_right, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    nlr = rec[vehicle_index, pastframe].state.posF.roadind.tag.lane - 1
+    nlr = rec[pastframe][vehicle_index].state.posF.roadind.tag.lane - 1
     FeatureValue(convert(Float64, nlr))
 end
 generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     seg = roadway[veh.state.posF.roadind.tag.segment]
     nll = length(seg.lanes) - veh.state.posF.roadind.tag.lane
     FeatureValue(convert(Float64, nll))
@@ -375,7 +372,7 @@ function Base.get(::Feature_Has_Lane_Left, rec::SceneRecord, roadway::Roadway, v
 end
 generate_feature_functions("LaneCurvature", :curvature, Float64, "1/m", can_be_missing=true)
 function Base.get(::Feature_LaneCurvature, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh = rec[vehicle_index, pastframe]
+    veh = rec[pastframe][vehicle_index]
     curvept = roadway[veh.state.posF.roadind]
     val = curvept.k
     if isnan(val)
@@ -445,9 +442,9 @@ function Base.get(::Feature_Time_Consecutive_Brake, rec::SceneRecord, roadway::R
         FeatureValue(0.0)
     else
         pastframe_orig = pastframe
-        id = rec[vehicle_index, pastframe].def.id
+        id = rec[pastframe][vehicle_index].id
         while pastframe_inbounds(rec, pastframe-1) &&
-              get(ACC, rec, roadway, get_index_of_first_vehicle_with_id(rec, id, pastframe-1)) < 0.0
+              get(ACC, rec, roadway, findfirst(rec, id, pastframe-1)) < 0.0
 
             pastframe -= 1
         end
@@ -464,9 +461,9 @@ function Base.get(::Feature_Time_Consecutive_Accel, rec::SceneRecord, roadway::R
     else
 
         pastframe_orig = pastframe
-        id = rec[vehicle_index, pastframe].def.id
+        id = rec[pastframe][vehicle_index].id
         while pastframe_inbounds(rec, pastframe-1) &&
-              get(ACC, rec, roadway, get_index_of_first_vehicle_with_id(rec, id, pastframe-1)) > 0.0
+              get(ACC, rec, roadway, findfirst(rec, id, pastframe-1)) > 0.0
 
             pastframe -= 1
         end
@@ -489,42 +486,44 @@ end
 
 generate_feature_functions("Dist_Front", :d_front, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
     censor_hi::Float64=100.0,
     )
 
     if neighborfore.ind == 0
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
-        len_ego = rec[vehicle_index, pastframe].def.length
-        len_oth = rec[neighborfore.ind, pastframe].def.length
+        scene = rec[pastframe]
+        len_ego = scene[vehicle_index].def.length
+        len_oth = scene[neighborfore.ind].def.length
         FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
     end
 end
 generate_feature_functions("Speed_Front", :v_front, Float64, "m/s", can_be_missing=true)
 function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
     )
 
     if neighborfore.ind == 0
         FeatureValue(0.0, FeatureState.MISSING)
     else
-        FeatureValue(rec[neighborfore.ind, pastframe].state.v)
+        FeatureValue(rec[pastframe][neighborfore.ind].state.v)
     end
 end
 generate_feature_functions("Timegap", :timegap, Float64, "s", can_be_missing=true)
 function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
     censor_hi::Float64 = 10.0,
     )
 
-    v = rec[vehicle_index, pastframe].state.v
+    v = rec[pastframe][vehicle_index].state.v
 
     if v ≤ 0.0 || neighborfore.ind == 0
         FeatureValue(censor_hi, FeatureState.CENSORED_HI)
     else
-        len_ego = rec[vehicle_index, pastframe].def.length
-        len_oth = rec[neighborfore.ind, pastframe].def.length
+        scene = rec[pastframe]
+        len_ego = scene[vehicle_index].def.length
+        len_oth = scene[neighborfore.ind].def.length
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
         if Δs > 0.0
@@ -537,7 +536,7 @@ end
 
 generate_feature_functions("Inv_TTC", :inv_ttc, Float64, "1/s", can_be_missing=true)
 function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
     censor_hi::Float64 = 10.0,
     )
 
@@ -545,8 +544,9 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
     if neighborfore.ind == 0
         FeatureValue(0.0, FeatureState.MISSING)
     else
-        veh_fore = rec[neighborfore.ind, pastframe]
-        veh_rear = rec[vehicle_index, pastframe]
+        scene = rec[pastframe]
+        veh_fore = scene[neighborfore.ind]
+        veh_rear = scene[vehicle_index]
 
         len_ego = veh_fore.def.length
         len_oth = veh_rear.def.length
@@ -571,7 +571,7 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
 end
 generate_feature_functions("TTC", :ttc, Float64, "s", can_be_missing=true)
 function Base.get(::Feature_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
     censor_hi::Float64 = 10.0,
     inv_ttc::FeatureValue = get(INV_TTC, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore, censor_hi=censor_hi),
     )
@@ -592,7 +592,7 @@ end
 #############################################
 generate_feature_functions("Dist_Front_Left", :d_front_left, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_left_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_left_lane(rec[pastframe], vehicle_index, roadway),
     )
 
     get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
@@ -606,7 +606,7 @@ end
 
 generate_feature_functions("Dist_Front_Right", :d_front_right, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_right_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_right_lane(rec[pastframe], vehicle_index, roadway),
     )
 
     get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
@@ -620,27 +620,28 @@ end
 
 generate_feature_functions("Dist_Rear", :d_rear, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(rec[pastframe], vehicle_index, roadway),
     censor_hi::Float64=100.0,
     )
 
     if neighborrear.ind == 0
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
-        len_ego = rec[vehicle_index, pastframe].def.length
-        len_oth = rec[neighborrear.ind, pastframe].def.length
+        scene = rec[pastframe]
+        len_ego = scene[vehicle_index].def.length
+        len_oth = scene[neighborrear.ind].def.length
         FeatureValue(neighborrear.Δs - len_ego/2 - len_oth/2)
     end
 end
 generate_feature_functions("Speed_Rear", :v_rear, Float64, "m/s", can_be_missing=true)
 function Base.get(::Feature_Speed_Rear, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(get_scene(rec, pastframe), vehicle_index, roadway),
+    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(rec[pastframe], vehicle_index, roadway),
     )
 
     if neighborrear.ind == 0
         FeatureValue(0.0, FeatureState.MISSING)
     else
-        FeatureValue(rec[neighborrear.ind, pastframe].state.v)
+        FeatureValue(rec[pastframe][neighborrear.ind].state.v)
     end
 end
 
@@ -655,7 +656,7 @@ function Base.get(::Feature_Is_Colliding, rec::SceneRecord, roadway::Roadway, ve
     mem::CPAMemory=CPAMemory(),
     )
 
-    scene = get_scene(rec, pastframe)
+    scene = rec[pastframe]
     is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
     FeatureValue(is_colliding)
 end

@@ -28,10 +28,10 @@ function Base.show(io::IO, seg::TrajdataSegment)
 end
 
 nsteps(seg::TrajdataSegment) = seg.frame_hi - seg.frame_lo # total number of sim steps
-AutoCore.nframes(seg::TrajdataSegment) = nsteps(seg) + 1 # total number of frames spanned by trajdata segment
+Records.nframes(seg::TrajdataSegment) = nsteps(seg) + 1 # total number of frames spanned by trajdata segment
 
 function pull_record(seg::TrajdataSegment, trajdata::Trajdata, prime_history::Int=0)
-    rec = SceneRecord(nframes(seg)+prime_history, get_mean_timestep(trajdata))
+    rec = SceneRecord(nframes(seg)+prime_history, get_timestep(trajdata))
     scene = Scene()
 
     # prime_history

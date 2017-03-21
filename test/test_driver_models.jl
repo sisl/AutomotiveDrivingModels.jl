@@ -1,9 +1,9 @@
 type FakeDriverModel <: DriverModel{FakeDriveAction, FakeActionContext} end
 
 let
-    trajdata = get_test_trajdata()
-    roadway = trajdata.roadway
-    veh = get_vehicle(trajdata, 1, 1)
+    roadway = get_test_roadway()
+    trajdata = get_test_trajdata(roadway)
+    veh = get(trajdata, 1, 1)
 
     model = FakeDriverModel()
     reset_hidden_state!(model)

@@ -89,7 +89,7 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
 
     rec = model.rec
     update!(rec, scene)
-    vehicle_index = get_index_of_first_vehicle_with_id(rec, egoid)
+    vehicle_index = findfirst(rec, egoid)
 
     veh_ego = scene[vehicle_index]
     v = veh_ego.state.v

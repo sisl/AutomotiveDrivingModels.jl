@@ -1,9 +1,7 @@
 using Base.Test
-# using Lint
-
-# lintpkg("AutomotiveDrivingModels")
 
 using AutomotiveDrivingModels
+using Records
 
 include(Pkg.dir("AutomotiveDrivingModels", "test", "core", "test_core.jl"))
 

@@ -7,10 +7,10 @@ type PrerecordedDriver <: DriverModel{NextState, IntegratedContinuous}
     timestep::Float64
     nextstate::VehicleState
 end
-function PrerecordedDriver(trajdata::Trajdata, frame_start::Int, egoid::Int, timestep::Float64=get_mean_timestep(trajdata))
+function PrerecordedDriver(trajdata::Trajdata, frame_start::Int, egoid::Int, timestep::Float64=get_timestep(trajdata))
     time_start = get_time(trajdata, frame_start)
     t_current = NaN
-    nextstate = get_vehiclestate(trajdata, egoid, frame_start)
+    nextstate = get_state(trajdata, egoid, frame_start)
     PrerecordedDriver(trajdata, time_start, t_current, timestep, nextstate)
 end
 
@@ -45,8 +45,8 @@ function observe!(model::PrerecordedDriver, scene::Scene, roadway::Roadway, egoi
 
         model.nextstate = VehicleState()
     else
-        state_lo = get_vehiclestate(model.trajdata, egoid, lo)
-        state_hi = get_vehiclestate(model.trajdata, egoid, hi)
+        state_lo = get_state(model.trajdata, egoid, lo)
+        state_hi = get_state(model.trajdata, egoid, hi)
         model.nextstate = lerp(state_lo, state_hi, γ, model.trajdata.roadway)
     end
 

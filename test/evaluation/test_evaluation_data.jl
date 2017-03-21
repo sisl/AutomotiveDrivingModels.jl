@@ -1,5 +1,7 @@
 let
-    trajdatas = [get_test_trajdata(), get_test_trajdata()]
+    roadway = get_test_roadway()
+
+    trajdatas = [get_test_trajdata(roadway), get_test_trajdata(roadway)]
     segments = [TrajdataSegment(1, 2, 1, 2), TrajdataSegment(1, 2, 1, 2)]
     evaldata = EvaluationData(trajdatas, segments)
 
@@ -27,6 +29,6 @@ let
     @test names(metric_df) == [:time, :logl, Symbol(metrics[1])]
 
     rec = pull_record(segments[1], evaldata)
-    @test get_scene(rec, 0)[1].def == get_vehicle(trajdatas[1], 1, 2).def
-    @test get_scene(rec, 0)[1].state.posG == get_vehicle(trajdatas[1], 1, 2).state.posG
+    @test rec[0][1].def == get(trajdatas[1], 1, 2).def
+    @test rec[0][1].state.posG == get(trajdatas[1], 1, 2).state.posG
 end

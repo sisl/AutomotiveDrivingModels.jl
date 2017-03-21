@@ -5,6 +5,7 @@ Defines the core Automotive Types
 module AutoCore
 
 using Compat
+using Records
 using Vec
 
 export
@@ -92,32 +93,8 @@ export
     Trajdata,
     TrajdataVehicleIterator,
 
-    get_ids,
-    nframes,
-    frame_inbounds,
-    carsinframe,
-    nth_carid,
-    iscarinframe,
-    get_first_frame_with_id,
-    get_last_frame_with_id,
-    get_time,
-    get_elapsed_time,
-    get_mean_timestep,
-    get_vehiclestate,
-    get_vehicledef,
-    get_vehicle!,
-    get_vehicle,
-
     # scene
     Scene,
-
-    get_by_id,
-    get_index_of_first_vehicle_with_id,
-    get_first_available_id,
-    record_length,
-    get_scene,
-    push_back_records!,
-    update!,
 
     NeighborLongitudinalResult,
     get_neighbor_fore_along_lane,
@@ -141,6 +118,7 @@ include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "utils.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "splines.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "curves.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "roadways.jl"))
+include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "frenet.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "vehicles.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "trajdatas.jl"))
 include(Pkg.dir("AutomotiveDrivingModels", "src", "core", "scenes.jl"))

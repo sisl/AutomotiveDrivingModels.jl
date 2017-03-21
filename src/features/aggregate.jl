@@ -9,7 +9,7 @@ function get_speeds(trajdata::Trajdata, carid::Int)
     retval = Float64[]
     for frame in 1 : nframes(trajdata)
         if iscarinframe(trajdata, carid, frame)
-            state = get_vehiclestate(trajdata, carid, frame)
+            state = get_state(trajdata, carid, frame)
             push!(retval, state.v)
         end
     end

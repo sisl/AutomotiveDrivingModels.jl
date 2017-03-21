@@ -38,7 +38,7 @@ function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::In
     update!(driver.rec, scene)
     observe!(driver.mlane, scene, roadway, egoid)
 
-    vehicle_index = get_index_of_first_vehicle_with_id(scene, egoid)
+    vehicle_index = findfirst(scene, egoid)
     lane_change_action = rand(driver.mlane)
     laneoffset = get_lane_offset(lane_change_action, driver.rec, roadway, vehicle_index)
     lateral_speed = convert(Float64, get(VELFT, driver.rec, roadway, vehicle_index))

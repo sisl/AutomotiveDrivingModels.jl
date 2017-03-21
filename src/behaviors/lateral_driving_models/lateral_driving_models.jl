@@ -38,7 +38,7 @@ function track_lateral!(model::ProportionalLaneTracker, laneoffset::Float64, lat
 end
 function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway, egoid::Int)
 
-    ego_index = get_index_of_first_vehicle_with_id(scene, egoid)
+    ego_index = findfirst(scene, egoid)
     veh_ego = scene[ego_index]
     t = veh_ego.state.posF.t # lane offset
     dt = veh_ego.state.v * sin(veh_ego.state.posF.ϕ) # rate of change of lane offset

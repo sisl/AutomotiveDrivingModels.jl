@@ -35,7 +35,7 @@ function track_longitudinal!(model::LongitudinalDriverModel, scene::Scene, roadw
 end
 function observe!(model::LongitudinalDriverModel, scene::Scene, roadway::Roadway, egoid::Int)
 
-    vehicle_index = get_index_of_first_vehicle_with_id(scene, egoid)
+    vehicle_index = findfirst(scene, egoid)
     veh_ego = scene[vehicle_index]
     fore_res = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     track_longitudinal!(model, scene, roadway, vehicle_index, fore_res.ind)
