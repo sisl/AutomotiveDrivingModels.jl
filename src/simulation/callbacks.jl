@@ -3,7 +3,7 @@ export
     CollisionCallback
 
 # run callback and return whether simlation should terminate
-run_callback{D<:DriverModel}(callback::Any, rec::SceneRecord, roadway::Roadway, models::Dict{Int,D}, tick::Int) = error("run_callback not implemented for callback $(typeof(callback))")
+run_callback{S,Def,I,D<:DriverModel}(callback::Any, rec::QueueRecord{Entity{S,Def,I}}, roadway::Any, models::Dict{I,D}, tick::Int) = error("run_callback not implemented for callback $(typeof(callback))")
 
 """
     CollisionCallback
@@ -13,30 +13,29 @@ Terminates the simulation once a collision occurs
 @with_kw type CollisionCallback
     mem::CPAMemory=CPAMemory()
 end
-function run_callback{D<:DriverModel}(
+function run_callback{S,Def,I,D<:DriverModel}(
     callback::CollisionCallback,
-    rec::SceneRecord,
-    roadway::Roadway,
-    models::Dict{Int,D},
+    rec::QueueRecord{Entity{S,Def,I}},
+    roadway::Any,
+    models::Dict{I,D},
     tick::Int,
     )
 
-    scene = get_scene(rec, 0)
-    return !is_collision_free(scene, callback.mem)
+    return !is_collision_free(rec[0], callback.mem)
 end
 
-function _run_callbacks{D<:DriverModel, C<:Tuple{Vararg{Any}}}(callbacks::C, rec::SceneRecord, roadway::Roadway, models::Dict{Int,D}, tick::Int)
+function _run_callbacks{S,Def,I, D<:DriverModel, C<:Tuple{Vararg{Any}}}(callbacks::C, rec::QueueRecord{Entity{S,Def,I}}, roadway::Any, models::Dict{I,D}, tick::Int)
     isdone = false
     for callback in callbacks
         isdone |= run_callback(callback, rec, roadway, models, tick)
     end
     return isdone
 end
-function simulate!{D<:DriverModel, C<:Tuple{Vararg{Any}}}(
-    rec::SceneRecord,
-    scene::Scene,
-    roadway::Roadway,
-    models::Dict{Int,D},
+function simulate!{S,Def,I, D<:DriverModel, C<:Tuple{Vararg{Any}}}(
+    rec::QueueRecord{Entity{S,Def,I}},
+    scene::Frame{Entity{S,Def,I}},
+    roadway::Any,
+    models::Dict{I,D},
     nticks::Int,
     callbacks::C,
     )
@@ -52,7 +51,7 @@ function simulate!{D<:DriverModel, C<:Tuple{Vararg{Any}}}(
     actions = Array(DriveAction, length(scene))
     for tick in 1 : nticks
         get_actions!(actions, scene, roadway, models)
-        tick!(scene, roadway, actions, models)
+        tick!(scene, roadway, actions, rec.timestep)
         update!(rec, scene)
         if _run_callbacks(callbacks, rec, roadway, models, tick)
             break

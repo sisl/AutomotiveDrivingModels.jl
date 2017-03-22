@@ -4,11 +4,11 @@ export
         reset_hidden_states!,
         simulate!
 
-function get_actions!{A<:DriveAction, D<:DriverModel}(
+function get_actions!{S,Def,I,A<:DriveAction, D<:DriverModel}(
     actions::Vector{A},
-    scene::Scene,
-    roadway::Roadway,
-    models::Dict{Int, D}, # id → model
+    scene::Frame{Entity{S,Def,I}},
+    roadway::Any,
+    models::Dict{I, D}, # id → model
     )
 
 
@@ -21,15 +21,17 @@ function get_actions!{A<:DriveAction, D<:DriverModel}(
     actions
 end
 
-function tick!{A<:DriveAction}(
-    scene::Scene,
-    roadway::Roadway,
+function tick!{S,D,I, A<:DriveAction}(
+    scene::Frame{Entity{S,D,I}},
+    roadway::Any,
     actions::Vector{A},
     Δt::Float64,
     )
-
-    for (veh, action) in zip(scene, actions)
-        veh.state = propagate(veh, action, Δt, roadway)
+    
+    for i in 1 : length(scene)
+        veh = scene[i]
+        state′ = propagate(veh, actions[i], Δt, roadway)
+        scene[i] = Entity(state′, veh.def, veh.id)
     end
 
     return scene
@@ -45,11 +47,11 @@ end
 """
 Run nticks of simulation and place all nticks+1 scenes into the SceneRecord
 """
-function simulate!{D<:DriverModel}(
-    rec::SceneRecord,
-    scene::Scene,
-    roadway::Roadway,
-    models::Dict{Int,D},
+function simulate!{S,Def,I, D<:DriverModel}(
+    rec::QueueRecord{Entity{S,Def,I}},
+    scene::Frame{Entity{S,Def,I}},
+    roadway::Any,
+    models::Dict{I,D},
     nticks::Int,
     )
 
