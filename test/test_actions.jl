@@ -1,5 +1,4 @@
 type FakeDriveAction <: DriveAction end
-type FakeActionContext <: ActionContext end
 
 let
     roadway = get_test_roadway()
@@ -10,7 +9,7 @@ let
     @test_throws ErrorException convert(FakeDriveAction, Float64[])
     @test_throws ErrorException convert(Vector{Float64}, FakeDriveAction())
     @test_throws ErrorException copy!(Float64[], FakeDriveAction())
-    @test_throws ErrorException propagate(veh, FakeDriveAction(), FakeActionContext(), roadway)
+    @test_throws ErrorException propagate(veh, FakeDriveAction(), NaN, roadway)
 
     let
         a = AccelTurnrate(0.1,0.2)
@@ -18,7 +17,7 @@ let
         @test convert(Vector{Float64}, a) == [0.1,0.2]
         @test copy!([NaN, NaN], AccelTurnrate(0.1,0.2)) == [0.1,0.2]
 
-        s = propagate(veh, AccelTurnrate(0.0,0.0), IntegratedContinuous(1.0,1), roadway)
+        s = propagate(veh, AccelTurnrate(0.0,0.0), 1.0, roadway)
         @test isapprox(s.posG.x, veh.state.v)
         @test isapprox(s.posG.y, 0.0)
         @test isapprox(s.posG.θ, 0.0)
@@ -30,14 +29,15 @@ let
         @test convert(Vector{Float64}, a) == [0.1,0.2]
         @test copy!([NaN, NaN], AccelDesang(0.1,0.2)) == [0.1,0.2]
 
-        s = propagate(veh, AccelDesang(0.0,0.0), IntegratedContinuous(1.0,1), roadway)
-        @test isapprox(s.posG.x, veh.state.v)
+        s = propagate(veh, AccelDesang(0.0,0.0), 1.0, roadway)
+        @test isapprox(s.posG.x, veh.state.v*1.0)
         @test isapprox(s.posG.y, 0.0)
         @test isapprox(s.posG.θ, 0.0)
+        @test isapprox(s.v, veh.state.v)
     end
 
     let
         a = NextState(VehicleState())
-        @test VehicleState() == propagate(veh, a, ContextFree(), roadway)
+        @test VehicleState() == propagate(veh, a, NaN, roadway)
     end
 end

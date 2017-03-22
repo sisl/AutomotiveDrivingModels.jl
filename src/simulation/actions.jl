@@ -1,8 +1,4 @@
 export
-    ActionContext,
-    ContextFree,
-    IntegratedContinuous,
-
     DriveAction,
     NextState,
     AccelTurnrate,
@@ -16,15 +12,6 @@ export
     pull_action!,
     propagate
 
-
-abstract ActionContext
-
-type ContextFree <: ActionContext end
-type IntegratedContinuous <: ActionContext
-    Δt::Float64 # timestep
-    n_integration_steps::Int # number of substeps taken during integration
-end
-
 ###############
 
 abstract DriveAction
@@ -32,7 +19,7 @@ Base.length{A<:DriveAction}(a::Type{A}) = error("length not defined for DriveAct
 Base.convert{A<:DriveAction}(a::Type{A}, v::Vector{Float64}) = error("convert v → a not implemented for DriveAction $a")
 Base.copy!(v::Vector{Float64}, a::DriveAction) = error("copy! not implemented for DriveAction $a")
 Base.convert{A<:DriveAction}(::Type{Vector{Float64}}, a::A) = copy!(Array(Float64, length(A)), a)
-propagate(veh::Vehicle, action::DriveAction, context::ActionContext, roadway::Roadway) = error("propagate not implemented for DriveAction $action and context $context")
+propagate(veh::Vehicle, action::DriveAction, Δt::Float64, roadway::Roadway) = error("propagate not implemented for DriveAction $action")
 
 immutable AccelTurnrate <: DriveAction
     a::Float64
@@ -46,7 +33,7 @@ function Base.copy!(v::Vector{Float64}, a::AccelTurnrate)
     v[2] = a.ω
     v
 end
-function propagate(veh::Vehicle, action::AccelTurnrate, context::IntegratedContinuous, roadway::Roadway)
+function propagate(veh::Vehicle, action::AccelTurnrate, Δt::Float64, roadway::Roadway; n_integration_steps::Int=4)
 
     a = action.a # accel
     ω = action.ω # turnrate
@@ -56,9 +43,9 @@ function propagate(veh::Vehicle, action::AccelTurnrate, context::IntegratedConti
     θ = veh.state.posG.θ
     v = veh.state.v
 
-    δt = context.Δt / context.n_integration_steps
+    δt = Δt / n_integration_steps
 
-    for i in 1 : context.n_integration_steps
+    for i in 1 : n_integration_steps
         x += v*cos(θ)*δt
         y += v*sin(θ)*δt
         θ += ω*δt
@@ -93,7 +80,7 @@ function Base.copy!(v::Vector{Float64}, a::AccelDesang)
     v[2] = a.ϕdes
     v
 end
-function propagate(veh::Vehicle, action::AccelDesang, context::IntegratedContinuous, roadway::Roadway)
+function propagate(veh::Vehicle, action::AccelDesang, Δt::Float64, roadway::Roadway; n_integration_steps::Int=4)
 
     a = action.a # accel
     ϕdes = action.ϕdes # desired heading angle
@@ -103,9 +90,9 @@ function propagate(veh::Vehicle, action::AccelDesang, context::IntegratedContinu
     θ = veh.state.posG.θ
     v = veh.state.v
 
-    δt = context.Δt/context.n_integration_steps
+    δt = Δt/n_integration_steps
 
-    for i in 1 : context.n_integration_steps
+    for i in 1 : n_integration_steps
 
         posF = Frenet(VecSE2(x, y, θ), roadway)
         ω = ϕdes - posF.ϕ
@@ -138,7 +125,7 @@ function Base.copy!(v::Vector{Float64}, a::LatLonAccel)
     v[2] = a.a_lon
     v
 end
-function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinuous, roadway::Roadway)
+function propagate(veh::Vehicle, action::LatLonAccel, ΔT::Float64, roadway::Roadway)
 
     a_lat = action.a_lat
     a_lon = action.a_lon
@@ -149,7 +136,6 @@ function propagate(veh::Vehicle, action::LatLonAccel, context::IntegratedContinu
      t = veh.state.posF.t
     dt = v*sin(ϕ)
 
-    ΔT = context.Δt
     ΔT² = ΔT*ΔT
     Δs = ds*ΔT + 0.5*a_lon*ΔT²
     Δt = dt*ΔT + 0.5*a_lat*ΔT²
@@ -196,13 +182,12 @@ function Base.copy!(v::Vector{Float64}, a::LaneFollowingAccel)
     v[1] = a.a
     v
 end
-function propagate(veh::Vehicle, action::LaneFollowingAccel, context::IntegratedContinuous, roadway::Roadway)
+function propagate(veh::Vehicle, action::LaneFollowingAccel, ΔT::Float64, roadway::Roadway)
 
     a_lon = action.a
 
     ds = veh.state.v
 
-    ΔT = context.Δt
     ΔT² = ΔT*ΔT
     Δs = ds*ΔT + 0.5*a_lon*ΔT²
 
@@ -244,7 +229,7 @@ function Base.copy!(v::Vector{Float64}, a::NextState)
     v[2] = a.s.posG.ϕ
     v
 end
-propagate{C<:ActionContext}(veh::Vehicle, action::NextState, context::C, roadway::Roadway) = action.s
+propagate(veh::Vehicle, action::NextState, Δt::Float64, roadway::Roadway) = action.s
 
 ###########
 
@@ -266,7 +251,7 @@ function Base.copy!(v::Vector{Float64}, a::AccelSteeringAngle)
     v[2] = a.δ
     v
 end
-function AutomotiveDrivingModels.propagate(veh::Vehicle, action::AccelSteeringAngle, context::IntegratedContinuous, roadway::Roadway,
+function AutomotiveDrivingModels.propagate(veh::Vehicle, action::AccelSteeringAngle, Δt::Float64, roadway::Roadway,
     geom::BicycleGeom=BicycleGeom(),
     )
 
@@ -280,8 +265,6 @@ function AutomotiveDrivingModels.propagate(veh::Vehicle, action::AccelSteeringAn
     y = veh.state.posG.y
     θ = veh.state.posG.θ
     v = veh.state.v
-
-    Δt = context.Δt
 
     s = v*Δt + a*Δt*Δt/2 # distance covered
     v′ = v + a*Δt

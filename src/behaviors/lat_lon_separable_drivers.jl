@@ -1,13 +1,11 @@
 export LatLonSeparableDriver
 
-type LatLonSeparableDriver <: DriverModel{LatLonAccel, IntegratedContinuous}
-    C::IntegratedContinuous
+type LatLonSeparableDriver <: DriverModel{LatLonAccel}
     mlat::LateralDriverModel
     mlon::LongitudinalDriverModel
 end
 
 get_name(model::LatLonSeparableDriver) = @sprintf("%s + %s", get_name(model.mlat), get_name(model.mlon))
-action_context(model::LatLonSeparableDriver) = model.C
 function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model

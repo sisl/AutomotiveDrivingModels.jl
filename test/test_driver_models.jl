@@ -1,4 +1,4 @@
-type FakeDriverModel <: DriverModel{FakeDriveAction, FakeActionContext} end
+type FakeDriverModel <: DriverModel{FakeDriveAction} end
 
 let
     roadway = get_test_roadway()
@@ -12,7 +12,6 @@ let
 
     @test get_name(model) == "???"
     @test action_type(model) <: FakeDriveAction
-    @test_throws ErrorException action_context(model)
     @test_throws ErrorException rand(model)
     @test_throws ErrorException pdf(model, FakeDriveAction())
     @test_throws ErrorException logpdf(model, FakeDriveAction())

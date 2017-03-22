@@ -21,46 +21,18 @@ function get_actions!{A<:DriveAction, D<:DriverModel}(
     actions
 end
 
-function tick!{A<:DriveAction, D<:DriverModel}(
-    scene::Scene,
-    roadway::Roadway,
-    actions::Vector{A},
-    models::Dict{Int, D}, # id → model
-    )
-
-    for (veh, action) in zip(scene, actions)
-        model = models[veh.id]
-        context = action_context(model)
-        veh.state = propagate(veh, action, context, roadway)
-    end
-
-    scene
-end
-function tick!{A<:DriveAction, C<:ActionContext}(
-    scene::Scene,
-    roadway::Roadway,
-    actions::Vector{A},
-    contexts::Vector{C}
-    )
-
-    for (veh, action, context) in zip(scene, actions, contexts)
-        veh.state = propagate(veh, action, context, roadway)
-    end
-
-    scene
-end
 function tick!{A<:DriveAction}(
     scene::Scene,
     roadway::Roadway,
     actions::Vector{A},
-    context::ActionContext,
+    Δt::Float64,
     )
 
     for (veh, action) in zip(scene, actions)
-        veh.state = propagate(veh, action, context, roadway)
+        veh.state = propagate(veh, action, Δt, roadway)
     end
 
-    scene
+    return scene
 end
 
 function reset_hidden_states!{D<:DriverModel}(models::Dict{Int,D})
@@ -78,7 +50,7 @@ function simulate!{D<:DriverModel}(
     scene::Scene,
     roadway::Roadway,
     models::Dict{Int,D},
-    nticks::Int
+    nticks::Int,
     )
 
     empty!(rec)
@@ -87,7 +59,7 @@ function simulate!{D<:DriverModel}(
 
     for tick in 1 : nticks
         get_actions!(actions, scene, roadway, models)
-        tick!(scene, roadway, actions, models)
+        tick!(scene, roadway, actions, rec.timestep)
         update!(rec, scene)
     end
 
@@ -140,7 +112,7 @@ function simulate!(
         ego_action = rand(model)
         ego_veh = get_by_id(scene, egoid)
         ego_veh.state = prev_ego_state
-        prev_ego_state = ego_veh.state = propagate(ego_veh, ego_action, context, roadway)
+        prev_ego_state = ego_veh.state = propagate(ego_veh, ego_action, Δt, roadway)
 
         # update record
         update!(rec, scene)

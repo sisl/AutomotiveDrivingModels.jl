@@ -1,6 +1,6 @@
 export PrerecordedDriver
 
-type PrerecordedDriver <: DriverModel{NextState, IntegratedContinuous}
+type PrerecordedDriver <: DriverModel{NextState}
     trajdata::Trajdata # log we pull from
     time_start::Float64   # starting time [s]
     t_current::Float64
@@ -15,7 +15,6 @@ function PrerecordedDriver(trajdata::Trajdata, frame_start::Int, egoid::Int, tim
 end
 
 get_name(::PrerecordedDriver) = "PrerecordedDriver"
-action_context(model::PrerecordedDriver) = IntegratedContinuous(model.timestep, 1)
 function reset_hidden_state!(model::PrerecordedDriver)
     model.t_current = model.time_start
     model

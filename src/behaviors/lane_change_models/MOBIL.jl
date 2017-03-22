@@ -14,8 +14,8 @@ type MOBIL <: LaneChangeModel{LaneChangeChoice}
     advantage_threshold::Float64 # Δaₜₕ
 
     function MOBIL(
-        action_context::IntegratedContinuous;
-        rec::SceneRecord=SceneRecord(2,action_context.Δt),
+        timestep::Float64;
+        rec::SceneRecord=SceneRecord(2,timestep),
         mlon::LongitudinalDriverModel=IntelligentDriverModel(),
         safe_decel::Float64=2.0, # [m/s²]
         politeness::Float64=0.35,

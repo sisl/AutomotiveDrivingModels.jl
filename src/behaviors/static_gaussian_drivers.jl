@@ -1,12 +1,10 @@
 export StaticGaussianDriver
 
-type StaticGaussianDriver{A} <: DriverModel{A,IntegratedContinuous}
-    C::IntegratedContinuous
+type StaticGaussianDriver{A} <: DriverModel{A}
     P::MvNormal
 end
 
 get_name(::StaticGaussianDriver) = "StaticGaussian"
-action_context(model::StaticGaussianDriver) = model.C
 function Base.rand{A}(model::StaticGaussianDriver{A})
     a = rand(model.P)
     convert(A, a)

@@ -1,33 +1,30 @@
 export Tim2DDriver
 
-type Tim2DDriver <: DriverModel{LatLonAccel, IntegratedContinuous}
+type Tim2DDriver <: DriverModel{LatLonAccel}
     rec::SceneRecord
-    action_context::IntegratedContinuous
     mlon::LongitudinalDriverModel
     mlat::LateralDriverModel
     mlane::LaneChangeModel
 
     function Tim2DDriver(
-        action_context::IntegratedContinuous;
+        timestep::Float64;
         mlon::LongitudinalDriverModel=IntelligentDriverModel(),
         mlat::LateralDriverModel=ProportionalLaneTracker(),
-        mlane::LaneChangeModel=TimLaneChanger(action_context),
-        rec::SceneRecord = SceneRecord(1, action_context.Δt)
+        mlane::LaneChangeModel=TimLaneChanger(timestep),
+        rec::SceneRecord = SceneRecord(1, timestep)
         )
 
         retval = new()
 
-        retval.action_context=action_context
+        retval.rec = rec
         retval.mlon = mlon
         retval.mlat = mlat
         retval.mlane = mlane
-        retval.rec = rec
 
         retval
     end
 end
 get_name(::Tim2DDriver) = "Tim2DDriver"
-action_context(driver::Tim2DDriver) = driver.action_context
 function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     set_desired_speed!(model.mlane, v_des)

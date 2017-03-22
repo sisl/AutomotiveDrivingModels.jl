@@ -61,9 +61,9 @@ type TimLaneChanger <: LaneChangeModel
     threshold_lane_change_gap_rear::Float64
 
     function TimLaneChanger(
-        action_context::IntegratedContinuous;
+        timestep::Float64;
         v_des::Float64=29.0,
-        rec::SceneRecord=SceneRecord(2,action_context.Δt),
+        rec::SceneRecord=SceneRecord(2,timestep),
         threshold_fore::Float64 = 50.0,
         threshold_lane_change_gap_fore::Float64 = 10.0,
         threshold_lane_change_gap_rear::Float64 = 10.0,

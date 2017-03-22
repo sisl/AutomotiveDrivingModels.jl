@@ -3,17 +3,15 @@ export
 
     get_name,
     action_type,
-    action_context,
     set_desired_speed!,
     observe!,
     reset_hidden_state!,
     prime_with_history!
 
-abstract DriverModel{DriveAction, ActionContext}
+abstract DriverModel{DriveAction}
 
 get_name(::DriverModel) = "???"
-action_type{A,C}(::DriverModel{A, C}) = A
-action_context{A,C}(model::DriverModel{A, C}) = error("action_context not implemented for model $model")
+action_type{A}(::DriverModel{A}) = A
 set_desired_speed!(model::DriverModel, v_des::Float64) = model # do nothing by default
 reset_hidden_state!(model::DriverModel) = model # do nothing by default
 observe!(model::DriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
