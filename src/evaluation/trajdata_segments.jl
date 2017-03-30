@@ -13,7 +13,7 @@ immutable TrajdataSegment
     frame_lo       :: Int # the starting frame in trajdata (does not count any sort of history)
     frame_hi       :: Int # the ending frame in trajdata, simulation is from frame_lo and propagates until frame_hi
 end
-@compat function Base.:(==)(a::TrajdataSegment, b::TrajdataSegment)
+function Base.:(==)(a::TrajdataSegment, b::TrajdataSegment)
     a.trajdata_index   == b.trajdata_index &&
     a.egoid            == b.egoid &&
     a.frame_lo         == b.frame_lo &&

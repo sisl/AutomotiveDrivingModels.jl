@@ -17,7 +17,9 @@ export
         is_collision_free,
         get_distance,
         get_edge,
-        get_side
+        get_side,
+
+        CollisionCallback
 
 ######################################
 
@@ -56,8 +58,8 @@ immutable LineSegment
     a::VecE2
     b::VecE2
 end
-@compat Base.:+(seg::LineSegment, v::VecE2) = LineSegment(seg.a + v, seg.b + v)
-@compat Base.:-(seg::LineSegment, v::VecE2) = LineSegment(seg.a - v, seg.b - v)
+Base.:+(seg::LineSegment, v::VecE2) = LineSegment(seg.a + v, seg.b + v)
+Base.:-(seg::LineSegment, v::VecE2) = LineSegment(seg.a - v, seg.b - v)
 
 function get_polar_angle(seg::LineSegment)
     θ = atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x)
@@ -609,3 +611,24 @@ end
 get_first_collision(scene::Scene, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, 1:length(scene), mem)
 is_collision_free(scene::Scene, mem::CPAMemory=CPAMemory()) = !(get_first_collision(scene, mem).is_colliding)
 is_collision_free(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, vehicle_indeces, mem).is_colliding
+
+###
+
+"""
+    CollisionCallback
+
+Terminates the simulation once a collision occurs
+"""
+@with_kw type CollisionCallback
+    mem::CPAMemory=CPAMemory()
+end
+function run_callback{S,D,I,M<:DriverModel}(
+    callback::CollisionCallback,
+    rec::QueueRecord{Entity{S,D,I}},
+    roadway::Any,
+    models::Dict{I,M},
+    tick::Int,
+    )
+
+    return !is_collision_free(rec[0], callback.mem)
+end

@@ -1,10 +1,10 @@
-type PrincetonLongitudinalDriver <: LongitudinalDriverModel
+type PrincetonDriver <: LaneFollowingDriver
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
     k::Float64 # proportional constant for speed tracking [s⁻¹]
     v_des::Float64 # desired speed [m/s]
 
-    function PrincetonLongitudinalDriver(;
+    function PrincetonDriver(;
         σ::Float64 = NaN,
         k::Float64 = 1.0,
         v_des::Float64 = 29.0,
@@ -18,12 +18,12 @@ type PrincetonLongitudinalDriver <: LongitudinalDriverModel
         retval
     end
 end
-get_name(::PrincetonLongitudinalDriver) = "PrincetonLongitudinalDriver"
-function set_desired_speed!(model::PrincetonLongitudinalDriver, v_des::Float64)
+get_name(::PrincetonDriver) = "PrincetonDriver"
+function set_desired_speed!(model::PrincetonDriver, v_des::Float64)
     model.v_des = v_des
     model
 end
-function track_longitudinal!(model::PrincetonLongitudinalDriver, v_ego::Float64, v_oth::Float64, headway::Float64)
+function track_longitudinal!(model::PrincetonDriver, v_ego::Float64, v_oth::Float64, headway::Float64)
 
     v_des = model.v_des
     k = model.k
@@ -37,29 +37,24 @@ function track_longitudinal!(model::PrincetonLongitudinalDriver, v_ego::Float64,
 
     model
 end
-function observe!(model::PrincetonLongitudinalDriver, scene::Scene, roadway::Roadway, egoid::Int)
-    ego_index = findfirst(scene, egoid)
-    track_longitudinal!(model, scene, roadway, ego_index, 0)
-    model
-end
-function Base.rand(model::PrincetonLongitudinalDriver)
+function Base.rand(model::PrincetonDriver)
     if isnan(model.σ) || model.σ ≤ 0.0
-        model.a
+        LaneFollowingAccel(model.a)
     else
-        rand(Normal(model.a, model.σ))
+        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
     end
 end
-function Distributions.pdf(model::PrincetonLongitudinalDriver, a_lon::Float64)
+function Distributions.pdf(model::PrincetonDriver, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        pdf(Normal(model.a, model.σ), a_lon)
+        pdf(Normal(model.a, model.σ), a.a)
     end
 end
-function Distributions.logpdf(model::PrincetonLongitudinalDriver, a_lon::Float64)
+function Distributions.logpdf(model::PrincetonDriver, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        logpdf(Normal(model.a, model.σ), a_lon)
+        logpdf(Normal(model.a, model.σ), a.a)
     end
 end

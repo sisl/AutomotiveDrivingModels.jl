@@ -14,12 +14,20 @@ get_name(::DriverModel) = "???"
 action_type{A}(::DriverModel{A}) = A
 set_desired_speed!(model::DriverModel, v_des::Float64) = model # do nothing by default
 reset_hidden_state!(model::DriverModel) = model # do nothing by default
-observe!(model::DriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
-Base.rand{A}(model::DriverModel{A}) = error("rand not implemented for model $model")
+observe!{S,D,I,R}(model::DriverModel, scene::Frame{Entity{S,D,I}}, roadway::R, egoid::Int) = model  # do nothing by default
+Base.rand(model::DriverModel) = error("rand not implemented for model $model")
 Distributions.pdf{A}(model::DriverModel{A}, a::A) = error("pdf not implemented for model $model")
 Distributions.logpdf{A}(model::DriverModel{A}, a::A) = error("logpdf not implemented for model $model")
 
-function prime_with_history!(model::DriverModel, trajdata::Trajdata, roadway::Roadway, frame_start::Int, frame_end::Int, egoid::Int, scene::Scene=Scene())
+function prime_with_history!{S,D,I,R}(
+    model::DriverModel,
+    trajdata::ListRecord{Entity{S,D,I}},
+    roadway::R,
+    frame_start::Int,
+    frame_end::Int,
+    egoid::I,
+    scene::Frame{Entity{S,D,I}} = allocate_frame(trajdata),
+    )
 
     reset_hidden_state!(model)
 
@@ -28,17 +36,17 @@ function prime_with_history!(model::DriverModel, trajdata::Trajdata, roadway::Ro
         observe!(model, scene, roadway, egoid)
     end
 
-    model
+    return model
 end
-function prime_with_history!(model::DriverModel, rec::SceneRecord, roadway::Roadway, egoid::Int;
-    pastframe_start::Int=1-length(rec),
+function prime_with_history!{S,D,I,R}(model::DriverModel, rec::QueueRecord{Entity{S,D,I}}, roadway::R, egoid::I;
+    pastframe_start::Int=1-nframes(rec),
     pastframe_end::Int=0,
     )
 
     reset_hidden_state!(model)
 
     for pastframe in pastframe_start : pastframe_end
-        scene = get_scene(rec, pastframe)
+        scene = rec[pastframe]
         observe!(model, scene, roadway, egoid)
     end
 

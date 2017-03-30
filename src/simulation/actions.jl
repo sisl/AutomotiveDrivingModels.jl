@@ -1,5 +1,4 @@
 export
-    DriveAction,
     NextState,
     AccelTurnrate,
     AccelDesang,
@@ -12,14 +11,6 @@ export
     pull_action!,
     propagate
 
-###############
-
-abstract DriveAction
-Base.length{A<:DriveAction}(a::Type{A}) = error("length not defined for DriveAction $a")
-Base.convert{A<:DriveAction}(a::Type{A}, v::Vector{Float64}) = error("convert v → a not implemented for DriveAction $a")
-Base.copy!(v::Vector{Float64}, a::DriveAction) = error("copy! not implemented for DriveAction $a")
-Base.convert{A<:DriveAction}(::Type{Vector{Float64}}, a::A) = copy!(Array(Float64, length(A)), a)
-propagate(veh::Vehicle, action::DriveAction, Δt::Float64, roadway::Roadway) = error("propagate not implemented for DriveAction $action")
 
 immutable AccelTurnrate <: DriveAction
     a::Float64
@@ -33,7 +24,7 @@ function Base.copy!(v::Vector{Float64}, a::AccelTurnrate)
     v[2] = a.ω
     v
 end
-function propagate(veh::Vehicle, action::AccelTurnrate, Δt::Float64, roadway::Roadway; n_integration_steps::Int=4)
+function propagate(veh::Vehicle, action::AccelTurnrate, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4)
 
     a = action.a # accel
     ω = action.ω # turnrate
@@ -80,7 +71,7 @@ function Base.copy!(v::Vector{Float64}, a::AccelDesang)
     v[2] = a.ϕdes
     v
 end
-function propagate(veh::Vehicle, action::AccelDesang, Δt::Float64, roadway::Roadway; n_integration_steps::Int=4)
+function propagate(veh::Vehicle, action::AccelDesang, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4)
 
     a = action.a # accel
     ϕdes = action.ϕdes # desired heading angle
@@ -168,35 +159,7 @@ end
 
 ###############
 
-"""
-    LaneFollowingAccel
-Longitudinal acceleration
-"""
-immutable LaneFollowingAccel <: DriveAction
-    a::Float64
-end
-Base.show(io::IO, a::LaneFollowingAccel) = @printf(io, "LaneFollowingAccel(%6.3f)", a.a)
-Base.length(::Type{LaneFollowingAccel}) = 1
-Base.convert(::Type{LaneFollowingAccel}, v::Vector{Float64}) = LaneFollowingAccel(v[1])
-function Base.copy!(v::Vector{Float64}, a::LaneFollowingAccel)
-    v[1] = a.a
-    v
-end
-function propagate(veh::Vehicle, action::LaneFollowingAccel, ΔT::Float64, roadway::Roadway)
 
-    a_lon = action.a
-
-    ds = veh.state.v
-
-    ΔT² = ΔT*ΔT
-    Δs = ds*ΔT + 0.5*a_lon*ΔT²
-
-    v₂ = ds + a_lon*ΔT
-
-    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
-    posG = roadway[roadind].pos
-    VehicleState(posG, roadway, v₂)
-end
 ###############
 
 immutable NextState <: DriveAction
@@ -229,7 +192,7 @@ function Base.copy!(v::Vector{Float64}, a::NextState)
     v[2] = a.s.posG.ϕ
     v
 end
-propagate(veh::Vehicle, action::NextState, Δt::Float64, roadway::Roadway) = action.s
+propagate(veh::Vehicle, action::NextState, roadway::Roadway, Δt::Float64) = action.s
 
 ###########
 
@@ -251,7 +214,7 @@ function Base.copy!(v::Vector{Float64}, a::AccelSteeringAngle)
     v[2] = a.δ
     v
 end
-function AutomotiveDrivingModels.propagate(veh::Vehicle, action::AccelSteeringAngle, Δt::Float64, roadway::Roadway,
+function AutomotiveDrivingModels.propagate(veh::Vehicle, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64,
     geom::BicycleGeom=BicycleGeom(),
     )
 

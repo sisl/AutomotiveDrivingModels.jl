@@ -43,7 +43,7 @@ function extract!(
 
     # TODO: how to handle missing values???
 
-    pastframe = 1-length(rec_orig) + clamp(round(Int, metric.horizon/rec_orig.timestep), 0, length(rec_orig)-1)
+    pastframe = 1-nframes(rec_orig) + clamp(round(Int, metric.horizon/rec_orig.timestep), 0, nframes(rec_orig)-1)
 
     # pull true value
     vehicle_index = findfirst(rec_orig, egoid, pastframe)
@@ -79,7 +79,7 @@ function reset!(metric::SumSquareJerk)
 end
 function extract_sum_square_jerk(rec::SceneRecord, roadway::Roadway, egoid::Int)
     sumsquarejerk = 0.0
-    for pastframe in 3-length(rec) : 0
+    for pastframe in 3-nframes(rec) : 0
         vehicle_index = findfirst(rec, egoid, pastframe)
         jerk = convert(Float64, get(JERK, rec, roadway, vehicle_index, pastframe))
         sumsquarejerk += jerk*jerk
@@ -190,12 +190,12 @@ function extract_log_likelihood(model::DriverModel, rec::SceneRecord, roadway::R
 
     A = action_type(model)
 
-    pastframe_prime = prime_history-length(rec)
+    pastframe_prime = prime_history-nframes(rec)
     prime_with_history!(model, rec, roadway, egoid, pastframe_end=pastframe_prime)
 
     logl = 0.0
     for pastframe in pastframe_prime+1 : -1
-        observe!(model, get_scene(rec, pastframe), roadway, egoid)
+        observe!(model, rec[pastframe], roadway, egoid)
         vehicle_index = findfirst(rec, egoid, pastframe+1)
         action = get(A, rec, roadway, vehicle_index, pastframe+1)
         logl += logpdf(model, action)

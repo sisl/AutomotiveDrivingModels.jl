@@ -1,7 +1,7 @@
 """
 Commonly referred to as IDM
 """
-@with_kw type IntelligentDriverModel <: LongitudinalDriverModel
+@with_kw type IntelligentDriverModel <: LaneFollowingDriver
     a::Float64 = NaN # predicted acceleration
     σ::Float64 = NaN # optional stdev on top of the model, set to zero or NaN for deterministic behavior
 
@@ -41,35 +41,24 @@ function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_ot
 
     model
 end
-function observe!(model::IntelligentDriverModel, scene::Scene, roadway::Roadway, egoid::Int)
-
-    # update the predicted accel
-
-    vehicle_index = findfirst(scene, egoid)
-    veh_ego = scene[vehicle_index]
-    fore_res = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
-
-    track_longitudinal!(model, scene, roadway, vehicle_index, fore_res.ind)
-    model
-end
 function Base.rand(model::IntelligentDriverModel)
     if isnan(model.σ) || model.σ ≤ 0.0
-        model.a
+        LaneFollowingAccel(model.a)
     else
-        rand(Normal(model.a, model.σ))
+        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
     end
 end
-function Distributions.pdf(model::IntelligentDriverModel, a_lon::Float64)
+function Distributions.pdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        pdf(Normal(model.a, model.σ), a_lon)
+        pdf(Normal(model.a, model.σ), a.a)
     end
 end
-function Distributions.logpdf(model::IntelligentDriverModel, a_lon::Float64)
+function Distributions.logpdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        logpdf(Normal(model.a, model.σ), a_lon)
+        logpdf(Normal(model.a, model.σ), a.a)
     end
 end

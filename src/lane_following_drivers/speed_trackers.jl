@@ -1,4 +1,4 @@
-type ProportionalSpeedTracker <: LongitudinalDriverModel
+type ProportionalSpeedTracker <: LaneFollowingDriver
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
     k::Float64 # proportional constant for speed tracking [s⁻¹]
@@ -28,29 +28,24 @@ function track_longitudinal!(model::ProportionalSpeedTracker, v_ego::Float64, v_
     model.a = Δv*model.k # predicted accel to match target speed
     return model
 end
-function observe!(model::ProportionalSpeedTracker, scene::Scene, roadway::Roadway, egoid::Int)
-    ego_index = findfirst(scene, egoid)
-    track_longitudinal!(model, scene, roadway, ego_index, 0)
-    model
-end
 function Base.rand(model::ProportionalSpeedTracker)
     if isnan(model.σ) || model.σ ≤ 0.0
-        model.a
+        LaneFollowingAccel(model.a)
     else
-        rand(Normal(model.a, model.σ))
+        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
     end
 end
-function Distributions.pdf(model::ProportionalSpeedTracker, a_lon::Float64)
+function Distributions.pdf(model::ProportionalSpeedTracker, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        pdf(Normal(model.a, model.σ), a_lon)
+        pdf(Normal(model.a, model.σ), a.a)
     end
 end
-function Distributions.logpdf(model::ProportionalSpeedTracker, a_lon::Float64)
+function Distributions.logpdf(model::ProportionalSpeedTracker, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        logpdf(Normal(model.a, model.σ), a_lon)
+        logpdf(Normal(model.a, model.σ), a.a)
     end
 end

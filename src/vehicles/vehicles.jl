@@ -52,39 +52,6 @@ function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
     VehicleState(posG, roadway, v₂)
 end
 
-
-baremodule AgentClass
-    const MOTORCYCLE = 1
-    const CAR        = 2
-    const TRUCK      = 3
-end
-
-immutable VehicleDef
-    class::Int # ∈ AgentClass
-    length::Float64
-    width::Float64
-end
-function VehicleDef(;
-    class::Int=AgentClass.CAR,
-    length::Float64=4.0,
-    width::Float64=1.8,
-    )
-
-    VehicleDef(class, length, width)
-end
-
-const NULL_VEHICLEDEF = VehicleDef(AgentClass.CAR, NaN, NaN)
-
-Base.show(io::IO, d::VehicleDef) = @printf(io, "VehicleDef(%s, %.3f, %.3f)", d.class == AgentClass.CAR ? "CAR" : d.class == AgentClass.MOTORCYCLE ? "MOTORCYCLE" : "TRUCK", d.length, d.width)
-Base.write(io::IO, ::MIME"text/plain", def::VehicleDef) = @printf(io, "%d %.16e %.16e", def.class, def.length, def.width)
-function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleDef})
-    tokens = split(strip(readline(io)), ' ')
-    class = parse(Int, tokens[1])
-    length = parse(Float64, tokens[2])
-    width = parse(Float64, tokens[3])
-    return VehicleDef(class, length, width)
-end
-
 typealias Vehicle Entity{VehicleState,VehicleDef,Int}
 
 Base.show(io::IO, v::Vehicle) = print(io, "Vehicle(", v.id, ", ", v.state, ", ", v.def, ")")
@@ -118,3 +85,18 @@ function get_markerdist_right(veh::Vehicle, roadway::Roadway)
     return lane_width/2 + t
 end
 
+function propagate(veh::Vehicle, action::LaneFollowingAccel, roadway::Roadway, ΔT::Float64)
+
+    a_lon = action.a
+
+    ds = veh.state.v
+
+    ΔT² = ΔT*ΔT
+    Δs = ds*ΔT + 0.5*a_lon*ΔT²
+
+    v₂ = ds + a_lon*ΔT
+
+    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    posG = roadway[roadind].pos
+    VehicleState(posG, roadway, v₂)
+end

@@ -1,14 +1,16 @@
-export
-        get_actions!,
-        tick!,
-        reset_hidden_states!,
-        simulate!
+"""
+    propagate(veh, action, roadway, Δt)
 
-function get_actions!{S,Def,I,A<:DriveAction, D<:DriverModel}(
+Take an entity of type {S,D,I} and move it over Δt seconds to produce a new
+entity based on the action on the given roadway.
+"""
+propagate{S,D,I,A,R}(veh::Entity{S,D,I}, action::A, roadway::R, Δt::Float64) = error("propagate not implemented for Entity{$S, $D, $I}, actions $A, and roadway $R")
+
+function get_actions!{S,D,I,A,R,M<:DriverModel}(
     actions::Vector{A},
-    scene::Frame{Entity{S,Def,I}},
-    roadway::Any,
-    models::Dict{I, D}, # id → model
+    scene::Frame{Entity{S,D,I}},
+    roadway::R,
+    models::Dict{I, M}, # id → model
     )
 
 
@@ -21,9 +23,9 @@ function get_actions!{S,Def,I,A<:DriveAction, D<:DriverModel}(
     actions
 end
 
-function tick!{S,D,I, A<:DriveAction}(
+function tick!{S,D,I,A,R}(
     scene::Frame{Entity{S,D,I}},
-    roadway::Any,
+    roadway::R,
     actions::Vector{A},
     Δt::Float64,
     )
@@ -37,7 +39,7 @@ function tick!{S,D,I, A<:DriveAction}(
     return scene
 end
 
-function reset_hidden_states!{D<:DriverModel}(models::Dict{Int,D})
+function reset_hidden_states!{M<:DriverModel}(models::Dict{Int,M})
     for model in values(models)
         reset_hidden_state!(model)
     end
@@ -45,19 +47,20 @@ function reset_hidden_states!{D<:DriverModel}(models::Dict{Int,D})
 end
 
 """
-Run nticks of simulation and place all nticks+1 scenes into the SceneRecord
+Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
 """
-function simulate!{S,Def,I, D<:DriverModel}(
-    rec::QueueRecord{Entity{S,Def,I}},
-    scene::Frame{Entity{S,Def,I}},
-    roadway::Any,
-    models::Dict{I,D},
+function simulate!{S,D,I,A,R,M<:DriverModel}(
+    ::Type{A},
+    rec::QueueRecord{Entity{S,D,I}},
+    scene::Frame{Entity{S,D,I}},
+    roadway::R,
+    models::Dict{I,M},
     nticks::Int,
     )
 
     empty!(rec)
     update!(rec, scene)
-    actions = Array(DriveAction, length(scene))
+    actions = Array(A, length(scene))
 
     for tick in 1 : nticks
         get_actions!(actions, scene, roadway, models)
@@ -67,54 +70,58 @@ function simulate!{S,Def,I, D<:DriverModel}(
 
     return rec
 end
+function simulate!{S,D,I,R,M<:DriverModel}(
+    rec::QueueRecord{Entity{S,D,I}},
+    scene::Frame{Entity{S,D,I}},
+    roadway::R,
+    models::Dict{I,M},
+    nticks::Int,
+    )
+
+    return simulate!(Any, rec, scene, roadway, models, nticks)
+end
 
 
 """
-    Run a simulation and store the resulting scenes in the provided SceneRecord.
+    Run a simulation and store the resulting scenes in the provided QueueRecord.
 Only the ego vehicle is simulated; the other vehicles are as they were in the provided trajdata
 Other vehicle states will be interpolated
 """
-function simulate!(
-    rec::SceneRecord,
-    models::DriverModel,
-    egoid::Int,
-    trajdata::Trajdata,
-    time_start::Float64,
-    time_end::Float64;
+function simulate!{S,D,I}(
+    rec::QueueRecord{Entity{S,D,I}},
+    model::DriverModel,
+    egoid::I,
+    trajdata::ListRecord{Entity{S,D,I}},
+    frame_start::Int,
+    frame_end::Int;
     prime_history::Int=0, # no prime-ing
-    scene::Scene = Scene(),
+    scene::Frame{Entity{S,D,I}} =  allocate_frame(trajdata),
     )
 
-    Δt = rec.timestep
+    @assert(isapprox(get_timestep(rec), get_timestep(trajdata)))
+    
     roadway = trajdata.roadway
 
     # prime with history
-    empty!(rec)
-    reset_hidden_state!(model)
-    for h in 1:prime_history
-        t = time_start - Δt * (prime_history - h + 1)
-        update!(rec, get!(scene, trajdata, t))
-        observe!(model, scene, roadway, egoid)
-    end
+    prime_with_history!(model, trajdata, roadway, frame_start, frame_end, egoid, scene)
 
     # add current frame
     update!(rec, get!(scene, trajdata, time_start))
     observe!(model, scene, roadway, egoid)
 
     # run simulation
-    t = time_start
-    context = action_context(model)
-    prev_ego_state = get_by_id(scene, egoid).state
+    frame_index = frame_start
+    ego_veh = get_by_id(scene, egoid)
     while t < time_end
 
-        # pull orig scene
-        get!(scene, trajdata, t)
+        # pull original scene
+        get!(scene, trajdata, frame_index)
 
         # propagate ego vehicle and set
         ego_action = rand(model)
-        ego_veh = get_by_id(scene, egoid)
-        ego_veh.state = prev_ego_state
-        prev_ego_state = ego_veh.state = propagate(ego_veh, ego_action, Δt, roadway)
+        ego_state = propagate(ego_veh, ego_action, roadway, get_timestep(rec))
+        ego_veh = Entity(ego_veh, ego_state)
+        scene[findfirst(scene, ego_veh.id)] = ego_veh
 
         # update record
         update!(rec, scene)
@@ -123,8 +130,8 @@ function simulate!(
         observe!(model, scene, roadway, ego_veh.id)
 
         # update time
-        t += Δt
+        frame_index += 1
     end
 
-    rec
+    return rec
 end
