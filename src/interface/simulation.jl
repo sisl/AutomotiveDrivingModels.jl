@@ -24,7 +24,7 @@ function tick!{S,D,I,A,R}(
 
     for i in 1 : length(scene)
         veh = scene[i]
-        state′ = propagate(veh, actions[i], Δt, roadway)
+        state′ = propagate(veh, actions[i], roadway, Δt)
         scene[i] = Entity(state′, veh.def, veh.id)
     end
 

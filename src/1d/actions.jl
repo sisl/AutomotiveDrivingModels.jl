@@ -13,7 +13,7 @@ function Base.copy!(v::Vector{Float64}, a::LaneFollowingAccel)
     v
 end
 
-function propagate(veh::MobiusVehicle, action::LaneFollowingAccel, Δt::Float64, roadway::StraightRoadway)
+function propagate(veh::MobiusVehicle, action::LaneFollowingAccel, roadway::StraightRoadway, Δt::Float64)
 
     a = action.a
     s, v = veh.state.s, veh.state.v

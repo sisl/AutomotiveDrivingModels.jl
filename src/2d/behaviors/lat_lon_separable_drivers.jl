@@ -1,8 +1,6 @@
-export LatLonSeparableDriver
-
 type LatLonSeparableDriver <: DriverModel{LatLonAccel}
     mlat::LateralDriverModel
-    mlon::LongitudinalDriverModel
+    mlon::LaneFollowingDriver
 end
 
 get_name(model::LatLonSeparableDriver) = @sprintf("%s + %s", get_name(model.mlat), get_name(model.mlon))
@@ -17,7 +15,7 @@ function observe!(model::LatLonSeparableDriver, scene::Scene, roadway::Roadway, 
 end
 function Base.rand(model::LatLonSeparableDriver)
     alat = rand(model.mlat)
-    alon = rand(model.mlon)
+    alon = rand(model.mlon).a
     LatLonAccel(alat, alon)
 end
 Distributions.pdf(model::LatLonSeparableDriver, a::LatLonAccel) = pdf(model.mlat, a.a_lat) * pdf(model.mlon, a.a_lon)

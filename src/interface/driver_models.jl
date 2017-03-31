@@ -1,6 +1,8 @@
 export
     DriverModel,
 
+    StaticDriver,
+
     get_name,
     action_type,
     set_desired_speed!,
@@ -52,3 +54,18 @@ function prime_with_history!{S,D,I,R}(model::DriverModel, rec::EntityQueueRecord
 
     model
 end
+
+####
+
+
+type StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
+    distribution::P
+end
+
+get_name(::StaticDriver) = "StaticDriver"
+function Base.rand{A,P}(model::StaticDriver{A,P})
+    a = rand(model.distribution)
+    return convert(A, a)
+end
+Distributions.pdf{A}(model::StaticDriver{A}, a::A) = pdf(model.distribution, convert(Vector{Float64}, a))
+Distributions.logpdf{A}(model::StaticDriver{A}, a::A) = logpdf(model.distribution, convert(Vector{Float64}, a))

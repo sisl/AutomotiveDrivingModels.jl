@@ -1,14 +1,12 @@
-export MOBIL
-
 """
     MOBIL
 See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 """
-type MOBIL <: LaneChangeModel{LaneChangeChoice}
+type MOBIL <: LaneChangeModel
 
     dir::Int
     rec::SceneRecord
-    mlon::LongitudinalDriverModel
+    mlon::LaneFollowingDriver
     safe_decel::Float64 # safe deceleration (positive value)
     politeness::Float64 # politeness factor (suggested p ∈ [0.2,0.5])
     advantage_threshold::Float64 # Δaₜₕ
@@ -16,7 +14,7 @@ type MOBIL <: LaneChangeModel{LaneChangeChoice}
     function MOBIL(
         timestep::Float64;
         rec::SceneRecord=SceneRecord(2,timestep),
-        mlon::LongitudinalDriverModel=IntelligentDriverModel(),
+        mlon::LaneFollowingDriver=IntelligentDriverModel(),
         safe_decel::Float64=2.0, # [m/s²]
         politeness::Float64=0.35,
         advantage_threshold::Float64=0.1,
@@ -42,7 +40,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
     rec = model.rec
     update!(rec, scene)
 
-    vehicle_index = findfirst(rec, egoid)
+    vehicle_index = findfirst(rec[0], egoid)
     veh_ego = scene[vehicle_index]
     v = veh_ego.state.v
     egostate_M = veh_ego.state
@@ -53,7 +51,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
     rear_M = get_neighbor_rear_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
     # accel if we do not make a lane change
-    accel_M_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid))
+    accel_M_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid)).a
     model.dir = DIR_MIDDLE
 
     advantage_threshold = model.advantage_threshold
@@ -73,14 +71,14 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
         passes_safety_criterion = true
         if rear_R.ind != 0
             id = scene[rear_R.ind].id
-            accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
-            veh_ego.state = egostate_R
-            accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
+            accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
+            veh_ego = Entity(veh_ego, egostate_R)
+            accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
 
             body = inertial2body(get_rear_center(scene[rear_R.ind]), get_front_center(veh_ego)) # project target to be relative to ego
             s_gap = body.x
 
-            veh_ego.state = egostate_M
+            veh_ego = Entity(veh_ego, egostate_M)
             passes_safety_criterion = accel_n_test ≥ -model.safe_decel && s_gap ≥ 0
             Δaccel_n = accel_n_test - accel_n_orig
         end
@@ -90,16 +88,16 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
             Δaccel_o = 0.0
             if rear_M.ind != 0
                 id = scene[rear_M.ind].id
-                accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
-                veh_ego.state = egostate_R
-                accel_o_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
-                veh_ego.state = egostate_M
+                accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
+                veh_ego = Entity(veh_ego, egostate_R)
+                accel_o_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
+                veh_ego = Entity(veh_ego, egostate_M)
                 Δaccel_o = accel_o_test - accel_o_orig
             end
 
-            veh_ego.state = egostate_R
-            accel_M_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid))
-            veh_ego.state = egostate_M
+            veh_ego = Entity(veh_ego, egostate_R)
+            accel_M_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid)).a
+            veh_ego = Entity(veh_ego, egostate_M)
             Δaccel_M = accel_M_test - accel_M_orig
 
             Δaₜₕ = Δaccel_M + model.politeness*(Δaccel_n + Δaccel_o)
@@ -125,14 +123,14 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
         passes_safety_criterion = true
         if rear_L.ind != 0
             id = scene[rear_L.ind].id
-            accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
-            veh_ego.state = egostate_L
-            accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
+            accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
+            veh_ego = Entity(veh_ego, egostate_L)
+            accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
 
             body = inertial2body(get_rear_center(scene[rear_L.ind]), get_front_center(veh_ego)) # project target to be relative to ego
             s_gap = body.x
 
-            veh_ego.state = egostate_M
+            veh_ego = Entity(veh_ego, egostate_M)
             passes_safety_criterion = accel_n_test ≥ -model.safe_decel && s_gap ≥ 0
             Δaccel_n = accel_n_test - accel_n_orig
         end
@@ -143,16 +141,16 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
             Δaccel_o = 0.0
             if rear_M.ind != 0
                 id = scene[rear_M.ind].id
-                accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
-                veh_ego.state = egostate_L
-                accel_o_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id))
-                veh_ego.state = egostate_M
+                accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
+                veh_ego = Entity(veh_ego, egostate_L)
+                accel_o_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
+                veh_ego = Entity(veh_ego, egostate_M)
                 Δaccel_o = accel_o_test - accel_o_orig
             end
 
-            veh_ego.state = egostate_L
-            accel_M_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid))
-            veh_ego.state = egostate_M
+            veh_ego = Entity(veh_ego, egostate_L)
+            accel_M_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid)).a
+            veh_ego = Entity(veh_ego, egostate_M)
             Δaccel_M = accel_M_test - accel_M_orig
 
             Δaₜₕ = Δaccel_M + model.politeness*(Δaccel_n + Δaccel_o)

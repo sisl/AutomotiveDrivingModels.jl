@@ -1,8 +1,3 @@
-export
-        LateralDriverModel,
-        ProportionalLaneTracker,
-        track_lane!
-
 abstract LateralDriverModel
 get_name(::LateralDriverModel) = "???"
 reset_hidden_state!(model::LateralDriverModel) = model # do nothing by default
