@@ -1,5 +1,9 @@
 export
     LaneFollowingDriver,
+    StaticLaneFollowingDriver,
+    PrincetonDriver,
+    IntelligentDriverModel,
+    ProportionalSpeedTracker,
     track_longitudinal!
 
 include("lane_following_drivers.jl")

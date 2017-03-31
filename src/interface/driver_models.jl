@@ -38,7 +38,7 @@ function prime_with_history!{S,D,I,R}(
 
     return model
 end
-function prime_with_history!{S,D,I,R}(model::DriverModel, rec::QueueRecord{Entity{S,D,I}}, roadway::R, egoid::I;
+function prime_with_history!{S,D,I,R}(model::DriverModel, rec::EntityQueueRecord{S,D,I}, roadway::R, egoid::I;
     pastframe_start::Int=1-nframes(rec),
     pastframe_end::Int=0,
     )

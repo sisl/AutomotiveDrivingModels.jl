@@ -5,7 +5,7 @@ function observe!(model::LaneFollowingDriver, scene::MobiusScene, roadway::Strai
 
     vehicle_index = findfirst(scene, egoid)
 
-    fore_res = get_neighbor_fore_mobius(scene, vehicle_index, roadway)
+    fore_res = get_neighbor_fore(scene, vehicle_index, roadway)
 
     v_ego = scene[vehicle_index].state.v
     v_oth = scene[fore_res.ind].state.v

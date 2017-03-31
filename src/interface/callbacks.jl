@@ -3,9 +3,9 @@ export
 
 
 # run callback and return whether simlation should terminate
-run_callback{S,D,I,R,M<:DriverModel}(callback::Any, rec::QueueRecord{Entity{S,D,I}}, roadway::R, models::Dict{I,M}, tick::Int) = error("run_callback not implemented for callback $(typeof(callback))")
+run_callback{S,D,I,R,M<:DriverModel}(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) = error("run_callback not implemented for callback $(typeof(callback))")
 
-function _run_callbacks{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(callbacks::C, rec::QueueRecord{Entity{S,D,I}}, roadway::R, models::Dict{I,M}, tick::Int)
+function _run_callbacks{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(callbacks::C, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int)
     isdone = false
     for callback in callbacks
         isdone |= run_callback(callback, rec, roadway, models, tick)
@@ -13,7 +13,7 @@ function _run_callbacks{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(callbacks:
     return isdone
 end
 function simulate!{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
-    rec::QueueRecord{Entity{S,D,I}},
+    rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},

@@ -20,15 +20,3 @@ function get_neighbor_fore(scene::MobiusScene, vehicle_index::Int, roadway::Stra
     end
     return NeighborLongitudinalResult(best_ind, best_gap)
 end
-
-
-# function render!(
-#     rendermodel::RenderModel,
-#     veh::MobiusVehicle,
-#     color::Colorant=RGB(rand(), rand(), rand())
-#     )
-
-#     s = veh.state.s
-#     add_instruction!(rendermodel, render_vehicle, (s, 0.0, 0.0, veh.def.length, veh.def.width, color))
-#     return rendermodel
-# end

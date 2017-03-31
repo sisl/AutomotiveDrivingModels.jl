@@ -21,7 +21,7 @@ function tick!{S,D,I,A,R}(
     actions::Vector{A},
     Δt::Float64,
     )
-    
+
     for i in 1 : length(scene)
         veh = scene[i]
         state′ = propagate(veh, actions[i], Δt, roadway)
@@ -43,7 +43,7 @@ Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
 """
 function simulate!{S,D,I,A,R,M<:DriverModel}(
     ::Type{A},
-    rec::QueueRecord{Entity{S,D,I}},
+    rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
@@ -63,7 +63,7 @@ function simulate!{S,D,I,A,R,M<:DriverModel}(
     return rec
 end
 function simulate!{S,D,I,R,M<:DriverModel}(
-    rec::QueueRecord{Entity{S,D,I}},
+    rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
@@ -80,7 +80,7 @@ Only the ego vehicle is simulated; the other vehicles are as they were in the pr
 Other vehicle states will be interpolated
 """
 function simulate!{S,D,I}(
-    rec::QueueRecord{Entity{S,D,I}},
+    rec::EntityQueueRecord{S,D,I},
     model::DriverModel,
     egoid::I,
     trajdata::ListRecord{Entity{S,D,I}},
@@ -91,7 +91,7 @@ function simulate!{S,D,I}(
     )
 
     @assert(isapprox(get_timestep(rec), get_timestep(trajdata)))
-    
+
     roadway = trajdata.roadway
 
     # prime with history

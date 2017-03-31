@@ -12,6 +12,8 @@ using Parameters
 @reexport using Vec
 # @reexport using DataFrames
 
+export nframes
+
 
 include("interface/main.jl") # core interface
 include("1d/main.jl") # 1D interface
