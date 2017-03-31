@@ -1,14 +1,6 @@
-"""
-    propagate(veh, action, roadway, Δt)
-
-Take an entity of type {S,D,I} and move it over Δt seconds to produce a new
-entity based on the action on the given roadway.
-"""
-propagate{S,D,I,A,R}(veh::Entity{S,D,I}, action::A, roadway::R, Δt::Float64) = error("propagate not implemented for Entity{$S, $D, $I}, actions $A, and roadway $R")
-
 function get_actions!{S,D,I,A,R,M<:DriverModel}(
     actions::Vector{A},
-    scene::Frame{Entity{S,D,I}},
+    scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I, M}, # id → model
     )
@@ -24,7 +16,7 @@ function get_actions!{S,D,I,A,R,M<:DriverModel}(
 end
 
 function tick!{S,D,I,A,R}(
-    scene::Frame{Entity{S,D,I}},
+    scene::EntityFrame{S,D,I},
     roadway::R,
     actions::Vector{A},
     Δt::Float64,
@@ -52,7 +44,7 @@ Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
 function simulate!{S,D,I,A,R,M<:DriverModel}(
     ::Type{A},
     rec::QueueRecord{Entity{S,D,I}},
-    scene::Frame{Entity{S,D,I}},
+    scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,
@@ -72,7 +64,7 @@ function simulate!{S,D,I,A,R,M<:DriverModel}(
 end
 function simulate!{S,D,I,R,M<:DriverModel}(
     rec::QueueRecord{Entity{S,D,I}},
-    scene::Frame{Entity{S,D,I}},
+    scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,
@@ -95,7 +87,7 @@ function simulate!{S,D,I}(
     frame_start::Int,
     frame_end::Int;
     prime_history::Int=0, # no prime-ing
-    scene::Frame{Entity{S,D,I}} =  allocate_frame(trajdata),
+    scene::EntityFrame{S,D,I} =  allocate_frame(trajdata),
     )
 
     @assert(isapprox(get_timestep(rec), get_timestep(trajdata)))

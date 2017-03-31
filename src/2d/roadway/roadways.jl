@@ -32,7 +32,7 @@ function Base.write(io::IO, c::LaneConnection)
     @printf(io, "%s (%d %.6f) ", c.downstream ? "D" : "U", c.mylane.i, c.mylane.t)
     write(io, c.target)
 end
-function Base.parse(::Type{LaneConnection}, line::AbstractString)
+function Base.parse(::Type{LaneConnection}, line::String)
     cleanedline = replace(line, r"(\(|\))", "")
     tokens = split(cleanedline, ' ')
 

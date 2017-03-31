@@ -1,25 +1,3 @@
-abstract LaneFollowingDriver <: DriverModel{LaneFollowingAccel}
-track_longitudinal!(model::LaneFollowingDriver, v_ego::Float64, v_oth::Float64, headway::Float64) = model # do nothing by default
-
-### 1D
-
-function observe!(model::LaneFollowingDriver, scene::MobiusScene, roadway::StraightRoadway, egoid::Int)
-
-    vehicle_index = findfirst(scene, egoid)
-
-    fore_res = get_neighbor_fore_mobius(scene, vehicle_index, roadway)
-
-    v_ego = scene[vehicle_index].state.v
-    v_oth = scene[fore_res.ind].state.v
-    headway = fore_res.Δs
-
-    track_longitudinal!(model, v_ego, v_oth, headway)
-
-    return model
-end
-
-### 2D
-
 function track_longitudinal!(model::LaneFollowingDriver, scene::Scene, roadway::Roadway, ego_index::Int, target_index::Int)
     veh_ego = scene[ego_index]
     v_ego = veh_ego.state.v

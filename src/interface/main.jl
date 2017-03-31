@@ -8,3 +8,5 @@ export
 include("driver_models.jl")
 include("simulation.jl")
 include("callbacks.jl")
+include("actions.jl")
+include("features.jl")

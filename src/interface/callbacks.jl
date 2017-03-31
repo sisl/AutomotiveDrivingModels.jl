@@ -14,7 +14,7 @@ function _run_callbacks{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(callbacks:
 end
 function simulate!{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
     rec::QueueRecord{Entity{S,D,I}},
-    scene::Frame{Entity{S,D,I}},
+    scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,

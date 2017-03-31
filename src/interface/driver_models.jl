@@ -14,7 +14,7 @@ get_name(::DriverModel) = "???"
 action_type{A}(::DriverModel{A}) = A
 set_desired_speed!(model::DriverModel, v_des::Float64) = model # do nothing by default
 reset_hidden_state!(model::DriverModel) = model # do nothing by default
-observe!{S,D,I,R}(model::DriverModel, scene::Frame{Entity{S,D,I}}, roadway::R, egoid::Int) = model  # do nothing by default
+observe!{S,D,I,R}(model::DriverModel, scene::EntityFrame{S,D,I}, roadway::R, egoid::Int) = model  # do nothing by default
 Base.rand(model::DriverModel) = error("rand not implemented for model $model")
 Distributions.pdf{A}(model::DriverModel{A}, a::A) = error("pdf not implemented for model $model")
 Distributions.logpdf{A}(model::DriverModel{A}, a::A) = error("logpdf not implemented for model $model")
@@ -26,7 +26,7 @@ function prime_with_history!{S,D,I,R}(
     frame_start::Int,
     frame_end::Int,
     egoid::I,
-    scene::Frame{Entity{S,D,I}} = allocate_frame(trajdata),
+    scene::EntityFrame{S,D,I} = allocate_frame(trajdata),
     )
 
     reset_hidden_state!(model)
