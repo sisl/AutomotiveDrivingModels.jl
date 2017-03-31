@@ -7,7 +7,7 @@ A Julia package containing tools for simulating automotive driving models
 
 ## Documentation
 
-[1D Driving](http://nbviewer.ipython.org/github/tawheeler/AutomotiveDrivingModels.jl/blob/master/docs/1DMobius.ipynb).
+[1D Driving](http://nbviewer.ipython.org/github/tawheeler/AutomotiveDrivingModels.jl/blob/master/docs/1DMobius.ipynb)
 
 
 For visualization code please see [AutoViz](https://github.com/tawheeler/AutoViz.jl).
