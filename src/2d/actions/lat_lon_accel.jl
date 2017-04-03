@@ -19,6 +19,8 @@ function propagate(veh::Vehicle, action::LatLonAccel, roadway::Roadway, ΔT::Flo
     a_lat = action.a_lat
     a_lon = action.a_lon
 
+    println("a_lat: ", a_lat, "  a_lon: ", a_lon)
+
      v = veh.state.v
      ϕ = veh.state.posF.ϕ
     ds = v*cos(ϕ)
@@ -29,6 +31,9 @@ function propagate(veh::Vehicle, action::LatLonAccel, roadway::Roadway, ΔT::Flo
     Δs = ds*ΔT + 0.5*a_lon*ΔT²
     Δt = dt*ΔT + 0.5*a_lat*ΔT²
 
+    println("\tΔs: ", Δs)
+    println("\tΔt: ", Δt)
+
     ds₂ = ds + a_lon*ΔT
     dt₂ = dt + a_lat*ΔT
     speed₂ = sqrt(dt₂*dt₂ + ds₂*ds₂)
@@ -37,8 +42,17 @@ function propagate(veh::Vehicle, action::LatLonAccel, roadway::Roadway, ΔT::Flo
 
     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
     footpoint = roadway[roadind]
+
+    println("\troadind: ", roadind)
+
     posG = convert(VecE2, footpoint.pos) + polar(t + Δt, footpoint.pos.θ + π/2)
+
+    println("\tposG: ", posG)
+
     posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
+
+    println("\tposG: ", posG)
+
     return VehicleState(posG, roadway, v₂)
 end
 function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)

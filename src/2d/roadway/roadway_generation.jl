@@ -1,8 +1,26 @@
 export
+        gen_straight_curve,
         gen_straight_segment,
         gen_straight_roadway,
         gen_stadium_roadway,
         gen_bezier_curve
+
+function gen_straight_curve(A::VecE2, B::VecE2, nsamples::Int)
+
+    θ = atan2(B-A)
+    δ = abs(B-A)/(nsamples-1)
+
+    s = 0.0
+    curve = Array(CurvePt, nsamples)
+    for i in 1 : nsamples
+        t = (i-1)/(nsamples-1)
+        P = lerp(A,B,t)
+        curve[i] = CurvePt(VecSE2(P.x,P.y,θ), s, 0.0)
+        s += δ
+    end
+
+    return curve
+end
 
 function gen_straight_segment(seg_id::Int, nlanes::Int, length::Float64=1000.0;
     origin::VecSE2 = VecSE2(0.0,0.0,0.0),
@@ -57,10 +75,11 @@ function gen_bezier_curve(A::VecSE2, B::VecSE2, rA::Float64, rB::Float64, nsampl
         θ = atan2(P′)
         κ = (P′.x*P′′.y - P′.y*P′′.x)/(P′.x^2 + P′.y^2)^1.5 # signed curvature
 
-        curve[i] = CurvePt(VecSE2(P.x,P.y,θ), s, κ)
         if i > 1
-            s += abs(convert(VecE2, curve[i].pos) - convert(VecE2, curve[i-1].pos)) # approximation, but should be good for many samples
+            s += abs(P - convert(VecE2, curve[i-1].pos)) # approximation, but should be good for many samples
         end
+
+        curve[i] = CurvePt(VecSE2(P.x,P.y,θ), s, κ)
     end
 
     return curve

@@ -3,6 +3,26 @@ type LatLonSeparableDriver <: DriverModel{LatLonAccel}
     mlon::LaneFollowingDriver
 end
 
+function observe!(model::LaneFollowingDriver, scene::Scene, roadway::Roadway, egoid::Int)
+
+    vehicle_index = findfirst(scene, egoid)
+
+    fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+
+    v_ego = scene[vehicle_index].state.v
+    v_oth = NaN
+    headway = NaN
+
+    if fore.ind != 0
+        v_oth = scene[fore.ind].state.v
+        headway = fore.Δs
+    end
+
+    track_longitudinal!(model, v_ego, v_oth, headway)
+
+    return model
+end
+
 get_name(model::LatLonSeparableDriver) = @sprintf("%s + %s", get_name(model.mlat), get_name(model.mlon))
 function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
