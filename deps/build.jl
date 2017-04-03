@@ -1,22 +1,8 @@
-# clone
-urls = [
-    "https://github.com/tawheeler/Vec.jl.git",
-    "https://github.com/tawheeler/Records.jl.git",
-]
-
-for url in urls
-    try
-        Pkg.clone(url)
-    catch e
-        println("Exception when cloning $(url): $(e)")  
-    end
+packages = keys(Pkg.installed())
+if !in("Vec", packages)
+    Pkg.clone("https://github.com/tawheeler/Vec.jl.git")
+end
+if !in("Records", packages)
+    Pkg.clone("https://github.com/tawheeler/Records.jl.git")
 end
 
-# checkout specific branches
-# checkouts = [
-#     ("ForwardNets", "nextgen")
-# ]
-
-# for (pkg, branch) in checkouts
-#     Pkg.checkout(pkg, branch)
-# end
