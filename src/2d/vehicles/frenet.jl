@@ -17,6 +17,7 @@ function Frenet(roadproj::RoadProjection, roadway::Roadway)
     Frenet(roadind, s, t, ϕ)
 end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
+Frenet(posG::VecSE2, lane::Lane, roadway::Roadway) = Frenet(proj(posG, lane, roadway), roadway)
 
 function get_posG(frenet::Frenet, roadway::Roadway)
     curvept = roadway[frenet.roadind]

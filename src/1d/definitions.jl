@@ -21,7 +21,14 @@ end
 
 const NULL_VEHICLEDEF = VehicleDef(AgentClass.CAR, NaN, NaN)
 
-Base.show(io::IO, d::VehicleDef) = @printf(io, "VehicleDef(%s, %.3f, %.3f)", d.class == AgentClass.CAR ? "CAR" : d.class == AgentClass.MOTORCYCLE ? "MOTORCYCLE" : "TRUCK", d.length, d.width)
+function Base.show(io::IO, d::VehicleDef)
+    class = d.class == AgentClass.CAR ? "CAR" :
+          d.class == AgentClass.MOTORCYCLE ? "MOTORCYCLE" :
+          d.class == AgentClass.TRUCK ? "TRUCK" :
+          d.class == AgentClass.PEDESTRIAN ? "PEDESTRIAN" :
+          "UNKNOWN"
+    @printf(io, "VehicleDef(%s, %.3f, %.3f)", class, d.length, d.width)
+end
 Base.write(io::IO, ::MIME"text/plain", def::VehicleDef) = @printf(io, "%d %.16e %.16e", def.class, def.length, def.width)
 function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleDef})
     tokens = split(strip(readline(io)), ' ')
