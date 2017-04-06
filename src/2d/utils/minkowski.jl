@@ -1,25 +1,6 @@
 # Collision Detection routines based on Minkowski techniques.
 
-export
-        ConvexPolygon,
-        CPAMemory,
-        CollisionCheckResult,
 
-        LineSegment,
-
-        to_oriented_bounding_box!,
-        get_oriented_bounding_box,
-        is_colliding,
-        is_potentially_colliding,
-        get_collision_time,
-        get_first_collision,
-        get_time_and_dist_of_closest_approach,
-        is_collision_free,
-        get_distance,
-        get_edge,
-        get_side,
-
-        CollisionCallback
 
 ######################################
 
@@ -622,10 +603,10 @@ Terminates the simulation once a collision occurs
 @with_kw type CollisionCallback
     mem::CPAMemory=CPAMemory()
 end
-function run_callback{S,D,I,M<:DriverModel}(
+function run_callback{S,D,I,R,M<:DriverModel}(
     callback::CollisionCallback,
     rec::EntityQueueRecord{S,D,I},
-    roadway::Any,
+    roadway::R,
     models::Dict{I,M},
     tick::Int,
     )
