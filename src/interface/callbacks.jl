@@ -12,7 +12,8 @@ function _run_callbacks{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(callbacks:
     end
     return isdone
 end
-function simulate!{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
+function simulate!{S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
+    ::Type{A},
     rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
@@ -29,7 +30,7 @@ function simulate!{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
         return rec
     end
 
-    actions = Array(DriveAction, length(scene))
+    actions = Array(A, length(scene))
     for tick in 1 : nticks
         get_actions!(actions, scene, roadway, models)
         tick!(scene, roadway, actions, get_timestep(rec))
@@ -40,4 +41,15 @@ function simulate!{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
     end
 
     return rec
+end
+function simulate!{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
+    rec::EntityQueueRecord{S,D,I},
+    scene::EntityFrame{S,D,I},
+    roadway::R,
+    models::Dict{I,M},
+    nticks::Int,
+    callbacks::C,
+    )
+
+    return simulate!(Any, rec, scene, roadway, models, nticks, callbacks)
 end
