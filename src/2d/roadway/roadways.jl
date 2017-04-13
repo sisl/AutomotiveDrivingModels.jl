@@ -134,7 +134,7 @@ type Roadway
 end
 
 Base.show(io::IO, roadway::Roadway) = @printf(io, "Roadway")
-function Base.write(io::IO, roadway::Roadway)
+function Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
     # writes to a text file
 
     println(io, "ROADWAY")
@@ -163,7 +163,7 @@ function Base.write(io::IO, roadway::Roadway)
         end
     end
 end
-function Base.read(io::IO, ::Type{Roadway})
+function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
     lines = readlines(io)
     line_index = 1
     if contains(lines[line_index], "ROADWAY")
