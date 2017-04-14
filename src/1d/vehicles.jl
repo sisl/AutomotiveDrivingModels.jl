@@ -3,17 +3,21 @@ typealias MobiusScene Frame{MobiusVehicle}
 MobiusScene(n::Int=100) = Frame(MobiusVehicle, n)
 MobiusScene(arr::Vector{MobiusVehicle}) = Frame{MobiusVehicle}(arr, length(arr))
 
+get_center(veh::MobiusVehicle) = veh.state.s
+get_footpoint(veh::MobiusVehicle) = veh.state.s
+get_front(veh::MobiusVehicle) = veh.state.s + veh.def.length/2
+get_rear(veh::MobiusVehicle) = veh.state.s - veh.def.length/2
+
+function get_headway(veh_rear::MobiusVehicle, veh_fore::MobiusVehicle, roadway::StraightRoadway)
+    return get_headway(get_front(veh_rear), get_rear(veh_fore), roadway)
+end
 function get_neighbor_fore(scene::MobiusScene, vehicle_index::Int, roadway::StraightRoadway)
-    s_ego_fore = scene[vehicle_index].state.s + scene[vehicle_index].def.length/2
+    ego = scene[vehicle_index]
     best_ind = 0
     best_gap = Inf
     for (i,veh) in enumerate(scene)
         if i != vehicle_index
-            s_oth_rear = veh.state.s - veh.def.length/2 # back point of car
-            while s_oth_rear < s_ego_fore
-                s_oth_rear += roadway.length
-            end
-            Δs = s_oth_rear - s_ego_fore
+            Δs = get_headway(veh, ego, roadway)
             if Δs < best_gap
                 best_gap, best_ind = Δs, i
             end
@@ -22,16 +26,12 @@ function get_neighbor_fore(scene::MobiusScene, vehicle_index::Int, roadway::Stra
     return NeighborLongitudinalResult(best_ind, best_gap)
 end
 function get_neighbor_rear(scene::MobiusScene, vehicle_index::Int, roadway::StraightRoadway)
-    s_ego_rear = scene[vehicle_index].state.s - scene[vehicle_index].def.length/2
+    ego = scene[vehicle_index]
     best_ind = 0
     best_gap = Inf
     for (i,veh) in enumerate(scene)
         if i != vehicle_index
-            s_oth_fore = veh.state.s + veh.def.length/2 # front point of car
-            while s_oth_fore > s_ego_rear
-                s_oth_fore -= roadway.length
-            end
-            Δs = s_ego_rear - s_oth_fore
+            Δs = get_headway(ego, veh, roadway)
             if Δs < best_gap
                 best_gap, best_ind = Δs, i
             end

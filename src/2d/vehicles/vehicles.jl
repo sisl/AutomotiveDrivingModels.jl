@@ -59,8 +59,8 @@ Base.show(io::IO, v::Vehicle) = print(io, "Vehicle(", v.id, ", ", v.state, ", ",
 
 get_center(veh::Vehicle) = veh.state.posG
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
-get_front_center(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
-get_rear_center(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
+get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
+get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
 
 function get_lane_width(veh::Vehicle, roadway::Roadway)
 

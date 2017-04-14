@@ -5,6 +5,11 @@ baremodule AgentClass
     const PEDESTRIAN = 4
 end
 
+
+"""
+    Vehicle definition which contains a class and a bounding box.
+    Vehicle state relative to the definition is assumed to be the center of said bounding box.
+"""
 immutable VehicleDef
     class::Int # ∈ AgentClass
     length::Float64
