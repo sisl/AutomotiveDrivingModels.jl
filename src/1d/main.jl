@@ -11,7 +11,8 @@ export
     NULL_VEHICLEDEF,
 
     mod_position_to_roadway,
-    get_neighbor_fore
+    get_neighbor_fore,
+    get_neighbor_rear
 
 
 
