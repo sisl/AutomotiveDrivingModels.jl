@@ -29,7 +29,7 @@ function get_neighbor_rear(scene::MobiusScene, vehicle_index::Int, roadway::Stra
         if i != vehicle_index
             s_oth_fore = veh.state.s + veh.def.length/2 # front point of car
             while s_oth_fore > s_ego_rear
-                s_oth_rear -= roadway.length
+                s_oth_fore -= roadway.length
             end
             Δs = s_ego_rear - s_oth_fore
             if Δs < best_gap
