@@ -1,6 +1,7 @@
 typealias MobiusVehicle Entity{State1D, VehicleDef, Int}
 typealias MobiusScene Frame{MobiusVehicle}
 MobiusScene(n::Int=100) = Frame(MobiusVehicle, n)
+MobiusScene(arr::Vector{MobiusVehicle}) = Frame{MobiusVehicle}(arr, length(arr))
 
 function get_neighbor_fore(scene::MobiusScene, vehicle_index::Int, roadway::StraightRoadway)
     s_ego_fore = scene[vehicle_index].state.s + scene[vehicle_index].def.length/2
