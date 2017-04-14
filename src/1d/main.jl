@@ -10,9 +10,10 @@ export
     DEFAULT_VEHICLE_DEF,
     NULL_VEHICLEDEF,
 
-    mod_position_to_roadway
+    mod_position_to_roadway,
+    get_neighbor_fore
 
-    
+
 
 include("straight_roadway.jl")
 include("definitions.jl")
