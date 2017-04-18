@@ -2,8 +2,8 @@ export
     StraightRoadway,
     State1D,
     LaneFollowingAccel,
-    MobiusVehicle,
-    MobiusScene,
+    Vehicle1D,
+    Scene1D,
     AgentClass,
     VehicleDef,
 
