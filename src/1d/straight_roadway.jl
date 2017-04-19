@@ -12,9 +12,12 @@ function mod_position_to_roadway(s::Float64, roadway::StraightRoadway)
     return s
 end
 
-function get_headway(s_fore::Float64, s_rear::Float64, roadway::StraightRoadway)
+function get_headway(s_rear::Float64, s_fore::Float64, roadway::StraightRoadway)
     while s_fore < s_rear
         s_fore += roadway.length
+    end
+    while s_fore > s_rear + roadway.length
+        s_fore -= roadway.length
     end
     return s_fore - s_rear # positive distance
 end
