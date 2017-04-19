@@ -374,7 +374,7 @@ let
     ############
 
     path, io = mktemp()
-    write(io, roadway)
+    write(io, MIME"text/plain", roadway)
     close(io)
 
     lines = open(readlines, path)
