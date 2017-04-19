@@ -32,8 +32,8 @@ function propagate(veh::Vehicle, action::LatLonAccel, roadway::Roadway, ΔT::Flo
     ds₂ = ds + a_lon*ΔT
     dt₂ = dt + a_lat*ΔT
     speed₂ = sqrt(dt₂*dt₂ + ds₂*ds₂)
-    v₂ = sign(ds₂)*speed₂
-    ϕ₂ = atan2(dt₂, ds₂) + (v₂ < 0.0)*π # handle negative speeds
+    v₂ = sqrt(dt₂*dt₂ + ds₂*ds₂) # v is the magnitude of the velocity vector
+    ϕ₂ = atan2(dt₂, ds₂) 
 
     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
     footpoint = roadway[roadind]
