@@ -52,14 +52,14 @@ function Distributions.pdf(model::ProportionalLaneTracker, a_lat::Float64)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        pdf(Normal(model.a, model.σ), a_lon)
+        pdf(Normal(model.a, model.σ), a_lat)
     end
 end
 function Distributions.logpdf(model::ProportionalLaneTracker, a_lat::Float64)
     if isnan(model.σ) || model.σ ≤ 0.0
         Inf
     else
-        logpdf(Normal(model.a, model.σ), a_lon)
+        logpdf(Normal(model.a, model.σ), a_lat)
     end
 end
 
