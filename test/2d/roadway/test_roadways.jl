@@ -431,7 +431,7 @@ let
     end
 
     io = open(path)
-    roadway2 = read(io, Roadway)
+    roadway2 = read(io, MIME"text/plain"(), Roadway)
     close(io)
     rm(path)
 
