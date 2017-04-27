@@ -100,7 +100,7 @@ function _get_feature_derivative_backwards{S,D,I,R}(
     if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
-        veh_index_prev = findfirst(rec, id, pastframe2)
+        veh_index_prev = findfirst(rec[pastframe2], id)
 
         if veh_index_prev != 0
             curr = convert(Float64, get(f, rec, roadway, veh_index_curr, pastframe))
@@ -122,26 +122,26 @@ generate_feature_functions("VelFs", :velFs, Float64, "m/s")
 generate_feature_functions("VelFt", :velFt, Float64, "m/s")
 
 generate_feature_functions("Acc", :acc, Float64, "m/s^2")
-function Base.get{R}(::Feature_Acc, rec::EntityQueueRecord, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S,D,I,R}(::Feature_Acc, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(SPEED, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AccFs", :accFs, Float64, "m/s²")
-function Base.get{R}(::Feature_AccFs, rec::EntityQueueRecord, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S,D,I,R}(::Feature_AccFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(VELFS, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AccFt", :accFt, Float64, "m/s²")
-function Base.get{R}(::Feature_AccFt, rec::EntityQueueRecord, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S,D,I,R}(::Feature_AccFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(VELFT, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("Jerk", :jerk, Float64, "m/s³")
-function Base.get{R}(::Feature_Jerk, rec::EntityQueueRecord, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S,D,I,R}(::Feature_Jerk, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(ACC, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("JerkFs", :jerkFs, Float64, "m/s³")
-function Base.get{R}(::Feature_JerkFs, rec::EntityQueueRecord, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S,D,I,R}(::Feature_JerkFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(ACCFS, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("JerkFt", :jerkFt, Float64, "m/s³")
-function Base.get{R}(::Feature_JerkFt, rec::EntityQueueRecord, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S,D,I,R}(::Feature_JerkFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(ACCFT, rec, roadway, vehicle_index, pastframe)
 end
