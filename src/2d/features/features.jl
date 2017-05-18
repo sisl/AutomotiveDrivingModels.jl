@@ -26,7 +26,7 @@ function Base.get{S<:VehicleState,D,I,R}(::Feature_TurnRateG, rec::EntityQueueRe
     if pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
-        veh_index_prev = findfirst(rec, id, pastframe2)
+        veh_index_prev = findfirst(rec[pastframe2], id)
 
         if veh_index_prev != 0
             curr = rec[pastframe][veh_index_curr].state.posG.θ
@@ -50,7 +50,6 @@ generate_feature_functions("AngularRateF", :angrateF, Float64, "rad/s²")
 function Base.get{S<:VehicleState,D,I,R}(::Feature_AngularRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(TURNRATEF, rec, roadway, vehicle_index, pastframe)
 end
-
 generate_feature_functions("DesiredAngle", :desang, Float64, "rad")
 function Base.get{S<:VehicleState,D,I,R}(::Feature_DesiredAngle, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0;
     kp_desired_angle::Float64 = 1.0,
@@ -257,7 +256,7 @@ function Base.get(::Feature_Time_Consecutive_Brake, rec::SceneRecord, roadway::R
         pastframe_orig = pastframe
         id = rec[pastframe][vehicle_index].id
         while pastframe_inbounds(rec, pastframe-1) &&
-              get(ACC, rec, roadway, findfirst(rec, id, pastframe-1)) < 0.0
+              get(ACC, rec, roadway, findfirst(rec[pastframe-1], id)) < 0.0
 
             pastframe -= 1
         end
@@ -276,7 +275,7 @@ function Base.get(::Feature_Time_Consecutive_Accel, rec::SceneRecord, roadway::R
         pastframe_orig = pastframe
         id = rec[pastframe][vehicle_index].id
         while pastframe_inbounds(rec, pastframe-1) &&
-              get(ACC, rec, roadway, findfirst(rec, id, pastframe-1)) > 0.0
+              get(ACC, rec, roadway, findfirst(rec[pastframe-1], id)) > 0.0
 
             pastframe -= 1
         end
@@ -464,12 +463,12 @@ end
 #
 #############################################
 
-# generate_feature_functions("Is_Colliding", :is_colliding, Bool, "-", lowerbound=0.0, upperbound=1.0)
-# function Base.get(::Feature_Is_Colliding, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-#     mem::CPAMemory=CPAMemory(),
-#     )
+generate_feature_functions("Is_Colliding", :is_colliding, Bool, "-", lowerbound=0.0, upperbound=1.0)
+function Base.get{S,D,I,R}(::Feature_Is_Colliding, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0;
+    mem::CPAMemory=CPAMemory(),
+    )
 
-#     scene = rec[pastframe]
-#     is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
-#     FeatureValue(is_colliding)
-# end
+    scene = rec[pastframe]
+    is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
+    FeatureValue(is_colliding)
+end
