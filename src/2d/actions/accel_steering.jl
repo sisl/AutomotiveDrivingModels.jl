@@ -13,7 +13,7 @@ end
 #function propagate(veh::Entity{VehicleState, BicycleModel, Int}, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64)
 function propagate(veh::Vehicle, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64)
     L = veh.def.a + veh.def.b
-    l = veh.def.b
+    l = -veh.def.b
 
     a = action.a # accel [m/s²]
     δ = action.δ # steering wheel angle [rad]
