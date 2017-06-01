@@ -35,46 +35,6 @@ end
 
 ######################################
 
-immutable LineSegment
-    a::VecE2
-    b::VecE2
-end
-Base.:+(seg::LineSegment, v::VecE2) = LineSegment(seg.a + v, seg.b + v)
-Base.:-(seg::LineSegment, v::VecE2) = LineSegment(seg.a - v, seg.b - v)
-
-function get_polar_angle(seg::LineSegment)
-    θ = atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x)
-    if θ < 0.0
-        θ += 2π
-    end
-    θ
-end
-
-function get_distance(seg::LineSegment, p::VecE2)
-
-    ab = seg.b - seg.a
-    pb = p - seg.a
-
-    denom = abs2(ab)
-    if denom == 0.0
-        return 0.0
-    end
-
-    r = dot(ab, pb)/denom
-
-    if r ≤ 0.0
-        abs(p - seg.a)
-    elseif r ≥ 1.0
-        abs(p - seg.b)
-    else
-        abs(p - (seg.a + r*ab))
-    end
-end
-
-get_side(seg::LineSegment, p::VecE2) = sign((seg.b.x-seg.a.x) * (p.y-seg.a.y) - (seg.b.y-seg.a.y) * (p.x-seg.a.x))
-
-######################################
-
 function get_signed_area(pts::Vector{VecE2}, npts::Int = length(pts))
 
     # https://en.wikipedia.org/wiki/Shoelace_formula
@@ -133,8 +93,8 @@ function Base.contains(poly::ConvexPolygon, v::VecE2)
 
     for i in 1 : length(poly)
         seg = get_edge(poly, i)
-        affine_segment = seg.b - seg.a
-        affine_point = v - seg.a
+        affine_segment = seg.B - seg.A
+        affine_point = v - seg.A
         current_side = round(Int, sign(cross(affine_segment, affine_point))) # sign indicates side
         if current_side == 0
             # outside or over an edge
@@ -184,7 +144,7 @@ function ensure_pts_sorted_by_min_polar_angle!(poly::ConvexPolygon, npts::Int=po
     for i in 1 : npts
         seg = get_edge(poly.pts, i)
 
-        θ = atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x)
+        θ = atan2(seg.B.y - seg.A.y, seg.B.x - seg.A.x)
         if θ < 0.0
             θ += 2π
         end
@@ -251,7 +211,7 @@ function minkowksi_sum!(retval::ConvexPolygon, P::ConvexPolygon, Q::ConvexPolygo
             seg_p = get_edge(P, index_P)
             seg_q = get_edge(Q, index_Q)
             O = isempty(retval) ? P.pts[1] + Q.pts[1] : retval.pts[retval.npts]
-            push!(retval, O + seg_p.b - seg_p.a + seg_q.b - seg_q.a)
+            push!(retval, O + seg_p.B - seg_p.A + seg_q.B - seg_q.A)
             index_P += 1
             θp = index_P ≤ length(P) ? get_polar_angle(get_edge(P, index_P)) : Inf
             index_Q += 1
@@ -259,13 +219,13 @@ function minkowksi_sum!(retval::ConvexPolygon, P::ConvexPolygon, Q::ConvexPolygo
         elseif θp ≤ θq
             seg = get_edge(P, index_P)
             O = isempty(retval) ? P.pts[1] + Q.pts[1] : retval.pts[retval.npts]
-            push!(retval, O + seg.b - seg.a)
+            push!(retval, O + seg.B - seg.A)
             index_P += 1
             θp = index_P ≤ length(P) ? get_polar_angle(get_edge(P, index_P)) : Inf
         else
             seg = get_edge(Q, index_Q)
             O = isempty(retval) ? P.pts[1] + Q.pts[1] : retval.pts[retval.npts]
-            push!(retval, O + seg.b - seg.a)
+            push!(retval, O + seg.B - seg.A)
             index_Q += 1
             θq = index_Q ≤ length(Q) ? get_polar_angle(get_edge(Q, index_Q)) : Inf
         end
@@ -334,8 +294,8 @@ get_oriented_bounding_box(veh::Vehicle, center::VecE2 = convert(VecE2, get_cente
 
 get_future_position(ray::VecSE2, speed::Float64, t::Float64) = convert(VecE2, ray) + polar(speed*t, ray.θ)
 function is_colliding(ray::VecSE2, seg::LineSegment)
-    v₁ = convert(VecE2, ray) - seg.a
-    v₂ = seg.b - seg.a
+    v₁ = convert(VecE2, ray) - seg.A
+    v₂ = seg.B - seg.A
     v₃ = polar(1.0, ray.θ + π/2)
 
     denom = dot(v₂, v₃)
@@ -347,14 +307,14 @@ function is_colliding(ray::VecSE2, seg::LineSegment)
     else
         # denom is zero if the segment and the ray are parallel
         # only collide if they are perfectly aligned
-        return are_collinear(ray, seg.a, seg.b)
+        return are_collinear(ray, seg.A, seg.B)
     end
 end
 function get_collision_time(ray::VecSE2, seg::LineSegment, ray_speed::Float64)
 
     o = convert(VecE2, ray)
-    v₁ = o - seg.a
-    v₂ = seg.b - seg.a
+    v₁ = o - seg.A
+    v₂ = seg.B - seg.A
     v₃ = polar(1.0, ray.θ + π/2)
 
     denom = dot(v₂, v₃)
@@ -368,9 +328,9 @@ function get_collision_time(ray::VecSE2, seg::LineSegment, ray_speed::Float64)
     else
         # denom is zero if the segment and the ray are parallel
         # only collide if they are perfectly aligned
-        if are_collinear(ray, seg.a, seg.b)
-            dist_a = abs2(seg.a - o)
-            dist_b = abs2(seg.b - o)
+        if are_collinear(ray, seg.A, seg.B)
+            dist_a = abs2(seg.A - o)
+            dist_b = abs2(seg.B - o)
             return sqrt(min(dist_a, dist_b)) / ray_speed
         end
     end
@@ -380,8 +340,8 @@ end
 function get_time_and_dist_of_closest_approach(ray::VecSE2, seg::LineSegment, ray_speed::Float64, if_no_col_skip_eval::Bool=false)
 
     o = convert(VecE2, ray)
-    v₁ = o - seg.a
-    v₂ = seg.b - seg.a
+    v₁ = o - seg.A
+    v₂ = seg.B - seg.A
     v₃ = polar(1.0, ray.θ + π/2)
 
     denom = dot(v₂, v₃)
@@ -398,14 +358,14 @@ function get_time_and_dist_of_closest_approach(ray::VecSE2, seg::LineSegment, ra
             # no collision, get time of closest approach to each endpoint
             if !if_no_col_skip_eval
                 ray_pt = polar(1.0, ray.θ)
-                projA = proj(seg.a - o, ray_pt, VecE2)
-                projB = proj(seg.b - o, ray_pt, VecE2)
+                projA = proj(seg.A - o, ray_pt, VecE2)
+                projB = proj(seg.B - o, ray_pt, VecE2)
                 tA = max(abs(projA)/ray_speed * sign(dot(ray_pt, projA)), 0.0)
                 tB = max(abs(projB)/ray_speed * sign(dot(ray_pt, projB)), 0.0)
                 pA = get_future_position(ray, ray_speed, tA)
                 pB = get_future_position(ray, ray_speed, tB)
-                distA = abs2(seg.a - pA)
-                distB = abs2(seg.b - pB)
+                distA = abs2(seg.A - pA)
+                distB = abs2(seg.B - pB)
                 if distA < distB
                     return (tA, sqrt(distA))
                 else
@@ -418,22 +378,22 @@ function get_time_and_dist_of_closest_approach(ray::VecSE2, seg::LineSegment, ra
     else
         # denom is zero if the segment and the ray are parallel
         # only collide if they are perfectly aligned
-        if are_collinear(ray, seg.a, seg.b)
-            dist_a = abs2(seg.a - o)
-            dist_b = abs2(seg.b - o)
+        if are_collinear(ray, seg.A, seg.B)
+            dist_a = abs2(seg.A - o)
+            dist_b = abs2(seg.B - o)
             t = sqrt(min(dist_a, dist_b)) / ray_speed
             return (t, 0.0)
         else
             if !if_no_col_skip_eval
                 ray_pt = polar(1.0, ray.θ)
-                projA = proj(seg.a - o, ray_pt, VecE2)
-                projB = proj(seg.b - o, ray_pt, VecE2)
+                projA = proj(seg.A - o, ray_pt, VecE2)
+                projB = proj(seg.B - o, ray_pt, VecE2)
                 tA = max(abs(projA)/ray_speed * sign(dot(ray_pt, projA)), 0.0)
                 tB = max(abs(projB)/ray_speed * sign(dot(ray_pt, projB)), 0.0)
                 pA = get_future_position(ray, ray_speed, tA)
                 pB = get_future_position(ray, ray_speed, tB)
-                distA = abs2(seg.a - pA)
-                distB = abs2(seg.b - pB)
+                distA = abs2(seg.A - pA)
+                distB = abs2(seg.B - pB)
                 if distA < distB
                     return (tA, distA)
                 else
