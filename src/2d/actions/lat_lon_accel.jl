@@ -14,7 +14,7 @@ function Base.copy!(v::Vector{Float64}, a::LatLonAccel)
     v[2] = a.a_lon
     v
 end
-function propagate(veh::Vehicle, action::LatLonAccel, roadway::Roadway, ΔT::Float64)
+function propagate{D<:Union{VehicleDef, BicycleModel}}(veh::Entity{VehicleState, D, Int}, action::LatLonAccel, roadway::Roadway, ΔT::Float64)
 
     a_lat = action.a_lat
     a_lon = action.a_lon

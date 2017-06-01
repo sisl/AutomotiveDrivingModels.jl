@@ -10,8 +10,8 @@ function Base.copy!(v::Vector{Float64}, a::AccelSteeringAngle)
     v[2] = a.δ
     v
 end
-#function propagate(veh::Entity{VehicleState, BicycleModel, Int}, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64)
-function propagate(veh::Vehicle, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64)
+function propagate(veh::Entity{VehicleState, BicycleModel, Int}, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64)
+
     L = veh.def.a + veh.def.b
     l = -veh.def.b
 

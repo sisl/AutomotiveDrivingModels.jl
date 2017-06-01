@@ -13,28 +13,14 @@ immutable VehicleDef
     class::Int # ∈ AgentClass
     length::Float64
     width::Float64
-    a::Float64 # distance between cg and front axle [m]
-    b::Float64 # distance between cg and rear axle [m]
 end
 function VehicleDef(;
     class::Int=AgentClass.CAR,
     length::Float64=4.0,
     width::Float64=1.8,
-    a::Float64 = 1.5,
-    b::Float64 = 1.5,
     )
 
-    VehicleDef(class, length, width, a, b)
-end
-function VehicleDef(
-    class::Int,
-    length::Float64,
-    width::Float64;
-    a::Float64 = 1.5,
-    b::Float64 = 1.5,
-    )
-
-    VehicleDef(class, length, width, a, b)
+    VehicleDef(class, length, width)
 end
 
 const NULL_VEHICLEDEF = VehicleDef(AgentClass.CAR, NaN, NaN)

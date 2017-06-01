@@ -3,8 +3,8 @@ export
 
 immutable BicycleModel
     def::VehicleDef
-    a::Float64 # distance between cg and front axle [m]
-    b::Float64 # distance between cg and rear axle [m]
+    a::Float64 # distance between cg and front axle, typically positive [m]
+    b::Float64 # distance between cg and rear axle, typically positive [m]
 end
 function BicycleModel(def::VehicleDef;
     a::Float64 = 1.5,
