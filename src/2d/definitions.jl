@@ -11,5 +11,5 @@ function BicycleModel(def::VehicleDef;
     b::Float64 = 1.5,
     )
 
-    return BicycleModel(a, b)
+    return BicycleModel(def, a, b)
 end
