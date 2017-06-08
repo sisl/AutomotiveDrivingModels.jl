@@ -1,3 +1,27 @@
+"""
+    observe!(models, scene, roadway)
+
+Call observe on each model.
+"""
+function observe!{S,D,I,R,M<:DriverModel}(
+    models::Dict{I,M}, # id → model
+    scene::EntityFrame{S,D,I},
+    roadway::R,
+    )
+
+    for veh in scene
+        model = models[veh.id]
+        observe!(model, scene, roadway, veh.id)
+    end
+
+    return models
+end
+
+"""
+    get_actions!(actions, scene, roadway, models)
+
+Get the actions for each model.
+"""
 function get_actions!{S,D,I,A,R,M<:DriverModel}(
     actions::Vector{A},
     scene::EntityFrame{S,D,I},
@@ -5,16 +29,19 @@ function get_actions!{S,D,I,A,R,M<:DriverModel}(
     models::Dict{I, M}, # id → model
     )
 
-
     for (i,veh) in enumerate(scene)
         model = models[veh.id]
-        observe!(model, scene, roadway, veh.id)
         actions[i] = rand(model)
     end
 
-    actions
+    return actions
 end
 
+"""
+    tick!(scene, roadway, actions, Δt)
+
+Propagate a scene forward by one timestep based on the given actions.
+"""
 function tick!{S,D,I,A,R}(
     scene::EntityFrame{S,D,I},
     roadway::R,
@@ -22,8 +49,7 @@ function tick!{S,D,I,A,R}(
     Δt::Float64,
     )
 
-    for i in 1 : length(scene)
-        veh = scene[i]
+    for (i,veh) in enumerate(scene)
         state′ = propagate(veh, actions[i], roadway, Δt)
         scene[i] = Entity(state′, veh.def, veh.id)
     end
@@ -31,6 +57,11 @@ function tick!{S,D,I,A,R}(
     return scene
 end
 
+"""
+    reset_hidden_states!(models)
+
+Reset the hidden states in all models in the dict.
+"""
 function reset_hidden_states!{M<:DriverModel}(models::Dict{Int,M})
     for model in values(models)
         reset_hidden_state!(model)
@@ -55,6 +86,7 @@ function simulate!{S,D,I,A,R,M<:DriverModel}(
     actions = Array(A, length(scene))
 
     for tick in 1 : nticks
+        observe!(models, scene, roadway)
         get_actions!(actions, scene, roadway, models)
         tick!(scene, roadway, actions, rec.timestep)
         update!(rec, scene)
