@@ -55,8 +55,6 @@ export
     get_neighbor_lanetag_right,
     read_dxf
 
-include("utils.jl")
 include("splines.jl")
-include("curves.jl")
 include("roadways.jl")
 include("roadway_generation.jl")
