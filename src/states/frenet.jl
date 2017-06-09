@@ -23,3 +23,10 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Frenet})
     ϕ = parse(Float64, tokens[3])
     return Frenet(s,t,ϕ)
 end
+
+function Base.get{S<:Frenet,D,I,R}(::Feature_PosFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+    return FeatureValue(rec[pastframe][vehicle_index].state.t)
+end
+function Base.get{S<:Frenet,D,I,R}(::Feature_PosFyaw, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+    return FeatureValue(rec[pastframe][vehicle_index].state.ϕ)
+end

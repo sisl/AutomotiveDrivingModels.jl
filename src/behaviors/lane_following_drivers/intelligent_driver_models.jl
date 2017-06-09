@@ -3,7 +3,6 @@ Commonly referred to as IDM
 """
 @with_kw type IntelligentDriverModel <: LaneFollowingDriver
     a::Float64 = NaN # predicted acceleration
-    σ::Float64 = NaN # optional stdev on top of the model, set to zero or NaN for deterministic behavior
 
     k_spd::Float64 = 1.0 # proportional constant for speed tracking when in freeflow [s⁻¹]
 
@@ -41,24 +40,6 @@ function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_ot
 
     model
 end
-function Base.rand(model::IntelligentDriverModel)
-    if isnan(model.σ) || model.σ ≤ 0.0
-        LaneFollowingAccel(model.a)
-    else
-        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
-    end
-end
-function Distributions.pdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
-    if isnan(model.σ) || model.σ ≤ 0.0
-        Inf
-    else
-        pdf(Normal(model.a, model.σ), a.a)
-    end
-end
-function Distributions.logpdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
-    if isnan(model.σ) || model.σ ≤ 0.0
-        Inf
-    else
-        logpdf(Normal(model.a, model.σ), a.a)
-    end
-end
+Base.rand(model::IntelligentDriverModel) = Accel(model.a)
+Distributions.pdf(model::IntelligentDriverModel, a::Accel) = isapprox(a.a, model.a) ? Inf : 0.0
+Distributions.logpdf(model::IntelligentDriverModel, a::Accel) = isapprox(a.a, model.a) ? Inf : -Inf

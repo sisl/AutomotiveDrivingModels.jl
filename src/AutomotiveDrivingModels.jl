@@ -41,5 +41,6 @@ include("defs/main.jl")
 include("roadways/main.jl")
 include("actions/main.jl")
 include("behaviors/main.jl")
+include("typing/main.jl")
 
 end # module

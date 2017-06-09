@@ -1,7 +1,9 @@
-abstract LaneFollowingDriver <: DriverModel{LaneFollowingAccel}
-track_longitudinal!(model::LaneFollowingDriver, v_ego::Float64, v_oth::Float64, headway::Float64) = model # do nothing by default
-
-function observe!(model::LaneFollowingDriver, scene::Scene1D, roadway::StraightRoadway, egoid::Int)
+function observe!(
+    model::LaneFollowingDriver,
+    scene::EntityFrame{PosSpeed1D, BoundingBoxDef, Int},
+    roadway::Straight1DRoadway,
+    egoid::Int,
+    )
 
     vehicle_index = findfirst(scene, egoid)
 

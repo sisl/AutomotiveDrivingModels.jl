@@ -1,1 +1,5 @@
+include("accel.jl")
+include("accel_desang.jl")
+include("accel_steering.jl")
+include("accel_turnrate.jl")
 include("lane_following_accel.jl")

@@ -6,3 +6,4 @@ baremodule AgentClass
 end
 
 include("bounding_box_defs.jl")
+include("bicycle_models.jl")

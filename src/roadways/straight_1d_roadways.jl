@@ -1,8 +1,8 @@
-type StraightRoadway
-    length::Float64
+type Straight1DRoadway
+    len::Float64 # length of roadway [m]
 end
 
-function mod_position_to_roadway(s::Float64, roadway::StraightRoadway)
+function mod_position_to_roadway(s::Float64, roadway::Straight1DRoadway)
     while s > roadway.length
         s -= roadway.length
     end
@@ -12,7 +12,7 @@ function mod_position_to_roadway(s::Float64, roadway::StraightRoadway)
     return s
 end
 
-function get_headway(s_rear::Float64, s_fore::Float64, roadway::StraightRoadway)
+function get_headway(s_rear::Float64, s_fore::Float64, roadway::Straight1DRoadway)
     while s_fore < s_rear
         s_fore += roadway.length
     end
