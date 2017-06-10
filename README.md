@@ -6,6 +6,6 @@ A Julia package containing tools for simulating automotive driving models
 [![Coverage Status](https://coveralls.io/repos/github/sisl/AutomotiveDrivingModels.jl/badge.svg?branch=master)](https://coveralls.io/github/sisl/AutomotiveDrivingModels.jl?branch=master)
 
 
-Example for [1D driving](http://nbviewer.ipython.org/github/sisl/AutomotiveDrivingModels.jl/blob/records/docs/1DMobius.ipynb)
+Example for [1D driving](http://nbviewer.jupyter.org/github/sisl/AutomotiveDrivingModels.jl/blob/master/docs/1DMobius.ipynb)
 
 For visualization code please see [AutoViz](https://github.com/sisl/AutoViz.jl).
