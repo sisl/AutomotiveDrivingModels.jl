@@ -30,15 +30,29 @@ export
     Frenet,
     FrenetSpeed,
 
-    BoundingBoxDef
+    BoundingBoxDef,
+
+    AbstractFeature,
+    FeatureValue,
+    FeatureState,
+
+    is_feature_valid,
+    is_symbol_a_feature,
+    allfeatures,
+    symbol2feature,
+
+    LaneBoundary,
+    SpeedLimit,
+    LaneTag
 
 include("drivermodels.jl")
 include("simulation.jl")
 include("callbacks.jl")
+include("features.jl")
 
+include("roadways/main.jl")
 include("states/main.jl")
 include("defs/main.jl")
-include("roadways/main.jl")
 include("actions/main.jl")
 include("behaviors/main.jl")
 include("typing/main.jl")

@@ -477,3 +477,5 @@ let
     lc = LaneConnection(true, CurveIndex(1,0.0), RoadIndex(CurveIndex(2,0.0), LaneTag(2,2)))
     show(IOBuffer(), lc)
 end
+
+include("test_roadway_generation.jl")

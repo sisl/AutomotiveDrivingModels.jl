@@ -1,13 +1,3 @@
-export
-    AbstractFeature,
-    FeatureValue,
-    FeatureState,
-
-    is_feature_valid,
-    is_symbol_a_feature,
-    allfeatures,
-    symbol2feature
-
 """
     Features can be extracted from QueueRecords.
 They always return a FeatureValue, which allows the encoding of discrete / continuous / missing values,
