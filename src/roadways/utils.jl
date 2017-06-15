@@ -1,3 +1,5 @@
+#######################
+
 immutable LaneBoundary
     style::Symbol # ∈ :solid, :broken, :double
     color::Symbol # ∈ :yellow, white
@@ -10,7 +12,7 @@ immutable SpeedLimit
     lo::Float64 # [m/s]
     hi::Float64 # [m/s]
 end
-const DEFAULT_SPEED_LIMIT = SpeedLimit(-Inf, Inf)
+const NULL_SPEED_LIMIT = SpeedLimit(-Inf, Inf)
 
 #######################
 

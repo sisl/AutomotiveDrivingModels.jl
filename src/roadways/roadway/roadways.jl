@@ -52,7 +52,7 @@ type Lane
         tag::LaneTag,
         curve::Curve;
         width::Float64 = DEFAULT_LANE_WIDTH,
-        speed_limit::SpeedLimit = DEFAULT_SPEED_LIMIT,
+        speed_limit::SpeedLimit = NULL_SPEED_LIMIT,
         boundary_left::LaneBoundary = NULL_BOUNDARY,
         boundary_right::LaneBoundary = NULL_BOUNDARY,
         exits::Vector{LaneConnection} = LaneConnection[],

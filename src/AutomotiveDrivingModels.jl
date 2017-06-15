@@ -43,7 +43,18 @@ export
 
     LaneBoundary,
     SpeedLimit,
-    LaneTag
+    LaneTag,
+
+    NULL_BOUNDARY,
+    NULL_SPEED_LIMIT,
+    NULL_LANETAG,
+
+    LaneGeometry,
+    GeomLine,
+    GeomArc,
+    LaneGeometries,
+    LaneGeometryRecord
+
 
 include("drivermodels.jl")
 include("simulation.jl")

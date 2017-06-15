@@ -13,8 +13,8 @@ function Base.isapprox{S}(a::TaggedState{S}, b::TaggedState{S};
     atol::Real=sqrt(eps(Float64))
     )
 
-    return  a.tag == b.tag &&
-            isapprox(a.lanestate, b.lanestate, atol=atol, rtol=rtol)
+    return a.tag == b.tag &&
+           isapprox(a.lanestate, b.lanestate, atol=atol, rtol=rtol)
 end
 
 function Base.write{S}(io::IO, mime::MIME"text/plain", state::TaggedState{S})

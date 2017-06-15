@@ -253,3 +253,6 @@ function Vec.proj(posG::VecSE2, curve::Curve)
 
     get_curve_projection(posG, footpoint, curveind)
 end
+
+
+get_headway(s_rear::Float64, s_fore::Float64, roadway::Curve) = s_fore - s_rear # typically a positive distance
