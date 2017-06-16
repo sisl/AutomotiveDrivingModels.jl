@@ -29,12 +29,15 @@ export
     PosSpeed1D,
     Frenet,
     FrenetSpeed,
+    TaggedState,
+    VehicleState,
 
     BoundingBoxDef,
 
     AbstractFeature,
     FeatureValue,
     FeatureState,
+    NeighborLongitudinalResult,
 
     is_feature_valid,
     is_symbol_a_feature,
@@ -53,7 +56,14 @@ export
     GeomLine,
     GeomArc,
     LaneGeometries,
-    LaneGeometryRecord
+    LaneGeometryRecord,
+
+    Straight1DRoadway,
+    Roadway,
+
+    get_headway,
+    get_neighbor_fore,
+    get_neighbor_rear
 
 
 include("drivermodels.jl")

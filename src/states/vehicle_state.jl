@@ -29,9 +29,10 @@ end
 get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 
-# VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
-# VehicleState(posG::VecSE2, lane::Lane, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
-# VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = new(get_posG(posF, roadway), posF, v)
+# TODO: move these to the correct typewise folder
+VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = VehicleState(posG, Frenet(posG, roadway), v)
+VehicleState(posG::VecSE2, lane::Lane, roadway::Roadway, v::Float64) = VehicleState(posG, Frenet(posG, roadway), v)
+VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = VehicleState(get_posG(posF, roadway), posF, v)
 
 # function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
 #     posG = lerp(a.posG, b.posG, t)

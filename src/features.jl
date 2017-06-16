@@ -135,3 +135,19 @@ generate_feature_functions("JerkFt", :jerkFt, Float64, "m/s³")
 function Base.get{S,D,I,R}(::Feature_JerkFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(ACCFT, rec, roadway, vehicle_index, pastframe)
 end
+
+###
+
+"""
+    get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)
+Return the index of the vehicle that is in the same lane as scene[vehicle_index] and
+in front of it with the smallest distance along the lane
+
+    The method will search on the current lane first, and if no vehicle is found it
+    will continue to travel along the lane following next_lane(lane, roadway).
+    If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
+"""
+immutable NeighborLongitudinalResult
+    ind::Int # index in scene of the neighbor
+    Δs::Float64 # positive distance along lane between vehicles' positions
+end

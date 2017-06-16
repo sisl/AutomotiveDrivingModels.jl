@@ -1,7 +1,7 @@
 get_center(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s
 get_footpoint(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s
-get_front(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s + veh.def.length/2
-get_rear(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s - veh.def.length/2
+get_front(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s + veh.def.len/2
+get_rear(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s - veh.def.len/2
 
 function get_headway(
     veh_rear::Entity{PosSpeed1D, BoundingBoxDef, Int},
