@@ -59,11 +59,14 @@ export
     LaneGeometryRecord,
 
     Straight1DRoadway,
+    Wraparound,
     Roadway,
 
     get_headway,
     get_neighbor_fore,
-    get_neighbor_rear
+    get_neighbor_rear,
+    get_s_max,
+    mod_position_to_roadway
 
 
 include("drivermodels.jl")

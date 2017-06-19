@@ -255,4 +255,14 @@ function Vec.proj(posG::VecSE2, curve::Curve)
 end
 
 
-get_headway(s_rear::Float64, s_fore::Float64, roadway::Curve) = s_fore - s_rear # typically a positive distance
+function get_headway(s_rear::Float64, s_fore::Float64, roadway::Curve)
+
+    0 ≤ s_rear ≤ roadway[end].s || error("s_rear=$s_rear not within curve bounds of $(roadway[end].s)")
+    0 ≤ s_fore ≤ roadway[end].s || error("s_fore=$s_fore not within curve bounds of $(roadway[end].s)")
+
+    if s_fore ≥ s_rear
+        return s_fore - s_rear # positive distance
+    else
+        return Inf
+    end
+end

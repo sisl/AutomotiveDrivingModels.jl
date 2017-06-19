@@ -29,6 +29,14 @@ let
     @test index_closest_to_point(curve, VecSE2(-1.0,0.0,0.0)) == 1
     @test index_closest_to_point([CurvePt(VecSE2(0.0,0.0,0.0),0.0)], VecE2(0.0,0.0)) == 1
 
+    @test get_headway(1.0, 2.0, curve) == 1.0
+    @test get_headway(1.0, 1.0, curve) == 0.0
+    @test isinf(get_headway(2.0, 1.0, curve))
+    @test_throws ErrorException get_headway(200.0, 1.0, curve)
+    @test_throws ErrorException get_headway(-200.0, 1.0, curve)
+    @test_throws ErrorException get_headway(1.0, 200.0, curve)
+    @test_throws ErrorException get_headway(1.0, -200.0, curve)
+
     @test get_curve_index(curve, 0.0) == CurveIndex(1, 0.0)
     @test get_curve_index(curve, 1.0) == CurveIndex(2, 0.0)
     @test get_curve_index(curve, 1.5) == CurveIndex(2, 0.25)

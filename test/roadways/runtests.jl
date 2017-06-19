@@ -1,3 +1,5 @@
 include("test_utils.jl")
 include("test_curves.jl")
+include("test_straight_1d_roadways.jl")
+include("test_wraparound_roadways.jl")
 include("roadway/runtests.jl")
