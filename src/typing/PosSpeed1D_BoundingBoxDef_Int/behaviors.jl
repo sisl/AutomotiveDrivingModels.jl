@@ -1,7 +1,7 @@
-function observe!(
+function observe!{R}(
     model::LaneFollowingDriver,
     scene::EntityFrame{PosSpeed1D, BoundingBoxDef, Int},
-    roadway::Straight1DRoadway,
+    roadway::R,
     egoid::Int,
     )
 

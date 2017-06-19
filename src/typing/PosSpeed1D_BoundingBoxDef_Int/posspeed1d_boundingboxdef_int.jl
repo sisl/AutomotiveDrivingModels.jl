@@ -1,15 +1,20 @@
-function get_headway(
+get_center(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s
+get_footpoint(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s
+get_front(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s + veh.def.len/2
+get_rear(veh::Entity{PosSpeed1D, BoundingBoxDef, Int}) = veh.state.s - veh.def.len/2
+
+function get_headway{R}(
     veh_rear::Entity{PosSpeed1D, BoundingBoxDef, Int},
     veh_fore::Entity{PosSpeed1D, BoundingBoxDef, Int},
-    roadway::Curve,
+    roadway::R,
     )
 
     return get_headway(get_front(veh_rear), get_rear(veh_fore), roadway)
 end
-function get_neighbor_fore(
+function get_neighbor_fore{R}(
     scene::EntityFrame{PosSpeed1D, BoundingBoxDef, Int},
     vehicle_index::Int,
-    roadway::Curve,
+    roadway::R,
     )
 
     ego = scene[vehicle_index]
@@ -25,10 +30,10 @@ function get_neighbor_fore(
     end
     return NeighborLongitudinalResult(best_ind, best_gap)
 end
-function get_neighbor_rear(
+function get_neighbor_rear{R}(
     scene::EntityFrame{PosSpeed1D, BoundingBoxDef, Int},
     vehicle_index::Int,
-    roadway::Curve,
+    roadway::R,
     )
 
     ego = scene[vehicle_index]
@@ -44,7 +49,3 @@ function get_neighbor_rear(
     end
     return NeighborLongitudinalResult(best_ind, best_gap)
 end
-
-include("propagate.jl")
-include("features.jl")
-include("behaviors.jl")

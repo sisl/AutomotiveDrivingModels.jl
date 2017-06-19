@@ -12,7 +12,14 @@ using Parameters
 export
     DriverModel,
 
-    StaticDriver,
+    LaneFollowingDriver,
+    StaticLaneFollowingDriver,
+    StochasticLaneFollowingDriver,
+    PrincetonDriver,
+    IntelligentDriverModel,
+    ProportionalSpeedTracker,
+
+    track_longitudinal!,
 
     get_name,
     action_type,
@@ -33,6 +40,12 @@ export
     VehicleState,
 
     BoundingBoxDef,
+
+    Accel,
+    AccelDesang,
+    AccelSteering,
+    AccelTurnrate,
+    LatLonAccel,
 
     AbstractFeature,
     FeatureValue,
@@ -62,11 +75,14 @@ export
     Wraparound,
     Roadway,
 
+    DEFAULT_LANE_WIDTH,
+
+    get_s_max,
+    mod_position_to_roadway,
+
     get_headway,
     get_neighbor_fore,
-    get_neighbor_rear,
-    get_s_max,
-    mod_position_to_roadway
+    get_neighbor_rear
 
 
 include("drivermodels.jl")
