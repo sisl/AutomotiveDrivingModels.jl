@@ -8,6 +8,7 @@ abstract DriverModel{A}
 
 get_name(model::DriverModel) = string(typeof(model))
 action_type{A}(::DriverModel{A}) = A
+reset_hidden_state!(model::DriverModel) = model # do nothing by default
 
 Base.rand(model::DriverModel) = error("rand not implemented for model $model")
 Distributions.pdf{A}(model::DriverModel{A}, a::A) = error("pdf not implemented for model $model")

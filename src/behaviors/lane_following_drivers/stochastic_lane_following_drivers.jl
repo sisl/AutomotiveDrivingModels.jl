@@ -3,6 +3,12 @@ type StochasticLaneFollowingDriver{D<:LaneFollowingDriver, P<:ContinuousUnivaria
     distr::P
 end
 get_name(::StochasticLaneFollowingDriver) = "StochasticLaneFollowingDriver"
+
+function track_longitudinal!(model::StochasticLaneFollowingDriver, v_ego::Float64, v_oth::Float64, headway::Float64)
+    track_longitudinal!(model.submodel, v_ego, v_oth, headway)
+    return model
+end
+
 Base.rand(model::StochasticLaneFollowingDriver) = Accel(rand(model.submodel).a + rand(model.distr))
 function Distributions.pdf(model::StochasticLaneFollowingDriver, a::Accel)
     subpdf = pdf(model.submodel, a)
