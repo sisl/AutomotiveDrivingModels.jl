@@ -57,6 +57,10 @@ export
     allfeatures,
     symbol2feature,
 
+    is_colliding,
+    has_collision,
+    get_first_collision,
+
     LaneBoundary,
     SpeedLimit,
     LaneTag,

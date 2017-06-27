@@ -151,3 +151,32 @@ immutable NeighborLongitudinalResult
     ind::Int # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
+
+###
+
+"""
+    get_first_collision(scene, roadway)
+
+Returns the first pair of entity indeces that are colliding.
+"""
+function get_first_collision{S,D,I,R}(scene::EntityFrame{S,D,I}, roadway::R)::Tuple{Int,Int}
+    for (i,vehA) in enumerate(scene)
+        for j in i+1 : length(scene)
+            vehB = scene[j]
+            if is_colliding(vehA, vehB, roadway)
+                return (i,j)
+            end
+        end
+    end
+    return (0,0)
+end
+
+"""
+    has_collision(scene, roadway)
+
+Whether there is at least one collision in the scene.
+"""
+function has_collision{S,D,I,R}(scene::EntityFrame{S,D,I}, roadway::R)
+    first_col = get_first_collision(scene, roadway)
+    return first_col != (0,0)
+end
