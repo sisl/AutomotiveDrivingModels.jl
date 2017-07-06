@@ -307,7 +307,7 @@ function get_collision_time(ray::VecSE2, poly::ConvexPolygon, ray_speed::Float64
     min_col_time = Inf
     for i in 1 : length(poly)
         seg = get_edge(poly, i)
-        col_time = get_collision_time(ray, seg, ray_speed)
+        col_time = get_intersection_time(Projectile(ray, ray_speed), seg)
         if !isnan(col_time) && col_time < min_col_time
             min_col_time = col_time
         end
