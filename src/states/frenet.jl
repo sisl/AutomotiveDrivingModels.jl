@@ -1,4 +1,4 @@
-immutable Frenet
+struct Frenet
     s::Float64 # distance along lane
     t::Float64 # lane offset, positive is to left
     ϕ::Float64 # lane relative heading, zero sideslip (sometimes called point mass model)

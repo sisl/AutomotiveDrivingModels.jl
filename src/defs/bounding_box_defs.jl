@@ -1,7 +1,7 @@
 """
     Vehicle definition which contains a class and a bounding box.
 """
-@with_kw immutable BoundingBoxDef
+@with_kw struct BoundingBoxDef
     class::Int = AgentClass.CAR # ∈ AgentClass
     len::Float64 = 4.0
     wid::Float64 = 1.8

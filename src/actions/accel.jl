@@ -3,7 +3,7 @@
 
 A longitudinal acceleration
 """
-immutable Accel
+struct Accel
     a::Float64 # [m/s²]
 end
 Base.show(io::IO, a::Accel) = @printf(io, "Accel(%6.3f)", a.a)

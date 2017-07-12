@@ -22,7 +22,7 @@ pull_record(seg::TrajdataSegment, evaldata::EvaluationData, prime_history::Int=0
     create_evaldata_with_random_subsegments_of_equal_length(evaldata::EvaluationData; nsegs::Int=1, nframes::Int=101)
 """
 function create_evaldata_with_random_subsegments_of_equal_length(evaldata::EvaluationData; nsegs::Int=1, nframes::Int=101)
-    segments = Array(TrajdataSegment, nsegs)
+    segments = Array{TrajdataSegment}(nsegs)
     i = 0
     while i < nsegs
         seg = evaldata.segments[rand(1:length(evaldata.segments))]
@@ -34,7 +34,7 @@ function create_evaldata_with_random_subsegments_of_equal_length(evaldata::Evalu
     EvaluationData(evaldata.trajdatas, segments)
 end
 function create_evaldata_with_random_subsegments_of_equal_length(evaldata::EvaluationData, foldset::FoldSet; nsegs::Int=1, nframes::Int=101)
-    segments = Array(TrajdataSegment, nsegs)
+    segments = Array{TrajdataSegment}(nsegs)
     indeces = collect(foldset)
     i = 0
     while i < nsegs
@@ -53,10 +53,10 @@ function allocate_metrics_dataframe{M<:TraceMetricExtractor}(
     )
 
     df = DataFrame()
-    df[:time] = Array(String, nrows)
-    df[:logl] = Array(Float64, nrows)
+    df[:time] = Array{String}(nrows)
+    df[:logl] = Array{Float64}(nrows)
     for m in metrics
-        df[Symbol(m)] = Array(Float64, nrows)
+        df[Symbol(m)] = Array{Float64}(nrows)
     end
     df
 end

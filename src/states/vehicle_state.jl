@@ -1,4 +1,4 @@
-immutable VehicleState
+struct VehicleState
     posG::VecSE2 # global
     posF::Frenet # lane-relative frame
     v::Float64

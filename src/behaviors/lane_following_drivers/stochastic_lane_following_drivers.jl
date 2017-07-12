@@ -1,4 +1,4 @@
-type StochasticLaneFollowingDriver{D<:LaneFollowingDriver, P<:ContinuousUnivariateDistribution} <: LaneFollowingDriver
+mutable struct StochasticLaneFollowingDriver{D<:LaneFollowingDriver, P<:ContinuousUnivariateDistribution} <: LaneFollowingDriver
     submodel::D
     distr::P
 end

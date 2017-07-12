@@ -3,7 +3,7 @@
 They always return a FeatureValue, which allows the encoding of discrete / continuous / missing values,
 which can also be forced to a Float64.
 """
-abstract AbstractFeature
+abstract type AbstractFeature end
 
 baremodule FeatureState
     # good
@@ -18,7 +18,7 @@ baremodule FeatureState
     const CENSORED_LO = 4 # value is below an operating threshold
 end
 
-immutable FeatureValue
+struct FeatureValue
     v::Float64 # feature value
     i::Int # used to encode
 
@@ -147,7 +147,7 @@ in front of it with the smallest distance along the lane
     will continue to travel along the lane following next_lane(lane, roadway).
     If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
 """
-immutable NeighborLongitudinalResult
+struct NeighborLongitudinalResult
     ind::Int # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end

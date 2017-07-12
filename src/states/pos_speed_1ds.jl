@@ -1,4 +1,4 @@
-immutable PosSpeed1D
+struct PosSpeed1D
     s::Float64 # position
     v::Float64 # speed [m/s]
 end

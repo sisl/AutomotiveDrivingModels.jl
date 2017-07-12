@@ -1,4 +1,4 @@
-immutable TaggedState{S}
+struct TaggedState{S}
     lanestate::S # state relative to a lane
     tag::LaneTag
 end

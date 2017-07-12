@@ -1,4 +1,4 @@
-type StaticLaneFollowingDriver <: LaneFollowingDriver
+mutable struct StaticLaneFollowingDriver <: LaneFollowingDriver
     a::Accel
     StaticLaneFollowingDriver(a::Accel=Accel(0.0)) = new(a)
     StaticLaneFollowingDriver(a::Float64) = new(Accel(a))

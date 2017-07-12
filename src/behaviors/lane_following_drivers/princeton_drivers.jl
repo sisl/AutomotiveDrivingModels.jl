@@ -1,4 +1,4 @@
-@with_kw type PrincetonDriver <: LaneFollowingDriver
+@with_kw mutable struct PrincetonDriver <: LaneFollowingDriver
     a::Float64 = NaN # predicted acceleration
     k::Float64 = 1.0 # proportional constant for speed tracking [s⁻¹]
     v_des::Float64 = 29.0 # desired speed [m/s]

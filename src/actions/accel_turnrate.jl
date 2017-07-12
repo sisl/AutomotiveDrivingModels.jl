@@ -1,4 +1,4 @@
-immutable AccelTurnrate
+struct AccelTurnrate
     a::Float64 # accel [m/s²]
     ω::Float64 # turnrate [rad/s]
 end

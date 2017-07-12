@@ -1,4 +1,4 @@
-immutable AccelDesang
+struct AccelDesang
     a::Float64
     ϕdes::Float64
 end

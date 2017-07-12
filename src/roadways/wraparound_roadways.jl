@@ -1,4 +1,4 @@
-type Wraparound{R}
+struct Wraparound{R}
     road::R # typically a Curve or a Straight1D roadway
 end
 

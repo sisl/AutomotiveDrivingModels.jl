@@ -26,7 +26,7 @@ function simulate!{S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(
         return rec
     end
 
-    actions = Array(A, length(scene))
+    actions = Array{A}(length(scene))
     for tick in 1 : nticks
         observe!(models, scene, roadway)
         get_actions!(actions, scene, roadway, models)

@@ -1,6 +1,6 @@
 #######################
 
-immutable LaneBoundary
+struct LaneBoundary
     style::Symbol # ∈ :solid, :broken, :double
     color::Symbol # ∈ :yellow, white
 end
@@ -8,7 +8,7 @@ const NULL_BOUNDARY = LaneBoundary(:unknown, :unknown)
 
 #######################
 
-immutable SpeedLimit
+struct SpeedLimit
     lo::Float64 # [m/s]
     hi::Float64 # [m/s]
 end
@@ -16,7 +16,7 @@ const NULL_SPEED_LIMIT = SpeedLimit(-Inf, Inf)
 
 #######################
 
-immutable LaneTag
+struct LaneTag
     segment :: Int # segment id
     lane    :: Int # index in segment.lanes of this lane
 end

@@ -1,4 +1,4 @@
-immutable RoadIndex
+struct RoadIndex
     ind::CurveIndex
     tag::LaneTag
 end
@@ -9,7 +9,7 @@ Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t
 
 #######################################
 
-immutable LaneConnection
+struct LaneConnection
     downstream::Bool # if true, mylane → target, else target → mylane
     mylane::CurveIndex
     target::RoadIndex
@@ -38,7 +38,7 @@ end
 
 const DEFAULT_LANE_WIDTH = 3.0 # [m]
 
-type Lane
+mutable struct Lane
     tag            :: LaneTag
     curve          :: Curve
     width          :: Float64 # [m]
@@ -107,7 +107,7 @@ end
 
 #######################################
 
-type RoadSegment
+mutable struct RoadSegment
     # a list of lanes forming a single road with a common direction
     id::Int
     lanes::Vector{Lane} # lanes are stored right to left
@@ -116,7 +116,7 @@ end
 
 #######################################
 
-type Roadway
+mutable struct Roadway
     segments::Vector{RoadSegment}
     Roadway(segments::Vector{RoadSegment}=RoadSegment[]) = new(segments)
 end
@@ -165,11 +165,11 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
     end
 
     nsegs = parse(Int, advance!())
-    roadway = Roadway(Array(RoadSegment, nsegs))
+    roadway = Roadway(Array{RoadSegment}(nsegs))
     for i_seg in 1:nsegs
         segid = parse(Int, advance!())
         nlanes = parse(Int, advance!())
-        seg = RoadSegment(segid, Array(Lane, nlanes))
+        seg = RoadSegment(segid, Array{Lane}(nlanes))
         for i_lane in 1:nlanes
             @assert(i_lane == parse(Int, advance!()))
             tag = LaneTag(segid, i_lane)
@@ -193,7 +193,7 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
             end
 
             npts = parse(Int, advance!())
-            curve = Array(CurvePt, npts)
+            curve = Array{CurvePt}(npts)
             for i_pt in 1:npts
                 line = advance!()
                 cleanedline = replace(line, r"(\(|\))", "")
@@ -288,7 +288,7 @@ function has_lanetag(roadway::Roadway, tag::LaneTag)
     1 ≤ tag.lane ≤ length(seg.lanes)
 end
 
-immutable RoadProjection
+struct RoadProjection
     curveproj::CurveProjection
     tag::LaneTag
 end
@@ -558,7 +558,7 @@ function _fit_curve(
     @assert(!any(s->isnan(s), y_arr))
     @assert(!any(s->isnan(s), θ_arr))
 
-    curve = Array(CurvePt, n)
+    curve = Array{CurvePt}(n)
     for i in 1 : n
         pos = VecSE2(x_arr[i], y_arr[i], θ_arr[i])
         curve[i] = CurvePt(pos, s_arr[i], κ_arr[i], κd_arr[i])
@@ -604,7 +604,7 @@ function read_dxf(io::IO, ::Type{Roadway};
                 N = parse(Int, lines[i+1])
                 N > 0 || error("Empty line segment!")
 
-                pts = Array(VecE2, N)
+                pts = Array{VecE2}(N)
 
                 i = findnext(lines, " 10\n", i)
                 i != 0 || error("First point not found in AcDbPolyline!")
@@ -711,7 +711,7 @@ function read_dxf(io::IO, ::Type{Roadway};
         # then project each lane's midpoint to the perpendicular at the midpoint
 
         @assert(!isempty(lanetags))
-        proj_positions = Array(Float64, length(lanetags))
+        proj_positions = Array{Float64}(length(lanetags))
 
         first_lane_pts = lane_pts_dict[lanetags[1]]
         n = length(first_lane_pts)
@@ -734,7 +734,7 @@ function read_dxf(io::IO, ::Type{Roadway};
             boundary_right = i == 1 ? LaneBoundary(:solid, :white) : LaneBoundary(:broken, :white)
 
             pts = lane_pts_dict[tag]
-            pt_matrix = Array(Float64, 2, length(pts))
+            pt_matrix = Array{Float64}(2, length(pts))
             for (k,P) in enumerate(pts)
                 pt_matrix[1,k] = P.x
                 pt_matrix[2,k] = P.y

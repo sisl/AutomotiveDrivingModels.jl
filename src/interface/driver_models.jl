@@ -10,7 +10,7 @@ export
     reset_hidden_state!,
     prime_with_history!
 
-abstract DriverModel{DriveAction}
+abstract type DriverModel{DriveAction} end
 
 get_name(::DriverModel) = "???"
 action_type{A}(::DriverModel{A}) = A
@@ -58,7 +58,7 @@ end
 ####
 
 
-type StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
+struct StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
     distribution::P
 end
 

@@ -1,7 +1,7 @@
 """
 Commonly referred to as IDM
 """
-@with_kw type IntelligentDriverModel <: LaneFollowingDriver
+@with_kw mutable struct IntelligentDriverModel <: LaneFollowingDriver
     a::Float64 = NaN # predicted acceleration
 
     k_spd::Float64 = 1.0 # proportional constant for speed tracking when in freeflow [s⁻¹]

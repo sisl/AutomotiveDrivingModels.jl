@@ -1,4 +1,4 @@
-type Straight1DRoadway
+struct Straight1DRoadway
     len::Float64 # length of roadway [m]
 end
 

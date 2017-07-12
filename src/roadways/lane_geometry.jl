@@ -11,24 +11,24 @@ const DEFAULT_OFFSET_TOLERANCE = 1e-8
 #     return sequential[i]
 # end
 
-abstract LaneGeometry
-immutable GeomLine <: LaneGeometry
+abstract type LaneGeometry end
+struct GeomLine <: LaneGeometry
 end
-immutable GeomArc <: LaneGeometry
+struct GeomArc <: LaneGeometry
     κ::Float64 # [1/m], constant curvature throughout the element
                # positive indicates a left-hand turn
 end
-# immutable GeomClothoid <: LaneGeometry
+# struct GeomClothoid <: LaneGeometry
 # end
-typealias LaneGeometries Union{GeomLine,GeomArc}
+const LaneGeometries = Union{GeomLine,GeomArc}
 
-immutable LaneGeometryRecord{G<:LaneGeometries}
+struct LaneGeometryRecord{G<:LaneGeometries}
     posG::VecSE2 # start position in global coordinates (x,y,θ)
     len::Float64 # length of the element's reference line
     geo::G
     s::Float64 # start position (s-coordinate)
 
-    function LaneGeometryRecord(posG::VecSE2, len::Float64, geo, s::Float64)
+    function LaneGeometryRecord{G}(posG::VecSE2, len::Float64, geo, s::Float64) where {G<:LaneGeometries}
         isfinite(posG) || throw(ArgumentError("LaneGeometryRecord posG must be finite"))
         isfinite(len) || throw(ArgumentError("LaneGeometryRecord length must be finite"))
         len > 0  || throw(ArgumentError("LaneGeometryRecord length must be positive"))

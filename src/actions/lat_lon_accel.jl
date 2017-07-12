@@ -2,7 +2,7 @@
     LatLonAccel
 Acceleration in the frenet frame
 """
-immutable LatLonAccel
+struct LatLonAccel
     a_lat::Float64 # [m/s²]
     a_lon::Float64 # [m/s²]
 end

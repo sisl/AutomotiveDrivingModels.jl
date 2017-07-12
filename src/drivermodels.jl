@@ -4,7 +4,7 @@ DriverModel{A}
 A driver model is a probability distribution over actions,
 where A is the action type.
 """
-abstract DriverModel{A}
+abstract type DriverModel{A} end
 
 get_name(model::DriverModel) = string(typeof(model))
 action_type{A}(::DriverModel{A}) = A
@@ -50,7 +50,7 @@ end
 
 ####
 
-type StaticDriver{A,P<:Distribution} <: DriverModel{A}
+mutable struct StaticDriver{A,P<:Distribution} <: DriverModel{A}
     distribution::P
 end
 

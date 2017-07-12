@@ -1,4 +1,4 @@
-immutable FrenetSpeed
+struct FrenetSpeed
     posF::Frenet
     v::Float64 # speed, zero sideslip
 end
