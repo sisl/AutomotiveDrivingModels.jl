@@ -1,4 +1,4 @@
-type LatLonSeparableDriver <: DriverModel{LatLonAccel}
+struct LatLonSeparableDriver <: DriverModel{LatLonAccel}
     mlat::LateralDriverModel
     mlon::LaneFollowingDriver
 end

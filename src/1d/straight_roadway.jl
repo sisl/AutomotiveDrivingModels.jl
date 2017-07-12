@@ -1,4 +1,4 @@
-type StraightRoadway
+struct StraightRoadway
     length::Float64
 end
 

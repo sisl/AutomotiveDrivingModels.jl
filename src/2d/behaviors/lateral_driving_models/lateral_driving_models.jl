@@ -1,4 +1,4 @@
-abstract LateralDriverModel
+abstract type LateralDriverModel end
 get_name(::LateralDriverModel) = "???"
 reset_hidden_state!(model::LateralDriverModel) = model # do nothing by default
 observe!(model::LateralDriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
@@ -6,7 +6,7 @@ Base.rand(model::LateralDriverModel) = error("rand not implemented for model $mo
 Distributions.pdf(model::LateralDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
 Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
 
-type ProportionalLaneTracker <: LateralDriverModel
+mutable struct ProportionalLaneTracker <: LateralDriverModel
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
     kp::Float64 # proportional constant for lane tracking

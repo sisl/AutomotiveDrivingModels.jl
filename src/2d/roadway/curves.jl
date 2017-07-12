@@ -1,5 +1,5 @@
 
-immutable CurvePt
+struct CurvePt
     pos::VecSE2 # global position and orientation
     s::Float64  # distance along the curve
     k::Float64  # curvature
@@ -13,7 +13,7 @@ Vec.lerp(a::CurvePt, b::CurvePt, t::Float64) = CurvePt(lerp(a.pos, b.pos, t), a.
 
 ############
 
-typealias Curve Vector{CurvePt}
+const Curve = Vector{CurvePt}
 
 """
     get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
@@ -46,7 +46,7 @@ Get lerp time t∈[0,1] such that lerp(A, B) is as close as possible to Q
 get_lerp_time(A::VecE2, B::VecE2, Q::VecE2) = clamp(get_lerp_time_unclamped(A, B, Q), 0.0, 1.0)
 get_lerp_time(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
 
-immutable CurveIndex
+struct CurveIndex
     i::Int     # index in curve, ∈ [1:length(curve)-1]
     t::Float64 # ∈ [0,1] for linear interpolation
 end
@@ -202,7 +202,7 @@ end
     CurveProjection
 The result of a point projected to a Curve
 """
-immutable CurveProjection
+struct CurveProjection
     ind::CurveIndex
     t::Float64 # lane offset
     ϕ::Float64 # lane-relative heading [rad]

@@ -8,7 +8,7 @@ end
 
 #######################
 
-immutable LaneBoundary
+struct LaneBoundary
     style::Symbol # ∈ :solid, :broken, :double
     color::Symbol # ∈ :yellow, white
 end
@@ -16,7 +16,7 @@ const NULL_BOUNDARY = LaneBoundary(:unknown, :unknown)
 
 #######################
 
-immutable SpeedLimit
+struct SpeedLimit
     lo::Float64 # [m/s]
     hi::Float64 # [m/s]
 end

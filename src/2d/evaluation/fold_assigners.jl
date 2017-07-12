@@ -5,7 +5,7 @@ export
 
     assign_folds
 
-abstract FoldAssigner
+abstract type FoldAssigner end
 assign_folds(fa::FoldAssigner, nitems::Int, nfolds::Int) = error("get_fold_assignment not implemented for $a")
 
 
@@ -13,7 +13,7 @@ assign_folds(fa::FoldAssigner, nitems::Int, nfolds::Int) = error("get_fold_assig
     RandomFoldAssigner
 Assign folds using a random permutation
 """
-type RandomFoldAssigner <: FoldAssigner
+struct RandomFoldAssigner <: FoldAssigner
     use_all_samples::Bool # true - use all samples and assign extra ones to the first folds
                           # false - ensure all folds are of the same size
     RandomFoldAssigner(use_all_samples::Bool=true) = new(use_all_samples)
@@ -40,7 +40,7 @@ end
     OrderedFoldAssigner
 Assigns the first values to fold 1, the next block to fold 2, etc.
 """
-type OrderedFoldAssigner <: FoldAssigner
+struct OrderedFoldAssigner <: FoldAssigner
     use_all_samples::Bool # true - use all samples and assign extra ones to the first folds
                           # false - ensure all folds are of the same size
     OrderedFoldAssigner(use_all_samples::Bool=true) = new(use_all_samples)

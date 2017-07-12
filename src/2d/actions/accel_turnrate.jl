@@ -1,4 +1,4 @@
-immutable AccelTurnrate
+struct AccelTurnrate
     a::Float64
     ω::Float64
 end

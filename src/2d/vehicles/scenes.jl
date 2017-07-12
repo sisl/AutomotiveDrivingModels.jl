@@ -1,4 +1,4 @@
-typealias Scene Frame{Vehicle}
+const Scene = Frame{Vehicle}
 Scene(n::Int=100) = Frame(Vehicle, n)
 Scene(arr::Vector{Vehicle}) = Frame{Vehicle}(arr, length(arr))
 
@@ -13,7 +13,7 @@ in front of it with the smallest distance along the lane
     will continue to travel along the lane following next_lane(lane, roadway).
     If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
 """
-immutable NeighborLongitudinalResult
+struct NeighborLongitudinalResult
     ind::Int # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
@@ -25,12 +25,12 @@ export
     VehicleTargetPointRear,
     get_targetpoint_delta
 
-abstract VehicleTargetPoint
-immutable VehicleTargetPointFront <: VehicleTargetPoint end
+abstract type VehicleTargetPoint end
+struct VehicleTargetPointFront <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.length/2*cos(veh.state.posF.ϕ)
-immutable VehicleTargetPointCenter <: VehicleTargetPoint end
+struct VehicleTargetPointCenter <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointCenter, veh::Vehicle) = 0.0
-immutable VehicleTargetPointRear <: VehicleTargetPoint end
+struct VehicleTargetPointRear <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.length/2*cos(veh.state.posF.ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
@@ -420,7 +420,7 @@ end
     Project the given point to the same lane as the given RoadIndex.
 This will return the projection of the point, along with the Δs along the lane from the RoadIndex.
 """
-immutable FrenetRelativePosition
+struct FrenetRelativePosition
     origin::RoadIndex
     target::RoadIndex
     Δs::Float64

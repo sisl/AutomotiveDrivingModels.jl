@@ -9,7 +9,7 @@ end
 """
     Vehicle definition which contains a class and a bounding box.
 """
-immutable VehicleDef
+struct VehicleDef
     class::Int # ∈ AgentClass
     length::Float64
     width::Float64

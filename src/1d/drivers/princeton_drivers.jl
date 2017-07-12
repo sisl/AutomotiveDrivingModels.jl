@@ -1,4 +1,4 @@
-type PrincetonDriver <: LaneFollowingDriver
+mutable struct PrincetonDriver <: LaneFollowingDriver
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
     k::Float64 # proportional constant for speed tracking [s⁻¹]

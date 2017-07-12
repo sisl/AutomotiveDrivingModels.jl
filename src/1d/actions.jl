@@ -2,7 +2,7 @@
     LaneFollowingAccel
 Longitudinal acceleration
 """
-immutable LaneFollowingAccel
+struct LaneFollowingAccel
     a::Float64
 end
 Base.show(io::IO, a::LaneFollowingAccel) = @printf(io, "LaneFollowingAccel(%6.3f)", a.a)

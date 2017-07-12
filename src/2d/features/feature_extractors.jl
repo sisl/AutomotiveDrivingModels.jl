@@ -8,7 +8,7 @@ export
     pull_features!,
     rec_length
 
-abstract AbstractFeatureExtractor
+abstract type AbstractFeatureExtractor end
 rec_length(::AbstractFeatureExtractor) = 1 # length of the SceneRecord for best results
 Base.length(::AbstractFeatureExtractor) = error("Not Impemeneted")
 pull_features!{F<:AbstractFloat}(::AbstractFeatureExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) = error("Not Implemented")
@@ -16,7 +16,7 @@ pull_features!{F<:AbstractFloat}(::AbstractFeatureExtractor, features::Vector{F}
 ###############################################################
 # FeatureExtractor
 
-type FeatureExtractor <: AbstractFeatureExtractor
+mutable struct FeatureExtractor <: AbstractFeatureExtractor
     features::Vector{AbstractFeature}
     rec_length::Int
 
@@ -37,12 +37,12 @@ end
 ###############################################################
 # SubsetExtractor
 
-type SubsetExtractor{F<:AbstractFeatureExtractor, G<:AbstractFloat} <: AbstractFeatureExtractor
+struct SubsetExtractor{F<:AbstractFeatureExtractor, G<:AbstractFloat} <: AbstractFeatureExtractor
     extractor::F
     subset::Vector{Int}
     features::Vector{G}
 end
-SubsetExtractor{G<:AbstractFloat}(extractor::AbstractFeatureExtractor, subset::Vector{Int}, ::Type{G}=Float64) = SubsetExtractor(extractor, subset, Array(G, length(extractor)))
+SubsetExtractor{G<:AbstractFloat}(extractor::AbstractFeatureExtractor, subset::Vector{Int}, ::Type{G}=Float64) = SubsetExtractor(extractor, subset, Array{G}(length(extractor)))
 rec_length(ext::SubsetExtractor) = rec_length(ext.extractor)
 Base.length(ext::SubsetExtractor) = length(ext.subset)
 function pull_features!{F<:AbstractFloat}(ext::SubsetExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
@@ -56,7 +56,7 @@ end
 ###############################################################
 # StandardizingExtractor
 
-type StandardizingExtractor{F<:AbstractFeatureExtractor} <: AbstractFeatureExtractor
+struct StandardizingExtractor{F<:AbstractFeatureExtractor} <: AbstractFeatureExtractor
     extractor::F
     μ::Vector{Float64}
     σ::Vector{Float64}

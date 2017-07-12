@@ -9,7 +9,7 @@ export
 
     create_evaldata_with_random_subsegments_of_equal_length
 
-type EvaluationData
+struct EvaluationData
     trajdatas::Vector{Trajdata}
     segments::Vector{TrajdataSegment}
 end

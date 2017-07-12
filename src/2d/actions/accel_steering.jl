@@ -1,4 +1,4 @@
-immutable AccelSteeringAngle
+struct AccelSteeringAngle
     a::Float64 # accel [m/s²]
     δ::Float64 # steering angle [rad]
 end

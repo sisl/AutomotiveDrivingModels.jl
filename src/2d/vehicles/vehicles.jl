@@ -1,4 +1,4 @@
-immutable VehicleState
+struct VehicleState
     posG::VecSE2 # global
     posF::Frenet # lane-relative frame
     v::Float64
@@ -53,7 +53,7 @@ function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
     VehicleState(posG, roadway, v₂)
 end
 
-typealias Vehicle Entity{VehicleState,VehicleDef,Int}
+const Vehicle = Entity{VehicleState,VehicleDef,Int}
 
 Base.show(io::IO, v::Vehicle) = print(io, "Vehicle(", v.id, ", ", v.state, ", ", v.def, ")")
 

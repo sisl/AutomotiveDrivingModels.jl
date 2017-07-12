@@ -1,7 +1,7 @@
 export
     BicycleModel
 
-immutable BicycleModel
+struct BicycleModel
     def::VehicleDef
     a::Float64 # distance between cg and front axle [m]
     b::Float64 # distance between cg and rear axle [m]

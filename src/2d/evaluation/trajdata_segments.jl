@@ -7,7 +7,7 @@ export
 
     sample_random_subinterval
 
-immutable TrajdataSegment
+struct TrajdataSegment
     trajdata_index :: Int # index within EvaluationData.trajdatas of the relevant trajdata
     egoid          :: Int # the active vehicle
     frame_lo       :: Int # the starting frame in trajdata (does not count any sort of history)
@@ -71,7 +71,7 @@ end
 Run through the Trajdata and pull TrajdataSegments for each id for
 continuous frames in which they appear
 """
-type SegmentInProgress
+mutable struct SegmentInProgress
     id::Int
     frame_lo::Int
     updated::Bool

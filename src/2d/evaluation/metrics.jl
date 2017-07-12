@@ -1,10 +1,10 @@
-abstract TraceMetricExtractor
+abstract type TraceMetricExtractor end
 
 ########################################
 #        RootWeightedSquareError       #
 ########################################
 
-type RootWeightedSquareError{F<:AbstractFeature} <: TraceMetricExtractor
+mutable struct RootWeightedSquareError{F<:AbstractFeature} <: TraceMetricExtractor
     f::F
     horizon::Float64 # [s]
     running_sum::Float64
@@ -50,7 +50,7 @@ end
 #            SumSquareJerk             #
 ########################################
 
-type SumSquareJerk <: TraceMetricExtractor
+mutable struct SumSquareJerk <: TraceMetricExtractor
     running_sum::Float64
     n_obs::Int
 
@@ -90,7 +90,7 @@ end
 #         EmergentKLDivergence         #
 ########################################
 
-type EmergentKLDivergence <: TraceMetricExtractor
+mutable struct EmergentKLDivergence <: TraceMetricExtractor
     f::Union{AbstractFeature, TraceMetricExtractor}
     disc::LinearDiscretizer
     counts_orig::Vector{Int}

@@ -13,7 +13,7 @@ export
 They always return a FeatureValue, which allows the encoding of discrete / continuous / missing values,
 which can also be forced to a Float64.
 """
-abstract AbstractFeature
+abstract type AbstractFeature end
 
 baremodule FeatureState
     # good
@@ -28,7 +28,7 @@ baremodule FeatureState
     const CENSORED_LO = 4 # value is below an operating threshold
 end
 
-immutable FeatureValue
+struct FeatureValue
     v::Float64 # feature value
     i::Int # used to encode
 

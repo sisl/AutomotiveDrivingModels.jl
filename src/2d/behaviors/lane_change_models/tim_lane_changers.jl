@@ -1,4 +1,4 @@
-type TimLaneChanger <: LaneChangeModel
+mutable struct TimLaneChanger <: LaneChangeModel
     dir::Int
     rec::SceneRecord
 

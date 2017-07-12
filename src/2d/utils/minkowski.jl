@@ -56,11 +56,11 @@ end
 
 ######################################
 
-type ConvexPolygon
+mutable struct ConvexPolygon
     pts::Vector{VecE2} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
     npts::Int # number of pts that are currently used (since we preallocate a longer array)
 
-    ConvexPolygon(npts::Int) = new(Array(VecE2, npts), 0)
+    ConvexPolygon(npts::Int) = new(Array{VecE2}(npts), 0)
 end
 
 Base.start(poly::ConvexPolygon) = 1
@@ -318,7 +318,7 @@ end
 ######################################
 
 
-immutable CPAMemory
+struct CPAMemory
     vehA::ConvexPolygon # bounding box for vehicle A
     vehB::ConvexPolygon # bounding box for vehicle B
     mink::ConvexPolygon # minkowski bounding box
@@ -387,7 +387,7 @@ function get_distance(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
     get_distance(mem)
 end
 
-immutable CollisionCheckResult
+struct CollisionCheckResult
     is_colliding::Bool
     A::Int # index of 1st vehicle
     B::Int # index of 2nd vehicle
@@ -447,7 +447,7 @@ is_collision_free(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMe
 
 Terminates the simulation once a collision occurs
 """
-@with_kw type CollisionCallback
+@with_kw struct CollisionCallback
     mem::CPAMemory=CPAMemory()
 end
 function run_callback{S,D,I,R,M<:DriverModel}(

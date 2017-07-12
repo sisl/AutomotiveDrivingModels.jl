@@ -1,4 +1,4 @@
-immutable State1D
+struct State1D
     s::Float64 # position
     v::Float64 # speed [m/s]
 end

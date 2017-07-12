@@ -1,7 +1,7 @@
 """
 Commonly referred to as IDM
 """
-@with_kw type IntelligentDriverModel <: LaneFollowingDriver
+@with_kw mutable struct IntelligentDriverModel <: LaneFollowingDriver
     a::Float64 = NaN # predicted acceleration
     σ::Float64 = NaN # optional stdev on top of the model, set to zero or NaN for deterministic behavior
 

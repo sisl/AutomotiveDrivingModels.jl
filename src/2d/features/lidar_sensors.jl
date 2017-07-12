@@ -1,4 +1,4 @@
-export 
+export
     LidarSensor,
     nbeams,
     observe!,
@@ -6,14 +6,13 @@ export
     nlanes,
     LanePortion,
     RoadwayLidarCulling,
-    get,
     ensure_leaf_in_rlc!,
     get_lane_portions
 
 #############################################################
 # Lidar Sensor
 
-type LidarSensor
+mutable struct LidarSensor
     angles::Vector{Float64}
     ranges::Vector{Float64}
     range_rates::Vector{Float64}
@@ -32,8 +31,8 @@ function LidarSensor(nbeams::Int;
         nbeams = 0
     end
 
-    ranges = Array(Float64, nbeams)
-    range_rates = Array(Float64, nbeams)
+    ranges = Array{Float64}(nbeams)
+    range_rates = Array{Float64}(nbeams)
     LidarSensor(angles, ranges, range_rates, max_range, ConvexPolygon(4))
 end
 nbeams(lidar::LidarSensor) = length(lidar.angles)
@@ -84,7 +83,7 @@ end
 #############################################################
 # Road Line Lidar Sensor
 
-type RoadlineLidarSensor
+mutable struct RoadlineLidarSensor
     angles::Vector{Float64}
     ranges::Matrix{Float64} # [n_lanes by nbeams]
     max_range::Float64
@@ -104,11 +103,11 @@ function RoadlineLidarSensor(nbeams::Int;
         angles = Float64[]
         nbeams = 0
     end
-    ranges = Array(Float64, max_depth, nbeams)
+    ranges = Array{Float64}(max_depth, nbeams)
     RoadlineLidarSensor(angles, ranges, max_range, ConvexPolygon(4))
 end
 function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int, p_lo::VecE2, p_hi::VecE2)
-    test_range = get_intersection_time(Projectile(ray, 1.0), 
+    test_range = get_intersection_time(Projectile(ray, 1.0),
         AutomotiveDrivingModels.LineSegment(p_lo, p_hi))
 
     if !isnan(test_range)
@@ -191,12 +190,12 @@ end
 #############################################################
 # Road Line Lidar Culling
 
-immutable LanePortion
+struct LanePortion
     tag::LaneTag
     curveindex_lo::Int
     curveindex_hi::Int
 end
-type RoadwayLidarCulling
+mutable struct RoadwayLidarCulling
     is_leaf::Bool
 
     x_lo::Float64

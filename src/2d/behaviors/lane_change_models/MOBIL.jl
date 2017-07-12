@@ -2,7 +2,7 @@
     MOBIL
 See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 """
-type MOBIL <: LaneChangeModel
+mutable struct MOBIL <: LaneChangeModel
 
     dir::Int
     rec::SceneRecord

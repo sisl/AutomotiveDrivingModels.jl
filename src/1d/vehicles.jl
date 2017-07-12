@@ -1,5 +1,5 @@
-typealias Vehicle1D Entity{State1D, VehicleDef, Int}
-typealias Scene1D Frame{Vehicle1D}
+const Vehicle1D = Entity{State1D, VehicleDef, Int}
+const Scene1D = Frame{Vehicle1D}
 Scene1D(n::Int=100) = Frame(Vehicle1D, n)
 Scene1D(arr::Vector{Vehicle1D}) = Frame{Vehicle1D}(arr, length(arr))
 

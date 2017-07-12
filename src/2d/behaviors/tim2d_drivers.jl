@@ -1,4 +1,4 @@
-type Tim2DDriver <: DriverModel{LatLonAccel}
+struct Tim2DDriver <: DriverModel{LatLonAccel}
     rec::SceneRecord
     mlon::LaneFollowingDriver
     mlat::LateralDriverModel

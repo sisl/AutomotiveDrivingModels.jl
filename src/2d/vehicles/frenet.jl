@@ -1,4 +1,4 @@
-immutable Frenet
+struct Frenet
     roadind::RoadIndex
     s::Float64 # distance along lane
     t::Float64 # lane offset, positive is to left
