@@ -1,10 +1,17 @@
 """
     Vehicle definition which contains a class and a bounding box.
 """
-@with_kw struct BoundingBoxDef
-    class::Int = AgentClass.CAR # ∈ AgentClass
-    len::Float64 = 4.0
-    wid::Float64 = 1.8
+struct BoundingBoxDef
+    class::Int
+    len::Float64
+    wid::Float64
+end
+function BoundingBoxDef(;
+    class::Int = AgentClass.CAR, # ∈ AgentClass
+    len::Float64 = 4.0,
+    wid::Float64 = 1.8,
+    )
+    return BoundingBoxDef(class, len, wid)
 end
 
 const VehicleDef = BoundingBoxDef # for backwards compatibility
