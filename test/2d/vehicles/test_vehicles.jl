@@ -35,3 +35,28 @@ let
     @test f.t == 0.1
     @test f.ϕ == 0.2
 end
+
+let
+    scene=Frame(Entity{VehicleState, BicycleModel, Int},100)
+    roadway=gen_straight_roadway(3, 200.0, lane_width=3.0)
+    push!(scene,Entity(VehicleState(VecSE2(30.0,3.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    push!(scene,Entity(VehicleState(VecSE2(20.0,3.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    push!(scene,Entity(VehicleState(VecSE2(40.0,3.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    push!(scene,Entity(VehicleState(VecSE2(20.0,0.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    push!(scene,Entity(VehicleState(VecSE2(40.0,0.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    push!(scene,Entity(VehicleState(VecSE2(20.0,6.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    push!(scene,Entity(VehicleState(VecSE2(40.0,6.0,0.0), roadway, 0.0), 
+        BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
+    @test get_neighbor_fore_along_lane(scene,1,roadway) == NeighborLongitudinalResult(3,10.0)
+    @test get_neighbor_rear_along_lane(scene,1,roadway) == NeighborLongitudinalResult(2,10.0)
+    @test get_neighbor_fore_along_left_lane(scene,1,roadway) == NeighborLongitudinalResult(7,10.0)
+    @test get_neighbor_rear_along_left_lane(scene,1,roadway) == NeighborLongitudinalResult(6,10.0)
+    @test get_neighbor_fore_along_right_lane(scene,1,roadway) == NeighborLongitudinalResult(5,10.0)
+    @test get_neighbor_rear_along_right_lane(scene,1,roadway) == NeighborLongitudinalResult(4,10.0)
+end
