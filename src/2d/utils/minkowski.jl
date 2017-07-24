@@ -397,11 +397,13 @@ end
 """
 Loops through the scene and finds the first collision between a vehicle and scene[target_index]
 """
-function get_first_collision(scene::Scene, target_index::Int, mem::CPAMemory=CPAMemory())
+function get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory())
     A = target_index
     vehA = scene[A]
+    vehA = convert(Vehicle,vehA)
     to_oriented_bounding_box!(mem.vehA, vehA)
     for (B,vehB) in enumerate(scene)
+        vehB = convert(Vehicle,vehB)
         if B != A
             to_oriented_bounding_box!(mem.vehB, vehB)
             if is_potentially_colliding(vehA, vehB) && is_colliding(mem)
@@ -416,15 +418,17 @@ end
 """
 Loops through the scene and finds the first collision between any two vehicles
 """
-function get_first_collision(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory())
+function get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory())
 
     N = length(vehicle_indeces)
     for (a,A) in enumerate(vehicle_indeces)
         vehA = scene[A]
+        vehA = convert(Vehicle,vehA)
         to_oriented_bounding_box!(mem.vehA, vehA)
         for b in a +1 : length(vehicle_indeces)
             B = vehicle_indeces[b]
             vehB = scene[B]
+            vehB = convert(Vehicle,vehB)
             if is_potentially_colliding(vehA, vehB)
                 to_oriented_bounding_box!(mem.vehB, vehB)
                 if is_colliding(mem)
@@ -436,9 +440,9 @@ function get_first_collision(scene::Scene, vehicle_indeces::AbstractVector{Int},
 
     CollisionCheckResult(false, 0, 0)
 end
-get_first_collision(scene::Scene, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, 1:length(scene), mem)
-is_collision_free(scene::Scene, mem::CPAMemory=CPAMemory()) = !(get_first_collision(scene, mem).is_colliding)
-is_collision_free(scene::Scene, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, vehicle_indeces, mem).is_colliding
+get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, 1:length(scene), mem)
+is_collision_free{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) = !(get_first_collision(scene, mem).is_colliding)
+is_collision_free{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, vehicle_indeces, mem).is_colliding
 
 ###
 
