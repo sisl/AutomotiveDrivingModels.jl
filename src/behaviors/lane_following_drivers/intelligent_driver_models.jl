@@ -23,7 +23,6 @@ function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_ot
 
     if !isnan(v_oth)
         @assert !isnan(headway) && headway > 0
-
         Δv = v_oth - v_ego
         s_des = model.s_min + v_ego*model.T - v_ego*Δv / (2*sqrt(model.a_max*model.d_cmf))
         v_ratio = model.v_des > 0.0 ? (v_ego/model.v_des) : 1.0

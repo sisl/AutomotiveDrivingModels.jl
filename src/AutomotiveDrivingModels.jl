@@ -51,6 +51,7 @@ export
     FeatureValue,
     FeatureState,
     NeighborLongitudinalResult,
+    LeadFollowRelationships,
 
     is_feature_valid,
     is_symbol_a_feature,

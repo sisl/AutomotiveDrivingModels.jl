@@ -61,3 +61,19 @@ let
         get(f, rec, roadway, 3)
     end
 end
+
+let
+    scene = Frame([
+            Entity(PosSpeed1D( 0.0, NaN), BoundingBoxDef(AgentClass.CAR, 5.0, 2.0), 1),
+            Entity(PosSpeed1D(10.0, NaN), BoundingBoxDef(AgentClass.CAR, 5.0, 2.0), 1),
+            Entity(PosSpeed1D(40.0, NaN), BoundingBoxDef(AgentClass.CAR, 5.0, 2.0), 1),
+        ])
+    lead_follow = LeadFollowRelationships(rec[0], Straight1DRoadway(100.0))
+    @test lead_follow.index_fore == [2,3,0]
+    @test lead_follow.index_rear == [0,1,2]
+
+    lead_follow = LeadFollowRelationships(rec[0], Wraparound(Straight1DRoadway(100.0)))
+    @test lead_follow.index_fore == [2,3,1]
+    @test lead_follow.index_rear == [3,1,2]
+
+end

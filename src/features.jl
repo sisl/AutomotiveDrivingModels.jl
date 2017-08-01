@@ -180,3 +180,38 @@ function has_collision{S,D,I,R}(scene::EntityFrame{S,D,I}, roadway::R)
     first_col = get_first_collision(scene, roadway)
     return first_col != (0,0)
 end
+
+##
+
+"""
+    LeadFollowRelationships
+
+A simple struct which maps a vehicle_index to the vehicle index of the leading or trailing vehicle, based
+on get_neighbor_fore and get_neighbor_rear.
+
+Automatic construction requires that get_neighbor_fore and get_neighbor_rear be implemented
+for your S,D,I,R combination.
+"""
+struct LeadFollowRelationships
+    index_fore::Vector{Int}
+    index_rear::Vector{Int}
+end
+
+function Base.:(==)(A::LeadFollowRelationships, B::LeadFollowRelationships)
+    return A.index_fore == B.index_fore &&
+           A.index_rear == B.index_rear
+end
+
+function LeadFollowRelationships{S,D,I,R}(scene::EntityFrame{S,D,I}, roadway::R, vehicle_indices::AbstractVector{Int} = 1:length(scene))
+
+    nvehicles = length(scene)
+    index_fore = zeros(Int, nvehicles)
+    index_rear = zeros(Int, nvehicles)
+
+    for vehicle_index in vehicle_indices
+        index_fore[vehicle_index] = get_neighbor_fore(scene, vehicle_index, roadway).ind
+        index_rear[vehicle_index] = get_neighbor_rear(scene, vehicle_index, roadway).ind
+    end
+
+    return LeadFollowRelationships(index_fore, index_rear)
+end
