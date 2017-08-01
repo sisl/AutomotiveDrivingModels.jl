@@ -85,6 +85,10 @@ export
     get_s_max,
     mod_position_to_roadway,
 
+    get_center,
+    get_footpoint,
+    get_front,
+    get_rear,
     get_headway,
     get_neighbor_fore,
     get_neighbor_rear
