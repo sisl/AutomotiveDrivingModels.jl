@@ -297,7 +297,7 @@ function is_colliding(ray::VecSE2, poly::ConvexPolygon)
 
     for i in 1 : length(poly)
         seg = get_edge(poly, i)
-        if is_colliding(ray, seg)
+        if intersects(ray, seg)
             return true
         end
     end

@@ -18,6 +18,7 @@ export
     PrincetonDriver,
     IntelligentDriverModel,
     ProportionalSpeedTracker,
+    WrappedLaneFollowingDriver,
 
     track_longitudinal!,
 
@@ -46,6 +47,7 @@ export
     AccelSteering,
     AccelTurnrate,
     LatLonAccel,
+    StoppingAccel,
 
     AbstractFeature,
     FeatureValue,

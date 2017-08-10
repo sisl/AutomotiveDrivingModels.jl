@@ -3,6 +3,7 @@ using Base.Test
 using AutomotiveDrivingModels
 
 include("roadways/runtests.jl")
+include("typing/PosSpeed1D_BoundingBoxDef_Int/runtests.jl")
 
 # include("2d/runtests.jl")
 

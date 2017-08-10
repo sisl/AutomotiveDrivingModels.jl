@@ -1,5 +1,5 @@
-function observe!{R}(
-    model::LaneFollowingDriver,
+function observe!{M <: DriverModel,R}(
+    model::M,
     scene::EntityFrame{PosSpeed1D, BoundingBoxDef, Int},
     roadway::R,
     egoid::Int,
