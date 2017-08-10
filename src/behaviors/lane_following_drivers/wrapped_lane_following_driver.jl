@@ -9,5 +9,5 @@ function track_longitudinal!(model::WrappedLaneFollowingDriver, v_ego::Float64, 
 end
 
 Base.rand(model::WrappedLaneFollowingDriver) = convert(A, rand(model.submodel))
-Distributions.pdf(model::WrappedLaneFollowingDriver{A}, a::A) = pdf(model.submodel, convert(Accel, a))
-Distributions.logpdf(model::WrappedLaneFollowingDriver{A}, a::A) = logpdf(model.submodel, convert(Accel, a))
+Distributions.pdf{A}(model::WrappedLaneFollowingDriver{A}, a::A) = pdf(model.submodel, convert(Accel, a))
+Distributions.logpdf{A}(model::WrappedLaneFollowingDriver{A}, a::A) = logpdf(model.submodel, convert(Accel, a))
