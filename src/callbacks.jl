@@ -1,5 +1,20 @@
-# run callback and return whether simlation should terminate
-run_callback{S,D,I,R,M<:DriverModel}(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) = error("run_callback not implemented for callback $(typeof(callback))")
+"""
+run callback and return whether simlation should terminate.
+All callbacks should implement this.
+
+function run_callback{S,D,I,R,M<:DriverModel}(
+    callback::Any,
+    rec::EntityQueueRecord{S,D,I},
+    roadway::R,
+    models::Dict{I,M},
+    tick::Int,
+    )
+
+    ...
+end
+"""
+function run_callback
+end
 
 function _run_callbacks{S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}(callbacks::C, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int)
     isdone = false
