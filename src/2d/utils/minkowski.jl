@@ -119,7 +119,7 @@ function Base.show(io::IO, poly::ConvexPolygon)
 end
 
 AutomotiveDrivingModels.get_center(poly::ConvexPolygon) = sum(poly.pts) / poly.npts
-function get_distance(poly::ConvexPolygon, v::VecE2; solid::Bool=true)
+function Vec.get_distance(poly::ConvexPolygon, v::VecE2; solid::Bool=true)
     if solid && contains(poly, v)
         0.0
     else
@@ -252,7 +252,7 @@ function is_colliding(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=Co
     minkowski_difference!(temp, P, Q)
     contains(temp, VecE2(0,0))
 end
-function get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
+function Vec.get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
     minkowski_difference!(temp, P, Q)
     get_distance(temp, VecE2(0,0))
 end
@@ -326,7 +326,7 @@ struct CPAMemory
     CPAMemory() = new(ConvexPolygon(4), ConvexPolygon(4), ConvexPolygon(8))
 end
 is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
-get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
+Vec.get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
 function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAMemory=CPAMemory())
 
     to_oriented_bounding_box!(mem.vehA, a)
@@ -381,7 +381,7 @@ function is_colliding(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
     end
     false
 end
-function get_distance(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
+function Vec.get_distance(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
     to_oriented_bounding_box!(mem.vehA, A)
     to_oriented_bounding_box!(mem.vehB, B)
     get_distance(mem)
