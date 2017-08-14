@@ -62,21 +62,21 @@ let
     @test_throws BoundsError get(trajdata, 1, 10)
 
     let
-        iter = ListRecordIterator(trajdata, 1)
-        vehs = collect(iter)
-        @test length(vehs) == 2
-        @test vehs[1][1] == 1
-        @test vehs[1][2].state == get_state(trajdata, 1, 1)
-        @test vehs[2][1] == 2
-        @test vehs[2][2].state == get_state(trajdata, 1, 2)
+        iter = ListRecordStateByIdIterator(trajdata, 1)
+        items = collect(iter) # list of (frame_index, state)
+        @test length(items) == 2
+        @test items[1][1] == 1
+        @test items[1][2] == get_state(trajdata, 1, 1)
+        @test items[2][1] == 2
+        @test items[2][2] == get_state(trajdata, 1, 2)
 
-        iter = ListRecordIterator(trajdata, 2)
-        vehs = collect(iter)
-        @test length(vehs) == 2
-        @test vehs[1][1] == 1
-        @test vehs[1][2].state == get_state(trajdata, 2, 1)
-        @test vehs[2][1] == 2
-        @test vehs[2][2].state == get_state(trajdata, 2, 2)
+        iter = ListRecordStateByIdIterator(trajdata, 2)
+        items = collect(iter)
+        @test length(items) == 2
+        @test items[1][1] == 1
+        @test items[1][2] == get_state(trajdata, 2, 1)
+        @test items[2][1] == 2
+        @test items[2][2] == get_state(trajdata, 2, 2)
     end
 
     path, io = mktemp()
