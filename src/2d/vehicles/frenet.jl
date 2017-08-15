@@ -16,6 +16,10 @@ function Frenet(roadproj::RoadProjection, roadway::Roadway)
     ϕ = _mod2pi2(roadproj.curveproj.ϕ)
     Frenet(roadind, s, t, ϕ)
 end
+function Frenet(lane::Lane, s::Float64, t::Float64=0.0, ϕ::Float64=0.0)
+    roadind = RoadIndex(get_curve_index(lane.curve, s), lane.tag)
+    return Frenet(roadind, s, t, ϕ)
+end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
 Frenet(posG::VecSE2, lane::Lane, roadway::Roadway) = Frenet(proj(posG, lane, roadway), roadway)
 
