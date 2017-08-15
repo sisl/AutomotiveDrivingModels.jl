@@ -49,3 +49,20 @@ function get_neighbor_rear{R}(
     end
     return NeighborLongitudinalResult(best_ind, best_gap)
 end
+function loop_order(
+    veh1::Entity{PosSpeed1D, BoundingBoxDef, Int},
+    veh2::Entity{PosSpeed1D, BoundingBoxDef, Int},
+    roadway::Wraparound,
+    )
+
+    s12 = get_headway(get_rear(veh1), get_front(veh2), roadway)
+    s21 = get_headway(get_rear(veh2), get_front(veh1), roadway)
+
+    if s12 < s21
+        return 1
+    elseif s21 < s12
+        return -1
+    else
+        return 0
+    end
+end

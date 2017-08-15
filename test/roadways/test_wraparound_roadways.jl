@@ -1,4 +1,13 @@
 let
+    @test loop_order(1.0, 2.0, 4.0) == 1
+    @test loop_order(2.0, 2.0, 4.0) == 0
+    @test loop_order(1.0, 3.0, 4.0) == 0
+    @test loop_order(2.0, 1.0, 4.0) == -1
+    @test loop_order(4.5, 3.5, 4.0) == -1
+    @test loop_order(-0.1, 3.5, 4.0) == -1
+end
+
+let
     roadway = Wraparound(Straight1DRoadway(10.0))
     @test get_headway(1.0, 2.0, roadway) == 1.0
     @test get_headway(1.0, 1.0, roadway) == 0.0
@@ -11,6 +20,9 @@ let
     @test mod_position_to_roadway(1.0, roadway) == 1.0
     @test mod_position_to_roadway(-1.0, roadway) == 9.0
     @test mod_position_to_roadway(11.0, roadway) == 1.0
+
+    @test loop_order(1.0, 2.0, roadway) == 1
+    @test loop_order(9.0, 1.0, roadway) == 1
 end
 
 let
