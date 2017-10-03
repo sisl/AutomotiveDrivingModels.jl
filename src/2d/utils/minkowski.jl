@@ -288,7 +288,7 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::
 
     retval
 end
-get_oriented_bounding_box(veh::Vehicle, center::VecE2 = convert(VecE2, get_center(veh))) = get_oriented_bounding_box(ConvexPolygon(4), veh, center)
+get_oriented_bounding_box(veh::Vehicle, center::VecSE2 = get_center(veh)) = to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
 
 ######################################
 
