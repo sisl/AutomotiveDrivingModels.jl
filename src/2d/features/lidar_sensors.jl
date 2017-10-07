@@ -22,10 +22,11 @@ end
 function LidarSensor(nbeams::Int;
     max_range::Float64=100.0,
     angle_offset::Float64=0.0,
+    angle_spread::Float64=2*pi,
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset,2*pi+angle_offset,nbeams+1))[2:end]
+        angles = collect(linspace(angle_offset-angle_spread/2,angle_offset + angle_spread/2,nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
@@ -426,6 +427,3 @@ function observe!(lidar::RoadlineLidarSensor, scene::Scene, roadway::Roadway, ve
 
     lidar
 end
-
-
-
