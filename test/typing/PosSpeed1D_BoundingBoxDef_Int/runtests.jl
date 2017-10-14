@@ -32,16 +32,4 @@ let
     s2 = propagate(veh, StoppingAccel(-2.0), Straight1DRoadway(100.0), 1.0)
     @test s2.s ≈ 0.25
     @test s2.v ≈ 0.0
-
-    roadway = Wraparound(Straight1DRoadway(100.0))
-    @test loop_order(Entity(PosSpeed1D(0.0,1.0), BoundingBoxDef(), 1),
-                     Entity(PosSpeed1D(5.0,1.0), BoundingBoxDef(), 1), roadway) == 1
-    @test loop_order(Entity(PosSpeed1D(5.0,1.0), BoundingBoxDef(), 1),
-                     Entity(PosSpeed1D(5.0,1.0), BoundingBoxDef(), 1), roadway) == 0
-    @test loop_order(Entity(PosSpeed1D(10.0,1.0), BoundingBoxDef(), 1),
-                     Entity(PosSpeed1D(5.0,1.0), BoundingBoxDef(), 1), roadway) == -1
-    @test loop_order(Entity(PosSpeed1D(95.0,1.0), BoundingBoxDef(), 1),
-                     Entity(PosSpeed1D(5.0,1.0), BoundingBoxDef(), 1), roadway) == 1
-    @test loop_order(Entity(PosSpeed1D(5.0,1.0), BoundingBoxDef(), 1),
-                     Entity(PosSpeed1D(95.0,1.0), BoundingBoxDef(), 1), roadway) == -1
 end

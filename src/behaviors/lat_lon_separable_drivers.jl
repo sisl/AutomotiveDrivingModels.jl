@@ -8,11 +8,7 @@ function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model
 end
-function observe!(model::LatLonSeparableDriver, scene::Scene, roadway::Roadway, egoid::Int)
-    observe!(model.mlat, scene, roadway, egoid)
-    observe!(model.mlon, scene, roadway, egoid)
-    model
-end
+
 function Base.rand(model::LatLonSeparableDriver)
     alat = rand(model.mlat)
     alon = rand(model.mlon).a

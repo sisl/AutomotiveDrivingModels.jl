@@ -85,7 +85,7 @@ function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roa
     =#
 
     veh = rec[pastframe][vehicle_index]
-    lane = roadway[veh.state.posF.roadind.tag]
+    lane = roadway[veh.state.tag]
     if n_lanes_left(lane, roadway) > 0
         offset = veh.state.posF.t
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
@@ -101,7 +101,7 @@ function Base.get(::Feature_MarkerDist_Right_Right, rec::SceneRecord, roadway::R
     =#
 
     veh = rec[pastframe][vehicle_index]
-    lane = roadway[veh.state.posF.roadind.tag]
+    lane = roadway[veh.state.tag]
     if n_lanes_right(lane, roadway) > 0
         offset = veh.state.posF.t
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
@@ -115,7 +115,7 @@ function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadwa
     veh = rec[pastframe][vehicle_index]
     offset = veh.state.posF.t
     footpoint = get_footpoint(veh)
-    seg = roadway[veh.state.posF.roadind.tag.segment]
+    seg = roadway[veh.state.tag.segment]
     lane = seg.lanes[end]
     roadproj = proj(footpoint, lane, roadway)
     curvept = roadway[RoadIndex(roadproj)]
@@ -127,7 +127,7 @@ function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadw
     veh = rec[pastframe][vehicle_index]
     offset = veh.state.posF.t
     footpoint = get_footpoint(veh)
-    seg = roadway[veh.state.posF.roadind.tag.segment]
+    seg = roadway[veh.state.tag.segment]
     lane = seg.lanes[1]
     roadproj = proj(footpoint, lane, roadway)
     curvept = roadway[RoadIndex(roadproj)]
@@ -138,7 +138,7 @@ generate_feature_functions("LaneOffsetLeft", :posFtL, Float64, "m", can_be_missi
 function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh_ego = rec[pastframe][vehicle_index]
     t = veh_ego.state.posF.t
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    lane = roadway[veh_ego.state.tag]
     if n_lanes_left(lane, roadway) > 0
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         lane_offset = t - lane.width/2 - lane_left.width/2
@@ -151,7 +151,7 @@ generate_feature_functions("LaneOffsetRight", :posFtR, Float64, "m", can_be_miss
 function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh_ego = rec[pastframe][vehicle_index]
     t = veh_ego.state.posF.t
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    lane = roadway[veh_ego.state.tag]
     if n_lanes_right(lane, roadway) > 0
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         lane_offset = t + lane.width/2 + lane_right.width/2
@@ -162,7 +162,7 @@ function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway,
 end
 generate_feature_functions("N_Lane_Right", :n_lane_right, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    nlr = rec[pastframe][vehicle_index].state.posF.roadind.tag.lane - 1
+    nlr = rec[pastframe][vehicle_index].state.tag.lane - 1
     FeatureValue(convert(Float64, nlr))
 end
 generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
@@ -185,7 +185,9 @@ end
 generate_feature_functions("LaneCurvature", :curvature, Float64, "1/m", can_be_missing=true)
 function Base.get(::Feature_LaneCurvature, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
-    curvept = roadway[veh.state.posF.roadind]
+    lane = roadway[veh.state.tag]
+    curveindex = get_curve_index(lane.curve, veh.state.posF.s)
+    curvept = curve[curveindex]
     val = curvept.k
     if isnan(val)
         FeatureValue(0.0, FeatureState.MISSING)
@@ -472,3 +474,14 @@ function Base.get{S,D,I,R}(::Feature_Is_Colliding, rec::EntityQueueRecord{S,D,I}
     is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
     FeatureValue(is_colliding)
 end
+
+# function get_lane_offset(a::LaneChangeChoice, scene::Scene, roadway::Roadway, vehicle_index::Int)
+#     if a.dir == DIR_MIDDLE
+#         scene[vehicle_index].state.posF.t
+#     elseif a.dir == DIR_LEFT
+#         convert(Float64, get(LANEOFFSETLEFT, rec, roadway, vehicle_index, pastframe))
+#     else
+#         @assert(a.dir == DIR_RIGHT)
+#         convert(Float64, get(LANEOFFSETRIGHT, rec, roadway, vehicle_index, pastframe))
+#     end
+# end

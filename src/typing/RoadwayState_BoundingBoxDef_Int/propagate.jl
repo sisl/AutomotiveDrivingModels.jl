@@ -22,7 +22,7 @@ function propagate(veh::Vehicle, action::AccelDesang, roadway::Roadway, Δt::Flo
     end
 
     posG = VecSE2(x, y, θ)
-    VehicleState(posG, roadway, v)
+    RoadwayState(posG, roadway, v)
 end
 
 function propagate(veh::Vehicle, action::AccelTurnrate, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4)
@@ -45,7 +45,7 @@ function propagate(veh::Vehicle, action::AccelTurnrate, roadway::Roadway, Δt::F
     end
 
     posG = VecSE2(x, y, θ)
-    VehicleState(posG, roadway, v)
+    RoadwayState(posG, roadway, v)
 end
 function Base.get(::Type{AccelTurnrate}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     accel = get(ACC, rec, roadway, vehicle_index, pastframe)
@@ -53,7 +53,7 @@ function Base.get(::Type{AccelTurnrate}, rec::SceneRecord, roadway::Roadway, veh
     AccelTurnrate(accel, turnrate)
 end
 
-function propagate{D<:Union{VehicleDef, BicycleModel}}(veh::Entity{VehicleState, D, Int}, action::LatLonAccel, roadway::Roadway, ΔT::Float64)
+function propagate{D<:Union{VehicleDef, BicycleModel}}(veh::Entity{RoadwayState, D, Int}, action::LatLonAccel, roadway::Roadway, ΔT::Float64)
 
     a_lat = action.a_lat
     a_lon = action.a_lon
@@ -81,7 +81,7 @@ function propagate{D<:Union{VehicleDef, BicycleModel}}(veh::Entity{VehicleState,
 
     posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
 
-    return VehicleState(posG, roadway, v₂)
+    return RoadwayState(posG, roadway, v₂)
 end
 function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     accel_lat = get(ACCFT, rec, roadway, vehicle_index, pastframe)
@@ -123,7 +123,7 @@ function propagate(veh::Entity{RoadwayState, BicycleModel, Int}, action::AccelSt
         posG = VecSE2(x′, y′, θ′)
     end
 
-    VehicleState(posG, roadway, v′)
+    RoadwayState(posG, roadway, v′)
 end
 
 
@@ -143,5 +143,5 @@ Perfect integration of accel over Δt
 
 #     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
 #     posG = roadway[roadind].pos
-#     VehicleState(posG, roadway, v₂)
+#     RoadwayState(posG, roadway, v₂)
 # end

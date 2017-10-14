@@ -68,7 +68,7 @@ let
         roadind = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
         roadind = move_along(roadind, roadway, s)
         frenet = Frenet(roadind, roadway[roadind].s, 0.0, 0.0)
-        state = VehicleState(frenet, roadway, 0.0)
+        state = RoadwayState(frenet, roadway, 0.0)
         scene[i] = Vehicle(state, def, i)
     end
 

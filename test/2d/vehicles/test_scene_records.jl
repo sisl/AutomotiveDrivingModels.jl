@@ -57,7 +57,7 @@ let
     empty!(rec)
     @test nframes(rec) == 0
 
-    test_veh_state = VehicleState(VecSE2(7.0,7.0,2.0), roadway, 10.0)
+    test_veh_state = RoadwayState(VecSE2(7.0,7.0,2.0), roadway, 10.0)
     test_veh_def = VehicleDef(AgentClass.CAR, 5.0, 3.0)
     test_veh = Vehicle(test_veh_state, test_veh_def, 999)
     rec[-1][1] = test_veh

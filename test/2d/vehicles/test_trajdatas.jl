@@ -4,10 +4,10 @@ function get_test_trajdata(roadway::Roadway)
     trajdata.defs[1] = VehicleDef(AgentClass.CAR, 5.0, 3.0)
     trajdata.defs[2] = VehicleDef(AgentClass.CAR, 5.0, 3.0)
 
-    push!(trajdata.states, RecordState{VehicleState, Int}(VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0), 1)) # car 1, frame 1
-    push!(trajdata.states, RecordState{VehicleState, Int}(VehicleState(VecSE2(3.0,0.0,0.0), roadway, 20.0), 2)) # car 2, frame 1
-    push!(trajdata.states, RecordState{VehicleState, Int}(VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0), 1)) # car 1, frame 2
-    push!(trajdata.states, RecordState{VehicleState, Int}(VehicleState(VecSE2(5.0,0.0,0.0), roadway, 20.0), 2)) # car 2, frame 2
+    push!(trajdata.states, RecordState{RoadwayState, Int}(RoadwayState(VecSE2(0.0,0.0,0.0), roadway, 10.0), 1)) # car 1, frame 1
+    push!(trajdata.states, RecordState{RoadwayState, Int}(RoadwayState(VecSE2(3.0,0.0,0.0), roadway, 20.0), 2)) # car 2, frame 1
+    push!(trajdata.states, RecordState{RoadwayState, Int}(RoadwayState(VecSE2(1.0,0.0,0.0), roadway, 10.0), 1)) # car 1, frame 2
+    push!(trajdata.states, RecordState{RoadwayState, Int}(RoadwayState(VecSE2(5.0,0.0,0.0), roadway, 20.0), 2)) # car 2, frame 2
 
     push!(trajdata.frames, RecordFrame(1,2))
     push!(trajdata.frames, RecordFrame(3,4))
@@ -57,7 +57,7 @@ let
     @test get_timestep(trajdata) == 0.1
 
     veh = get(trajdata, 1, 1)
-    @test veh.state == VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0)
+    @test veh.state == RoadwayState(VecSE2(0.0,0.0,0.0), roadway, 10.0)
     @test_throws BoundsError get(trajdata, 10, 1)
     @test_throws BoundsError get(trajdata, 1, 10)
 

@@ -1,4 +1,7 @@
-typealias Vehicle Entity{VehicleState,VehicleDef,Int}
+const Vehicle = Entity{RoadwayState,VehicleDef,Int}
+const Scene = EntityFrame{Vehicle}
+const SceneRecord = QueueRecord{Vehicle}
+const Trajdata = ListRecord{RoadwayState,VehicleDef,Int}
 
 get_center(veh::Vehicle) = veh.state.posG
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
@@ -28,7 +31,7 @@ function get_markerdist_right(veh::Vehicle, roadway::Roadway)
     return lane_width/2 + t
 end
 
-abstract VehicleTargetPoint
+abstract type VehicleTargetPoint end
 immutable VehicleTargetPointFront <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.length/2*cos(veh.state.posF.ϕ)
 immutable VehicleTargetPointCenter <: VehicleTargetPoint end

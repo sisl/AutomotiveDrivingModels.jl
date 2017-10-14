@@ -52,12 +52,6 @@ function RoadwayState(roadproj::RoadProjection, roadway::Roadway)
 end
 Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
 
-# function Vec.lerp(a::RoadwayState, b::RoadwayState, t::Float64, roadway::Roadway)
-#     posG = lerp(a.posG, b.posG, t)
-#     v = lerp(a.v, b.v, t)
-#     RoadwayState(posG, roadway, v)
-# end
-
 # function move_along(vehstate::RoadwayState, roadway::Roadway, Δs::Float64;
 #     ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v
 #     )

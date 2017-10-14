@@ -4,8 +4,8 @@ let
     veh = get(trajdata, 1, 1)
 
     let
-        s = VehicleState()
-        @test VehicleState() == propagate(veh, s, roadway, NaN)
+        s = RoadwayState()
+        @test RoadwayState() == propagate(veh, s, roadway, NaN)
     end
 
     let

@@ -12,6 +12,9 @@ using Parameters
 export
     DriverModel,
 
+    LaneChangeChoice,
+    LaneChangeModel,
+
     LaneFollowingDriver,
     StaticLaneFollowingDriver,
     StochasticLaneFollowingDriver,
@@ -84,7 +87,6 @@ export
 
     get_s_max,
     mod_position_to_roadway,
-    # loop_order,
 
     get_center,
     get_footpoint,
