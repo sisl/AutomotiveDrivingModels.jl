@@ -3,6 +3,8 @@ const Scene = EntityFrame{Vehicle}
 const SceneRecord = QueueRecord{Vehicle}
 const Trajdata = ListRecord{RoadwayState,VehicleDef,Int}
 
+Scene(n::Int=100) = Frame(Vehicle, n)
+
 get_center(veh::Vehicle) = veh.state.posG
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
 get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
@@ -30,6 +32,36 @@ function get_markerdist_right(veh::Vehicle, roadway::Roadway)
     lane_width = get_lane_width(veh, roadway)
     return lane_width/2 + t
 end
+
+function _mod2pi2(x::Float64)
+    val = mod2pi(x)
+    if val > pi
+        val -= 2pi
+    end
+    return val
+end
+
+Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
+function Frenet(roadind::RoadIndex, roadway::Roadway; t::Float64=0.0, ϕ::Float64=0.0)
+    s = roadway[roadind].s
+    ϕ = _mod2pi2(ϕ)
+    Frenet(s, t, ϕ)
+end
+function Frenet(roadproj::RoadProjection, roadway::Roadway)
+    roadind = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
+    s = roadway[roadind].s
+    t = roadproj.curveproj.t
+    ϕ = _mod2pi2(roadproj.curveproj.ϕ)
+    Frenet(s, t, ϕ)
+end
+
+
+function RoadwayState(posG::VecSE2, roadway::Roadway, v::Float64)
+    roadproj = proj(posG, roadway)
+    posF = Frenet(roadproj, roadway)
+    RoadwayState(posG, posF, roadproj.tag, v)
+end
+
 
 abstract type VehicleTargetPoint end
 immutable VehicleTargetPointFront <: VehicleTargetPoint end

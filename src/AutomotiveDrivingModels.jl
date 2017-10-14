@@ -12,6 +12,11 @@ using Parameters
 export
     DriverModel,
 
+    Vehicle,
+    Scene,
+    Trajdata,
+    SceneRecord,
+
     LaneChangeChoice,
     LaneChangeModel,
 
