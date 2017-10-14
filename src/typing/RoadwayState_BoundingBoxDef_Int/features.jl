@@ -1,23 +1,23 @@
-function Base.get{S<:VehicleState,D,I,R}(::Feature_PosFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_PosFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     FeatureValue(rec[pastframe][vehicle_index].state.posF.t)
 end
-function Base.get{S<:VehicleState,D,I,R}(::Feature_PosFyaw, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_PosFyaw, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     FeatureValue(rec[pastframe][vehicle_index].state.posF.ϕ)
 end
-function Base.get{S<:VehicleState,D,I,R}(::Feature_Speed, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_Speed, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     FeatureValue(rec[pastframe][vehicle_index].state.v)
 end
-function Base.get{S<:VehicleState,D,I,R}(::Feature_VelFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_VelFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
     FeatureValue(veh.state.v*cos(veh.state.posF.ϕ))
 end
-function Base.get{S<:VehicleState,D,I,R}(::Feature_VelFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_VelFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
     FeatureValue(veh.state.v*sin(veh.state.posF.ϕ))
 end
 
 generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
-function Base.get{S<:VehicleState,D,I,R}(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1)
 
     id = rec[pastframe][vehicle_index].id
 
@@ -39,19 +39,19 @@ function Base.get{S<:VehicleState,D,I,R}(::Feature_TurnRateG, rec::EntityQueueRe
     retval
 end
 generate_feature_functions("TurnRateF", :turnrateF, Float64, "rad/s")
-function Base.get{S<:VehicleState,D,I,R}(::Feature_TurnRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_TurnRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(POSFYAW, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AngularRateG", :angrateG, Float64, "rad/s²")
-function Base.get{S<:VehicleState,D,I,R}(::Feature_AngularRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_AngularRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(TURNRATEG, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AngularRateF", :angrateF, Float64, "rad/s²")
-function Base.get{S<:VehicleState,D,I,R}(::Feature_AngularRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_AngularRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     _get_feature_derivative_backwards(TURNRATEF, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("DesiredAngle", :desang, Float64, "rad")
-function Base.get{S<:VehicleState,D,I,R}(::Feature_DesiredAngle, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0;
+function Base.get{S<:RoadwayState,D,I,R}(::Feature_DesiredAngle, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0;
     kp_desired_angle::Float64 = 1.0,
     )
 

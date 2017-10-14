@@ -36,9 +36,7 @@ export
 
     PosSpeed1D,
     Frenet,
-    FrenetSpeed,
-    TaggedState,
-    VehicleState,
+    RoadwayState,
 
     BoundingBoxDef,
 

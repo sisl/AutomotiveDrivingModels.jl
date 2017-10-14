@@ -1,29 +1,32 @@
-typealias Scene Frame{Vehicle}
-Scene(n::Int=100) = Frame(Vehicle, n)
-Scene(arr::Vector{Vehicle}) = Frame{Vehicle}(arr, length(arr))
+typealias Vehicle Entity{VehicleState,VehicleDef,Int}
 
-Base.show(io, scene::Scene) = print(io, "Scene(with $(length(scene)) cars)")
+get_center(veh::Vehicle) = veh.state.posG
+get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
+get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
+get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
 
-"""
-    get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)
-Return the index of the vehicle that is in the same lane as scene[vehicle_index] and
-in front of it with the smallest distance along the lane
+function get_lane_width(veh::Vehicle, roadway::Roadway)
 
-    The method will search on the current lane first, and if no vehicle is found it
-    will continue to travel along the lane following next_lane(lane, roadway).
-    If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
-"""
-immutable NeighborLongitudinalResult
-    ind::Int # index in scene of the neighbor
-    Δs::Float64 # positive distance along lane between vehicles' positions
+    lane = roadway[veh.state.tag]
+
+    if n_lanes_left(lane, roadway) > 0
+        footpoint = get_footpoint(veh)
+        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+        return -proj(footpoint, lane_left, roadway).curveproj.t
+    else
+        return lane.width
+    end
 end
-
-export
-    VehicleTargetPoint,
-    VehicleTargetPointFront,
-    VehicleTargetPointCenter,
-    VehicleTargetPointRear,
-    get_targetpoint_delta
+function get_markerdist_left(veh::Vehicle, roadway::Roadway)
+    t = veh.state.posF.t
+    lane_width = get_lane_width(veh, roadway)
+    return lane_width/2 - t
+end
+function get_markerdist_right(veh::Vehicle, roadway::Roadway)
+    t = veh.state.posF.t
+    lane_width = get_lane_width(veh, roadway)
+    return lane_width/2 + t
+end
 
 abstract VehicleTargetPoint
 immutable VehicleTargetPointFront <: VehicleTargetPoint end
