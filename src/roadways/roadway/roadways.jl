@@ -3,6 +3,8 @@ struct RoadIndex
     tag::LaneTag
 end
 const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
+Base.:(==)(a::RoadIndex, b::RoadIndex) = a.tag == b.tag && a.ind == b.ind
+Base.isapprox(a::RoadIndex, b::RoadIndex) = a.tag == b.tag && a.ind ≈ b.ind
 
 Base.show(io::IO, r::RoadIndex) = @printf(io, "RoadIndex({%d, %3.f}, {%d, %d})", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
 Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
@@ -288,6 +290,38 @@ function has_lanetag(roadway::Roadway, tag::LaneTag)
     1 ≤ tag.lane ≤ length(seg.lanes)
 end
 
+function RoadIndex(lane::Lane, s::Float64, roadway::Roadway)
+    if s < 0.0 && has_prev(lane)
+        pt_lo = prev_lane_point(lane, roadway).pos
+        pt_hi = lane.curve[1].pos
+        ptΔ = abs(pt_lo - pt_hi)
+
+        p_lane = prev_lane(lane, roadway)
+        
+        if ptΔ < -s
+            return RoadIndex(p_lane, p_lane.curve[end].s + ptΔ + s, roadway)
+        else # CurveIndex lies between the lanes
+
+            # linear interpolation may not be valid for spaces between lanes
+            t = invlerp(-ptΔ, 0, s)
+            curveind = CurveIndex(0, t)
+            return RoadIndex(curveind, lane.tag)
+        end
+    elseif s > lane.curve[end].s && has_next(lane)
+
+        pt_lo = lane.curve[end].pos
+        pt_hi = next_lane_point(lane, roadway).pos
+        ptΔ = abs(pt_lo - pt_hi)
+
+        # let us default to having CurveIndex(0,t)
+        # rather than CurveIndex(length(curve), t)
+        return RoadIndex(next_lane(lane, roadway), s - lane.curve[end].s - ptΔ, roadway)
+    else
+        curveind = get_curve_index(lane.curve, s) # default to whatever the curve does
+        return RoadIndex(curveind, lane.tag)
+    end
+end
+
 struct RoadProjection
     curveproj::CurveProjection
     tag::LaneTag
@@ -451,6 +485,7 @@ end
 ############################################
 
 RoadIndex(roadproj::RoadProjection) = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
+
 
 function Base.getindex(roadway::Roadway, roadind::RoadIndex)
     lane = roadway[roadind.tag]

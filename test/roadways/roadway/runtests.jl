@@ -70,6 +70,17 @@ let
     roadway = get_test_roadway()
 
     lane = roadway[LaneTag(1,1)]
+    @test RoadIndex(lane,  0.0, roadway) ≈ RoadIndex(CurveIndex(1,0.0), LaneTag(1,1))
+    @test RoadIndex(lane,  0.2, roadway) ≈ RoadIndex(CurveIndex(1,0.2), LaneTag(1,1))
+    @test RoadIndex(lane,  1.2, roadway) ≈ RoadIndex(CurveIndex(0,0.2), LaneTag(2,1))
+    @test RoadIndex(lane,  2.2, roadway) ≈ RoadIndex(CurveIndex(1,0.2), LaneTag(2,1))
+
+    lane = roadway[LaneTag(2,1)]
+    @test RoadIndex(lane, -0.2, roadway) ≈ RoadIndex(CurveIndex(0,0.8), LaneTag(2,1))
+    @test RoadIndex(lane, -1.2, roadway) ≈ RoadIndex(CurveIndex(1,0.8), LaneTag(1,1))
+    @test RoadIndex(lane, -2.2, roadway) ≈ RoadIndex(CurveIndex(1,0.0), LaneTag(1,1))
+
+    lane = roadway[LaneTag(1,1)]
     @test has_next(lane)
     @test !has_prev(lane)
     @test lane.exits[1].target == RoadIndex(CurveIndex(1,0.0), LaneTag(2,1))

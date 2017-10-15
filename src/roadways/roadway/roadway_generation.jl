@@ -1,10 +1,3 @@
-export
-        gen_straight_curve,
-        gen_straight_segment,
-        gen_straight_roadway,
-        gen_stadium_roadway,
-        gen_bezier_curve
-
 function gen_straight_curve(A::VecE2, B::VecE2, nsamples::Int)
 
     θ = atan2(B-A)

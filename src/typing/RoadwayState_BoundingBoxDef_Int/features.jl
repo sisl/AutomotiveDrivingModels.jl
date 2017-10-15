@@ -168,8 +168,8 @@ end
 generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
-    seg = roadway[veh.state.posF.roadind.tag.segment]
-    nll = length(seg.lanes) - veh.state.posF.roadind.tag.lane
+    seg = roadway[veh.state.tag.segment]
+    nll = length(seg.lanes) - veh.state.tag.lane
     FeatureValue(convert(Float64, nll))
 end
 generate_feature_functions("Has_Lane_Right", :has_lane_right, Bool, "-", lowerbound=0.0, upperbound=1.0)
@@ -308,8 +308,8 @@ function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehi
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
-        len_ego = scene[vehicle_index].def.length
-        len_oth = scene[neighborfore.ind].def.length
+        len_ego = scene[vehicle_index].def.len
+        len_oth = scene[neighborfore.ind].def.len
         FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
     end
 end
@@ -336,8 +336,8 @@ function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle
         FeatureValue(censor_hi, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
-        len_ego = scene[vehicle_index].def.length
-        len_oth = scene[neighborfore.ind].def.length
+        len_ego = scene[vehicle_index].def.len
+        len_oth = scene[neighborfore.ind].def.len
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
         if Δs > 0.0
@@ -362,8 +362,8 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
         veh_fore = scene[neighborfore.ind]
         veh_rear = scene[vehicle_index]
 
-        len_ego = veh_fore.def.length
-        len_oth = veh_rear.def.length
+        len_ego = veh_fore.def.len
+        len_oth = veh_rear.def.len
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
 
@@ -442,8 +442,8 @@ function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehic
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
-        len_ego = scene[vehicle_index].def.length
-        len_oth = scene[neighborrear.ind].def.length
+        len_ego = scene[vehicle_index].def.len
+        len_oth = scene[neighborrear.ind].def.len
         FeatureValue(neighborrear.Δs - len_ego/2 - len_oth/2)
     end
 end
@@ -475,13 +475,30 @@ function Base.get{S,D,I,R}(::Feature_Is_Colliding, rec::EntityQueueRecord{S,D,I}
     FeatureValue(is_colliding)
 end
 
-# function get_lane_offset(a::LaneChangeChoice, scene::Scene, roadway::Roadway, vehicle_index::Int)
-#     if a.dir == DIR_MIDDLE
-#         scene[vehicle_index].state.posF.t
-#     elseif a.dir == DIR_LEFT
-#         convert(Float64, get(LANEOFFSETLEFT, rec, roadway, vehicle_index, pastframe))
-#     else
-#         @assert(a.dir == DIR_RIGHT)
-#         convert(Float64, get(LANEOFFSETRIGHT, rec, roadway, vehicle_index, pastframe))
-#     end
-# end
+function get_lane_offset(a::LaneChangeChoice, scene::Scene, roadway::Roadway, vehicle_index::Int)
+    veh_ego = scene[vehicle_index]
+    t = veh_ego.state.posF.t
+
+    if a.dir == DIR_MIDDLE
+        return t
+    elseif a.dir == DIR_LEFT
+    
+        lane = roadway[veh_ego.state.tag]
+        if n_lanes_left(lane, roadway) > 0
+            lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+            return t - lane.width/2 - lane_left.width/2
+        else
+            return Inf
+        end
+    else
+        @assert(a.dir == DIR_RIGHT)
+        
+        lane = roadway[veh_ego.state.tag]
+        if n_lanes_right(lane, roadway) > 0
+            lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+            return t + lane.width/2 + lane_right.width/2
+        else
+            return Inf
+        end
+    end
+end

@@ -74,7 +74,8 @@ function propagate{D<:Union{VehicleDef, BicycleModel}}(veh::Entity{RoadwayState,
     v₂ = sqrt(dt₂*dt₂ + ds₂*ds₂) # v is the magnitude of the velocity vector
     ϕ₂ = atan2(dt₂, ds₂)
 
-    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    roadind = RoadIndex(veh.state, roadway)
+    roadind = move_along(roadind, roadway, Δs)
     footpoint = roadway[roadind]
 
     posG = convert(VecE2, footpoint.pos) + polar(t + Δt, footpoint.pos.θ + π/2)
@@ -130,18 +131,17 @@ end
 """
 Perfect integration of accel over Δt
 """
-# function propagate(veh::Vehicle, action::Accel, roadway::Roadway, Δt::Float64)
+function propagate(veh::Vehicle, action::Accel, roadway::Roadway, Δt::Float64)
 
-#     a = action.a
+    a = action.a
 
-#     ds = veh.state.v
+    ds = veh.state.v
 
-#     ΔT² = ΔT*ΔT
-#     Δs = ds*ΔT + 0.5*a_lon*ΔT²
+    ΔT² = ΔT*ΔT
+    Δs = ds*ΔT + 0.5*a_lon*ΔT²
 
-#     v₂ = ds + a_lon*ΔT
+    v₂ = ds + a_lon*ΔT
 
-#     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
-#     posG = roadway[roadind].pos
-#     RoadwayState(posG, roadway, v₂)
-# end
+    posG2 = veh.state.posG + polar(Δs, veh.state.posG.θ)
+    RoadwayState(posG, roadway, v₂)
+end

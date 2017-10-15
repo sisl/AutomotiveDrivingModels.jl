@@ -28,7 +28,14 @@ export
     ProportionalSpeedTracker,
     WrappedLaneFollowingDriver,
 
+    StaticDriver,
+    LatLonSeparableDriver,
+    ProportionalLaneTracker,
+    Tim2DDriver,
+    MOBIL,
+
     track_longitudinal!,
+    set_desired_speed!,
 
     get_name,
     action_type,
@@ -92,6 +99,7 @@ export
 
     get_s_max,
     mod_position_to_roadway,
+    get_lane_offset,
 
     get_center,
     get_footpoint,
@@ -99,7 +107,13 @@ export
     get_rear,
     get_headway,
     get_neighbor_fore,
-    get_neighbor_rear
+    get_neighbor_rear,
+
+    gen_straight_curve,
+    gen_straight_segment,
+    gen_straight_roadway,
+    gen_stadium_roadway,
+    gen_bezier_curve
 
 
 include("drivermodels.jl")

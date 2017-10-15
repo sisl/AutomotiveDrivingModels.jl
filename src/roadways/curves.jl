@@ -52,6 +52,8 @@ struct CurveIndex
 end
 const CURVEINDEX_START = CurveIndex(1,0.0)
 Base.show(io::IO, ind::CurveIndex) = @printf(io, "CurveIndex(%d, %.3f)", ind.i, ind.t)
+Base.:(==)(a::CurveIndex, b::CurveIndex) = a.i == b.i && (a.t == b.t || isnan(a.t) && isnan(b.t))
+Base.isapprox(a::CurveIndex, b::CurveIndex) = a.i == b.i && (a.t ≈ b.t || isnan(a.t) && isnan(b.t))
 
 curveindex_end(curve::Curve) = CurveIndex(length(curve)-1,1.0)
 

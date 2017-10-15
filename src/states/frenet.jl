@@ -30,3 +30,9 @@ end
 function Base.get{S<:Frenet,D,I,R}(::Feature_PosFyaw, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0)
     return FeatureValue(rec[pastframe][vehicle_index].state.ϕ)
 end
+
+function get_global_position(frenet::Frenet, curve::Curve)
+    curveind = get_curve_index(curve, frenet.s)
+    curvept = curve[curveind]
+    return curvept.pos + polar(frenet.t, curvept.pos.θ + π/2)
+end

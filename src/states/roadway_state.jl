@@ -26,6 +26,8 @@ end
 get_vel_s(s::RoadwayState) = s.v * cos(s.posF.ϕ) # velocity along the lane
 get_vel_t(s::RoadwayState) = s.v * sin(s.posF.ϕ) # velocity perpendicular to lane
 
+RoadIndex(state::RoadwayState, roadway::Roadway) = RoadIndex(roadway[state.tag], state.posF.s, roadway)
+
 # function move_along(vehstate::RoadwayState, roadway::Roadway, Δs::Float64;
 #     ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v
 #     )

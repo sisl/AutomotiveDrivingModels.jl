@@ -284,7 +284,7 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::
 
     # get an oriented bounding box at the vehicle's position
 
-    to_oriented_bounding_box!(retval, center, veh.def.length, veh.def.width)
+    to_oriented_bounding_box!(retval, center, veh.def.len, veh.def.width)
 
     retval
 end
@@ -361,7 +361,7 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
     (best_t_CPA, best_d_CPA)
 end
 
-_bounding_radius(veh::Vehicle) = sqrt(veh.def.length*veh.def.length/4 + veh.def.width*veh.def.width/4)
+_bounding_radius(veh::Vehicle) = sqrt(veh.def.len*veh.def.len/4 + veh.def.width*veh.def.width/4)
 
 """
 A fast collision check to remove things clearly not colliding

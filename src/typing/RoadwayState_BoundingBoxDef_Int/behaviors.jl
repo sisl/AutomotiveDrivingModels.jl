@@ -1,3 +1,17 @@
+function observe!(model::LaneFollowingDriver, scene::Scene, roadway::Roadway, egoid::Int)
+
+    vehicle_index = findfirst(scene, egoid)
+
+    fore_res = get_neighbor_fore_along_lane(scene, vehicle_index, roadway)
+
+    v_ego = scene[vehicle_index].state.v
+    v_oth = fore_res.ind != 0 ? scene[fore_res.ind].state.v : NaN
+    headway = fore_res.ind != 0 ? fore_res.Δs : Inf
+
+    track_longitudinal!(model, v_ego, v_oth, headway)
+
+    return model
+end
 
 function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway, egoid::Int)
 
@@ -44,7 +58,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
         lane_R = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(footpoint, lane_R, roadway)
         frenet_R = Frenet(RoadIndex(roadproj), roadway)
-        egostate_R = RoadwayState(frenet_R, roadway, veh_ego.state.v)
+        egostate_R = RoadwayState(frenet_R, lane_R.tag, roadway, veh_ego.state.v)
 
         Δaccel_n = 0.0
         passes_safety_criterion = true
@@ -202,26 +216,26 @@ function track_longitudinal!(driver::LaneFollowingDriver, scene::Scene, roadway:
     end
     return track_longitudinal!(driver, v_ego, v_oth, headway)
 end
-# function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::Int)
+function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::Int)
 
-#     observe!(driver.mlane, scene, roadway, egoid)
+    observe!(driver.mlane, scene, roadway, egoid)
 
-#     vehicle_index = findfirst(scene, egoid)
-#     lane_change_action = rand(driver.mlane)
-#     laneoffset = get_lane_offset(lane_change_action, scene, roadway, vehicle_index)
-#     lateral_speed = get_vel_t(scene[vehicle_index])
+    vehicle_index = findfirst(scene, egoid)
+    lane_change_action = rand(driver.mlane)
+    laneoffset = get_lane_offset(lane_change_action, scene, roadway, vehicle_index)
+    lateral_speed = get_vel_t(scene[vehicle_index].state)
 
-#     if lane_change_action.dir == DIR_MIDDLE
-#         fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
-#     elseif lane_change_action.dir == DIR_LEFT
-#         fore = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
-#     else
-#         @assert(lane_change_action.dir == DIR_RIGHT)
-#         fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
-#     end
+    if lane_change_action.dir == DIR_MIDDLE
+        fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+    elseif lane_change_action.dir == DIR_LEFT
+        fore = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+    else
+        @assert(lane_change_action.dir == DIR_RIGHT)
+        fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+    end
 
-#     track_lateral!(driver.mlat, laneoffset, lateral_speed)
-#     track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
+    track_lateral!(driver.mlat, laneoffset, lateral_speed)
+    track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
 
-#     driver
-# end
+    driver
+end

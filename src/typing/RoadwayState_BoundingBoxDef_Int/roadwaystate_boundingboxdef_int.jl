@@ -1,5 +1,5 @@
 const Vehicle = Entity{RoadwayState,VehicleDef,Int}
-const Scene = EntityFrame{Vehicle}
+const Scene = Frame{Vehicle}
 const SceneRecord = QueueRecord{Vehicle}
 const Trajdata = ListRecord{RoadwayState,VehicleDef,Int}
 
@@ -7,8 +7,8 @@ Scene(n::Int=100) = Frame(Vehicle, n)
 
 get_center(veh::Vehicle) = veh.state.posG
 get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
-get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
-get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
+get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.len/2, veh.state.posG.θ)
+get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.len/2, veh.state.posG.θ)
 
 function get_lane_width(veh::Vehicle, roadway::Roadway)
 
@@ -61,15 +61,19 @@ function RoadwayState(posG::VecSE2, roadway::Roadway, v::Float64)
     posF = Frenet(roadproj, roadway)
     RoadwayState(posG, posF, roadproj.tag, v)
 end
+function RoadwayState(posF::Frenet, tag::LaneTag, roadway::Roadway, v::Float64)
+    posG = get_global_position(posF, roadway[tag].curve)
+    return RoadwayState(posG, posF, tag, v)
+end
 
 
 abstract type VehicleTargetPoint end
 immutable VehicleTargetPointFront <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.len/2*cos(veh.state.posF.ϕ)
 immutable VehicleTargetPointCenter <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointCenter, veh::Vehicle) = 0.0
 immutable VehicleTargetPointRear <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.len/2*cos(veh.state.posF.ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
@@ -97,19 +101,22 @@ function get_neighbor_fore_along_lane(
             if i != index_to_ignore
 
                 s_adjust = NaN
-                if veh.state.posF.roadind.tag == tag_target
+
+                roadind = RoadIndex(lane, veh.state.posF.s, roadway)
+
+                if veh.state.tag == tag_target
                     s_adjust = 0.0
 
-                elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
-                       is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
+                elseif is_between_segments_hi(roadind.ind, lane.curve) &&
+                       is_in_entrances(roadway[tag_target], veh.state.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos)
-                    s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
+                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.tag].curve[end].pos)
+                    s_adjust = -(roadway[veh.state.tag].curve[end].s + distance_between_lanes)
 
-                elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
-                       is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
+                elseif is_between_segments_lo(roadind.ind) &&
+                       is_in_exits(roadway[tag_target], veh.state.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.tag].curve[1].pos)
                     s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
                 end
 
@@ -155,7 +162,7 @@ function get_neighbor_fore_along_lane(
     )
 
     veh_ego = scene[vehicle_index]
-    tag_start = veh_ego.state.posF.roadind.tag
+    tag_start = veh_ego.state.tag
     s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
     get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
@@ -175,7 +182,7 @@ function get_neighbor_fore_along_left_lane(
     retval = NeighborLongitudinalResult(0, max_distance_fore)
 
     veh_ego = scene[vehicle_index]
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    lane = roadway[veh_ego.state.tag]
     if n_lanes_left(lane, roadway) > 0
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         roadproj = proj(veh_ego.state.posG, lane_left, roadway)
@@ -203,7 +210,7 @@ function get_neighbor_fore_along_right_lane(
     retval = NeighborLongitudinalResult(0, max_distance_fore)
 
     veh_ego = scene[vehicle_index]
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    lane = roadway[veh_ego.state.tag]
     if n_lanes_right(lane, roadway) > 0
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(veh_ego.state.posG, lane_right, roadway)
@@ -285,19 +292,21 @@ function get_neighbor_rear_along_lane(
 
                 s_adjust = NaN
 
-                if veh.state.posF.roadind.tag == tag_target
+                roadind = RoadIndex(lane, veh.state.posF.s, roadway)
+
+                if veh.state.tag == tag_target
                     s_adjust = 0.0
 
-                elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
-                       is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
+                elseif is_between_segments_hi(roadind.ind, lane.curve) &&
+                       is_in_entrances(roadway[tag_target], veh.state.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos)
-                    s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
+                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.tag].curve[end].pos)
+                    s_adjust = -(roadway[veh.state.tag].curve[end].s + distance_between_lanes)
 
-                elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
-                       is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
+                elseif is_between_segments_lo(roadind.ind) &&
+                       is_in_exits(roadway[tag_target], veh.state.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.tag].curve[1].pos)
                     s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
                 end
 
@@ -345,7 +354,7 @@ function get_neighbor_rear_along_lane(
     )
 
     veh_ego = scene[vehicle_index]
-    tag_start = veh_ego.state.posF.roadind.tag
+    tag_start = veh_ego.state.tag
     s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
     get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
@@ -365,7 +374,7 @@ function get_neighbor_rear_along_left_lane(
     retval = NeighborLongitudinalResult(0, max_distance_rear)
 
     veh_ego = scene[vehicle_index]
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    lane = roadway[veh_ego.state.tag]
     if n_lanes_left(lane, roadway) > 0
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         roadproj = proj(veh_ego.state.posG, lane_left, roadway)
@@ -393,7 +402,7 @@ function get_neighbor_rear_along_right_lane(
     retval = NeighborLongitudinalResult(0, max_distance_rear)
 
     veh_ego = scene[vehicle_index]
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    lane = roadway[veh_ego.state.tag]
     if n_lanes_right(lane, roadway) > 0
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(veh_ego.state.posG, lane_right, roadway)
