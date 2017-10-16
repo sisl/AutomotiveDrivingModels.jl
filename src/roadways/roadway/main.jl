@@ -52,9 +52,8 @@ export
     n_lanes_left,
     n_lanes_right,
     get_neighbor_lanetag_left,
-    get_neighbor_lanetag_right,
-    read_dxf
+    get_neighbor_lanetag_right
+    
 
-include("splines.jl")
 include("roadways.jl")
 include("roadway_generation.jl")
