@@ -65,6 +65,10 @@ function RoadwayState(posF::Frenet, tag::LaneTag, roadway::Roadway, v::Float64)
     posG = get_global_position(posF, roadway[tag].curve)
     return RoadwayState(posG, posF, tag, v)
 end
+function RoadwayState(roadproj::RoadProjection, roadway::Roadway, v::Float64)
+    posF = Frenet(roadproj, roadway)
+    return RoadwayState(posF, roadproj.tag, roadway, v)
+end
 
 
 abstract type VehicleTargetPoint end
