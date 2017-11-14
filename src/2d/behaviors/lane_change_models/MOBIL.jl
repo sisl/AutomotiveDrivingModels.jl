@@ -75,7 +75,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
             veh_ego = Entity(veh_ego, egostate_R)
             accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
 
-            body = inertial2body(get_rear(scene[rear_R.ind]), get_front(veh_ego)) # project target to be relative to ego
+            body = inertial2body(get_rear(veh_ego), get_front(scene[rear_R.ind])) # project ego to be relative to target
             s_gap = body.x
 
             veh_ego = Entity(veh_ego, egostate_M)
@@ -127,7 +127,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
             veh_ego = Entity(veh_ego, egostate_L)
             accel_n_test = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
 
-            body = inertial2body(get_rear(scene[rear_L.ind]), get_front(veh_ego)) # project target to be relative to ego
+            body = inertial2body(get_rear(veh_ego), get_front(scene[rear_L.ind])) # project ego to be relative to target
             s_gap = body.x
 
             veh_ego = Entity(veh_ego, egostate_M)
