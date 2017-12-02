@@ -8,7 +8,7 @@ const DIR_LEFT =  1
 struct LaneChangeChoice
     dir::Int # -1, 0, 1
 end
-Base.show(io::IO, a::LaneChangeChoice) = @printf(io, "LaneChangeChoice(%d)", dir)
+Base.show(io::IO, a::LaneChangeChoice) = @printf(io, "LaneChangeChoice(%d)", a.dir)
 Base.length(::Type{LaneChangeChoice}) = 1
 Base.convert(::Type{LaneChangeChoice}, v::Vector{Float64}) = LaneChangeChoice(convert(Int, v[1]))
 function Base.copy!(v::Vector{Float64}, a::LaneChangeChoice)
