@@ -25,7 +25,7 @@ Frenet(posG::VecSE2, lane::Lane, roadway::Roadway) = Frenet(proj(posG, lane, roa
 
 function get_posG(frenet::Frenet, roadway::Roadway)
     curvept = roadway[frenet.roadind]
-    pos = curvept.pos + polar(frenet.t, curvept.pos.θ + π/2) + polar(curvept.s, curvept.pos.θ)
+    pos = curvept.pos + polar(frenet.t, curvept.pos.θ + π/2)
     VecSE2(pos.x, pos.y, frenet.ϕ + curvept.pos.θ)
 end
 
