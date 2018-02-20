@@ -5,7 +5,7 @@ See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 mutable struct MOBIL <: LaneChangeModel
 
     dir::Int
-    rec::SceneRecord
+    rec::Vector{Scene}
     mlon::LaneFollowingDriver
     safe_decel::Float64 # safe deceleration (positive value)
     politeness::Float64 # politeness factor (suggested p ∈ [0.2,0.5])
@@ -13,7 +13,7 @@ mutable struct MOBIL <: LaneChangeModel
 
     function MOBIL(
         timestep::Float64;
-        rec::SceneRecord=SceneRecord(2,timestep),
+        rec::Vector{Scene}=Vector{Scene}(2),
         mlon::LaneFollowingDriver=IntelligentDriverModel(),
         safe_decel::Float64=2.0, # [m/s²]
         politeness::Float64=0.35,
@@ -38,9 +38,9 @@ end
 function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
 
     rec = model.rec
-    update!(rec, scene)
+    rec[end] = scene
 
-    vehicle_index = findfirst(rec[0], egoid)
+    vehicle_index = findfirst(rec[end], egoid)
     veh_ego = scene[vehicle_index]
     v = veh_ego.state.v
     egostate_M = veh_ego.state

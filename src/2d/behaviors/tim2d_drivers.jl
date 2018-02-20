@@ -1,5 +1,5 @@
 mutable struct Tim2DDriver <: DriverModel{LatLonAccel}
-    rec::SceneRecord
+    rec::Vector{Scene}
     mlon::LaneFollowingDriver
     mlat::LateralDriverModel
     mlane::LaneChangeModel
@@ -9,7 +9,7 @@ mutable struct Tim2DDriver <: DriverModel{LatLonAccel}
         mlon::LaneFollowingDriver=IntelligentDriverModel(),
         mlat::LateralDriverModel=ProportionalLaneTracker(),
         mlane::LaneChangeModel=TimLaneChanger(timestep),
-        rec::SceneRecord = SceneRecord(1, timestep)
+        rec::Vector{Scene} = Vector{Scene}(1)
         )
 
         retval = new()
@@ -39,7 +39,7 @@ function track_longitudinal!(driver::LaneFollowingDriver, scene::Scene, roadway:
 end
 function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::Int)
 
-    update!(driver.rec, scene)
+    driver.rec[end] = scene
     observe!(driver.mlane, scene, roadway, egoid)
 
     vehicle_index = findfirst(scene, egoid)
@@ -64,4 +64,3 @@ end
 Base.rand(driver::Tim2DDriver) = LatLonAccel(rand(driver.mlat), rand(driver.mlon).a)
 Distributions.pdf(driver::Tim2DDriver, a::LatLonAccel) = pdf(driver.mlat, a.a_lat) * pdf(driver.mlon, a.a_lon)
 Distributions.logpdf(driver::Tim2DDriver, a::LatLonAccel) = logpdf(driver.mlat, a.a_lat) * logpdf(driver.mlon, a.a_lon)
-

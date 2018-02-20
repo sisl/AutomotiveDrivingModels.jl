@@ -1,6 +1,6 @@
 mutable struct TimLaneChanger <: LaneChangeModel
     dir::Int
-    rec::SceneRecord
+    rec::Vector{Scene}
 
     v_des::Float64
     threshold_fore::Float64
@@ -10,7 +10,7 @@ mutable struct TimLaneChanger <: LaneChangeModel
     function TimLaneChanger(
         timestep::Float64;
         v_des::Float64=29.0,
-        rec::SceneRecord=SceneRecord(2,timestep),
+        rec::Vector{Scene}=Vector{Scene}(2),
         threshold_fore::Float64 = 50.0,
         threshold_lane_change_gap_fore::Float64 = 10.0,
         threshold_lane_change_gap_rear::Float64 = 10.0,
@@ -35,7 +35,7 @@ end
 function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::Int)
 
     rec = model.rec
-    update!(rec, scene)
+    rec[end] = scene
     vehicle_index = findfirst(scene, egoid)
 
     veh_ego = scene[vehicle_index]

@@ -15,7 +15,7 @@ function Base.copy!(v::Vector{Float64}, a::LaneChangeChoice)
     v[1] = a.dir
     v
 end
-function get_lane_offset(a::LaneChangeChoice, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function get_lane_offset(a::LaneChangeChoice, rec::Vector{Scene}, roadway::Roadway, vehicle_index::Int, pastframe::Int=length(rec))
     if a.dir == DIR_MIDDLE
         rec[pastframe][vehicle_index].state.posF.t
     elseif a.dir == DIR_LEFT

@@ -40,9 +40,9 @@ function prime_with_history!{S,D,I,R}(
 
     return model
 end
-function prime_with_history!{S,D,I,R}(model::DriverModel, rec::EntityQueueRecord{S,D,I}, roadway::R, egoid::I;
-    pastframe_start::Int=1-nframes(rec),
-    pastframe_end::Int=0,
+function prime_with_history!{S,D,I,R}(model::DriverModel, rec::Vector{EntityFrame{S,D,I}}, roadway::R, egoid::I;
+    pastframe_start::Int=1,
+    pastframe_end::Int=length(rec),
     )
 
     reset_hidden_state!(model)

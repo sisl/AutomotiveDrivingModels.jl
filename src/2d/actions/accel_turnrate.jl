@@ -32,7 +32,7 @@ function propagate(veh::Vehicle, action::AccelTurnrate, roadway::Roadway, Δt::F
     posG = VecSE2(x, y, θ)
     VehicleState(posG, roadway, v)
 end
-function Base.get(::Type{AccelTurnrate}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+function Base.get(::Type{AccelTurnrate}, rec::Vector{Scene}, roadway::Roadway, vehicle_index::Int, pastframe::Int=length(rec))
     accel = get(ACC, rec, roadway, vehicle_index, pastframe)
     turnrate = get(TURNRATEG, rec, roadway, vehicle_index, pastframe)
     AccelTurnrate(accel, turnrate)

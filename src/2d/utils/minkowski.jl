@@ -456,7 +456,7 @@ Terminates the simulation once a collision occurs
 end
 function run_callback{S,D,I,R,M<:DriverModel}(
     callback::CollisionCallback,
-    rec::EntityQueueRecord{S,D,I},
+    rec::Vector{EntityFrame{S,D,I}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,

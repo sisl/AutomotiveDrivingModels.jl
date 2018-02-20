@@ -39,55 +39,55 @@ function reset_hidden_states!{M<:DriverModel}(models::Dict{Int,M})
 end
 
 """
-Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
+Run nticks of simulation and place all nticks+1 scenes into the SceneRecord
 """
 function simulate!{S,D,I,A,R,M<:DriverModel}(
     ::Type{A},
-    rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,
+    timestep::Float64,
+    rec::Vector{EntityFrame{S,D,I}} = Vector{EntityFrame{S,D,I}}(nticks+1) # replace by empty vec and use sizehint!?
     )
-
-    empty!(rec)
-    update!(rec, scene)
+    rec[1] = copy(scene)
     actions = Array{A}(length(scene))
-
     for tick in 1 : nticks
         get_actions!(actions, scene, roadway, models)
-        tick!(scene, roadway, actions, rec.timestep)
-        update!(rec, scene)
+        tick!(scene, roadway, actions, timestep)
+        rec[tick+1] = copy(scene)
     end
 
     return rec
 end
 function simulate!{S,D,I,R,M<:DriverModel}(
-    rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,
+    timestep::Float64,
+    rec::Vector{EntityFrame{S,D,I}} = Vector{EntityFrame{S,D,I}}(nticks+1)
     )
 
-    return simulate!(Any, rec, scene, roadway, models, nticks)
+    return simulate!(Any, scene, roadway, models, nticks, timestep, rec)
 end
 
 
 """
-    Run a simulation and store the resulting scenes in the provided QueueRecord.
+    Run a simulation and store the resulting scenes in the provided SceneRecord.
 Only the ego vehicle is simulated; the other vehicles are as they were in the provided trajdata
 Other vehicle states will be interpolated
 """
 function simulate!{S,D,I}(
-    rec::EntityQueueRecord{S,D,I},
     model::DriverModel,
     egoid::I,
     trajdata::ListRecord{Entity{S,D,I}},
     frame_start::Int,
-    frame_end::Int;
+    frame_end::Int,
+    timestep::Float64;
     prime_history::Int=0, # no prime-ing
     scene::EntityFrame{S,D,I} =  allocate_frame(trajdata),
+    rec::Vector{EntityFrame{S,D,I}} = Vector{EntityFrame{S,D,I}}() #use sizehint ?
     )
 
     @assert(isapprox(get_timestep(rec), get_timestep(trajdata)))
@@ -98,7 +98,7 @@ function simulate!{S,D,I}(
     prime_with_history!(model, trajdata, roadway, frame_start, frame_end, egoid, scene)
 
     # add current frame
-    update!(rec, get!(scene, trajdata, time_start))
+    push!(rec, copy(get!(scene, trajdata, time_start)))
     observe!(model, scene, roadway, egoid)
 
     # run simulation
@@ -111,12 +111,12 @@ function simulate!{S,D,I}(
 
         # propagate ego vehicle and set
         ego_action = rand(model)
-        ego_state = propagate(ego_veh, ego_action, roadway, get_timestep(rec))
+        ego_state = propagate(ego_veh, ego_action, roadway, timestep)
         ego_veh = Entity(ego_veh, ego_state)
         scene[findfirst(scene, ego_veh.id)] = ego_veh
 
         # update record
-        update!(rec, scene)
+        push!(rec, copy(cene))
 
         # observe
         observe!(model, scene, roadway, ego_veh.id)
