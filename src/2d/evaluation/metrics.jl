@@ -25,11 +25,12 @@ function extract!(
     rec_sim::SceneRecord,
     roadway::Roadway,
     egoid::Int,
+    timestep::Float64
     )
 
     # TODO: how to handle missing values???
 
-    pastframe = 1-nframes(rec_orig) + clamp(round(Int, metric.horizon/rec_orig.timestep), 0, nframes(rec_orig)-1)
+    pastframe = 1-length(rec_orig) + clamp(round(Int, metric.horizon/timestep), 0, length(rec_orig)-1)
 
     # pull true value
     vehicle_index = findfirst(rec_orig[pastframe], egoid)
@@ -65,7 +66,7 @@ function reset!(metric::SumSquareJerk)
 end
 function extract_sum_square_jerk(rec::SceneRecord, roadway::Roadway, egoid::Int)
     sumsquarejerk = 0.0
-    for pastframe in 3-nframes(rec) : 0
+    for pastframe in 3-length(rec) : 0
         vehicle_index = findfirst(rec[pastframe], egoid)
         jerk = convert(Float64, get(JERK, rec, roadway, vehicle_index, pastframe))
         sumsquarejerk += jerk*jerk
@@ -147,7 +148,7 @@ function extract!(
     v_orig, v_sim = NaN, NaN
     if isa(metric.f, AbstractFeature)
         F::AbstractFeature = metric.f
-        pastframe = 0
+        pastframe = length(rec_orig)
         vehicle_index = findfirst(rec_orig[pastframe], egoid)
         v_orig = convert(Float64, get(F, rec_orig, roadway, vehicle_index, pastframe))
         vehicle_index = findfirst(rec_sim[pastframe], egoid)
@@ -170,17 +171,17 @@ end
 ########################################
 
 function extract_log_likelihood(model::DriverModel, rec::SceneRecord, roadway::Roadway, egoid::Int;
-    prime_history::Int = 0,
+    prime_history::Int = 1,
     scene::Scene = Scene(),
     )
 
     A = action_type(model)
 
-    pastframe_prime = prime_history-nframes(rec)
+    pastframe_prime = prime_history
     prime_with_history!(model, rec, roadway, egoid, pastframe_end=pastframe_prime)
 
     logl = 0.0
-    for pastframe in pastframe_prime+1 : -1
+    for pastframe in pastframe_prime+1 : length(rec)
         observe!(model, rec[pastframe], roadway, egoid)
         vehicle_index = findfirst(rec[pastframe+1], egoid)
         action = get(A, rec, roadway, vehicle_index, pastframe+1)
