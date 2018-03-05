@@ -463,7 +463,7 @@ let
                 @test isapprox(conn1.target.ind.t, conn2.target.ind.t, atol=1e-3)
             end
             for (pt1, pt2) in zip(lane1.curve, lane2.curve)
-                @test abs2(convert(VecE2, pt1.pos) - convert(VecE2, pt2.pos)) < 0.01
+                @test normsquared(convert(VecE2, pt1.pos) - convert(VecE2, pt2.pos)) < 0.01
                 @test angledist(pt1.pos.θ, pt2.pos.θ) < 1e-5
                 @test isnan(pt1.s) || isapprox(pt1.s, pt2.s, atol=1e-3)
                 @test isnan(pt1.k) || isapprox(pt1.k, pt2.k, atol=1e-6)
