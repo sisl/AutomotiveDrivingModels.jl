@@ -66,13 +66,13 @@ function get_neighbor_fore_along_lane{S<:VehicleState,D<:Union{VehicleDef, Bicyc
                 elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
                        is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos)
+                    distance_between_lanes = norm(VecE2(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos))
                     s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
 
                 elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
                        is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                    distance_between_lanes = norm(VecE2(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos))
                     s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
                 end
 
@@ -101,7 +101,7 @@ function get_neighbor_fore_along_lane{S<:VehicleState,D<:Union{VehicleDef, Bicyc
         end
 
         dist_searched += (lane.curve[end].s - s_base)
-        s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
+        s_base = -norm(VecE2(lane.curve[end].pos - next_lane_point(lane, roadway).pos)) # negative distance between lanes
         tag_target = next_lane(lane, roadway).tag
     end
 
@@ -254,13 +254,13 @@ function get_neighbor_rear_along_lane{S<:VehicleState,D<:Union{VehicleDef, Bicyc
                 elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
                        is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos)
+                    distance_between_lanes = norm(VecE2(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos))
                     s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
 
                 elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
                        is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
 
-                    distance_between_lanes = abs(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos)
+                    distance_between_lanes = norm(VecE2(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos))
                     s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
                 end
 
@@ -291,7 +291,7 @@ function get_neighbor_rear_along_lane{S<:VehicleState,D<:Union{VehicleDef, Bicyc
         end
 
         dist_searched += s_base
-        s_base = lane.curve[end].s + abs(lane.curve[end].pos - prev_lane_point(lane, roadway).pos) # end of prev lane plus crossover
+        s_base = lane.curve[end].s + norm(VecE2(lane.curve[end].pos - prev_lane_point(lane, roadway).pos)) # end of prev lane plus crossover
         tag_target = prev_lane(lane, roadway).tag
     end
 
@@ -442,20 +442,20 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
     s_base = lane_start[roadind.ind, roadway].s
     s_proj = curvept_start.s
     Δs = s_proj - s_base
-    sq_dist_to_curve = abs2(posG - curvept_start.pos)
+    sq_dist_to_curve = normsquared(VecE2(posG - curvept_start.pos))
     retval = FrenetRelativePosition(roadind,
                 RoadIndex(curveproj_start.ind, tag_start), Δs, curveproj_start.t, curveproj_start.ϕ)
 
     # search downstream
     if has_next(lane_start)
         dist_searched = lane_start.curve[end].s - s_base
-        s_base = -abs(lane_start.curve[end].pos - next_lane_point(lane_start, roadway).pos) # negative distance between lanes
+        s_base = -norm(VecE2(lane_start.curve[end].pos - next_lane_point(lane_start, roadway).pos)) # negative distance between lanes
         tag_target = next_lane(lane_start, roadway).tag
         while dist_searched < max_distance_fore
 
             lane = roadway[tag_target]
             curveproj = proj(posG, lane, roadway, move_along_curves=false).curveproj
-            sq_dist_to_curve2 = abs2(posG - lane[curveproj.ind, roadway].pos)
+            sq_dist_to_curve2 = normsquared(VecE2(posG - lane[curveproj.ind, roadway].pos))
 
             if sq_dist_to_curve2 < sq_dist_to_curve - improvement_threshold
 
@@ -472,7 +472,7 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
             end
 
             dist_searched += (lane.curve[end].s - s_base)
-            s_base = -abs(lane.curve[end].pos - next_lane_point(lane, roadway).pos) # negative distance between lanes
+            s_base = -norm(VecE2(lane.curve[end].pos - next_lane_point(lane, roadway).pos)) # negative distance between lanes
             tag_target = next_lane(lane, roadway).tag
 
             if tag_target == tag_start
@@ -485,13 +485,13 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
     if has_prev(lane_start)
         dist_searched = s_base
         tag_target = prev_lane(lane_start, roadway).tag
-        s_base = roadway[tag_target].curve[end].s + abs(lane_start.curve[1].pos - prev_lane_point(lane_start, roadway).pos) # end of the lane
+        s_base = roadway[tag_target].curve[end].s + norm(VecE2(lane_start.curve[1].pos - prev_lane_point(lane_start, roadway).pos)) # end of the lane
 
         while dist_searched < max_distance_fore
 
             lane = roadway[tag_target]
             curveproj = proj(posG, lane, roadway, move_along_curves=false).curveproj
-            sq_dist_to_curve2 = abs2(posG - lane[curveproj.ind, roadway].pos)
+            sq_dist_to_curve2 = normsquared(VecE2(posG - lane[curveproj.ind, roadway].pos))
 
             if sq_dist_to_curve2 < sq_dist_to_curve - improvement_threshold
 
@@ -509,7 +509,7 @@ function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway:
             end
 
             dist_searched += s_base
-            s_base = lane.curve[end].s + abs(lane.curve[1].pos - prev_lane_point(lane, roadway).pos) # length of this lane plus crossover
+            s_base = lane.curve[end].s + norm(VecE2(lane.curve[1].pos - prev_lane_point(lane, roadway).pos)) # length of this lane plus crossover
             tag_target = prev_lane(lane, roadway).tag
 
             if tag_target == tag_start

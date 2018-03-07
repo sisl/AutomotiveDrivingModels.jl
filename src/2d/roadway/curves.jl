@@ -70,9 +70,9 @@ function index_closest_to_point(curve::Curve, target::AbstractVec)
 
     @assert(length(curve) ≥ b)
 
-    sqdist_a = abs2(curve[a].pos - target)
-    sqdist_b = abs2(curve[b].pos - target)
-    sqdist_c = abs2(curve[c].pos - target)
+    sqdist_a = normsquared(VecE2(curve[a].pos - target))
+    sqdist_b = normsquared(VecE2(curve[b].pos - target))
+    sqdist_c = normsquared(VecE2(curve[c].pos - target))
 
     while true
         if b == a
@@ -90,10 +90,10 @@ function index_closest_to_point(curve::Curve, target::AbstractVec)
         end
 
         left = div(a+c, 2)
-        sqdist_l = abs2(curve[left].pos - target)
+        sqdist_l = normsquared(VecE2(curve[left].pos - target))
 
         right = div(c+b, 2)
-        sqdist_r = abs2(curve[right].pos - target)
+        sqdist_r = normsquared(VecE2(curve[right].pos - target))
 
         if sqdist_l < sqdist_r
             b = c
@@ -231,8 +231,8 @@ function Vec.proj(posG::VecSE2, curve::Curve)
         p_lo = lerp(curve[ind-1].pos, curve[ind].pos,   t_lo)
         p_hi = lerp(curve[ind].pos,   curve[ind+1].pos, t_hi)
 
-        d_lo = hypot(p_lo - posG)
-        d_hi = hypot(p_hi - posG)
+        d_lo = norm(VecE2(p_lo - posG))
+        d_hi = norm(VecE2(p_hi - posG))
 
         if d_lo < d_hi
             footpoint = p_lo

@@ -8,7 +8,7 @@ export
 function gen_straight_curve(A::VecE2, B::VecE2, nsamples::Int)
 
     θ = atan2(B-A)
-    δ = abs(B-A)/(nsamples-1)
+    δ = norm(B-A)/(nsamples-1)
 
     s = 0.0
     curve = Array{CurvePt}(nsamples)
@@ -76,7 +76,7 @@ function gen_bezier_curve(A::VecSE2, B::VecSE2, rA::Float64, rB::Float64, nsampl
         κ = (P′.x*P′′.y - P′.y*P′′.x)/(P′.x^2 + P′.y^2)^1.5 # signed curvature
 
         if i > 1
-            s += abs(P - convert(VecE2, curve[i-1].pos)) # approximation, but should be good for many samples
+            s += norm(P - convert(VecE2, curve[i-1].pos)) # approximation, but should be good for many samples
         end
 
         curve[i] = CurvePt(VecSE2(P.x,P.y,θ), s, κ)

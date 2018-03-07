@@ -142,7 +142,7 @@ function ensure_pts_sorted_by_min_polar_angle!(poly::ConvexPolygon, npts::Int=po
     angle_start = Inf
     index_start = -1
     for i in 1 : npts
-        seg = get_edge(poly.pts, i)
+        seg = get_edge(poly.pts, i, npts)
 
         θ = atan2(seg.B.y - seg.A.y, seg.B.x - seg.A.x)
         if θ < 0.0
@@ -335,7 +335,7 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
 
     rel_pos = convert(VecE2, b.state.posG) - a.state.posG
     rel_velocity = polar(b.state.v, b.state.posG.θ) - polar(a.state.v, a.state.posG.θ)
-    ray_speed = hypot(rel_velocity)
+    ray_speed = norm(VecE2(rel_velocity))
     ray = VecSE2(rel_pos, atan2(rel_velocity))
 
     if contains(mem.mink, convert(VecE2, ray))
@@ -367,7 +367,7 @@ _bounding_radius(veh::Vehicle) = sqrt(veh.def.length*veh.def.length/4 + veh.def.
 A fast collision check to remove things clearly not colliding
 """
 function is_potentially_colliding(A::Vehicle, B::Vehicle)
-    Δ² = abs2(A.state.posG - B.state.posG)
+    Δ² = normsquared(VecE2(A.state.posG - B.state.posG))
     r_a = _bounding_radius(A)
     r_b = _bounding_radius(B)
     Δ² ≤ r_a*r_a + 2*r_a*r_b + r_b*r_b

@@ -293,7 +293,7 @@ function get_lane_portions(roadway::Roadway, x::Real, y::Real, lane_portion_max_
 
     for seg in roadway.segments
         for lane in seg.lanes
-            f = curvept -> abs2(curvept.pos - P) ≤ Δ²
+            f = curvept -> normsquared(VecE2(curvept.pos - P)) ≤ Δ²
             i = findfirst(f, lane.curve)
             if i != 0
                 j = findlast(f, lane.curve)

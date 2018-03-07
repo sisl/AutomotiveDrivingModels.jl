@@ -120,7 +120,7 @@ function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadwa
     roadproj = proj(footpoint, lane, roadway)
     curvept = roadway[RoadIndex(roadproj)]
     lane = roadway[roadproj.tag]
-    FeatureValue(lane.width/2 + abs(curvept.pos - footpoint) - offset)
+    FeatureValue(lane.width/2 + norm(VecE2(curvept.pos - footpoint)) - offset)
 end
 generate_feature_functions("RoadEdgeDist_Right", :d_edger, Float64, "m")
 function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
@@ -132,7 +132,7 @@ function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadw
     roadproj = proj(footpoint, lane, roadway)
     curvept = roadway[RoadIndex(roadproj)]
     lane = roadway[roadproj.tag]
-    FeatureValue(lane.width/2 + abs(curvept.pos - footpoint) + offset)
+    FeatureValue(lane.width/2 + norm(VecE2(curvept.pos - footpoint)) + offset)
 end
 generate_feature_functions("LaneOffsetLeft", :posFtL, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)

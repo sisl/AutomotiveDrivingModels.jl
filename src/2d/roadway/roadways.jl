@@ -249,7 +249,7 @@ function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
     if ind.i == 0
         pt_lo = prev_lane_point(lane, roadway)
         pt_hi = lane.curve[1]
-        s_gap = abs(pt_hi.pos - pt_lo.pos)
+        s_gap = norm(VecE2(pt_hi.pos - pt_lo.pos))
         pt_lo = CurvePt(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
         lerp(pt_lo, pt_hi, ind.t)
     elseif ind.i < length(lane.curve)
@@ -257,7 +257,7 @@ function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
     else
         pt_hi = next_lane_point(lane, roadway)
         pt_lo = lane.curve[end]
-        s_gap = abs(pt_hi.pos - pt_lo.pos)
+        s_gap = norm(VecE2(pt_hi.pos - pt_lo.pos))
         pt_hi = CurvePt(pt_hi.pos, pt_lo.s + s_gap, pt_hi.k, pt_hi.kd)
         lerp( pt_lo, pt_hi, ind.t)
     end
@@ -424,7 +424,7 @@ function Vec.proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
     for lane in seg.lanes
         roadproj = proj(posG, lane, roadway)
         footpoint = roadway[roadproj.tag][roadproj.curveproj.ind, roadway]
-        dist2 = abs2(posG - footpoint.pos)
+        dist2 = norm(VecE2(posG - footpoint.pos))
         if dist2 < best_dist2
             best_dist2 = dist2
             best_proj = roadproj
@@ -449,7 +449,7 @@ function Vec.proj(posG::VecSE2, roadway::Roadway)
             roadproj = proj(posG, lane, roadway, move_along_curves=false)
             targetlane = roadway[roadproj.tag]
             footpoint = targetlane[roadproj.curveproj.ind, roadway]
-            dist2 = abs2(posG - footpoint.pos)
+            dist2 = normsquared(VecE2(posG - footpoint.pos))
             if dist2 < best_dist2
                 best_dist2 = dist2
                 best_proj = roadproj
@@ -482,7 +482,7 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
         if has_prev(lane)
             pt_lo = prev_lane_point(lane, roadway)
             pt_hi = lane.curve[1]
-            s_gap = abs(pt_hi.pos - pt_lo.pos)
+            s_gap = norm(VecE2(pt_hi.pos - pt_lo.pos))
 
             if curvept.s + Δs < -s_gap
                 lane_prev = prev_lane(lane, roadway)
@@ -503,7 +503,7 @@ function move_along(roadind::RoadIndex, roadway::Roadway, Δs::Float64, depth::I
         if has_next(lane)
             pt_lo = lane.curve[end]
             pt_hi = next_lane_point(lane, roadway)
-            s_gap = abs(pt_hi.pos - pt_lo.pos)
+            s_gap = norm(VecE2(pt_hi.pos - pt_lo.pos))
 
             if curvept.s + Δs ≥ pt_lo.s + s_gap # extends beyond the gap
                 curveind = lane.exits[1].target.ind
@@ -654,7 +654,7 @@ function read_dxf(io::IO, ::Type{Roadway};
         for (tag2, pts2) in lane_pts_dict
             if tag2.segment != tag.segment
                 for (ind,pt) in enumerate(pts2)
-                    sq_dist = abs2(pt - pts[end])
+                    sq_dist = normsquared(VecE2(pt - pts[end]))
                     if sq_dist < best_sq_dist
                         best_sq_dist = sq_dist
                         best_ind = ind
@@ -681,7 +681,7 @@ function read_dxf(io::IO, ::Type{Roadway};
             for (tag2, pts2) in lane_pts_dict
                 if tag2.segment != tag.segment
                     for (ind,pt) in enumerate(pts2)
-                        sq_dist = abs2(pt - pts[1])
+                        sq_dist = normsquared(VecE2(pt - pts[1]))
                         if sq_dist < best_sq_dist
                             best_sq_dist = sq_dist
                             best_ind = ind
@@ -815,4 +815,3 @@ function read_dxf(io::IO, ::Type{Roadway};
 
     retval
 end
-
