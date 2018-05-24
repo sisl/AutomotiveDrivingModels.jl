@@ -94,6 +94,18 @@ mutable struct Lane
     end
 end
 
+function Base.:(==)(l1::Lane, l2::Lane)
+    return l1.tag == l2.tag &&
+            l1.curve == l2.curve &&
+            l1.width == l2.width &&
+            l1.speed_limit == l2.speed_limit &&
+            l1.boundary_left == l2.boundary_left &&
+            l1.boundary_right == l2.boundary_right &&
+            l1.exits == l2.exits &&
+            l1.entrances == l2.entrances
+end
+Base.hash(l::Lane, h::UInt) = hash(l.curve, hash(l.width, hash(l.speed_limit, hash(l.boundary_left, hash(l.boundary_right, hash(l.exits, hash(l.entrances, h)))))))
+
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
 
