@@ -16,6 +16,11 @@ struct RoadIndex
 end
 const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
 
+function Base.:(==)(a::RoadIndex, b::RoadIndex) 
+    return a.ind == b.ind && a.tag == b.tag
+end
+hash(r::RoadIndex, h::UInt) = hash(r.ind, hash(r.tag, h))
+
 Base.show(io::IO, r::RoadIndex) = @printf(io, "RoadIndex({%d, %3.f}, {%d, %d})", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
 Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
 
@@ -26,6 +31,11 @@ struct LaneConnection
     mylane::CurveIndex
     target::RoadIndex
 end
+
+function Base.:(==)(a::LaneConnection, b::LaneConnection)
+    return a.downstream == b.downstream && a.mylane == b.mylane && a.target == b.target
+end
+hash(l::LaneConnection, h::UInt) =  hash(l.downstream, hash(l.mylane, hash(l.target, h)))
 
 Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, ", ", c.target)
 function Base.write(io::IO, c::LaneConnection)
@@ -104,7 +114,7 @@ function Base.:(==)(l1::Lane, l2::Lane)
             l1.exits == l2.exits &&
             l1.entrances == l2.entrances
 end
-Base.hash(l::Lane, h::UInt) = hash(l.curve, hash(l.width, hash(l.speed_limit, hash(l.boundary_left, hash(l.boundary_right, hash(l.exits, hash(l.entrances, h)))))))
+hash(l::Lane, h::UInt) = hash(l.curve, hash(l.width, hash(l.speed_limit, hash(l.boundary_left, hash(l.boundary_right, hash(l.exits, hash(l.entrances, h)))))))
 
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
