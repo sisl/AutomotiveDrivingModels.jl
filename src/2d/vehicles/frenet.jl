@@ -1,7 +1,15 @@
+"""
+Frenet
+______
+roadind: road index
+s: distance along lane
+t: lane offset, positive is to left. zero point is the centerline of the lane.
+ϕ: lane relative heading
+"""
 struct Frenet
     roadind::RoadIndex
     s::Float64 # distance along lane
-    t::Float64 # lane offset, positive is to left
+    t::Float64 # lane offset, positive is to left. zero point is the centerline of the lane.
     ϕ::Float64 # lane relative heading
 end
 function Frenet(roadind::RoadIndex, roadway::Roadway; t::Float64=0.0, ϕ::Float64=0.0)
