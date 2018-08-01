@@ -1,5 +1,5 @@
 struct VehicleState
-    posG::VecSE2 # global
+    posG::VecSE2{Float64} # global
     posF::Frenet # lane-relative frame
     v::Float64
 

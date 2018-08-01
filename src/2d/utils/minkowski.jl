@@ -35,7 +35,7 @@ end
 
 ######################################
 
-function get_signed_area(pts::Vector{VecE2}, npts::Int = length(pts))
+function get_signed_area(pts::Vector{VecE2{Float64}}, npts::Int = length(pts))
 
     # https://en.wikipedia.org/wiki/Shoelace_formula
     # sign of -1 means clockwise, sign of 1 means counterclockwise
@@ -48,7 +48,7 @@ function get_signed_area(pts::Vector{VecE2}, npts::Int = length(pts))
 
     retval / 2
 end
-function get_edge(pts::Vector{VecE2}, i::Int, npts::Int=length(pts))
+function get_edge(pts::Vector{VecE2{Float64}}, i::Int, npts::Int=length(pts))
     a = pts[i]
     b = i+1 ≤ npts ? pts[i+1] : pts[1]
     LineSegment(a,b)
@@ -57,10 +57,10 @@ end
 ######################################
 
 mutable struct ConvexPolygon
-    pts::Vector{VecE2} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
+    pts::Vector{VecE2{Float64}} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
     npts::Int # number of pts that are currently used (since we preallocate a longer array)
 
-    ConvexPolygon(npts::Int) = new(Array{VecE2}(npts), 0)
+    ConvexPolygon(npts::Int) = new(Array{VecE2{Float64}}(npts), 0)
 end
 
 Base.start(poly::ConvexPolygon) = 1
@@ -80,12 +80,12 @@ function Base.copy!(dest::ConvexPolygon, src::ConvexPolygon)
     copy!(dest.pts, 1, src.pts, 1, src.npts)
     dest
 end
-function Base.push!(poly::ConvexPolygon, v::VecE2)
+function Base.push!(poly::ConvexPolygon, v::VecE2{Float64})
     poly.pts[poly.npts+1] = v
     poly.npts += 1
     poly
 end
-function Base.contains(poly::ConvexPolygon, v::VecE2)
+function Base.contains(poly::ConvexPolygon, v::VecE2{Float64})
 
     # does NOT include pts on the physical boundary
 
@@ -109,7 +109,7 @@ function Base.contains(poly::ConvexPolygon, v::VecE2)
     end
     true
 end
-Base.contains(poly::ConvexPolygon, v::VecSE2) = contains(poly, convert(VecE2, v))
+Base.contains(poly::ConvexPolygon, v::VecSE2{Float64}) = contains(poly, convert(VecE2, v))
 function Base.show(io::IO, poly::ConvexPolygon)
     @printf(io, "ConvexPolygon: len %d (max %d pts)\n", length(poly), length(poly.pts))
     for i in 1 : length(poly)
@@ -119,7 +119,7 @@ function Base.show(io::IO, poly::ConvexPolygon)
 end
 
 AutomotiveDrivingModels.get_center(poly::ConvexPolygon) = sum(poly.pts) / poly.npts
-function Vec.get_distance(poly::ConvexPolygon, v::VecE2; solid::Bool=true)
+function Vec.get_distance(poly::ConvexPolygon, v::VecE2{Float64}; solid::Bool=true)
     if solid && contains(poly, v)
         0.0
     else
@@ -160,7 +160,7 @@ function ensure_pts_sorted_by_min_polar_angle!(poly::ConvexPolygon, npts::Int=po
     end
     poly
 end
-function shift!(poly::ConvexPolygon, v::VecE2)
+function shift!(poly::ConvexPolygon, v::VecE2{Float64})
     for i in 1 : length(poly)
         poly.pts[i] += v
     end
@@ -250,14 +250,14 @@ end
 
 function is_colliding(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
     minkowski_difference!(temp, P, Q)
-    contains(temp, VecE2(0,0))
+    contains(temp, VecE2{Float64}(0,0))
 end
 function Vec.get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
     minkowski_difference!(temp, P, Q)
-    get_distance(temp, VecE2(0,0))
+    get_distance(temp, VecE2{Float64}(0,0))
 end
 
-function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
+function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64}, len::Float64, wid::Float64)
 
     @assert(len > 0)
     @assert(wid > 0)
@@ -279,8 +279,8 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2, len::F
 
     retval
 end
-get_oriented_bounding_box(center::VecSE2, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
-function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2 = get_center(veh))
+get_oriented_bounding_box(center::VecSE2{Float64}, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
+function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2{Float64} = get_center(veh))
 
     # get an oriented bounding box at the vehicle's position
 
@@ -288,11 +288,11 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::
 
     retval
 end
-get_oriented_bounding_box(veh::Vehicle, center::VecSE2 = get_center(veh)) = to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
+get_oriented_bounding_box(veh::Vehicle, center::VecSE2{Float64} = get_center(veh)) = to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
 
 ######################################
 
-function is_colliding(ray::VecSE2, poly::ConvexPolygon)
+function is_colliding(ray::VecSE2{Float64}, poly::ConvexPolygon)
     # collides if at least one of the segments collides with the ray
 
     for i in 1 : length(poly)
@@ -303,7 +303,7 @@ function is_colliding(ray::VecSE2, poly::ConvexPolygon)
     end
     false
 end
-function get_collision_time(ray::VecSE2, poly::ConvexPolygon, ray_speed::Float64)
+function get_collision_time(ray::VecSE2{Float64}, poly::ConvexPolygon, ray_speed::Float64)
     min_col_time = Inf
     for i in 1 : length(poly)
         seg = get_edge(poly, i)
@@ -336,7 +336,7 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
     rel_pos = convert(VecE2, b.state.posG) - a.state.posG
     rel_velocity = polar(b.state.v, b.state.posG.θ) - polar(a.state.v, a.state.posG.θ)
     ray_speed = norm(VecE2(rel_velocity))
-    ray = VecSE2(rel_pos, atan2(rel_velocity))
+    ray = VecSE2{Float64}(rel_pos, atan2(rel_velocity))
 
     if contains(mem.mink, convert(VecE2, ray))
         return (0.0, 0.0)
