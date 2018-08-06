@@ -10,6 +10,12 @@ struct VehicleState
     VehicleState(posG::VecSE2, lane::Lane, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, lane, roadway), v)
     VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = new(get_posG(posF, roadway), posF, v)
 end
+
+function Base.:(==)(v1::VehicleState, v2::VehicleState)
+    return v1.posG == v2.posG && v1.posF == v2.posF && v1.v == v2.v 
+end
+hash(veh::VehicleState, h::UInt) = hash(veh.posG, hash(veh.posF, hash(veh.v, h)))
+
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 function Base.write(io::IO, ::MIME"text/plain", s::VehicleState)
     @printf(io, "%.16e %.16e %.16e", s.posG.x, s.posG.y, s.posG.θ)
