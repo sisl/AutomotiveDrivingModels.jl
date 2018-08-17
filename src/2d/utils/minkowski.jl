@@ -59,9 +59,9 @@ end
 mutable struct ConvexPolygon
     pts::Vector{VecE2} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
     npts::Int # number of pts that are currently used (since we preallocate a longer array)
-
-    ConvexPolygon(npts::Int) = new(Array{VecE2}(npts), 0)
 end
+
+ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2}(npts), 0)
 
 Base.start(poly::ConvexPolygon) = 1
 Base.done(poly::ConvexPolygon, i::Int) = i > length(poly)
