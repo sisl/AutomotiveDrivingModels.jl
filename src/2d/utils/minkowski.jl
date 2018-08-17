@@ -62,6 +62,7 @@ mutable struct ConvexPolygon
 end
 
 ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2}(npts), 0)
+ConvexPolygon(pts::Vector{VecE2}) = ConvexPolygon(pts, length(pts))
 
 Base.start(poly::ConvexPolygon) = 1
 Base.done(poly::ConvexPolygon, i::Int) = i > length(poly)
