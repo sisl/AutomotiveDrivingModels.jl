@@ -28,7 +28,7 @@ function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R
         veh_index_curr = vehicle_index
         veh_index_prev = findfirst(rec[pastframe2], id)
 
-        if veh_index_prev != 0
+        if veh_index_prev != nothing
             curr = rec[pastframe][veh_index_curr].state.posG.θ
             past = rec[pastframe2][veh_index_prev].state.posG.θ
             Δt = get_elapsed_time(rec, pastframe2, pastframe)

@@ -119,8 +119,8 @@ hash(l::Lane, h::UInt) = hash(l.curve, hash(l.width, hash(l.speed_limit, hash(l.
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
 
-is_in_exits(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.exits) != 0
-is_in_entrances(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.entrances) != 0
+is_in_exits(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.exits) != nothing
+is_in_entrances(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.entrances) != nothing
 
 
 function connect!(source::Lane, dest::Lane)
@@ -616,7 +616,7 @@ function read_dxf(io::IO, ::Type{Roadway};
     lines = readlines(io)
 
     i = findfirst(lines, "ENTITIES\n")
-    i != 0 || error("ENTITIES section not found")
+    i != nothing || error("ENTITIES section not found")
 
     ###################################################
     # Pull pts for each lane
@@ -752,7 +752,7 @@ function read_dxf(io::IO, ::Type{Roadway};
         lo = first_lane_pts[div(n,2)]
         hi = first_lane_pts[div(n,2)+1]
         midpt_orig = (lo + hi)/2
-        dir = polar(1.0, atan2(hi - lo) + π/2) # direction perpendicular (left) of lane
+        dir = polar(1.0, atan(hi - lo) + π/2) # direction perpendicular (left) of lane
 
         for (i,tag) in enumerate(lanetags)
             pts = lane_pts_dict[tag]

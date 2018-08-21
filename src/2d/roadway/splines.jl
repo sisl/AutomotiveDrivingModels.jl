@@ -350,9 +350,9 @@ function sample_spline_theta(spline_coeffs_x::AbstractVector{Float64}, spline_co
     y1 = sample_spline(spline_coeffs_y, t_lo)
     y2 = sample_spline(spline_coeffs_y, t_hi)
 
-    # println("(t, lo, hi)  $t   $t_lo   $t_hi, ($(atan2(y2-y1, x2-x1)))")
+    # println("(t, lo, hi)  $t   $t_lo   $t_hi, ($(atan(y2-y1, x2-x1)))")
 
-    atan2(y2-y1, x2-x1)
+    atan(y2-y1, x2-x1)
 end
 function sample_spline_theta(spline_coeffs_x::AbstractMatrix{Float64}, spline_coeffs_y::AbstractMatrix{Float64}, t::Float64)
     # for t ∈ (-∞,1] we use spline_coeffs[:,1]

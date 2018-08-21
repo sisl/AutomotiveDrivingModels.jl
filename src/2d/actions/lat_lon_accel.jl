@@ -33,7 +33,7 @@ function propagate(veh::Entity{VehicleState, D, Int}, action::LatLonAccel, roadw
     dt₂ = dt + a_lat*ΔT
     speed₂ = sqrt(dt₂*dt₂ + ds₂*ds₂)
     v₂ = sqrt(dt₂*dt₂ + ds₂*ds₂) # v is the magnitude of the velocity vector
-    ϕ₂ = atan2(dt₂, ds₂)
+    ϕ₂ = atan(dt₂, ds₂)
 
     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
     footpoint = roadway[roadind]

@@ -7,7 +7,7 @@ export
 
 function gen_straight_curve(A::VecE2, B::VecE2, nsamples::Int)
 
-    θ = atan2(B-A)
+    θ = atan(B-A)
     δ = norm(B-A)/(nsamples-1)
 
     s = 0.0
@@ -72,7 +72,7 @@ function gen_bezier_curve(A::VecSE2, B::VecSE2, rA::Float64, rB::Float64, nsampl
         P = lerp(a,b,c,d,t)
         P′ = 3*(1-t)^2*(b-a) + 6*(1-t)*t*(c-b) + 3*t^2*(d-c)
         P′′ = 6*(1-t)*(c-2b+a) + 6t*(d-2*c+b)
-        θ = atan2(P′)
+        θ = atan(P′)
         κ = (P′.x*P′′.y - P′.y*P′′.x)/(P′.x^2 + P′.y^2)^1.5 # signed curvature
 
         if i > 1

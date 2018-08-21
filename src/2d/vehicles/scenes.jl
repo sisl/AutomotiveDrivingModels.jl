@@ -46,7 +46,6 @@ function get_neighbor_fore_along_lane(
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     index_to_ignore::Int=-1,
     ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
-
     best_ind = 0
     best_dist = max_distance_fore
     tag_target = tag_start
@@ -62,16 +61,13 @@ function get_neighbor_fore_along_lane(
                 s_adjust = NaN
                 if veh.state.posF.roadind.tag == tag_target
                     s_adjust = 0.0
-
                 elseif is_between_segments_hi(veh.state.posF.roadind.ind, lane.curve) &&
                        is_in_entrances(roadway[tag_target], veh.state.posF.roadind.tag)
-
                     distance_between_lanes = norm(VecE2(roadway[tag_target].curve[1].pos - roadway[veh.state.posF.roadind.tag].curve[end].pos))
                     s_adjust = -(roadway[veh.state.posF.roadind.tag].curve[end].s + distance_between_lanes)
 
                 elseif is_between_segments_lo(veh.state.posF.roadind.ind) &&
                        is_in_exits(roadway[tag_target], veh.state.posF.roadind.tag)
-
                     distance_between_lanes = norm(VecE2(roadway[tag_target].curve[end].pos - roadway[veh.state.posF.roadind.tag].curve[1].pos))
                     s_adjust = roadway[tag_target].curve[end].s + distance_between_lanes
                 end

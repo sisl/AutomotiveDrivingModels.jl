@@ -145,7 +145,7 @@ function ensure_pts_sorted_by_min_polar_angle!(poly::ConvexPolygon, npts::Int=po
     for i in 1 : npts
         seg = get_edge(poly.pts, i, npts)
 
-        θ = atan2(seg.B.y - seg.A.y, seg.B.x - seg.A.x)
+        θ = atan(seg.B.y - seg.A.y, seg.B.x - seg.A.x)
         if θ < 0.0
             θ += 2π
         end
@@ -337,7 +337,7 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
     rel_pos = convert(VecE2, b.state.posG) - a.state.posG
     rel_velocity = polar(b.state.v, b.state.posG.θ) - polar(a.state.v, a.state.posG.θ)
     ray_speed = norm(VecE2(rel_velocity))
-    ray = VecSE2(rel_pos, atan2(rel_velocity))
+    ray = VecSE2(rel_pos, atan(rel_velocity))
 
     if in(convert(VecE2, ray), mem.mink)
         return (0.0, 0.0)

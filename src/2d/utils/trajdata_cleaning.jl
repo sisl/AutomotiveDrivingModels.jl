@@ -102,7 +102,7 @@ function interpolate_to_timestep!(tdem::TrajdataEditMode, timestep::Float64)
         for veh_lo in scene_lo
             id = veh_lo.id
             veh_index = findfirst(scene_hi, id)
-            if veh_index != 0
+            if veh_index != nothing
                 veh_hi = scene_hi[veh_index]
                 @assert(veh_lo.def == veh_hi.def)
                 veh_interp = Vehicle(lerp(veh_lo.state, veh_hi.state, γ, tdem.roadway), veh_lo.def)
