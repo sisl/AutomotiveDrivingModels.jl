@@ -11,7 +11,7 @@ let
     let
         a = AccelTurnrate(0.1,0.2)
         @test a == convert(AccelTurnrate, [0.1,0.2])
-        @test copy!([NaN, NaN], AccelTurnrate(0.1,0.2)) == [0.1,0.2]
+        @test copyto!([NaN, NaN], AccelTurnrate(0.1,0.2)) == [0.1,0.2]
 
         s = propagate(veh, AccelTurnrate(0.0,0.0), roadway, 1.0)
         @test isapprox(s.posG.x, veh.state.v)
@@ -22,7 +22,7 @@ let
     let
         a = AccelDesang(0.1,0.2)
         @test a == convert(AccelDesang, [0.1,0.2])
-        @test copy!([NaN, NaN], AccelDesang(0.1,0.2)) == [0.1,0.2]
+        @test copyto!([NaN, NaN], AccelDesang(0.1,0.2)) == [0.1,0.2]
 
         s = propagate(veh, AccelDesang(0.0,0.0), roadway, 1.0)
         @test isapprox(s.posG.x, veh.state.v*1.0)
@@ -34,7 +34,7 @@ let
     let
         a = LatLonAccel(0.1,0.2)
         @test a == convert(LatLonAccel, [0.1,0.2])
-        @test copy!([NaN, NaN], LatLonAccel(0.1,0.2)) == [0.1,0.2]
+        @test copyto!([NaN, NaN], LatLonAccel(0.1,0.2)) == [0.1,0.2]
 
         Δt = 0.1
         s = propagate(veh, LatLonAccel(0.0,0.0), roadway, Δt)

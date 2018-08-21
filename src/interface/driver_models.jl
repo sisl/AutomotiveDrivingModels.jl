@@ -13,15 +13,15 @@ export
 abstract type DriverModel{DriveAction} end
 
 get_name(::DriverModel) = "???"
-action_type{A}(::DriverModel{A}) = A
+action_type(::DriverModel{A}) where {A} = A
 set_desired_speed!(model::DriverModel, v_des::Float64) = model # do nothing by default
 reset_hidden_state!(model::DriverModel) = model # do nothing by default
-observe!{S,D,I,R}(model::DriverModel, scene::EntityFrame{S,D,I}, roadway::R, egoid::Int) = model  # do nothing by default
+observe!(model::DriverModel, scene::EntityFrame{S,D,I}, roadway::R, egoid::Int) where {S,D,I,R} = model  # do nothing by default
 Base.rand(model::DriverModel) = error("rand not implemented for model $model")
-Distributions.pdf{A}(model::DriverModel{A}, a::A) = error("pdf not implemented for model $model")
-Distributions.logpdf{A}(model::DriverModel{A}, a::A) = error("logpdf not implemented for model $model")
+Distributions.pdf(model::DriverModel{A}, a::A) where {A} = error("pdf not implemented for model $model")
+Distributions.logpdf(model::DriverModel{A}, a::A) where {A} = error("logpdf not implemented for model $model")
 
-function prime_with_history!{S,D,I,R}(
+function prime_with_history!(
     model::DriverModel,
     trajdata::ListRecord{Entity{S,D,I}},
     roadway::R,
@@ -29,7 +29,7 @@ function prime_with_history!{S,D,I,R}(
     frame_end::Int,
     egoid::I,
     scene::EntityFrame{S,D,I} = allocate_frame(trajdata),
-    )
+    ) where {S,D,I,R}
 
     reset_hidden_state!(model)
 
@@ -40,10 +40,10 @@ function prime_with_history!{S,D,I,R}(
 
     return model
 end
-function prime_with_history!{S,D,I,R}(model::DriverModel, rec::EntityQueueRecord{S,D,I}, roadway::R, egoid::I;
+function prime_with_history!(model::DriverModel, rec::EntityQueueRecord{S,D,I}, roadway::R, egoid::I;
     pastframe_start::Int=1-nframes(rec),
     pastframe_end::Int=0,
-    )
+    ) where {S,D,I,R}
 
     reset_hidden_state!(model)
 
@@ -63,9 +63,9 @@ struct StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
 end
 
 get_name(::StaticDriver) = "StaticDriver"
-function Base.rand{A,P}(model::StaticDriver{A,P})
+function Base.rand(model::StaticDriver{A,P}) where {A,P}
     a = rand(model.distribution)
     return convert(A, a)
 end
-Distributions.pdf{A}(model::StaticDriver{A}, a::A) = pdf(model.distribution, convert(Vector{Float64}, a))
-Distributions.logpdf{A}(model::StaticDriver{A}, a::A) = logpdf(model.distribution, convert(Vector{Float64}, a))
+Distributions.pdf(model::StaticDriver{A}, a::A) where {A} = pdf(model.distribution, convert(Vector{Float64}, a))
+Distributions.logpdf(model::StaticDriver{A}, a::A) where {A} = logpdf(model.distribution, convert(Vector{Float64}, a))

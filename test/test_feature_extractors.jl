@@ -13,7 +13,7 @@ let
     ext = DumbFeatureExtractor()
     @test rec_length(ext) == 1
     @test_throws Exception length(ext)
-    @test_throws Exception pull_features!(ext, Array{Float64}(0), rec, roadway, 1)
+    @test_throws Exception pull_features!(ext, Array{Float64}(undef, 0), rec, roadway, 1)
 
     ext = FeatureExtractor(AbstractFeature[SPEED, POSFT], 2)
     @test rec_length(ext) == 2

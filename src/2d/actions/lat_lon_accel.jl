@@ -9,12 +9,12 @@ end
 Base.show(io::IO, a::LatLonAccel) = @printf(io, "LatLonAccel(%6.3f, %6.3f)", a.a_lat, a.a_lon)
 Base.length(::Type{LatLonAccel}) = 2
 Base.convert(::Type{LatLonAccel}, v::Vector{Float64}) = LatLonAccel(v[1], v[2])
-function Base.copy!(v::Vector{Float64}, a::LatLonAccel)
+function Base.copyto!(v::Vector{Float64}, a::LatLonAccel)
     v[1] = a.a_lat
     v[2] = a.a_lon
     v
 end
-function propagate{D<:Union{VehicleDef, BicycleModel}}(veh::Entity{VehicleState, D, Int}, action::LatLonAccel, roadway::Roadway, ΔT::Float64)
+function propagate(veh::Entity{VehicleState, D, Int}, action::LatLonAccel, roadway::Roadway, ΔT::Float64) where {D<:Union{VehicleDef, BicycleModel}}
 
     a_lat = action.a_lat
     a_lon = action.a_lon

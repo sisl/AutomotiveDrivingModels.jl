@@ -32,8 +32,8 @@ function LidarSensor(nbeams::Int;
         nbeams = 0
     end
 
-    ranges = Array{Float64}(nbeams)
-    range_rates = Array{Float64}(nbeams)
+    ranges = Array{Float64}(undef, nbeams)
+    range_rates = Array{Float64}(undef, nbeams)
     LidarSensor(angles, ranges, range_rates, max_range, ConvexPolygon(4))
 end
 nbeams(lidar::LidarSensor) = length(lidar.angles)

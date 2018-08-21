@@ -42,8 +42,8 @@ function Base.write(io::IO, c::LaneConnection)
     @printf(io, "%s (%d %.6f) ", c.downstream ? "D" : "U", c.mylane.i, c.mylane.t)
     write(io, c.target)
 end
-function Base.parse(::Type{LaneConnection}, line::String)
-    cleanedline = replace(line, r"(\(|\))", "")
+function Base.parse(::Type{LaneConnection}, line::AbstractString)
+    cleanedline = replace(line, r"(\(|\))" => "")
     tokens = split(cleanedline, ' ')
 
     @assert(tokens[1] == "D" || tokens[1] == "U")
@@ -94,10 +94,10 @@ mutable struct Lane
         retval.entrances = entrances
 
         if next != NULL_ROADINDEX
-            unshift!(retval.exits, LaneConnection(true, curveindex_end(retval.curve), next))
+            pushfirst!(retval.exits, LaneConnection(true, curveindex_end(retval.curve), next))
         end
         if prev != NULL_ROADINDEX
-            unshift!(retval.entrances, LaneConnection(false, CURVEINDEX_START, prev))
+            pushfirst!(retval.entrances, LaneConnection(false, CURVEINDEX_START, prev))
         end
 
         retval
@@ -129,8 +129,8 @@ function connect!(source::Lane, dest::Lane)
     cindS = curveindex_end(source.curve)
     cindD = CURVEINDEX_START
 
-    unshift!(source.exits,   LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
-    unshift!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, source.tag)))
+    pushfirst!(source.exits,   LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
+    pushfirst!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, source.tag)))
     (source, dest)
 end
 function connect!(source::Lane, cindS::CurveIndex, dest::Lane, cindD::CurveIndex)
@@ -188,7 +188,7 @@ end
 function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
     lines = readlines(io)
     line_index = 1
-    if contains(lines[line_index], "ROADWAY")
+    if occursin("ROADWAY", lines[line_index])
         line_index += 1
     end
 
@@ -199,11 +199,11 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
     end
 
     nsegs = parse(Int, advance!())
-    roadway = Roadway(Array{RoadSegment}(nsegs))
+    roadway = Roadway(Array{RoadSegment}(undef, nsegs))
     for i_seg in 1:nsegs
         segid = parse(Int, advance!())
         nlanes = parse(Int, advance!())
-        seg = RoadSegment(segid, Array{Lane}(nlanes))
+        seg = RoadSegment(segid, Array{Lane}(undef, nlanes))
         for i_lane in 1:nlanes
             @assert(i_lane == parse(Int, advance!()))
             tag = LaneTag(segid, i_lane)
@@ -227,10 +227,10 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
             end
 
             npts = parse(Int, advance!())
-            curve = Array{CurvePt}(npts)
+            curve = Array{CurvePt}(undef, npts)
             for i_pt in 1:npts
                 line = advance!()
-                cleanedline = replace(line, r"(\(|\))", "")
+                cleanedline = replace(line, r"(\(|\))" => "")
                 tokens = split(cleanedline, ' ')
                 x = parse(Float64, tokens[1])
                 y = parse(Float64, tokens[2])
@@ -322,7 +322,7 @@ function has_lanetag(roadway::Roadway, tag::LaneTag)
     1 ≤ tag.lane ≤ length(seg.lanes)
 end
 
-immutable RoadProjection
+struct RoadProjection
     curveproj::CurveProjection
     tag::LaneTag
 end
@@ -592,7 +592,7 @@ function _fit_curve(
     @assert(!any(s->isnan(s), y_arr))
     @assert(!any(s->isnan(s), θ_arr))
 
-    curve = Array{CurvePt}(n)
+    curve = Array{CurvePt}(undef, n)
     for i in 1 : n
         pos = VecSE2(x_arr[i], y_arr[i], θ_arr[i])
         curve[i] = CurvePt(pos, s_arr[i], κ_arr[i], κd_arr[i])
@@ -610,7 +610,7 @@ Return a Roadway generated from a DXF file
 """
 function read_dxf(io::IO, ::Type{Roadway};
     dist_threshold_lane_connect::Float64 = 0.25, # [m]
-    desired_distance_between_curve_samples::Float64 = 1.0; # [m]
+    desired_distance_between_curve_samples::Float64 = 1.0 # [m]
     )
 
     lines = readlines(io)
@@ -638,7 +638,7 @@ function read_dxf(io::IO, ::Type{Roadway};
                 N = parse(Int, lines[i+1])
                 N > 0 || error("Empty line segment!")
 
-                pts = Array{VecE2}(N)
+                pts = Array{VecE2}(undef, N)
 
                 i = findnext(lines, " 10\n", i)
                 i != 0 || error("First point not found in AcDbPolyline!")
@@ -745,7 +745,7 @@ function read_dxf(io::IO, ::Type{Roadway};
         # then project each lane's midpoint to the perpendicular at the midpoint
 
         @assert(!isempty(lanetags))
-        proj_positions = Array{Float64}(length(lanetags))
+        proj_positions = Array{Float64}(undef, length(lanetags))
 
         first_lane_pts = lane_pts_dict[lanetags[1]]
         n = length(first_lane_pts)
@@ -768,7 +768,7 @@ function read_dxf(io::IO, ::Type{Roadway};
             boundary_right = i == 1 ? LaneBoundary(:solid, :white) : LaneBoundary(:broken, :white)
 
             pts = lane_pts_dict[tag]
-            pt_matrix = Array{Float64}(2, length(pts))
+            pt_matrix = Array{Float64}(undef, 2, length(pts))
             for (k,P) in enumerate(pts)
                 pt_matrix[1,k] = P.x
                 pt_matrix[2,k] = P.y
@@ -809,7 +809,7 @@ function read_dxf(io::IO, ::Type{Roadway};
             end
         else
             # otherwise connect as before
-            unshift!(lane.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
+            pushfirst!(lane.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, dest.tag)))
             push!(dest.entrances, LaneConnection(false, cindD, RoadIndex(cindS, lane.tag)))
         end
     end
@@ -831,7 +831,7 @@ function read_dxf(io::IO, ::Type{Roadway};
         else
             # a standard connection
             push!(prev.exits,  LaneConnection(true,  cindS, RoadIndex(cindD, lane.tag)))
-            unshift!(lane.entrances, LaneConnection(false, cindD, RoadIndex(cindS, prev.tag)))
+            pushfirst!(lane.entrances, LaneConnection(false, cindD, RoadIndex(cindS, prev.tag)))
         end
     end
 

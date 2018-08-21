@@ -22,7 +22,7 @@ let
     empty!(scene2)
     @test length(scene2) == 0
 
-    copy!(scene2, scene)
+    copyto!(scene2, scene)
     @test length(scene2) == 2
     for (i,veh) in enumerate(scene2)
         @test scene2[i].state == get_state(trajdata, i, 1)

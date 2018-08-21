@@ -1,9 +1,9 @@
-function get_actions!{S,D,I,A,R,M<:DriverModel}(
+function get_actions!(
     actions::Vector{A},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I, M}, # id → model
-    )
+    ) where {S,D,I,A,R,M<:DriverModel}
 
 
     for (i,veh) in enumerate(scene)
@@ -15,12 +15,12 @@ function get_actions!{S,D,I,A,R,M<:DriverModel}(
     actions
 end
 
-function tick!{S,D,I,A,R}(
+function tick!(
     scene::EntityFrame{S,D,I},
     roadway::R,
     actions::Vector{A},
     Δt::Float64,
-    )
+    ) where {S,D,I,A,R}
 
     for i in 1 : length(scene)
         veh = scene[i]
@@ -31,7 +31,7 @@ function tick!{S,D,I,A,R}(
     return scene
 end
 
-function reset_hidden_states!{M<:DriverModel}(models::Dict{Int,M})
+function reset_hidden_states!(models::Dict{Int,M}) where {M<:DriverModel}
     for model in values(models)
         reset_hidden_state!(model)
     end
@@ -41,18 +41,18 @@ end
 """
 Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
 """
-function simulate!{S,D,I,A,R,M<:DriverModel}(
+function simulate!(
     ::Type{A},
     rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,
-    )
+    ) where {S,D,I,A,R,M<:DriverModel}
 
     empty!(rec)
     update!(rec, scene)
-    actions = Array{A}(length(scene))
+    actions = Array{A}(undef, length(scene))
 
     for tick in 1 : nticks
         get_actions!(actions, scene, roadway, models)
@@ -62,13 +62,13 @@ function simulate!{S,D,I,A,R,M<:DriverModel}(
 
     return rec
 end
-function simulate!{S,D,I,R,M<:DriverModel}(
+function simulate!(
     rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
     nticks::Int,
-    )
+    ) where {S,D,I,R,M<:DriverModel}
 
     return simulate!(Any, rec, scene, roadway, models, nticks)
 end
@@ -79,7 +79,7 @@ end
 Only the ego vehicle is simulated; the other vehicles are as they were in the provided trajdata
 Other vehicle states will be interpolated
 """
-function simulate!{S,D,I}(
+function simulate!(
     rec::EntityQueueRecord{S,D,I},
     model::DriverModel,
     egoid::I,
@@ -88,7 +88,7 @@ function simulate!{S,D,I}(
     frame_end::Int;
     prime_history::Int=0, # no prime-ing
     scene::EntityFrame{S,D,I} =  allocate_frame(trajdata),
-    )
+    ) where {S,D,I}
 
     @assert(isapprox(get_timestep(rec), get_timestep(trajdata)))
 

@@ -2,14 +2,14 @@ struct VehicleState
     posG::VecSE2 # global
     posF::Frenet # lane-relative frame
     v::Float64
-
-    VehicleState() = new(VecSE2(), NULL_FRENET, NaN)
-    VehicleState(posG::VecSE2, v::Float64) = new(posG, NULL_FRENET, v)
-    VehicleState(posG::VecSE2, posF::Frenet, v::Float64) = new(posG, posF, v)
-    VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, roadway), v)
-    VehicleState(posG::VecSE2, lane::Lane, roadway::Roadway, v::Float64) = new(posG, Frenet(posG, lane, roadway), v)
-    VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = new(get_posG(posF, roadway), posF, v)
 end
+
+VehicleState() = VehicleState(VecSE2(), NULL_FRENET, NaN)
+VehicleState(posG::VecSE2, v::Float64) = VehicleState(posG, NULL_FRENET, v)
+VehicleState(posG::VecSE2, roadway::Roadway, v::Float64) = VehicleState(posG, Frenet(posG, roadway), v)
+VehicleState(posG::VecSE2, lane::Lane, roadway::Roadway, v::Float64) = VehicleState(posG, Frenet(posG, lane, roadway), v)
+VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = VehicleState(get_posG(posF, roadway), posF, v)
+
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 function Base.write(io::IO, ::MIME"text/plain", s::VehicleState)
     @printf(io, "%.16e %.16e %.16e", s.posG.x, s.posG.y, s.posG.θ)

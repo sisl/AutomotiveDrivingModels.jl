@@ -11,7 +11,7 @@ end
 Base.show(io::IO, a::LaneChangeChoice) = @printf(io, "LaneChangeChoice(%d)", a.dir)
 Base.length(::Type{LaneChangeChoice}) = 1
 Base.convert(::Type{LaneChangeChoice}, v::Vector{Float64}) = LaneChangeChoice(convert(Int, v[1]))
-function Base.copy!(v::Vector{Float64}, a::LaneChangeChoice)
+function Base.copyto!(v::Vector{Float64}, a::LaneChangeChoice)
     v[1] = a.dir
     v
 end
