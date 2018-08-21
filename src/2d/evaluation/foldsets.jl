@@ -40,15 +40,18 @@ function _find_next_valid_fold_match(foldset::FoldSet, state::Int)
     end
     state + 1 # returns length(foldset.assignment) + 1 on fail
 end
-Base.start(foldset::FoldSet) = _find_next_valid_fold_match(foldset, 0)
-Base.done(foldset::FoldSet, state::Int) = state > length(foldset.assignment)
-function Base.next(foldset::FoldSet, state::Int)
+
+function Base.iterate(foldset::FoldSet, state::Int = _find_next_valid_fold_match(foldset, 0))
+    if state > length(foldset.assignment)
+        return nothing
+    end
     @assert(check_fold_match(foldset.assignment[state], foldset))
-    state, _find_next_valid_fold_match(foldset, state)
+    return state, _find_next_valid_fold_match(foldset, state)
 end
+
 function Base.length(foldset::FoldSet)
     len = 0
-    state = start(foldset)
+    state = _find_next_valid_fold_match(foldset, 0)
     while !done(foldset, state)
         item, state = next(foldset, state)
         len += 1

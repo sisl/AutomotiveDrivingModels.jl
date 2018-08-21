@@ -64,9 +64,12 @@ end
 ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2}(undef, npts), 0)
 ConvexPolygon(pts::Vector{VecE2}) = ConvexPolygon(pts, length(pts))
 
-Base.start(poly::ConvexPolygon) = 1
-Base.done(poly::ConvexPolygon, i::Int) = i > length(poly)
-Base.next(poly::ConvexPolygon, i::Int) = (poly.pts[i], i+1)
+function Base.iterate(poly::ConvexPolygon, i::Int=1)
+    if i > length(poly)
+        return nothing 
+    end
+    return (poly.pts[i], i+1)
+end
 
 Base.length(poly::ConvexPolygon) = poly.npts
 Base.isempty(poly::ConvexPolygon) = poly.npts == 0
