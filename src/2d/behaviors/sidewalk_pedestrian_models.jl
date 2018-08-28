@@ -1,4 +1,5 @@
 """
+    CrossingPhase
 Crossing phases for SidewalkPedestrianModel.
 
 For a crossing pedestrian, phases go: -2, -1, 0, 1
@@ -26,7 +27,7 @@ function Base.copy!(v::Vector{Float64}, a::CrossingPhase)
 end
 
 """
-SidewalkPedestrianModel
+    SidewalkPedestrianModel
 
 Walks along the sidewalk until approaching the crosswalk. Waits for the cars to pass, then crosses.
 """
