@@ -3,7 +3,8 @@ export
     ProportionalLaneTracker,
     LatLonSeparableDriver,
     Tim2DDriver,
-    track_lane!
+    track_lane!,
+    SidewalkPedestrianModel
 
 
 
@@ -12,3 +13,5 @@ include("lane_change_models/main.jl")
 
 include("lat_lon_separable_drivers.jl")
 include("tim2d_drivers.jl")
+
+include("sidewalk_pedestrian_models.jl")
