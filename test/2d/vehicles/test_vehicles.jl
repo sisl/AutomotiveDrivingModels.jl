@@ -60,3 +60,13 @@ let
     @test get_neighbor_fore_along_right_lane(scene,1,roadway) == NeighborLongitudinalResult(5,10.0)
     @test get_neighbor_rear_along_right_lane(scene,1,roadway) == NeighborLongitudinalResult(4,10.0)
 end
+
+
+let
+    ped=SidewalkPedestrianModel(timestep=0.1, 
+                                crosswalk=Frenet(NULL_ROADINDEX, 0.0, 0.0, 0.0),
+                                sw_origin = Frenet(NULL_ROADINDEX, 0.0, 0.0, 0.0),
+                                sw_dest = Frenet(NULL_ROADINDEX, 0.0, 0.0, 0.0)
+                                )
+    @test ped.ttc_threshold >= 1.0
+end
