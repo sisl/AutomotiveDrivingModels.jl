@@ -8,7 +8,7 @@ end
 Base.show(io::IO, a::LaneFollowingAccel) = @printf(io, "LaneFollowingAccel(%6.3f)", a.a)
 Base.length(::Type{LaneFollowingAccel}) = 1
 Base.convert(::Type{LaneFollowingAccel}, v::Vector{Float64}) = LaneFollowingAccel(v[1])
-function Base.copy!(v::Vector{Float64}, a::LaneFollowingAccel)
+function Base.copyto!(v::Vector{Float64}, a::LaneFollowingAccel)
     v[1] = a.a
     v
 end

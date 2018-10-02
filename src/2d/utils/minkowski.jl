@@ -61,12 +61,15 @@ mutable struct ConvexPolygon
     npts::Int # number of pts that are currently used (since we preallocate a longer array)
 end
 
-ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2}(npts), 0)
+ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2}(undef, npts), 0)
 ConvexPolygon(pts::Vector{VecE2}) = ConvexPolygon(pts, length(pts))
 
-Base.start(poly::ConvexPolygon) = 1
-Base.done(poly::ConvexPolygon, i::Int) = i > length(poly)
-Base.next(poly::ConvexPolygon, i::Int) = (poly.pts[i], i+1)
+function Base.iterate(poly::ConvexPolygon, i::Int=1)
+    if i > length(poly)
+        return nothing 
+    end
+    return (poly.pts[i], i+1)
+end
 
 Base.length(poly::ConvexPolygon) = poly.npts
 Base.isempty(poly::ConvexPolygon) = poly.npts == 0
@@ -76,9 +79,9 @@ function Base.empty!(poly::ConvexPolygon)
     poly.npts = 0
     poly
 end
-function Base.copy!(dest::ConvexPolygon, src::ConvexPolygon)
+function Base.copyto!(dest::ConvexPolygon, src::ConvexPolygon)
     dest.npts = src.npts
-    copy!(dest.pts, 1, src.pts, 1, src.npts)
+    copyto!(dest.pts, 1, src.pts, 1, src.npts)
     dest
 end
 function Base.push!(poly::ConvexPolygon, v::VecE2)
@@ -86,7 +89,7 @@ function Base.push!(poly::ConvexPolygon, v::VecE2)
     poly.npts += 1
     poly
 end
-function Base.contains(poly::ConvexPolygon, v::VecE2)
+function Base.in(v::VecE2, poly::ConvexPolygon)
 
     # does NOT include pts on the physical boundary
 
@@ -110,7 +113,7 @@ function Base.contains(poly::ConvexPolygon, v::VecE2)
     end
     true
 end
-Base.contains(poly::ConvexPolygon, v::VecSE2) = contains(poly, convert(VecE2, v))
+Base.in(v::VecSE2, poly::ConvexPolygon) = in(convert(VecE2, v), poly)
 function Base.show(io::IO, poly::ConvexPolygon)
     @printf(io, "ConvexPolygon: len %d (max %d pts)\n", length(poly), length(poly.pts))
     for i in 1 : length(poly)
@@ -121,7 +124,7 @@ end
 
 AutomotiveDrivingModels.get_center(poly::ConvexPolygon) = sum(poly.pts) / poly.npts
 function Vec.get_distance(poly::ConvexPolygon, v::VecE2; solid::Bool=true)
-    if solid && contains(poly, v)
+    if solid && in(v, poly)
         0.0
     else
         min_dist = Inf
@@ -145,7 +148,7 @@ function ensure_pts_sorted_by_min_polar_angle!(poly::ConvexPolygon, npts::Int=po
     for i in 1 : npts
         seg = get_edge(poly.pts, i, npts)
 
-        θ = atan2(seg.B.y - seg.A.y, seg.B.x - seg.A.x)
+        θ = atan(seg.B.y - seg.A.y, seg.B.x - seg.A.x)
         if θ < 0.0
             θ += 2π
         end
@@ -251,11 +254,11 @@ end
 
 function is_colliding(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
     minkowski_difference!(temp, P, Q)
-    contains(temp, VecE2(0,0))
+    in(VecE2(0,0), temp)
 end
 function Vec.get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
     minkowski_difference!(temp, P, Q)
-    get_distance(temp, VecE2(0,0))
+    get_distance(VecE2(0,0), temp)
 end
 
 function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
@@ -337,9 +340,9 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
     rel_pos = convert(VecE2, b.state.posG) - a.state.posG
     rel_velocity = polar(b.state.v, b.state.posG.θ) - polar(a.state.v, a.state.posG.θ)
     ray_speed = norm(VecE2(rel_velocity))
-    ray = VecSE2(rel_pos, atan2(rel_velocity))
+    ray = VecSE2(rel_pos, atan(rel_velocity))
 
-    if contains(mem.mink, convert(VecE2, ray))
+    if in(convert(VecE2, ray), mem.mink)
         return (0.0, 0.0)
     end
 
@@ -398,7 +401,7 @@ end
 """
 Loops through the scene and finds the first collision between a vehicle and scene[target_index]
 """
-function get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory())
+function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
     A = target_index
     vehA = scene[A]
     vehA = convert(Vehicle,vehA)
@@ -419,7 +422,7 @@ end
 """
 Loops through the scene and finds the first collision between any two vehicles
 """
-function get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory())
+function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
 
     N = length(vehicle_indeces)
     for (a,A) in enumerate(vehicle_indeces)
@@ -441,9 +444,9 @@ function get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},
 
     CollisionCheckResult(false, 0, 0)
 end
-get_first_collision{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, 1:length(scene), mem)
-is_collision_free{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) = !(get_first_collision(scene, mem).is_colliding)
-is_collision_free{S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) = get_first_collision(scene, vehicle_indeces, mem).is_colliding
+get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I} = get_first_collision(scene, 1:length(scene), mem)
+is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I} = !(get_first_collision(scene, mem).is_colliding)
+is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I} = get_first_collision(scene, vehicle_indeces, mem).is_colliding
 
 ###
 
@@ -455,13 +458,13 @@ Terminates the simulation once a collision occurs
 @with_kw struct CollisionCallback
     mem::CPAMemory=CPAMemory()
 end
-function run_callback{S,D,I,R,M<:DriverModel}(
+function run_callback(
     callback::CollisionCallback,
     rec::EntityQueueRecord{S,D,I},
     roadway::R,
     models::Dict{I,M},
     tick::Int,
-    )
+    ) where {S,D,I,R,M<:DriverModel}
 
     return !is_collision_free(rec[0], callback.mem)
 end

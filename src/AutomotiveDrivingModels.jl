@@ -1,9 +1,9 @@
-__precompile__()
-
 module AutomotiveDrivingModels
 
 using Reexport
 using Parameters
+using Printf
+using LinearAlgebra
 
 @reexport using Records
 @reexport using Distributions
