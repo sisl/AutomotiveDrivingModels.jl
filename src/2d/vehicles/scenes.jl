@@ -2,7 +2,7 @@ const Scene = Frame{Vehicle}
 Scene(n::Int=100) = Frame(Vehicle, n)
 Scene(arr::Vector{Vehicle}) = Frame{Vehicle}(arr, length(arr))
 
-Base.show(io, scene::Scene) = print(io, "Scene(with $(length(scene)) cars)")
+Base.show(io::IO, scene::Scene) = print(io, "Scene(with $(length(scene)) cars)")
 
 Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, BicycleModel, Int}) = Vehicle(veh.state, veh.def.def, veh.id)
 """

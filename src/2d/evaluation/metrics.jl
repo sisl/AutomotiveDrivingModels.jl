@@ -32,11 +32,11 @@ function extract!(
     pastframe = 1-nframes(rec_orig) + clamp(round(Int, metric.horizon/rec_orig.timestep), 0, nframes(rec_orig)-1)
 
     # pull true value
-    vehicle_index = findfirst(rec_orig[pastframe], egoid)
+    vehicle_index = findfirst(egoid, rec_orig[pastframe])
     v_true = convert(Float64, get(metric.f, rec_orig, roadway, vehicle_index, pastframe))
 
     # pull sim value
-    vehicle_index = findfirst(rec_sim[pastframe], egoid)
+    vehicle_index = findfirst(egoid, rec_sim[pastframe])
     v_montecarlo = convert(Float64, get(metric.f, rec_sim, roadway, vehicle_index, pastframe))
 
     Δ = v_true - v_montecarlo
@@ -66,7 +66,7 @@ end
 function extract_sum_square_jerk(rec::SceneRecord, roadway::Roadway, egoid::Int)
     sumsquarejerk = 0.0
     for pastframe in 3-nframes(rec) : 0
-        vehicle_index = findfirst(rec[pastframe], egoid)
+        vehicle_index = findfirst(egoid, rec[pastframe])
         jerk = convert(Float64, get(JERK, rec, roadway, vehicle_index, pastframe))
         sumsquarejerk += jerk*jerk
     end
@@ -148,9 +148,9 @@ function extract!(
     if isa(metric.f, AbstractFeature)
         F::AbstractFeature = metric.f
         pastframe = 0
-        vehicle_index = findfirst(rec_orig[pastframe], egoid)
+        vehicle_index = findfirst(egoid, rec_orig[pastframe])
         v_orig = convert(Float64, get(F, rec_orig, roadway, vehicle_index, pastframe))
-        vehicle_index = findfirst(rec_sim[pastframe], egoid)
+        vehicle_index = findfirst(egoid, rec_sim[pastframe])
         v_sim = convert(Float64, get(F, rec_sim, roadway, vehicle_index, pastframe))
     elseif isa(metric.f, SumSquareJerk)
         v_orig = extract_sum_square_jerk(rec_orig, roadway, egoid)
@@ -182,7 +182,7 @@ function extract_log_likelihood(model::DriverModel, rec::SceneRecord, roadway::R
     logl = 0.0
     for pastframe in pastframe_prime+1 : -1
         observe!(model, rec[pastframe], roadway, egoid)
-        vehicle_index = findfirst(rec[pastframe+1], egoid)
+        vehicle_index = findfirst(egoid, rec[pastframe+1])
         action = get(A, rec, roadway, vehicle_index, pastframe+1)
         logl += logpdf(model, action)
     end

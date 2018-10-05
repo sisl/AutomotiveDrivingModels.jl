@@ -615,7 +615,7 @@ function read_dxf(io::IO, ::Type{Roadway};
 
     lines = readlines(io)
 
-    i = findfirst(lines, "ENTITIES\n")
+    i = findfirst(isequal("ENTITIES\n"), lines)
     i != nothing || error("ENTITIES section not found")
 
     ###################################################

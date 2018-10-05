@@ -100,7 +100,7 @@ function _get_feature_derivative_backwards(
     if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
-        veh_index_prev = findfirst(rec[pastframe2], id)
+        veh_index_prev = findfirst(id, rec[pastframe2])
 
         if veh_index_prev != nothing
             curr = convert(Float64, get(f, rec, roadway, veh_index_curr, pastframe))

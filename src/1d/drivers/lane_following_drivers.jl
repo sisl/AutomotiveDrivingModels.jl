@@ -3,7 +3,7 @@ track_longitudinal!(model::LaneFollowingDriver, v_ego::Float64, v_oth::Float64, 
 
 function observe!(model::LaneFollowingDriver, scene::Scene1D, roadway::StraightRoadway, egoid::Int)
 
-    vehicle_index = findfirst(scene, egoid)
+    vehicle_index = findfirst(egoid, scene)
 
     fore_res = get_neighbor_fore(scene, vehicle_index, roadway)
 

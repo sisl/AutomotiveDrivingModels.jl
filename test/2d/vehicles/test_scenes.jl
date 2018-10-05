@@ -37,13 +37,13 @@ let
     @test scene2[1].state == get_state(trajdata, 1, 1)
     @test scene2[1].def == get_def(trajdata, 1)
 
-    @test findfirst(scene, 1) == 1
-    @test findfirst(scene, 2) == 2
+    @test findfirst(1, scene) == 1
+    @test findfirst(2, scene) == 2
     @test get_first_available_id(scene) == 3
 
-    @test in(scene, 1)
-    @test in(scene, 2)
-    @test !in(scene, 3)
+    @test in(1, scene)
+    @test in(2, scene)
+    @test !in(3, scene)
 
     veh = scene[2]
     @test veh.state == get_state(trajdata, 2, 1)

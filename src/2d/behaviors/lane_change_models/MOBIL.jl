@@ -40,7 +40,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
     rec = model.rec
     update!(rec, scene)
 
-    vehicle_index = findfirst(rec[0], egoid)
+    vehicle_index = findfirst(egoid, rec[0])
     veh_ego = scene[vehicle_index]
     v = veh_ego.state.v
     egostate_M = veh_ego.state

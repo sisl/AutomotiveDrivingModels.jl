@@ -113,7 +113,7 @@ function simulate!(
         ego_action = rand(model)
         ego_state = propagate(ego_veh, ego_action, roadway, get_timestep(rec))
         ego_veh = Entity(ego_veh, ego_state)
-        scene[findfirst(scene, ego_veh.id)] = ego_veh
+        scene[findfirst(ego_veh.id, scene)] = ego_veh
 
         # update record
         update!(rec, scene)
