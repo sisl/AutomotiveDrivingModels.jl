@@ -101,7 +101,7 @@ function interpolate_to_timestep!(tdem::TrajdataEditMode, timestep::Float64)
         scenes[i] = Scene(min(length(scene_lo), length(scene_hi)))
         for veh_lo in scene_lo
             id = veh_lo.id
-            veh_index = findfirst(scene_hi, id)
+            veh_index = findfirst(id, scene_hi)
             if veh_index != nothing
                 veh_hi = scene_hi[veh_index]
                 @assert(veh_lo.def == veh_hi.def)

@@ -26,7 +26,7 @@ function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R
     if pastframe_inbounds(rec, pastframe2)
 
         veh_index_curr = vehicle_index
-        veh_index_prev = findfirst(rec[pastframe2], id)
+        veh_index_prev = findfirst(id, rec[pastframe2])
 
         if veh_index_prev != nothing
             curr = rec[pastframe][veh_index_curr].state.posG.θ
@@ -256,7 +256,7 @@ function Base.get(::Feature_Time_Consecutive_Brake, rec::SceneRecord, roadway::R
         pastframe_orig = pastframe
         id = rec[pastframe][vehicle_index].id
         while pastframe_inbounds(rec, pastframe-1) &&
-              get(ACC, rec, roadway, findfirst(rec[pastframe-1], id)) < 0.0
+              get(ACC, rec, roadway, findfirst(id, rec[pastframe-1])) < 0.0
 
             pastframe -= 1
         end
@@ -275,7 +275,7 @@ function Base.get(::Feature_Time_Consecutive_Accel, rec::SceneRecord, roadway::R
         pastframe_orig = pastframe
         id = rec[pastframe][vehicle_index].id
         while pastframe_inbounds(rec, pastframe-1) &&
-              get(ACC, rec, roadway, findfirst(rec[pastframe-1], id)) > 0.0
+              get(ACC, rec, roadway, findfirst(id, rec[pastframe-1])) > 0.0
 
             pastframe -= 1
         end
