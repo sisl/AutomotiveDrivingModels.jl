@@ -113,7 +113,7 @@ function Base.in(v::VecE2, poly::ConvexPolygon)
     end
     true
 end
-Base.in(v::VecSE2, poly::ConvexPolygon) = in(convert(VecE2, v), poly)
+Base.in(v::VecSE2{Float64}, poly::ConvexPolygon) = in(convert(VecE2, v), poly)
 function Base.show(io::IO, poly::ConvexPolygon)
     @printf(io, "ConvexPolygon: len %d (max %d pts)\n", length(poly), length(poly.pts))
     for i in 1 : length(poly)
@@ -261,7 +261,7 @@ function Vec.get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygo
     get_distance(VecE2(0,0), temp)
 end
 
-function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2, len::Float64, wid::Float64)
+function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64}, len::Float64, wid::Float64)
 
     @assert(len > 0)
     @assert(wid > 0)
@@ -283,8 +283,8 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2, len::F
 
     retval
 end
-get_oriented_bounding_box(center::VecSE2, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
-function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2 = get_center(veh))
+get_oriented_bounding_box(center::VecSE2{Float64}, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
+function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2{Float64} = get_center(veh))
 
     # get an oriented bounding box at the vehicle's position
 
@@ -292,11 +292,11 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::
 
     retval
 end
-get_oriented_bounding_box(veh::Vehicle, center::VecSE2 = get_center(veh)) = to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
+get_oriented_bounding_box(veh::Vehicle, center::VecSE2{Float64} = get_center(veh)) = to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
 
 ######################################
 
-function is_colliding(ray::VecSE2, poly::ConvexPolygon)
+function is_colliding(ray::VecSE2{Float64}, poly::ConvexPolygon)
     # collides if at least one of the segments collides with the ray
 
     for i in 1 : length(poly)
@@ -307,7 +307,7 @@ function is_colliding(ray::VecSE2, poly::ConvexPolygon)
     end
     false
 end
-function get_collision_time(ray::VecSE2, poly::ConvexPolygon, ray_speed::Float64)
+function get_collision_time(ray::VecSE2{Float64}, poly::ConvexPolygon, ray_speed::Float64)
     min_col_time = Inf
     for i in 1 : length(poly)
         seg = get_edge(poly, i)

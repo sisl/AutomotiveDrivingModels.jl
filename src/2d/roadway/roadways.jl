@@ -1,7 +1,7 @@
 
 struct LaneTag
-    segment :: Int # segment id
-    lane    :: Int # index in segment.lanes of this lane
+    segment::Int64 # segment id
+    lane::Int64 # index in segment.lanes of this lane
 end
 Base.show(io::IO, tag::LaneTag) = @printf(io, "LaneTag(%d, %d)", tag.segment, tag.lane)
 hash(id::LaneTag, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
@@ -327,7 +327,7 @@ struct RoadProjection
     tag::LaneTag
 end
 
-function get_closest_perpendicular_point_between_points(A::VecSE2, B::VecSE2, Q::VecSE2;
+function get_closest_perpendicular_point_between_points(A::VecSE2{Float64}, B::VecSE2{Float64}, Q::VecSE2{Float64};
     tolerance::Float64 = 0.01, # acceptable error in perpendicular component
     max_iter::Int = 50, # maximum number of iterations
     )
@@ -379,11 +379,11 @@ function get_closest_perpendicular_point_between_points(A::VecSE2, B::VecSE2, Q:
 end
 
 """
-    proj(posG::VecSE2, lane::Lane, roadway::Roadway)
+    proj(posG::VecSE2{Float64}, lane::Lane, roadway::Roadway)
 Return the RoadProjection for projecting posG onto the lane.
 This will automatically project to the next or prev curve as appropriate.
 """
-function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway;
+function Vec.proj(posG::VecSE2{Float64}, lane::Lane, roadway::Roadway;
     move_along_curves::Bool = true, # if false, will only project to lane.curve
     )
     curveproj = proj(posG, lane.curve)
@@ -434,11 +434,11 @@ function Vec.proj(posG::VecSE2, lane::Lane, roadway::Roadway;
 end
 
 """
-    proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
+    proj(posG::VecSE2{Float64}, seg::RoadSegment, roadway::Roadway)
 Return the RoadProjection for projecting posG onto the segment.
 Tries all of the lanes and gets the closest one
 """
-function Vec.proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
+function Vec.proj(posG::VecSE2{Float64}, seg::RoadSegment, roadway::Roadway)
 
     best_dist2 = Inf
     best_proj = RoadProjection(CurveProjection(CurveIndex(-1,-1), NaN, NaN), NULL_LANETAG)
@@ -457,11 +457,11 @@ function Vec.proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
 end
 
 """
-    proj(posG::VecSE2, seg::RoadSegment, roadway::Roadway)
+    proj(posG::VecSE2{Float64}, seg::RoadSegment, roadway::Roadway)
 Return the RoadProjection for projecting posG onto the roadway.
 Tries all of the lanes and gets the closest one
 """
-function Vec.proj(posG::VecSE2, roadway::Roadway)
+function Vec.proj(posG::VecSE2{Float64}, roadway::Roadway)
 
     best_dist2 = Inf
     best_proj = RoadProjection(CurveProjection(CurveIndex(-1,-1), NaN, NaN), NULL_LANETAG)

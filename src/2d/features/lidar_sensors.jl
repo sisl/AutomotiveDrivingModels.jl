@@ -66,7 +66,7 @@ function observe!(lidar::LidarSensor, scene::Scene, roadway::Roadway, vehicle_in
 
     lidar
 end
-# function render_lidar!(rendermodel::RenderModel, lidar::LidarSensor, posG::VecSE2;
+# function render_lidar!(rendermodel::RenderModel, lidar::LidarSensor, posG::VecSE2{Float64};
 #     color::Colorant=colorant"white",
 #     line_width::Float64 = 0.05,
 #     )
@@ -107,7 +107,7 @@ function RoadlineLidarSensor(nbeams::Int;
     ranges = Array{Float64}(max_depth, nbeams)
     RoadlineLidarSensor(angles, ranges, max_range, ConvexPolygon(4))
 end
-function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int, p_lo::VecE2, p_hi::VecE2)
+function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_index::Int, p_lo::VecE2, p_hi::VecE2)
     test_range = get_intersection_time(Projectile(ray, 1.0),
         AutomotiveDrivingModels.LineSegment(p_lo, p_hi))
 
@@ -126,7 +126,7 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int
 
     lidar
 end
-function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int, lane::Lane, roadway::Roadway; check_right_lane::Bool=false)
+function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_index::Int, lane::Lane, roadway::Roadway; check_right_lane::Bool=false)
     halfwidth = lane.width/2
     Δ = check_right_lane ? -π/2 : π/2
     p_lo = convert(VecE2, lane.curve[1].pos + polar(halfwidth, lane.curve[1].pos.θ + Δ))
@@ -143,7 +143,7 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int
     end
     lidar
 end
-function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int, roadway::Roadway)
+function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_index::Int, roadway::Roadway)
 
     for seg in roadway.segments
         for lane in seg.lanes
@@ -175,7 +175,7 @@ function observe!(lidar::RoadlineLidarSensor, scene::Scene, roadway::Roadway, ve
 
     lidar
 end
-# function render_lidar!(rendermodel::RenderModel, lidar::RoadlineLidarSensor, posG::VecSE2;
+# function render_lidar!(rendermodel::RenderModel, lidar::RoadlineLidarSensor, posG::VecSE2{Float64};
 #     color::Colorant=RGBA(1.0,1.0,1.0,0.5),
 #     line_width::Float64 = 0.05,
 #     depth_level::Int = 1, # if 1, render first lanes struck by beams, if 2 render 2nd ...
@@ -371,7 +371,7 @@ end
 
 function _update_lidar!(
     lidar::RoadlineLidarSensor,
-    ray::VecSE2,
+    ray::VecSE2{Float64},
     beam_index::Int,
     roadway::Roadway,
     lane_portion::LanePortion;
@@ -397,7 +397,7 @@ function _update_lidar!(
     end
     lidar
 end
-function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2, beam_index::Int, roadway::Roadway, rlc::RoadwayLidarCulling)
+function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_index::Int, roadway::Roadway, rlc::RoadwayLidarCulling)
 
     leaf = get(rlc, ray.x, ray.y)
     for lane_portion in leaf.lane_portions

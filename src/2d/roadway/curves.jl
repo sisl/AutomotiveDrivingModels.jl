@@ -1,11 +1,11 @@
 
 struct CurvePt
-    pos::VecSE2 # global position and orientation
+    pos::VecSE2{Float64} # global position and orientation
     s::Float64  # distance along the curve
     k::Float64  # curvature
     kd::Float64 # derivative of curvature
 
-    CurvePt(pos::VecSE2, s::Float64, k::Float64=NaN, kd::Float64=NaN) = new(pos, s, k, kd)
+    CurvePt(pos::VecSE2{Float64}, s::Float64, k::Float64=NaN, kd::Float64=NaN) = new(pos, s, k, kd)
 end
 Base.show(io::IO, pt::CurvePt) = @printf(io, "CurvePt({%.3f, %.3f, %.3f}, %.3f, %.3f, %.3f)", pt.pos.x, pt.pos.y, pt.pos.θ, pt.s, pt.k, pt.kd)
 
@@ -36,18 +36,18 @@ function get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
 
     t
 end
-get_lerp_time_unclamped(A::VecSE2, B::VecSE2, Q::VecSE2) = get_lerp_time_unclamped(convert(VecE2, A), convert(VecE2, B), convert(VecE2, Q))
-get_lerp_time_unclamped(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time_unclamped(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
+get_lerp_time_unclamped(A::VecSE2{Float64}, B::VecSE2{Float64}, Q::VecSE2{Float64}) = get_lerp_time_unclamped(convert(VecE2, A), convert(VecE2, B), convert(VecE2, Q))
+get_lerp_time_unclamped(A::CurvePt, B::CurvePt, Q::VecSE2{Float64}) = get_lerp_time_unclamped(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
 
 """
     get_lerp_time(A::VecE2, B::VecE2, Q::VecE2)
 Get lerp time t∈[0,1] such that lerp(A, B) is as close as possible to Q
 """
 get_lerp_time(A::VecE2, B::VecE2, Q::VecE2) = clamp(get_lerp_time_unclamped(A, B, Q), 0.0, 1.0)
-get_lerp_time(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
+get_lerp_time(A::CurvePt, B::CurvePt, Q::VecSE2{Float64}) = get_lerp_time(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
 
 struct CurveIndex
-    i::Int     # index in curve, ∈ [1:length(curve)-1]
+    i::Int64     # index in curve, ∈ [1:length(curve)-1]
     t::Float64 # ∈ [0,1] for linear interpolation
 end
 const CURVEINDEX_START = CurveIndex(1,0.0)
@@ -208,16 +208,16 @@ struct CurveProjection
     ϕ::Float64 # lane-relative heading [rad]
 end
 Base.show(io::IO, curveproj::CurveProjection) = @printf(io, "CurveProjection({%d, %.3f}, %.3f, %.3f)", curveproj.ind.i, curveproj.ind.t, curveproj.t, curveproj.ϕ)
-function get_curve_projection(posG::VecSE2, footpoint::VecSE2, ind::CurveIndex)
+function get_curve_projection(posG::VecSE2{Float64}, footpoint::VecSE2{Float64}, ind::CurveIndex)
     F = inertial2body(posG, footpoint)
     CurveProjection(ind, F.y, F.θ)
 end
 
 """
-    Vec.proj(posG::VecSE2, curve::Curve)
+    Vec.proj(posG::VecSE2{Float64}, curve::Curve)
 Return a CurveProjection obtained by projecting posG onto the curve
 """
-function Vec.proj(posG::VecSE2, curve::Curve)
+function Vec.proj(posG::VecSE2{Float64}, curve::Curve)
 
     ind = index_closest_to_point(curve, posG)::Int
 

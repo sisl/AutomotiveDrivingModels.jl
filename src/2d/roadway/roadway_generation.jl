@@ -23,7 +23,7 @@ function gen_straight_curve(A::VecE2, B::VecE2, nsamples::Int)
 end
 
 function gen_straight_segment(seg_id::Int, nlanes::Int, length::Float64=1000.0;
-    origin::VecSE2 = VecSE2(0.0,0.0,0.0),
+    origin::VecSE2{Float64} = VecSE2(0.0,0.0,0.0),
     lane_width::Float64=DEFAULT_LANE_WIDTH, # [m]
     lane_widths::Vector{Float64} = fill(lane_width, nlanes),
     boundary_leftmost::LaneBoundary=LaneBoundary(:solid, :white),
@@ -58,7 +58,7 @@ cubic bezier lerp
 """
 Vec.lerp(A::VecE2, B::VecE2, C::VecE2, D::VecE2, t::Float64) = (1-t)^3*A + 3*(1-t)^2*t*B + 3*(1-t)*t^2*C + t^3*D
 
-function gen_bezier_curve(A::VecSE2, B::VecSE2, rA::Float64, rB::Float64, nsamples::Int)
+function gen_bezier_curve(A::VecSE2{Float64}, B::VecSE2{Float64}, rA::Float64, rB::Float64, nsamples::Int)
 
     a = convert(VecE2, A)
     d = convert(VecE2, B)
@@ -91,7 +91,7 @@ Generate a roadway with a single straight segment whose rightmost lane center st
 and proceeds in the positive x direction.
 """
 function gen_straight_roadway(nlanes::Int, length::Float64=1000.0;
-    origin::VecSE2 = VecSE2(0.0,0.0,0.0),
+    origin::VecSE2{Float64} = VecSE2(0.0,0.0,0.0),
     lane_width::Float64=DEFAULT_LANE_WIDTH, # [m]
     lane_widths::Vector{Float64} = fill(lane_width, nlanes),
     boundary_leftmost::LaneBoundary=LaneBoundary(:solid, :white),

@@ -10,7 +10,7 @@ end
     Vehicle definition which contains a class and a bounding box.
 """
 struct VehicleDef
-    class::Int # ∈ AgentClass
+    class::Int64 # ∈ AgentClass
     length::Float64
     width::Float64
 end

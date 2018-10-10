@@ -28,8 +28,8 @@ function Frenet(lane::Lane, s::Float64, t::Float64=0.0, ϕ::Float64=0.0)
     roadind = RoadIndex(get_curve_index(lane.curve, s), lane.tag)
     return Frenet(roadind, s, t, ϕ)
 end
-Frenet(posG::VecSE2, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
-Frenet(posG::VecSE2, lane::Lane, roadway::Roadway) = Frenet(proj(posG, lane, roadway), roadway)
+Frenet(posG::VecSE2{Float64}, roadway::Roadway) = Frenet(proj(posG, roadway), roadway)
+Frenet(posG::VecSE2{Float64}, lane::Lane, roadway::Roadway) = Frenet(proj(posG, lane, roadway), roadway)
 
 function get_posG(frenet::Frenet, roadway::Roadway)
     curvept = roadway[frenet.roadind]

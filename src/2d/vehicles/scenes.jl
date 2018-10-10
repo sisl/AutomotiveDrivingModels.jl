@@ -15,7 +15,7 @@ in front of it with the smallest distance along the lane
     If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
 """
 struct NeighborLongitudinalResult
-    ind::Int # index in scene of the neighbor
+    ind::Int64 # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
 
@@ -424,7 +424,7 @@ struct FrenetRelativePosition
     t::Float64
     ϕ::Float64
 end
-function get_frenet_relative_position(posG::VecSE2, roadind::RoadIndex, roadway::Roadway;
+function get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex, roadway::Roadway;
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     max_distance_rear::Float64 = 250.0, # max distance to search backward [m]
     improvement_threshold::Float64 = 1e-4,
