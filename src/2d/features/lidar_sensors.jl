@@ -26,7 +26,7 @@ function LidarSensor(nbeams::Int;
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset-angle_spread/2,angle_offset + angle_spread/2,nbeams+1))[2:end]
+        angles = collect(range(angle_offset-angle_spread/2,angle_offset + angle_spread/2,nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
@@ -99,7 +99,7 @@ function RoadlineLidarSensor(nbeams::Int;
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset,2*pi+angle_offset,nbeams+1))[2:end]
+        angles = collect(range(angle_offset,2*pi+angle_offset,nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
