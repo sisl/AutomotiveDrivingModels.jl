@@ -1,3 +1,11 @@
+#=
+A simple lane change behavior that changes lanes whenever the lead car is going slower than our desired speed.
+Lane changes are made when there is an available lane, fore/rear gaps exceed our thresholds, we are faster 
+than a rear vehicle in the target lane, and any lead vehicle in the target lane is faster than we can currently go.
+
+Has not been published anywhere, so first use in a paper would have to describe this.
+See MOBIL if you want a lane changer you can cite.
+=#
 mutable struct TimLaneChanger <: LaneChangeModel
     dir::Int
     rec::SceneRecord
