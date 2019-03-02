@@ -26,6 +26,10 @@ jobs:
       julia: 1.0
       os: linux
       script:
-        - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()));Pkg.build(PackageSpec(path=pwd());Pkg.instantiate()'
+        - julia --project=docs/ -e 'using Pkg; 
+				Pkg.add(PackageSpec(url="https://github.com/sisl/Records.jl")); 
+				Pkg.add(PackageSpec(url="https://github.com/sisl/Vec.jl"));
+				Pkg.develop(PackageSpec(path=pwd()));
+				Pkg.instantiate()'
         - julia --project=docs/ docs/make.jl
       after_success: skip
