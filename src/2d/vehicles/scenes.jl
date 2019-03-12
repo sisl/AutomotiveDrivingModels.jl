@@ -12,10 +12,10 @@ in front of it with the smallest distance along the lane
 
     The method will search on the current lane first, and if no vehicle is found it
     will continue to travel along the lane following next_lane(lane, roadway).
-    If no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.
+    If no vehicle is found within `max_distance_fore,` a value of `nothing` is returned instead.
 """
 struct NeighborLongitudinalResult
-    ind::Int64 # index in scene of the neighbor
+    ind::Union{Nothing, Int64} # index in scene of the neighbor
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
 
@@ -46,7 +46,7 @@ function get_neighbor_fore_along_lane(
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     index_to_ignore::Int=-1,
     ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
-    best_ind = 0
+    best_ind = nothing
     best_dist = max_distance_fore
     tag_target = tag_start
 
@@ -87,7 +87,7 @@ function get_neighbor_fore_along_lane(
             end
         end
 
-        if best_ind != 0
+        if best_ind != nothing
             break
         end
 

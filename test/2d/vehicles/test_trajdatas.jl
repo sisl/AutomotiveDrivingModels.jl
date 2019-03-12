@@ -35,10 +35,10 @@ let
 
     @test findfirst_frame_with_id(trajdata, 1) == 1
     @test findfirst_frame_with_id(trajdata, 2) == 1
-    @test findfirst_frame_with_id(trajdata, -1) == 0
+    @test findfirst_frame_with_id(trajdata, -1) == nothing
     @test findlast_frame_with_id(trajdata, 1) == 2
     @test findlast_frame_with_id(trajdata, 2) == 2
-    @test findlast_frame_with_id(trajdata, -1) == 0
+    @test findlast_frame_with_id(trajdata, -1) == nothing
 
     @test sort!(get_ids(trajdata)) == [1,2]
 
@@ -58,7 +58,7 @@ let
 
     veh = get(trajdata, 1, 1)
     @test veh.state == VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0)
-    @test_throws BoundsError get(trajdata, 10, 1)
+    @test_throws ArgumentError get(trajdata, 10, 1)
     @test_throws BoundsError get(trajdata, 1, 10)
 
     let

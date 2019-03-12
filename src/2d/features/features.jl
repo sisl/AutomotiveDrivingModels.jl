@@ -302,7 +302,7 @@ function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehi
     censor_hi::Float64=100.0,
     )
 
-    if neighborfore.ind == 0
+    if neighborfore.ind == nothing
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
@@ -316,7 +316,7 @@ function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, veh
     neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
     )
 
-    if neighborfore.ind == 0
+    if neighborfore.ind == nothing
         FeatureValue(0.0, FeatureState.MISSING)
     else
         FeatureValue(rec[pastframe][neighborfore.ind].state.v)
@@ -330,7 +330,7 @@ function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle
 
     v = rec[pastframe][vehicle_index].state.v
 
-    if v ≤ 0.0 || neighborfore.ind == 0
+    if v ≤ 0.0 || neighborfore.ind == nothing
         FeatureValue(censor_hi, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
@@ -353,7 +353,7 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
     )
 
 
-    if neighborfore.ind == 0
+    if neighborfore.ind == nothing
         FeatureValue(0.0, FeatureState.MISSING)
     else
         scene = rec[pastframe]
@@ -436,7 +436,7 @@ function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehic
     censor_hi::Float64=100.0,
     )
 
-    if neighborrear.ind == 0
+    if neighborrear.ind == nothing
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
@@ -450,7 +450,7 @@ function Base.get(::Feature_Speed_Rear, rec::SceneRecord, roadway::Roadway, vehi
     neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(rec[pastframe], vehicle_index, roadway),
     )
 
-    if neighborrear.ind == 0
+    if neighborrear.ind == nothing
         FeatureValue(0.0, FeatureState.MISSING)
     else
         FeatureValue(rec[pastframe][neighborrear.ind].state.v)

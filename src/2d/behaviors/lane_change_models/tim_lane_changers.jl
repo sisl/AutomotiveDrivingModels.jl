@@ -69,19 +69,19 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
             if right_lane_exists &&
                fore_R.Δs > model.threshold_lane_change_gap_rear && # there is space rear
                rear_R.Δs > model.threshold_lane_change_gap_fore && # there is space fore
-               (rear_R.ind == 0 || scene[rear_R.ind].state.v ≤ v) && # we are faster than any follower
-               (fore_R.ind == 0 || scene[fore_R.ind].state.v > speed_ahead) # lead is faster than current speed
+               (rear_R.ind == nothing || scene[rear_R.ind].state.v ≤ v) && # we are faster than any follower
+               (fore_R.ind == nothing || scene[fore_R.ind].state.v > speed_ahead) # lead is faster than current speed
 
-                speed_ahead = fore_R.ind != 0 ? scene[fore_R.ind].state.v : Inf
+                speed_ahead = fore_R.ind != nothing ? scene[fore_R.ind].state.v : Inf
                 model.dir = DIR_RIGHT
             end
             if left_lane_exists &&
                fore_L.Δs > model.threshold_lane_change_gap_rear && # there is space rear
                rear_L.Δs > model.threshold_lane_change_gap_fore && # there is space fore
-               (rear_L.ind == 0 || scene[rear_L.ind].state.v ≤ v) && # we are faster than any follower
-               (fore_L.ind == 0 || scene[fore_L.ind].state.v > speed_ahead) # lead is faster than current speed
+               (rear_L.ind == nothing || scene[rear_L.ind].state.v ≤ v) && # we are faster than any follower
+               (fore_L.ind == nothing || scene[fore_L.ind].state.v > speed_ahead) # lead is faster than current speed
 
-                speed_ahead = fore_L.ind != 0 ? scene[fore_L.ind].state.v : Inf
+                speed_ahead = fore_L.ind != nothing ? scene[fore_L.ind].state.v : Inf
                 model.dir = DIR_LEFT
             end
         end

@@ -30,7 +30,7 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
 end
 function track_longitudinal!(driver::LaneFollowingDriver, scene::Scene, roadway::Roadway, vehicle_index::Int, fore::NeighborLongitudinalResult)
     v_ego = scene[vehicle_index].state.v
-    if fore.ind != 0
+    if fore.ind != nothing
         headway, v_oth = fore.Δs, scene[fore.ind].state.v
     else
         headway, v_oth = NaN, NaN
