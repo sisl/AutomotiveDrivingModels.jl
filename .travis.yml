@@ -13,12 +13,12 @@ matrix:
     - julia: nightly
 notifications:
   email: false
-script:
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --project -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/sisl/Records.jl"));
-                                   Pkg.add(PackageSpec(url="https://github.com/sisl/Vec.jl"));
-                                   Pkg.build("AutomotiveDrivingModels");
-                                   Pkg.test("AutomotiveDrivingModels"; coverage=true)'
+# script:
+#   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+#   - julia --project -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/sisl/Records.jl"));
+#                                    Pkg.add(PackageSpec(url="https://github.com/sisl/Vec.jl"));
+#                                    Pkg.build("AutomotiveDrivingModels");
+#                                    Pkg.test("AutomotiveDrivingModels"; coverage=true)'
 
 after_success:
   - julia --project -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
