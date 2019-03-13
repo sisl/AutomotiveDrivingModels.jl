@@ -50,9 +50,9 @@ let
     @test veh.def == get_def(trajdata, 2)
 
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 1, roadway) == NeighborLongitudinalResult(2, 3.0078125)
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 2, roadway) == NeighborLongitudinalResult(0, 250.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 1), 2, roadway) == NeighborLongitudinalResult(nothing, 250.0)
     @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 1, roadway) == NeighborLongitudinalResult(2, 4.0)
-    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 2, roadway) == NeighborLongitudinalResult(0, 250.0)
+    @test get_neighbor_fore_along_lane(get!(Scene(), trajdata, 2), 2, roadway) == NeighborLongitudinalResult(nothing, 250.0)
 
     push!(scene, get_state(trajdata, 1, 1))
 end

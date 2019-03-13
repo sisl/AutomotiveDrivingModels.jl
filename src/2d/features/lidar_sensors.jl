@@ -297,7 +297,7 @@ function get_lane_portions(roadway::Roadway, x::Real, y::Real, lane_portion_max_
             i = findfirst(f, lane.curve)
             if i != nothing
                 j = findlast(f, lane.curve)
-                @assert(j != 0)
+                @assert(j != nothing)
                 push!(lane_portions, LanePortion(lane.tag, i, j))
             end
         end

@@ -13,7 +13,7 @@ function observe!(model::LaneFollowingDriver, scene::Scene, roadway::Roadway, eg
     v_oth = NaN
     headway = NaN
 
-    if fore.ind != 0
+    if fore.ind != nothing
         v_oth = scene[fore.ind].state.v
         headway = fore.Δs
     end
