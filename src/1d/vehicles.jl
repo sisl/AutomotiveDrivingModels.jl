@@ -13,7 +13,7 @@ function get_headway(veh_rear::Vehicle1D, veh_fore::Vehicle1D, roadway::Straight
 end
 function get_neighbor_fore(scene::Scene1D, vehicle_index::Int, roadway::StraightRoadway)
     ego = scene[vehicle_index]
-    best_ind = 0
+    best_ind = nothing
     best_gap = Inf
     for (i,veh) in enumerate(scene)
         if i != vehicle_index
@@ -27,7 +27,7 @@ function get_neighbor_fore(scene::Scene1D, vehicle_index::Int, roadway::Straight
 end
 function get_neighbor_rear(scene::Scene1D, vehicle_index::Int, roadway::StraightRoadway)
     ego = scene[vehicle_index]
-    best_ind = 0
+    best_ind = nothing
     best_gap = Inf
     for (i,veh) in enumerate(scene)
         if i != vehicle_index
