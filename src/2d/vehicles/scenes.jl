@@ -228,7 +228,7 @@ function get_neighbor_rear_along_lane(
     index_to_ignore::Int=-1,
     ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
 
-    best_ind = 0
+    best_ind = nothing
     best_dist = max_distance_rear
     tag_target = tag_start
 
@@ -277,7 +277,7 @@ function get_neighbor_rear_along_lane(
             end
         end
 
-        if best_ind != 0
+        if best_ind != nothing
             break
         end
 

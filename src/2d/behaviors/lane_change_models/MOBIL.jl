@@ -121,7 +121,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
 
         Δaccel_n = 0.0
         passes_safety_criterion = true
-        if rear_L.ind != 0
+        if rear_L.ind != nothing
             id = scene[rear_L.ind].id
             accel_n_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
             veh_ego = Entity(veh_ego, egostate_L)
@@ -139,7 +139,7 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
 
 
             Δaccel_o = 0.0
-            if rear_M.ind != 0
+            if rear_M.ind != nothing
                 id = scene[rear_M.ind].id
                 accel_o_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, id)).a
                 veh_ego = Entity(veh_ego, egostate_L)
