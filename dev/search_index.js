@@ -93,7 +93,7 @@ var documenterSearchIndex = {"docs": [
     "page": "List of functions",
     "title": "AutomotiveDrivingModels.NeighborLongitudinalResult",
     "category": "type",
-    "text": "get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)\n\nReturn the index of the vehicle that is in the same lane as scene[vehicle_index] and in front of it with the smallest distance along the lane\n\nThe method will search on the current lane first, and if no vehicle is found it\nwill continue to travel along the lane following next_lane(lane, roadway).\nIf no vehicle is found within `max_distance_fore,` a value of 0 is returned instead.\n\n\n\n\n\n"
+    "text": "get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)\n\nReturn the index of the vehicle that is in the same lane as scene[vehicle_index] and in front of it with the smallest distance along the lane\n\nThe method will search on the current lane first, and if no vehicle is found it\nwill continue to travel along the lane following next_lane(lane, roadway).\nIf no vehicle is found within `max_distance_fore,` a value of `nothing` is returned instead.\n\n\n\n\n\n"
 },
 
 {
