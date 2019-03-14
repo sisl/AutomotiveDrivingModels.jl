@@ -46,7 +46,7 @@ function observe!(lidar::LidarSensor, scene::Scene, roadway::Roadway, vehicle_in
     in_range_ids = Set()
     for veh in scene
         if veh.id != egoid 
-            distance = hypot(state_ego.posG - veh.state.posG)
+            distance = norm(VecE2(state_ego.posG - veh.state.posG))
             # account for the length and width of the vehicle by considering
             # the worst case where their maximum radius is aligned
             distance = distance - hypot(veh.def.length/2.,veh.def.width/2.)
