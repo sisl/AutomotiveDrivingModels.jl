@@ -26,7 +26,7 @@ function LidarSensor(nbeams::Int;
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset-angle_spread/2,angle_offset + angle_spread/2,nbeams+1))[2:end]
+        angles = collect(range(angle_offset-angle_spread/2, stop=angle_offset + angle_spread/2, length=nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
@@ -99,12 +99,12 @@ function RoadlineLidarSensor(nbeams::Int;
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset,2*pi+angle_offset,nbeams+1))[2:end]
+        angles = collect(range(angle_offset, stop=2*pi+angle_offset, length=nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
     end
-    ranges = Array{Float64}(max_depth, nbeams)
+    ranges = Array{Float64}(undef, max_depth, nbeams)
     RoadlineLidarSensor(angles, ranges, max_range, ConvexPolygon(4))
 end
 function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_index::Int, p_lo::VecE2, p_hi::VecE2)
