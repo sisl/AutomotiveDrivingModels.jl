@@ -23,7 +23,12 @@ end
 function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_oth::Float64, headway::Float64)
 
     if !isnan(v_oth)
-        @assert !isnan(headway) && headway > 0
+        @assert !isnan(headway)
+        if headway < 0.0
+            @warn("IntelligentDriverModel Warning: IDM received a negative headway $headway"*
+                  ", a collision may have occured.")
+            model.a = model.d_max
+        end
 
         Δv = v_oth - v_ego
         s_des = model.s_min + v_ego*model.T - v_ego*Δv / (2*sqrt(model.a_max*model.d_cmf))
@@ -39,7 +44,7 @@ function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_ot
 
     model.a = clamp(model.a, -model.d_max, model.a_max)
 
-    model
+    return model
 end
 function Base.rand(model::IntelligentDriverModel)
     if isnan(model.σ) || model.σ ≤ 0.0
