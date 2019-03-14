@@ -26,7 +26,7 @@ function LidarSensor(nbeams::Int;
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset-angle_spread/2,angle_offset + angle_spread/2,nbeams+1))[2:end]
+        angles = collect(range(angle_offset-angle_spread/2, stop=angle_offset + angle_spread/2, length=nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
@@ -41,6 +41,22 @@ function observe!(lidar::LidarSensor, scene::Scene, roadway::Roadway, vehicle_in
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(state_ego.v, state_ego.posG.θ)
+
+    # precompute the set of vehicles within max_range of the vehicle
+    in_range_ids = Set()
+    for veh in scene
+        if veh.id != egoid 
+            distance = norm(VecE2(state_ego.posG - veh.state.posG))
+            # account for the length and width of the vehicle by considering
+            # the worst case where their maximum radius is aligned
+            distance = distance - hypot(veh.def.length/2.,veh.def.width/2.)
+            if distance < lidar.max_range
+                push!(in_range_ids, veh.id)
+            end
+        end
+    end
+
+    # compute range and range_rate for each angle
     for (i,angle) in enumerate(lidar.angles)
         ray_angle = state_ego.posG.θ + angle
         ray_vec = polar(1.0, ray_angle)
@@ -49,7 +65,8 @@ function observe!(lidar::LidarSensor, scene::Scene, roadway::Roadway, vehicle_in
         range = lidar.max_range
         range_rate = 0.0
         for veh in scene
-            if veh.id != egoid
+            # only consider the set of potentially in range vehicles
+            if in(veh.id, in_range_ids)
                 to_oriented_bounding_box!(lidar.poly, veh)
 
                 range2 = AutomotiveDrivingModels.get_collision_time(ray, lidar.poly, 1.0)
@@ -99,12 +116,12 @@ function RoadlineLidarSensor(nbeams::Int;
     )
 
     if nbeams > 1
-        angles = collect(linspace(angle_offset,2*pi+angle_offset,nbeams+1))[2:end]
+        angles = collect(range(angle_offset, stop=2*pi+angle_offset, length=nbeams+1))[2:end]
     else
         angles = Float64[]
         nbeams = 0
     end
-    ranges = Array{Float64}(max_depth, nbeams)
+    ranges = Array{Float64}(undef, max_depth, nbeams)
     RoadlineLidarSensor(angles, ranges, max_range, ConvexPolygon(4))
 end
 function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_index::Int, p_lo::VecE2, p_hi::VecE2)
