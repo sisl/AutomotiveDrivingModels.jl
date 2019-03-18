@@ -1,4 +1,4 @@
-let
+@testset "Actions" begin 
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
     veh = get(trajdata, 1, 1)
@@ -43,4 +43,15 @@ let
         @test isapprox(s.posG.θ, 0.0)
         @test isapprox(s.v, veh.state.v)
     end
+
+    let 
+        r = gen_straight_roadway(4, 100.0)
+        a = LaneFollowingAccel(2.0)
+        v = Vehicle(VehicleState(VecSE2(0.0, 0.0, 0.0), r, 2.0), VehicleDef(), 1)
+        lanetag = v.state.posF.roadind.tag
+        Δt = 0.1
+        vp = propagate(v, a, r, Δt)
+        @test vp.posF.roadind.tag == lanetag
+    end
+
 end

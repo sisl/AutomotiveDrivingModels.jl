@@ -1,4 +1,4 @@
-@testset begin "IDM test"
+@testset "IDM" begin 
     roadway = gen_straight_roadway(1, 500.0)
 
     models = Dict{Int, DriverModel}()
