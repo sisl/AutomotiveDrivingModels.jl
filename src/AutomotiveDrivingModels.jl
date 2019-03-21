@@ -1,16 +1,12 @@
-module AutomotiveDrivingModels
+module AutomotiveDrivingModels 
 
-using Reexport
-using Parameters
-using Printf
-using LinearAlgebra
+using Vec 
+using Records
 
-@reexport using Records
-@reexport using Distributions
-@reexport using Vec
+export StraightRoadway,
+       mod_position_to_roadway,
+       get_headway
+       
+include("roadways/straight_1d_roadway.jl")
 
-include("interface/main.jl") # core interface
-include("1d/main.jl") # 1D interface
-include("2d/main.jl") # 2D interface
-
-end # module
+end # AutomotiveDrivingModels
