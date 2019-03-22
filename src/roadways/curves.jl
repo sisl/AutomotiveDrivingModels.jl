@@ -230,12 +230,12 @@ end
     Vec.proj(posG::VecSE2, curve::Curve) 
 Return a CurveProjection obtained by projecting posG onto the curve
 """
-function Vec.proj(posG::VecSE2, curve::Curve)
+function Vec.proj(posG::VecSE2, curve::Curve{T}) where T
 
     ind = index_closest_to_point(curve, posG)::Int
 
-    curveind = CurveIndex(0,NaN)
-    footpoint = VecSE2(NaN, NaN, NaN)
+    curveind = CurveIndex{Int64, T}(0,NaN)
+    footpoint = VecSE2{T}(NaN, NaN, NaN)
 
     if ind > 1 && ind < length(curve)
         t_lo = get_lerp_time(curve[ind-1], curve[ind],   posG)
