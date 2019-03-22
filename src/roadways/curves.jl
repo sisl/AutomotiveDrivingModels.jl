@@ -12,16 +12,21 @@ struct CurvePt{T}
     s::T  # distance along the curve
     k::T  # curvature
     kd::T # derivative of curvature
+    function CurvePt(pos::VecSE2{T}, 
+                     s::T, 
+                     k::T = convert(T, NaN), 
+                     kd::T = convert(T, NaN)) where T 
+        return new{T}(pos, s, k, kd)
+    end
 end
-CurvePt(pos::VecSE2{T}, s::T, k::T=NaN, kd::T=NaN) = CurvePt(pos, s, k, kd)
 
 Base.show(io::IO, pt::CurvePt) = @printf(io, "CurvePt({%.3f, %.3f, %.3f}, %.3f, %.3f, %.3f)", pt.pos.x, pt.pos.y, pt.pos.θ, pt.s, pt.k, pt.kd)
 
-Vec.lerp(a::CurvePt, b::CurvePt, t::T) where T= CurvePt(lerp(a.pos, b.pos, t), a.s + (b.s - a.s)*t, a.k + (b.k - a.k)*t, a.kd + (b.kd - a.kd)*t)
+Vec.lerp(a::CurvePt, b::CurvePt, t::T) where T <: Real = CurvePt(lerp(a.pos, b.pos, t), a.s + (b.s - a.s)*t, a.k + (b.k - a.k)*t, a.kd + (b.kd - a.kd)*t)
 
 ############
 
-const Curve = Vector{CurvePt}
+const Curve{T} = Vector{CurvePt{T}} where T
 
 """
     get_lerp_time_unclamped(A::VecE2, B::VecE2, Q::VecE2)
