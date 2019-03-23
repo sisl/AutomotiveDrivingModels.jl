@@ -215,8 +215,8 @@ end
     CurveProjection
 The result of a point projected to a Curve
 """
-struct CurveProjection{T <: Real}
-    ind::CurveIndex
+struct CurveProjection{I <: Integer, T <: Real}
+    ind::CurveIndex{I, T}
     t::T # lane offset
     ϕ::T # lane-relative heading [rad]
 end
@@ -230,9 +230,9 @@ end
     Vec.proj(posG::VecSE2, curve::Curve) 
 Return a CurveProjection obtained by projecting posG onto the curve
 """
-function Vec.proj(posG::VecSE2, curve::Curve{T}) where T
+function Vec.proj(posG::VecSE2{T}, curve::Curve{T}) where T
 
-    ind = index_closest_to_point(curve, posG)::Int
+    ind = index_closest_to_point(curve, posG)
 
     curveind = CurveIndex{Int64, T}(0,NaN)
     footpoint = VecSE2{T}(NaN, NaN, NaN)
