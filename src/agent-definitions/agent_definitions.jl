@@ -1,7 +1,9 @@
+abstract type AbstractAgentDefinition end
+
 """
 original location: 1d/definitions.jl
 """
-baremodule AgentClass
+module AgentClass
     const MOTORCYCLE = 1
     const CAR        = 2
     const TRUCK      = 3

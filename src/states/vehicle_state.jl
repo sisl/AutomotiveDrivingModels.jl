@@ -1,30 +1,4 @@
 """
-
-Original location: 1d/states.jl
-"""
-struct State1D
-    s::Float64 # position
-    v::Float64 # speed [m/s]
-end
-Base.write(io::IO, ::MIME"text/plain", s::State1D) = @printf(io, "%.16e %.16e", s.s, s.v)
-function Base.read(io::IO, ::MIME"text/plain", ::Type{State1D})
-    i = 0
-    tokens = split(strip(readline(io)), ' ')
-    s = parse(Float64, tokens[i+=1])
-    v = parse(Float64, tokens[i+=1])
-    return State1D(s,v)
-end
-
-"""
-Original location: 1d/vehicles.jl
-"""
-const Vehicle1D = Entity{State1D, VehicleDef, Int}
-const Scene1D = Frame{Vehicle1D}
-Scene1D(n::Int=100) = Frame(Vehicle1D, n)
-Scene1D(arr::Vector{Vehicle1D}) = Frame{Vehicle1D}(arr, length(arr))
-
-
-"""
 original location: 2d/vehicles/vehicles.jl
 """
 struct VehicleState
@@ -57,3 +31,30 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleState})
     v = parse(Float64, tokens[i+=1])
     return VehicleState(posG, posF, v)
 end
+
+function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
+    posG = lerp(a.posG, b.posG, t)
+    v = lerp(a.v, b.v, t)
+    VehicleState(posG, roadway, v)
+end
+
+get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
+get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
+
+function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
+    ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v
+    )
+
+    roadind = move_along(vehstate.posF.roadind, roadway, Δs)
+    try
+        footpoint = roadway[roadind]
+    catch
+        println(roadind)
+    end
+    footpoint = roadway[roadind]
+    posG = convert(VecE2, footpoint.pos) + polar(t₂, footpoint.pos.θ + π/2)
+    posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
+    VehicleState(posG, roadway, v₂)
+end
+
+const Vehicle = Entity{VehicleState,VehicleDef,Int64}

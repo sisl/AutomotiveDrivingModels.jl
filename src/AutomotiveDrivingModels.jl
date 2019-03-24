@@ -72,8 +72,60 @@ include("roadways/roadways.jl")
 
 export 
     Frenet,
-    get_posG
+    get_posG,
+    NULL_FRENET
 
 include("roadways/frenet.jl")
+
+export
+        gen_straight_curve,
+        gen_straight_segment,
+        gen_straight_roadway,
+        gen_stadium_roadway,
+        gen_bezier_curve
+
+include("roadways/roadway_generation.jl")
+
+## VehicleDefinition
+
+export
+    AbstractAgentDefinition,
+    AgentClass,
+    VehicleDef
+
+include("agent-definitions/agent_definitions.jl")
+
+
+## STATES
+
+export
+    State1D,
+    Vehicle1D,
+    Scene1D
+
+include("states/1d_states.jl")
+
+export
+    VehicleState,
+    Vehicle,
+    get_vel_s,
+    get_vel_t
+
+include("states/vehicle_state.jl")
+
+export
+    TrajdataFrame,
+    TrajdataState,
+    Trajdata,
+    TrajdataVehicleIterator
+
+include("states/trajdatas.jl")
+
+export
+    Scene,
+    SceneRecord
+
+include("states/scenes.jl")
+
 
 end # AutomotiveDrivingModels
