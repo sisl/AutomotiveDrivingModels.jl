@@ -1,15 +1,3 @@
-export
-    DriverModel,
-
-    StaticDriver,
-
-    get_name,
-    action_type,
-    set_desired_speed!,
-    observe!,
-    reset_hidden_state!,
-    prime_with_history!
-
 abstract type DriverModel{DriveAction} end
 
 get_name(::DriverModel) = "???"
@@ -56,7 +44,6 @@ function prime_with_history!(model::DriverModel, rec::EntityQueueRecord{S,D,I}, 
 end
 
 ####
-
 
 struct StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
     distribution::P
