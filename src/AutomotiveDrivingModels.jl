@@ -94,7 +94,8 @@ include("roadways/roadway_generation.jl")
 export
     AbstractAgentDefinition,
     AgentClass,
-    VehicleDef
+    VehicleDef,
+    BicycleModel
 
 include("agent-definitions/agent_definitions.jl")
 
@@ -112,7 +113,11 @@ export
     VehicleState,
     Vehicle,
     get_vel_s,
-    get_vel_t
+    get_vel_t,
+    get_center,
+    get_footpoint,
+    get_front,
+    get_rear
 
 include("states/vehicle_state.jl")
 
@@ -154,6 +159,61 @@ export
 include("collision-checkers/minkowski.jl")
 include("collision-checkers/parallel_axis.jl")
 
+## Feature Extraction
+
+export
+    VehicleTargetPoint,
+    VehicleTargetPointFront,
+    VehicleTargetPointCenter,
+    VehicleTargetPointRear,
+    get_targetpoint_delta,
+    NeighborLongitudinalResult,
+    get_neighbor_fore_along_lane,
+    get_neighbor_fore_along_left_lane,
+    get_neighbor_fore_along_right_lane,
+    get_neighbor_rear_along_lane,
+    get_neighbor_rear_along_left_lane,
+    get_neighbor_rear_along_right_lane,
+    FrenetRelativePosition,
+    get_frenet_relative_position,
+    get_lane_width,
+    get_markerdist_left,
+    get_markerdist_right
+
+include("feature-extraction/neighbors_features.jl")
+include("feature-extraction/lane_features.jl")
+
+export 
+    AbstractFeature,
+    FeatureValue,
+    FeatureState,
+    is_feature_valid,
+    is_symbol_a_feature,
+    allfeatures,
+    symbol2feature,
+    AbstractFeatureExtractor,
+    FeatureExtractor,
+    SubsetExtractor,
+    StandardizingExtractor,
+    pull_features!,
+    rec_length
+
+include("feature-extraction/interface.jl")
+include("feature-extraction/features.jl")
+include("feature-extraction/features_extractors.jl")
+
+export
+    LidarSensor,
+    nbeams,
+    observe!,
+    RoadlineLidarSensor,
+    nlanes,
+    LanePortion,
+    RoadwayLidarCulling,
+    ensure_leaf_in_rlc!,
+    get_lane_portions
+
+include("feature-extraction/lidar_sensor.jl")
 
 ## Actions 
 
