@@ -176,8 +176,8 @@ end
     end
 end
 
+struct DumbFeatureExtractor <: AbstractFeatureExtractor end
 @testset begin "features extractor"
-    struct DumbFeatureExtractor <: AbstractFeatureExtractor end
     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
     rec = SceneRecord(1, 0.1, 5)
     update!(rec, Scene([

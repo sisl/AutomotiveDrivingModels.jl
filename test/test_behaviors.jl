@@ -1,6 +1,6 @@
+struct FakeDriveAction end
+struct FakeDriverModel <: DriverModel{FakeDriveAction} end
 @testset "driver model interface" begin 
-    struct FakeDriveAction end
-    struct FakeDriverModel <: DriverModel{FakeDriveAction} end
 
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
