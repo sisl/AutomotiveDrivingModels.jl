@@ -1,15 +1,30 @@
+#TODO: What exactly is ω? Should we say rate of change of heading angle?
 struct AccelTurnrate
     a::Float64
     ω::Float64
 end
 Base.show(io::IO, a::AccelTurnrate) = @printf(io, "AccelTurnrate(%6.3f,%6.3f)", a.a, a.ω)
 Base.length(::Type{AccelTurnrate}) = 2
+
+"""
+Convert an input vector containing desired acceleration and turn rate
+into the AccelTurnrate type
+"""
 Base.convert(::Type{AccelTurnrate}, v::Vector{Float64}) = AccelTurnrate(v[1], v[2])
+
+"""
+Return a vector containing the desired acceleration and turn rate
+"""
 function Base.copyto!(v::Vector{Float64}, a::AccelTurnrate)
     v[1] = a.a
     v[2] = a.ω
     v
 end
+
+"""
+Propagate vehicle forward in time using a desired acceleration and
+turn rate
+"""
 function propagate(veh::Vehicle, action::AccelTurnrate, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4)
 
     a = action.a # accel

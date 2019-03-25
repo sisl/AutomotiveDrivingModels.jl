@@ -1,15 +1,35 @@
+"""
+Allows driving the car in a circle based on the steering angle
+If steering angle less than threshold 0.01 radian, just drives straight
+"""
 struct AccelSteeringAngle
     a::Float64 # accel [m/s²]
     δ::Float64 # steering angle [rad]
 end
 Base.show(io::IO, a::AccelSteeringAngle) = @printf(io, "AccelSteeringAngle(%6.3f,%6.3f)", a.a, a.δ)
 Base.length(::Type{AccelSteeringAngle}) = 2
+
+"""
+Take a vector containing acceleration and desired steering angle and
+convert to AccelSteeringAngle
+"""
 Base.convert(::Type{AccelSteeringAngle}, v::Vector{Float64}) = AccelSteeringAngle(v[1], v[2])
+
+"""
+Extract acceleration and steering angle components from AccelSteeringAngle
+and return them into a vector
+"""
 function Base.copyto!(v::Vector{Float64}, a::AccelSteeringAngle)
     v[1] = a.a
     v[2] = a.δ
     v
 end
+
+"""
+propagate vehicle forward in time given a desired acceleration and
+steering angle. If steering angle higher than 0.1 radian, the vehicle
+drives in a circle
+"""
 function propagate(veh::Entity{VehicleState, BicycleModel, Int}, action::AccelSteeringAngle, roadway::Roadway, Δt::Float64)
 
     L = veh.def.a + veh.def.b

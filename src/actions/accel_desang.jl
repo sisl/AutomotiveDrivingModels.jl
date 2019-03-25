@@ -1,15 +1,29 @@
 struct AccelDesang
-    a::Float64
-    ϕdes::Float64
+    a::Float64 # accel [m/s²]
+    ϕdes::Float64 # Desired heading angle
 end
 Base.show(io::IO, a::AccelDesang) = @printf(io, "AccelDesang(%6.3f,%6.3f)", a.a, a.ϕdes)
 Base.length(::Type{AccelDesang}) = 2
+
+"""
+Convert a vector containing the acceleration and desired heading angle
+into AccelDesang type
+"""
 Base.convert(::Type{AccelDesang}, v::Vector{Float64}) = AccelDesang(v[1], v[2])
+
+"""
+Extract the AccelDesang components into a vector and return the vector
+"""
 function Base.copyto!(v::Vector{Float64}, a::AccelDesang)
     v[1] = a.a
     v[2] = a.ϕdes
     v
 end
+
+"""
+Propagate vehicle forward in time using a desired acceleration
+and heading angle
+"""
 function propagate(veh::Vehicle, action::AccelDesang, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4)
 
     a = action.a # accel
