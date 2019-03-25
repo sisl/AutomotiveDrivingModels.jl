@@ -1,10 +1,12 @@
 module AutomotiveDrivingModels 
 
+using Printf
+using LinearAlgebra
+using Parameters
+using StaticArrays
 using Reexport
 @reexport using Vec 
 @reexport using Records
-using Printf
-using LinearAlgebra
 
 # Roadways
 
@@ -127,5 +129,25 @@ export
 
 include("states/scenes.jl")
 
+export
+    ConvexPolygon,
+    CPAMemory,
+    CollisionCheckResult,
+    LineSegment,
+    to_oriented_bounding_box!,
+    get_oriented_bounding_box,
+    is_colliding,
+    is_potentially_colliding,
+    get_collision_time,
+    get_first_collision,
+    get_time_and_dist_of_closest_approach,
+    is_collision_free,
+    get_distance,
+    get_edge,
+    get_side,
+    collision_checker
+
+include("collision-checkers/minkowski.jl")
+include("collision-checkers/parallel_axis.jl")
 
 end # AutomotiveDrivingModels
