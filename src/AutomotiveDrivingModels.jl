@@ -280,5 +280,14 @@ include("behaviors/lat_lon_separable_driver.jl")
 include("behaviors/tim_2d_driver.jl")
 include("behaviors/sidewalk_pedestrian_model.jl")
 
+export 
+    get_actions!,
+    tick!,
+    reset_hidden_states!,
+    simulate!,
+    run_callback
+
+include("simulation/simulation.jl")
+include("simulation/callbacks.jl")
 
 end # AutomotiveDrivingModels
