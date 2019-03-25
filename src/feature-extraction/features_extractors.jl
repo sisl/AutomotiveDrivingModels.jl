@@ -32,7 +32,7 @@ struct SubsetExtractor{F<:AbstractFeatureExtractor, G<:AbstractFloat} <: Abstrac
     subset::Vector{Int}
     features::Vector{G}
 end
-SubsetExtractor(extractor::AbstractFeatureExtractor, subset::Vector{Int}, ::Type{G}=Float64) where {G<:AbstractFloat} = SubsetExtractor(extractor, subset, Array{G}(length(extractor)))
+SubsetExtractor(extractor::AbstractFeatureExtractor, subset::Vector{Int}, ::Type{G}=Float64) where {G<:AbstractFloat} = SubsetExtractor(extractor, subset, Array{G}(undef, length(extractor)))
 rec_length(ext::SubsetExtractor) = rec_length(ext.extractor)
 Base.length(ext::SubsetExtractor) = length(ext.subset)
 function pull_features!(ext::SubsetExtractor, features::Vector{F}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0) where {F<:AbstractFloat}

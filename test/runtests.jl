@@ -1,5 +1,6 @@
 using Test
 using AutomotiveDrivingModels
+using Distributions
 
 include("test_roadways.jl")
 include("test_states.jl")

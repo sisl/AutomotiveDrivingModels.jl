@@ -11,7 +11,7 @@ Distributions.logpdf(model::DriverModel{A}, a::A) where {A} = error("logpdf not 
 
 function prime_with_history!(
     model::DriverModel,
-    trajdata::ListRecord{Entity{S,D,I}},
+    trajdata::ListRecord{S,D,I},
     roadway::R,
     frame_start::Int,
     frame_end::Int,

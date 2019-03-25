@@ -117,7 +117,7 @@ function get_neighbor_fore_along_left_lane(
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
 
-    retval = NeighborLongitudinalResult(0, max_distance_fore)
+    retval = NeighborLongitudinalResult(nothing, max_distance_fore)
 
     veh_ego = scene[vehicle_index]
     lane = roadway[veh_ego.state.posF.roadind.tag]
@@ -145,7 +145,7 @@ function get_neighbor_fore_along_right_lane(
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
     ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
 
-    retval = NeighborLongitudinalResult(0, max_distance_fore)
+    retval = NeighborLongitudinalResult(nothing, max_distance_fore)
 
     veh_ego = scene[vehicle_index]
     lane = roadway[veh_ego.state.posF.roadind.tag]
