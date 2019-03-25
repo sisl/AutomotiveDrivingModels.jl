@@ -1,3 +1,14 @@
+@testset "sidewalk pedestrian" begin 
+    # dummy test for the constructor
+    roadway=gen_straight_roadway(1, 50.0, lane_width=3.0)
+    ped=SidewalkPedestrianModel(timestep=0.1, 
+                                crosswalk= roadway[LaneTag(1,1)],
+                                sw_origin = roadway[LaneTag(1,1)],
+                                sw_dest = roadway[LaneTag(1,1)]
+                                )
+    @test ped.ttc_threshold >= 1.0
+end
+
 @testset "IDM test" begin 
     roadway = gen_straight_roadway(1, 500.0)
 
