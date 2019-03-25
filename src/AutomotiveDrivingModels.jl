@@ -4,6 +4,7 @@ using Printf
 using LinearAlgebra
 using Parameters
 using StaticArrays
+using Distributions
 using Reexport
 @reexport using Vec 
 @reexport using Records
@@ -88,7 +89,7 @@ export
 
 include("roadways/roadway_generation.jl")
 
-## VehicleDefinition
+## agent definitions
 
 export
     AbstractAgentDefinition,
@@ -98,7 +99,7 @@ export
 include("agent-definitions/agent_definitions.jl")
 
 
-## STATES
+## states
 
 export
     State1D,
@@ -129,6 +130,9 @@ export
 
 include("states/scenes.jl")
 
+
+## Collision Checkers
+
 export
     ConvexPolygon,
     CPAMemory,
@@ -149,5 +153,72 @@ export
 
 include("collision-checkers/minkowski.jl")
 include("collision-checkers/parallel_axis.jl")
+
+
+## Actions 
+
+export
+    propagate,
+    LaneFollowingAccel,
+    AccelTurnrate,
+    AccelDesang,
+    LatLonAccel,
+    AccelSteeringAngle,
+    PedestrianLatLonAccel
+
+include("actions/interface.jl")
+include("actions/lane_following_accel.jl")
+include("actions/accel_turnrate.jl")
+include("actions/accel_desang.jl")
+include("actions/lat_lon_accel.jl")
+include("actions/accel_steering.jl")
+include("actions/pedestrian_lat_lon_accel.jl")
+
+export
+    DriverModel,
+    StaticDriver,
+    get_name,
+    action_type,
+    set_desired_speed!,
+    observe!,
+    reset_hidden_state!,
+    prime_with_history!
+
+include("behaviors/interface.jl")
+
+export
+    LaneFollowingDriver,
+    StaticLaneFollowingDriver,
+    PrincetonDriver,
+    IntelligentDriverModel,
+    ProportionalSpeedTracker,
+    track_longitudinal!,
+    LateralDriverModel,
+    ProportionalLaneTracker,
+    LatLonSeparableDriver,
+    Tim2DDriver,
+    track_lane!,
+    SidewalkPedestrianModel,
+    LaneChangeChoice,
+    LaneChangeModel,
+    get_lane_offset,
+    DIR_RIGHT,
+    DIR_MIDDLE,
+    DIR_LEFT,
+    MOBIL,
+    TimLaneChanger
+
+include("behaviors/lane_following_drivers.jl")
+include("behaviors/princeton_driver.jl")
+include("behaviors/speed_trackers.jl")
+include("behaviors/intelligent_driver_model.jl")
+include("behaviors/lateral_driver_models.jl")
+include("behaviors/lane_change_models.jl")
+include("behaviors/MOBIL.jl")
+include("behaviors/tim_lane_changer.jl")
+include("behaviors/lat_lon_separable_driver.jl")
+include("behaviors/tim_2d_driver.jl")
+include("behaviors/sidewalk_pedestrian_model.jl")
+
 
 end # AutomotiveDrivingModels
