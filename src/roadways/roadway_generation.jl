@@ -9,7 +9,7 @@ function gen_straight_curve(A::VecE2{T}, B::VecE2{T}, nsamples::Integer) where T
     for i in 1 : nsamples
         t = (i-1)/(nsamples-1)
         P = lerp(A,B,t)
-        curve[i] = CurvePt{T}(VecSE2(P.x,P.y,θ), s, 0.0)
+        curve[i] = CurvePt(VecSE2(P.x,P.y,θ), s, 0.0)
         s += δ
     end
 
@@ -52,7 +52,7 @@ cubic bezier lerp
 """
 Vec.lerp(A::VecE2{T}, B::VecE2{T}, C::VecE2{T}, D::VecE2{T}, t::T) where T<:Real = (1-t)^3*A + 3*(1-t)^2*t*B + 3*(1-t)*t^2*C + t^3*D
 
-function gen_bezier_curve(A::VecSE2{Float64}, B::VecSE2{Float64}, rA::Float64, rB::Float64, nsamples::Int)
+function gen_bezier_curve(A::VecSE2{T}, B::VecSE2{T}, rA::T, rB::T, nsamples::Int) where T <: Real
 
     a = convert(VecE2, A)
     d = convert(VecE2, B)
@@ -60,7 +60,7 @@ function gen_bezier_curve(A::VecSE2{Float64}, B::VecSE2{Float64}, rA::Float64, r
     c = d + polar(-rB, B.θ)
 
     s = 0.0
-    curve = Array{CurvePt}(undef, nsamples)
+    curve = Array{CurvePt{T}}(undef, nsamples)
     for i in 1 : nsamples
         t = (i-1)/(nsamples-1)
         P = lerp(a,b,c,d,t)

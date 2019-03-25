@@ -10,14 +10,12 @@ describes a point on a curve, associated with a curvature and the derivative of 
 struct CurvePt{T}
     pos::VecSE2{T} # global position and orientation
     s::T  # distance along the curve
-    k::T  # curvature
-    kd::T # derivative of curvature
-    function CurvePt(pos::VecSE2{T}, 
-                     s::T, 
-                     k::T = convert(T, NaN), 
-                     kd::T = convert(T, NaN)) where T 
-        return new{T}(pos, s, k, kd)
-    end
+    k::T # curvature
+    kd::T# derivative of curvature
+end
+
+function CurvePt(pos::VecSE2{T}, s::T, k::T = convert(T, NaN)) where T 
+    return CurvePt{T}(pos, s, k, convert(T, NaN))
 end
 
 Base.show(io::IO, pt::CurvePt) = @printf(io, "CurvePt({%.3f, %.3f, %.3f}, %.3f, %.3f, %.3f)", pt.pos.x, pt.pos.y, pt.pos.θ, pt.s, pt.k, pt.kd)

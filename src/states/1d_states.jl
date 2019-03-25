@@ -22,3 +22,8 @@ const Vehicle1D = Entity{State1D, VehicleDef, Int64}
 const Scene1D = Frame{Vehicle1D}
 Scene1D(n::Int=100) = Frame(Vehicle1D, n)
 Scene1D(arr::Vector{Vehicle1D}) = Frame{Vehicle1D}(arr, length(arr))
+
+get_center(veh::Vehicle1D) = veh.state.s
+get_footpoint(veh::Vehicle1D) = veh.state.s
+get_front(veh::Vehicle1D) = veh.state.s + veh.def.length/2
+get_rear(veh::Vehicle1D) = veh.state.s - veh.def.length/2

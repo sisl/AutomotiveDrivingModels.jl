@@ -573,7 +573,7 @@ end # roadway test
                 @test isnan(pt1.s) || isapprox(pt1.s, pt2.s, atol=1e-3)
                 @test isnan(pt1.k) || isapprox(pt1.k, pt2.k, atol=1e-6)
                 @test isnan(pt1.kd) || isapprox(pt1.kd, pt2.kd, atol=1e-6)
-            end
+            end 
         end
     end
 end # roadway read/write tests
@@ -625,6 +625,11 @@ end
 end
 
 @testset "straight roadway" begin
+    curve = gen_straight_curve(VecE2(25.0, -10.0), VecE2(25.0, 10.0), 2)
+    @inferred gen_straight_curve(VecE2(25.0, -10.0), VecE2(25.0, 10.0), 2)
+    @test length(curve) == 2
+    @test curve[1].pos.x == 25.0
+
     roadway = gen_straight_roadway(1, 1000.0)
     @test length(roadway.segments) == 1
 
@@ -670,6 +675,38 @@ end
     @test length(roadway.segments) == 1
     @test isapprox(roadway[1].lanes[1].curve[1].pos.y, 0.0, atol=1e-6)
     @test isapprox(roadway[1].lanes[2].curve[1].pos.y, 0.5 + 1.0, atol=1e-6)
+end
+
+@testset "bezier curve" begin 
+    # see intersection tutorial for visualization
+    roadway = Roadway()
+    # Define coordinates of the entry and exit points to the intersection
+    r = 5.0 # turn radius
+    A = VecSE2(0.0,DEFAULT_LANE_WIDTH,-π)
+    B = VecSE2(0.0,0.0,0.0)
+    C = VecSE2(r,-r,-π/2)
+    D = VecSE2(r+DEFAULT_LANE_WIDTH,-r,π/2)
+    E = VecSE2(2r+DEFAULT_LANE_WIDTH,0,0)
+    F = VecSE2(2r+DEFAULT_LANE_WIDTH,DEFAULT_LANE_WIDTH,-π)
+
+    # helper function 
+    function append_to_curve!(target::Curve, newstuff::Curve)
+        s_end = target[end].s
+        for c in newstuff
+            push!(target, CurvePt(c.pos, c.s+s_end, c.k, c.kd))
+        end
+        return target
+    end
+
+    # Append right turn coming from the left
+    curve = gen_straight_curve(convert(VecE2, B+VecE2(-100,0)), convert(VecE2, B), 2)
+    append_to_curve!(curve, gen_bezier_curve(B, C, 0.6r, 0.6r, 51)[2:end])
+    @test length(curve) == 52
+    append_to_curve!(curve, gen_straight_curve(convert(VecE2, C), convert(VecE2, C+VecE2(0,-50.0)), 2))
+    @test length(curve) == 54
+    lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
+
 end
 
 @testset "stadium roadway" begin
