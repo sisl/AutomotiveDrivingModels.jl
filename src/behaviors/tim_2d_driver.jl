@@ -1,3 +1,7 @@
+"""
+Driver that combines longitudinal driver and lateral driver including lane
+change model into one driving model
+"""
 mutable struct Tim2DDriver <: DriverModel{LatLonAccel}
     rec::SceneRecord
     mlon::LaneFollowingDriver
@@ -64,4 +68,3 @@ end
 Base.rand(driver::Tim2DDriver) = LatLonAccel(rand(driver.mlat), rand(driver.mlon).a)
 Distributions.pdf(driver::Tim2DDriver, a::LatLonAccel) = pdf(driver.mlat, a.a_lat) * pdf(driver.mlon, a.a_lon)
 Distributions.logpdf(driver::Tim2DDriver, a::LatLonAccel) = logpdf(driver.mlat, a.a_lat) * logpdf(driver.mlon, a.a_lon)
-

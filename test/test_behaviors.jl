@@ -71,10 +71,18 @@ end
 @testset "MOBIL" begin
     timestep = 0.1
     lanemodel = MOBIL(timestep)
-    @test lanemodel.dir == 0
-    @test lanemodel.safe_decel == 2.0
-    @test lanemodel.politeness == 0.35
+
     @test get_name(lanemodel) == "MOBIL"
     set_desired_speed!(lanemodel,20.0)
     @test lanemodel.mlon.v_des == 20.0
+end
+
+@testset "Tim2DDriver" begin
+    timestep = 0.1
+    drivermodel = Tim2DDriver(timestep)
+    @test get_name(drivermodel) == "Tim2DDriver"
+
+    set_desired_speed!(drivermodel,20.0)
+    @test drivermodel.mlon.v_des == 20.0
+    @test drivermodel.mlane.v_des == 20.0
 end
