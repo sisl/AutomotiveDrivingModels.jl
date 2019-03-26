@@ -1,6 +1,6 @@
 struct FakeDriveAction end
 struct FakeDriverModel <: DriverModel{FakeDriveAction} end
-@testset "driver model interface" begin 
+@testset "driver model interface" begin
 
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
@@ -18,10 +18,10 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
     @test_throws ErrorException logpdf(model, FakeDriveAction())
 end
 
-@testset "sidewalk pedestrian" begin 
+@testset "sidewalk pedestrian" begin
     # dummy test for the constructor
     roadway=gen_straight_roadway(1, 50.0, lane_width=3.0)
-    ped=SidewalkPedestrianModel(timestep=0.1, 
+    ped=SidewalkPedestrianModel(timestep=0.1,
                                 crosswalk= roadway[LaneTag(1,1)],
                                 sw_origin = roadway[LaneTag(1,1)],
                                 sw_dest = roadway[LaneTag(1,1)]
@@ -29,7 +29,7 @@ end
     @test ped.ttc_threshold >= 1.0
 end
 
-@testset "IDM test" begin 
+@testset "IDM test" begin
     roadway = gen_straight_roadway(1, 500.0)
 
     models = Dict{Int, DriverModel}()
@@ -66,4 +66,15 @@ end
 
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 1)
+end
+
+@testset "MOBIL" begin
+    timestep = 0.1
+    lanemodel = MOBIL(timestep)
+    @test lanemodel.dir == 0
+    @test lanemodel.safe_decel == 2.0
+    @test lanemodel.politeness == 0.35
+    @test get_name(lanemodel) == "MOBIL"
+    set_desired_speed!(lanemodel,20.0)
+    @test lanemodel.mlon.v_des == 20.0
 end
