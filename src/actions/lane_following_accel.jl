@@ -32,7 +32,8 @@ function propagate(veh::Vehicle, action::LaneFollowingAccel, roadway::Roadway, �
 
     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
     posG = roadway[roadind].pos
-    VehicleState(posG, roadway, v₂)
+    posF = Frenet(roadind, roadway, t=veh.state.posF.t, ϕ=veh.state.posF.ϕ)
+    VehicleState(posG, posF, v₂)
 end
 
 
