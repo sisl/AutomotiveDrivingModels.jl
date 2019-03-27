@@ -30,7 +30,15 @@ mutable struct MOBIL <: LaneChangeModel
         retval
     end
 end
+
+"""
+Return the name of the lane changing model
+"""
 get_name(::MOBIL) = "MOBIL"
+
+"""
+Set the desired speed of the longitudinal model within MOBIL
+"""
 function set_desired_speed!(model::MOBIL, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model
