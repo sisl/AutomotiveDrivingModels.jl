@@ -54,4 +54,10 @@ end
     yspace = LinRange(1.5, 1.5, 10)
 
     @test collisions(xspace,yspace,thetaspace)
+
+    ## Close but no collisions 
+    veh2 = create_vehicle(0.0, 2.2, 0.0, id=2)
+    @test !collision_checker(VEH_REF, veh2)
+    veh2 = create_vehicle(3.1, 2.2, 1.0pi, id=2)
+    @test !collision_checker(VEH_REF, veh2)
 end
