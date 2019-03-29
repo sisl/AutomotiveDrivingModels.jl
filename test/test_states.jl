@@ -59,13 +59,24 @@ end
     ri = RoadIndex(CurveIndex(1,0.1), LaneTag(1,2))
     @test isapprox(Frenet(ri, 0.0, 0.0, 0.1), Frenet(ri, 0.0, 0.0, 0.1))
     @test VehicleState(VecSE2(0.1,0.2,0.3), 1.0) == VehicleState(VecSE2(0.1,0.2,0.3), NULL_FRENET, 1.0)
+
+    @test get_front(veh).x == vehdef.length/2
+    @test get_rear(veh).x == -vehdef.length/2
 end
 
 @testset "scene" begin 
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
 
+    s1 = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 0.0)
+    s2 = VehicleState(VecSE2(5.0, 0.0, 0.0), roadway, 0.0)
+    s3 = lerp(s1, s2, 0.5, roadway)
+    @test s3.posG.x == 2.5
+    @test s3.posF.s == 2.5
+
     vehstate = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 0.0)
+    vehstate1 = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway[LaneTag(1,1)], roadway, 0.0)
+    @test vehstate1 == vehstate
     veh = Vehicle(vehstate, VehicleDef(), 1)
     scene1 = Scene()
     push!(scene1, veh)
