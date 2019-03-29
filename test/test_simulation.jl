@@ -1,3 +1,5 @@
+struct DummyCallback end
+
 @testset "simulation" begin
     roadway = gen_straight_roadway(1, 500.0)
 
@@ -22,9 +24,9 @@
     reset_hidden_states!(models)
 
       # initializing vehicles too close
-    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
     veh1 = Vehicle(veh_state, VehicleDef(), 1)
-    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 3.0), roadway, 5.)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 5.0), roadway, 5.)
     veh2 = Vehicle(veh_state, VehicleDef(), 2)
 
     scene = Scene()
@@ -32,5 +34,7 @@
     push!(scene, veh2)
 
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, 2, (CollisionCallback(),))
+    simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+
+    @test_throws ErrorException simulate!(rec, scene, roadway, models, 10, (DummyCallback(),))
 end
