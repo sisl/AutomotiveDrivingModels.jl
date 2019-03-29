@@ -288,7 +288,8 @@ export
     tick!,
     reset_hidden_states!,
     simulate!,
-    run_callback
+    run_callback,
+    CollisionCallback
 
 include("simulation/simulation.jl")
 include("simulation/callbacks.jl")
