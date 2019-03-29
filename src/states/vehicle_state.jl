@@ -1,5 +1,11 @@
 """
-original location: 2d/vehicles/vehicles.jl
+    VehicleState 
+A default type to represent an agent physical state (position, velocity).
+It contains the position in the global frame, Frenet frame and the longitudinal velocity
+# fields
+- `posG::VecSE2{Float64}` global position
+- `posF::Frenet` lane relative position
+- `v::Float64` longitudinal velocity
 """
 struct VehicleState
     posG::VecSE2{Float64} # global
