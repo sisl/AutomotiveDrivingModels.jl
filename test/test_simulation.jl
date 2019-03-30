@@ -50,6 +50,18 @@ struct DummyCallback end
 
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+end
 
 
+@testset "trajdata simulation" begin 
+  roadway = get_test_roadway()
+  trajdata = get_test_trajdata(roadway)
+
+  veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 6.0), roadway, 10.)
+  ego = Vehicle(veh_state, VehicleDef(), 2)
+  model = ProportionalSpeedTracker()
+  dt = get_timestep(trajdata)
+  rec = SceneRecord(3, dt)
+  simulate!(rec, model, ego.id, trajdata, roadway, 1, 2)
+  @test findfirst(ego.id, rec[0]) != nothing 
 end

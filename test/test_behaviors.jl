@@ -13,6 +13,7 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
 
     @test get_name(model) == "???"
     @test action_type(model) <: FakeDriveAction
+    @test set_desired_speed!(model, 0.0) == FakeDriverModel()
     @test_throws ErrorException rand(model)
     @test_throws ErrorException pdf(model, FakeDriveAction())
     @test_throws ErrorException logpdf(model, FakeDriveAction())
@@ -23,8 +24,10 @@ end
 
     models = Dict{Int, DriverModel}()
     models[1] = IntelligentDriverModel(k_spd = 1.0, v_des = 10.0)
-    models[2] = IntelligentDriverModel(k_spd = 1.0, v_des = 5.0)
-
+    models[2] = IntelligentDriverModel(k_spd = 1.0)
+    get_name(models[1]) == "IDM"
+    set_desired_speed!(models[2], 5.0)
+    @test models[2].v_des == 5.0
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
     veh1 = Vehicle(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
@@ -40,6 +43,19 @@ end
     simulate!(rec, scene, roadway, models, n_steps)
 
     @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des)
+
+    # same with noise
+    models = Dict{Int, DriverModel}()
+    models[1] = IntelligentDriverModel(a = 0.0, k_spd = 1.0, v_des = 10.0, σ=1.0)
+    models[2] = IntelligentDriverModel(a = 0.0, k_spd = 1.0, v_des = 5.0, σ=1.0)
+    @test pdf(models[1], LaneFollowingAccel(0.0))  > 0.0
+    @test logpdf(models[1], LaneFollowingAccel(0.0)) < 0.0
+    n_steps = 40
+    dt = 0.1
+    rec = SceneRecord(n_steps, dt)
+    simulate!(rec, scene, roadway, models, n_steps)
+
+    prime_with_history!(IntelligentDriverModel(), rec, roadway, 2)
 
     println("There should be a warning here: ")
 
@@ -81,8 +97,21 @@ end
 
     models = Dict{Int, DriverModel}()
     models[1] = StaticLaneFollowingDriver()
-    models[2] = PrincetonDriver(k = 1.0, v_des = 5.0)
-    models[3] = ProportionalSpeedTracker(k = 1.0, v_des = 5.0)
+    @test get_name(models[1]) == "ProportionalSpeedTracker"
+    @test pdf(models[1], LaneFollowingAccel(-1.0)) ≈ 0.0
+    @test logpdf(models[1], LaneFollowingAccel(-1.0)) ≈ -Inf
+    models[2] = PrincetonDriver(k = 1.0)
+    @test get_name(models[2]) == "PrincetonDriver"
+    @test pdf(models[2], LaneFollowingAccel(-1.0)) == Inf
+    @test logpdf(models[2], LaneFollowingAccel(-1.0)) == Inf
+    set_desired_speed!(models[2], 5.0)
+    @test models[2].v_des == 5.0
+    models[3] = ProportionalSpeedTracker(k = 1.0)
+    @test get_name(models[3]) == "ProportionalSpeedTracker"
+    @test pdf(models[3], LaneFollowingAccel(-1.0)) == Inf
+    @test logpdf(models[3], LaneFollowingAccel(-1.0)) == Inf
+    set_desired_speed!(models[3], 5.0)
+    @test models[3].v_des == 5.0
 
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
     veh1 = Vehicle(veh_state, VehicleDef(), 1)
@@ -103,6 +132,27 @@ end
 
     @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1e-3)
     @test isapprox(get_by_id(scene, 3).state.v, models[3].v_des)
+
+    # same wth noise 
+    models = Dict{Int, DriverModel}()
+    models[1] = StaticLaneFollowingDriver()
+    models[2] = PrincetonDriver(k = 1.0, v_des=5.0, σ=1.0, a=0.0)
+    models[3] = ProportionalSpeedTracker(k = 1.0, v_des=5.0, σ=1.0, a=0.0)
+
+    @test pdf(models[3], LaneFollowingAccel(0.0)) > 0.0
+    @test logpdf(models[3], LaneFollowingAccel(0.0)) < 0.0
+    
+    @test pdf(models[2], LaneFollowingAccel(0.0)) > 0.0
+    @test logpdf(models[2], LaneFollowingAccel(0.0)) < 0.0
+
+    n_steps = 40
+    dt = 0.1
+    rec = SceneRecord(n_steps, dt)
+    simulate!(rec, scene, roadway, models, n_steps)
+
+    
+    @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1.0)
+    @test isapprox(get_by_id(scene, 3).state.v, models[3].v_des, atol=1.0)
 end
 
 function generate_sidewalk_env()
@@ -150,6 +200,7 @@ end
                                 sw_dest = roadway[LaneTag(1,1)]
                                 )
     @test ped.ttc_threshold >= 1.0
+    @test get_name(ped) == "SidewalkPedestrianModel"
 
     timestep = 0.1
 

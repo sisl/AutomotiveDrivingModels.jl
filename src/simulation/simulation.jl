@@ -73,7 +73,6 @@ function simulate!(
     return simulate!(Any, rec, scene, roadway, models, nticks)
 end
 
-
 """
     Run a simulation and store the resulting scenes in the provided QueueRecord.
 Only the ego vehicle is simulated; the other vehicles are as they were in the provided trajdata
@@ -83,28 +82,27 @@ function simulate!(
     rec::EntityQueueRecord{S,D,I},
     model::DriverModel,
     egoid::I,
-    trajdata::ListRecord{Entity{S,D,I}},
+    trajdata::ListRecord{S,D,I},
+    roadway::R,
     frame_start::Int,
     frame_end::Int;
     prime_history::Int=0, # no prime-ing
     scene::EntityFrame{S,D,I} =  allocate_frame(trajdata),
-    ) where {S,D,I}
+    ) where {S,D,I,R}
 
     @assert(isapprox(get_timestep(rec), get_timestep(trajdata)))
-
-    roadway = trajdata.roadway
 
     # prime with history
     prime_with_history!(model, trajdata, roadway, frame_start, frame_end, egoid, scene)
 
     # add current frame
-    update!(rec, get!(scene, trajdata, time_start))
+    update!(rec, get!(scene, trajdata, frame_start))
     observe!(model, scene, roadway, egoid)
 
     # run simulation
     frame_index = frame_start
     ego_veh = get_by_id(scene, egoid)
-    while t < time_end
+    while frame_index < frame_end
 
         # pull original scene
         get!(scene, trajdata, frame_index)
