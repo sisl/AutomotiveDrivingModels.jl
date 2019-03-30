@@ -18,17 +18,6 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
     @test_throws ErrorException logpdf(model, FakeDriveAction())
 end
 
-@testset "sidewalk pedestrian" begin
-    # dummy test for the constructor
-    roadway=gen_straight_roadway(1, 50.0, lane_width=3.0)
-    ped=SidewalkPedestrianModel(timestep=0.1,
-                                crosswalk= roadway[LaneTag(1,1)],
-                                sw_origin = roadway[LaneTag(1,1)],
-                                sw_dest = roadway[LaneTag(1,1)]
-                                )
-    @test ped.ttc_threshold >= 1.0
-end
-
 @testset "IDM test" begin
     roadway = gen_straight_roadway(1, 500.0)
 
@@ -85,4 +74,120 @@ end
     set_desired_speed!(drivermodel,20.0)
     @test drivermodel.mlon.v_des == 20.0
     @test drivermodel.mlane.v_des == 20.0
+end
+
+@testset "lane following" begin 
+    roadway = gen_straight_roadway(1, 500.0)
+
+    models = Dict{Int, DriverModel}()
+    models[1] = StaticLaneFollowingDriver()
+    models[2] = PrincetonDriver(k = 1.0, v_des = 5.0)
+    models[3] = ProportionalSpeedTracker(k = 1.0, v_des = 5.0)
+
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
+    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
+    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 130.0), roadway, 5.)
+    veh3 = Vehicle(veh_state, VehicleDef(), 3)
+
+    scene = Scene()
+    push!(scene, veh1)
+    push!(scene, veh2)
+    push!(scene, veh3)
+
+    n_steps = 40
+    dt = 0.1
+    rec = SceneRecord(n_steps, dt)
+    simulate!(rec, scene, roadway, models, n_steps)
+
+    @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1e-3)
+    @test isapprox(get_by_id(scene, 3).state.v, models[3].v_des)
+end
+
+function generate_sidewalk_env()
+    roadway_length = 100.
+    crosswalk_length = 15.
+    crosswalk_width = 6.0
+    crosswalk_pos = roadway_length/2
+    sidewalk_width = 3.0
+    sidewalk_pos = crosswalk_length/2 - sidewalk_width / 2
+    # Generate straight roadway of length roadway_length with 2 lanes.
+    # Returns a Roadway type (Array of segments).
+    # There is already a method to generate a simple straight roadway, which we use here.
+    roadway = gen_straight_roadway(2, roadway_length) 
+
+    # Generate the crosswalk.
+    # Our crosswalk does not have a predefined method for generation, so we define it with a LaneTag and a curve.
+    n_samples = 2 # for curve generation
+    crosswalk = Lane(LaneTag(2,1), gen_straight_curve(VecE2(crosswalk_pos, -crosswalk_length/2),
+                                                    VecE2(crosswalk_pos, crosswalk_length/2),
+                                                    n_samples), width = crosswalk_width)
+    cw_segment = RoadSegment(2, [crosswalk])
+    push!(roadway.segments, cw_segment) # Append the crosswalk to the roadway
+
+    # Generate the sidewalk.
+    top_sidewalk = Lane(LaneTag(3, 1), gen_straight_curve(VecE2(0., sidewalk_pos),
+                                                        VecE2(roadway_length, sidewalk_pos),
+                                                            n_samples), width = sidewalk_width)
+    bottom_sidewalk = Lane(LaneTag(3, 2), gen_straight_curve(VecE2(0., -(sidewalk_pos - sidewalk_width)),
+                                                            VecE2(roadway_length, -(sidewalk_pos - sidewalk_width)),
+                                                                n_samples), width = sidewalk_width) 
+    # Note: we subtract the sidewalk_width from the sidewalk position so that the edge is flush with the road.
+    sw_segment = RoadSegment(3, [top_sidewalk, bottom_sidewalk])
+    push!(roadway.segments, sw_segment)
+    sidewalk = [top_sidewalk, bottom_sidewalk]
+    return roadway, crosswalk, sidewalk
+end
+
+
+@testset "sidewalk pedestrian" begin
+    roadway, crosswalk, sidewalk = generate_sidewalk_env()
+    # dummy test for the constructor
+    ped=SidewalkPedestrianModel(timestep=0.1,
+                                crosswalk= roadway[LaneTag(1,1)],
+                                sw_origin = roadway[LaneTag(1,1)],
+                                sw_dest = roadway[LaneTag(1,1)]
+                                )
+    @test ped.ttc_threshold >= 1.0
+
+    timestep = 0.1
+
+    # Crossing pedestrian definition
+    ped_init_state = VehicleState(VecSE2(49.0,-3.0,0.), sidewalk[2], roadway, 1.3)
+    ped = Vehicle(ped_init_state, VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0), 1)
+
+    # Car definition
+    car_initial_state = VehicleState(VecSE2(0.0, 0., 0.), roadway.segments[1].lanes[1],roadway, 8.0)
+    car = Vehicle(car_initial_state, VehicleDef(), 2)
+
+    scene = Scene()
+    push!(scene, ped)
+    push!(scene, car)
+
+    # Define a model for each entity present in the scene
+    models = Dict{Int, DriverModel}()
+
+    ped_id = 1
+    car_id = 2
+
+    models[ped_id] = SidewalkPedestrianModel(timestep=timestep, 
+                                                crosswalk= crosswalk,
+                                                sw_origin = sidewalk[2],
+                                                sw_dest = sidewalk[1]
+                                                )
+
+    models[car_id] = 
+    LatLonSeparableDriver( # produces LatLonAccels
+            ProportionalLaneTracker(), # lateral model
+            IntelligentDriverModel(), # longitudinal model
+    )
+
+    nticks = 300
+    rec = SceneRecord(nticks+1, timestep)
+    # Execute the simulation
+    simulate!(rec, scene, roadway, models, nticks)
+
+    ped = get_by_id(rec[0], ped_id)
+    @test ped.state.posG.y > 2*DEFAULT_LANE_WIDTH
 end

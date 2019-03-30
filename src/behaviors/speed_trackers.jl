@@ -1,22 +1,18 @@
-mutable struct ProportionalSpeedTracker <: LaneFollowingDriver
-    a::Float64 # predicted acceleration
-    σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
-    k::Float64 # proportional constant for speed tracking [s⁻¹]
-    v_des::Float64 # desired speed [m/s]
+"""
+    ProportionalSpeedTracker <: LaneFollowingDriver
+Longitudinal proportional speed control.
 
-    function ProportionalSpeedTracker(;
-        σ::Float64 = NaN,
-        k::Float64 = 1.0,
-        v_des::Float64 = 29.0,
-        )
-
-        retval = new()
-        retval.a = NaN
-        retval.σ = σ
-        retval.k = k
-        retval.v_des = v_des
-        retval
-    end
+# Fields
+- `a::Float64 = NaN`  predicted acceleration
+- `σ::Float64 = NaN` optional stdev on top of the model, set to zero or NaN for deterministic behavior
+- `k::Float64 = 1.0` proportional constant for speed tracking [s⁻¹]
+- `v_des::Float64 = 29.0`  desired speed [m/s]
+"""
+@with_kw mutable struct ProportionalSpeedTracker <: LaneFollowingDriver
+    a::Float64 = NaN # predicted acceleration
+    σ::Float64 = NaN# optional stdev on top of the model, set to zero or NaN for deterministic behavior
+    k::Float64 = 1.0# proportional constant for speed tracking [s⁻¹]
+    v_des::Float64 = 29.0 # desired speed [m/s]
 end
 get_name(::ProportionalSpeedTracker) = "ProportionalSpeedTracker"
 function set_desired_speed!(model::ProportionalSpeedTracker, v_des::Float64)
