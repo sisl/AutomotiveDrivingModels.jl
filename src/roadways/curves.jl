@@ -24,6 +24,10 @@ Vec.lerp(a::CurvePt, b::CurvePt, t::T) where T <: Real = CurvePt(lerp(a.pos, b.p
 
 ############
 
+"""
+    Curve{T} 
+is a vector of curve points
+"""
 const Curve{T} = Vector{CurvePt{T}} where T
 
 """
@@ -57,6 +61,16 @@ Get lerp time t∈[0,1] such that lerp(A, B) is as close as possible to Q
 get_lerp_time(A::VecE2, B::VecE2, Q::VecE2) = clamp(get_lerp_time_unclamped(A, B, Q), 0.0, 1.0)
 get_lerp_time(A::CurvePt, B::CurvePt, Q::VecSE2) = get_lerp_time(convert(VecE2, A.pos), convert(VecE2, B.pos), convert(VecE2, Q))
 
+"""
+    CurveIndex{I <: Integer, T <: Real}
+Given a `Curve` object `curve` one can call `curve[ind]`
+where `ind` is a `CurveIndex`. The field `t` can be used to interpolate between two 
+points in the curve. 
+
+# Fields
+- `i`::I` index in the curve , ∈ [1:length(curve)-1]
+- `t::T` ∈ [0,1] for linear interpolation
+"""
 struct CurveIndex{I <: Integer, T <: Real}
     i::I     # index in curve, ∈ [1:length(curve)-1]
     t::T # ∈ [0,1] for linear interpolation
@@ -210,8 +224,13 @@ function get_curve_index(ind::CurveIndex, curve::Curve, Δs::T) where T <: Real
 end
 
 """
-    CurveProjection
+    CurveProjection{I <: Integer, T <: Real}
 The result of a point projected to a Curve
+
+# Fields
+- `ind::CurveIndex{I, T}`
+- `t::T` lane offset 
+- `ϕ::T` lane-relative heading [rad]
 """
 struct CurveProjection{I <: Integer, T <: Real}
     ind::CurveIndex{I, T}

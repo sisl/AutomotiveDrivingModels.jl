@@ -171,6 +171,10 @@ end # curve tests
 
     roadway = get_test_roadway()
 
+    io = IOBuffer()
+    show(io, roadway)
+    close(io)
+
     lane = roadway[LaneTag(1,1)]
     @test has_next(lane)
     @test !has_prev(lane)

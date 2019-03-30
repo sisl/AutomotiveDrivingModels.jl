@@ -37,4 +37,19 @@ struct DummyCallback end
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
     @test_throws ErrorException simulate!(rec, scene, roadway, models, 10, (DummyCallback(),))
+
+    # collision right from start
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
+    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 1.0), roadway, 5.)
+    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+
+    scene = Scene()
+    push!(scene, veh1)
+    push!(scene, veh2)
+
+    rec = SceneRecord(n_steps, dt)
+    simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+
+
 end

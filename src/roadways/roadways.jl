@@ -19,8 +19,6 @@ struct LaneTag
     lane::Int64 # index in segment.lanes of this lane
 end
 Base.show(io::IO, tag::LaneTag) = @printf(io, "LaneTag(%d, %d)", tag.segment, tag.lane)
-hash(id::LaneTag, h::UInt=zero(UInt)) = hash(id.segment, hash(id.lane, h))
-Base.:(==)(a::LaneTag, b::LaneTag) = a.segment == b.segment && a.lane == b.lane
 const NULL_LANETAG = LaneTag(0,0)
 
 #######################################
@@ -30,11 +28,6 @@ struct RoadIndex{I <: Integer, T <: Real}
     tag::LaneTag
 end
 const NULL_ROADINDEX = RoadIndex(CurveIndex(-1,NaN), LaneTag(-1,-1))
-
-function Base.:(==)(a::RoadIndex, b::RoadIndex) 
-    return a.ind == b.ind && a.tag == b.tag
-end
-hash(r::RoadIndex, h::UInt) = hash(r.ind, hash(r.tag, h))
 
 Base.show(io::IO, r::RoadIndex) = @printf(io, "RoadIndex({%d, %3.f}, {%d, %d})", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
 Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t, r.tag.segment, r.tag.lane)
@@ -46,11 +39,6 @@ struct LaneConnection{I <: Integer, T <: Real}
     mylane::CurveIndex{I, T}
     target::RoadIndex{I, T}
 end
-
-function Base.:(==)(a::LaneConnection, b::LaneConnection)
-    return a.downstream == b.downstream && a.mylane == b.mylane && a.target == b.target
-end
-hash(l::LaneConnection, h::UInt) =  hash(l.downstream, hash(l.mylane, hash(l.target, h)))
 
 Base.show(io::IO, c::LaneConnection) = print(io, "LaneConnection(", c.downstream ? "D" : "U", ", ", c.mylane, ", ", c.target)
 function Base.write(io::IO, c::LaneConnection)
@@ -75,6 +63,23 @@ end
 
 const DEFAULT_LANE_WIDTH = 3.0 # [m]
 
+"""
+    Lane 
+A driving lane on a roadway. It identified by a `LaneTag`. A lane is defined by a curve which
+represents a center line and a width. In addition it has attributed like speed limit. 
+A lane can be connected to other lane in the roadway, the connection are specified in the exits
+and entrances fields.
+
+# Fields
+- `tag::LaneTag`
+- `curve::Curve`
+- `width::Float64`  [m]
+- `speed_limit::SpeedLimit`
+- `boundary_left::LaneBoundary`
+- `boundary_right::LaneBoundary`
+- `exits::Vector{LaneConnection} # list of exits; put the primary exit (at end of lane) first`
+- `entrances::Vector{LaneConnection} # list of entrances; put the primary entrance (at start of lane) first`
+"""
 mutable struct Lane
     tag            :: LaneTag
     curve          :: Curve
@@ -117,19 +122,6 @@ function Lane(
     return lane
 end
 
-
-function Base.:(==)(l1::Lane, l2::Lane)
-    return l1.tag == l2.tag &&
-            l1.curve == l2.curve &&
-            l1.width == l2.width &&
-            l1.speed_limit == l2.speed_limit &&
-            l1.boundary_left == l2.boundary_left &&
-            l1.boundary_right == l2.boundary_right &&
-            l1.exits == l2.exits &&
-            l1.entrances == l2.entrances
-end
-hash(l::Lane, h::UInt) = hash(l.curve, hash(l.width, hash(l.speed_limit, hash(l.boundary_left, hash(l.boundary_right, hash(l.exits, hash(l.entrances, h)))))))
-
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
 
@@ -154,16 +146,25 @@ function connect!(source::Lane, cindS::CurveIndex, dest::Lane, cindD::CurveIndex
 end
 
 #######################################
-
+"""
+    RoadSegment
+a list of lanes forming a single road with a common direction
+# Fields
+- `id::Int`
+- `lanes::Vector{Lane}` lanes are stored right to left
+"""
 mutable struct RoadSegment
-    # a list of lanes forming a single road with a common direction
     id::Int
-    lanes::Vector{Lane} # lanes are stored right to left
-    RoadSegment(id::Int, lanes::Vector{Lane}=Lane[]) = new(id, lanes)
+    lanes::Vector{Lane} 
 end
+RoadSegment(id::Int) = RoadSegment(id, Lane[])
 
 #######################################
 
+"""
+    Roadway
+The main datastructure to represent road network, it consists of a list of `RoadSegment`
+"""
 mutable struct Roadway
     segments::Vector{RoadSegment}
 end

@@ -1,4 +1,8 @@
-
+"""
+    gen_straight_curve(A::VecE2{T}, B::VecE2{T}, nsamples::Integer) where T<:Real 
+Returns a `Curve` corresponding to a straight line between A and B. `nsamples` indicates the
+number of points to place between A and B, if set to two, the curve will only contains A and B.
+"""
 function gen_straight_curve(A::VecE2{T}, B::VecE2{T}, nsamples::Integer) where T<:Real 
 
     θ = atan(B-A)
@@ -16,6 +20,10 @@ function gen_straight_curve(A::VecE2{T}, B::VecE2{T}, nsamples::Integer) where T
     return curve
 end
 
+"""
+    gen_straight_segment(seg_id::Integer, nlanes::Integer, length::Float64=1000.0;
+Generate a straight `RoadSegment` with `nlanes` number of lanes of length `length`.
+"""
 function gen_straight_segment(seg_id::Integer, nlanes::Integer, length::Float64=1000.0;
     origin::VecSE2{Float64} = VecSE2(0.0,0.0,0.0),
     lane_width::Float64=DEFAULT_LANE_WIDTH, # [m]
@@ -52,6 +60,13 @@ cubic bezier lerp
 """
 Vec.lerp(A::VecE2{T}, B::VecE2{T}, C::VecE2{T}, D::VecE2{T}, t::T) where T<:Real = (1-t)^3*A + 3*(1-t)^2*t*B + 3*(1-t)*t^2*C + t^3*D
 
+"""
+    gen_bezier_curve(A::VecSE2{T}, B::VecSE2{T}, rA::T, rB::T, nsamples::Int) where T <: Real
+Generate a Bezier curve going from A to B with radii specified by rA and rB. It uses cubic
+interpolation. `nsamples` specifies the number of point along the curve between A and B. The more 
+points, the more accurate the approximation is.
+This is useful to generate arcs. 
+"""
 function gen_bezier_curve(A::VecSE2{T}, B::VecSE2{T}, rA::T, rB::T, nsamples::Int) where T <: Real
 
     a = convert(VecE2, A)
