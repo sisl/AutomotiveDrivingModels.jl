@@ -284,15 +284,17 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64
     retval
 end
 get_oriented_bounding_box(center::VecSE2{Float64}, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
-function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Vehicle, center::VecSE2{Float64} = get_center(veh))
+function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Entity{S,D,I}, center::VecSE2{Float64} = get_center(veh)) where {S,D<:AbstractAgentDefinition,I}
 
     # get an oriented bounding box at the vehicle's position
 
-    to_oriented_bounding_box!(retval, center, veh.def.length, veh.def.width)
+    to_oriented_bounding_box!(retval, center, length(veh.def), width(veh.def))
 
     retval
 end
-get_oriented_bounding_box(veh::Vehicle, center::VecSE2{Float64} = get_center(veh)) = to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
+function get_oriented_bounding_box(veh::Entity{S,D,I}, center::VecSE2{Float64} = get_center(veh))  where {S,D<:AbstractAgentDefinition,I}
+    return to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
+end
 
 ######################################
 
@@ -332,19 +334,21 @@ end
 is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
 Vec.get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
 
-_bounding_radius(veh::Vehicle) = sqrt(veh.def.length*veh.def.length/4 + veh.def.width*veh.def.width/4)
+function _bounding_radius(veh::Entity{S,D,I}) where {S,D<:AbstractAgentDefinition,I} 
+    return sqrt(length(veh.def)*length(veh.def)/4 + width(veh.def)*width(veh.def)/4)
+end
 
 """
 A fast collision check to remove things clearly not colliding
 """
-function is_potentially_colliding(A::Vehicle, B::Vehicle)
+function is_potentially_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}) where {D<:AbstractAgentDefinition,I} 
     Δ² = normsquared(VecE2(A.state.posG - B.state.posG))
     r_a = _bounding_radius(A)
     r_b = _bounding_radius(B)
     Δ² ≤ r_a*r_a + 2*r_a*r_b + r_b*r_b
 end
 
-function is_colliding(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
+function is_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, mem::CPAMemory=CPAMemory()) where {D<:AbstractAgentDefinition,I} 
     if is_potentially_colliding(A, B)
         to_oriented_bounding_box!(mem.vehA, A)
         to_oriented_bounding_box!(mem.vehB, B)
@@ -352,7 +356,7 @@ function is_colliding(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
     end
     false
 end
-function Vec.get_distance(A::Vehicle, B::Vehicle, mem::CPAMemory=CPAMemory())
+function Vec.get_distance(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, mem::CPAMemory=CPAMemory()) where {D<:AbstractAgentDefinition,I} 
     to_oriented_bounding_box!(mem.vehA, A)
     to_oriented_bounding_box!(mem.vehB, B)
     get_distance(mem)
@@ -368,13 +372,11 @@ end
 """
 Loops through the scene and finds the first collision between a vehicle and scene[target_index]
 """
-function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
     A = target_index
     vehA = scene[A]
-    vehA = convert(Vehicle,vehA)
     to_oriented_bounding_box!(mem.vehA, vehA)
     for (B,vehB) in enumerate(scene)
-        vehB = convert(Vehicle,vehB)
         if B != A
             to_oriented_bounding_box!(mem.vehB, vehB)
             if is_potentially_colliding(vehA, vehB) && is_colliding(mem)
@@ -394,12 +396,10 @@ function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::Abstrac
     N = length(vehicle_indeces)
     for (a,A) in enumerate(vehicle_indeces)
         vehA = scene[A]
-        vehA = convert(Vehicle,vehA)
         to_oriented_bounding_box!(mem.vehA, vehA)
         for b in a +1 : length(vehicle_indeces)
             B = vehicle_indeces[b]
             vehB = scene[B]
-            vehB = convert(Vehicle,vehB)
             if is_potentially_colliding(vehA, vehB)
                 to_oriented_bounding_box!(mem.vehB, vehB)
                 if is_colliding(mem)
@@ -411,6 +411,6 @@ function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::Abstrac
 
     CollisionCheckResult(false, 0, 0)
 end
-get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I} = get_first_collision(scene, 1:length(scene), mem)
-is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I} = !(get_first_collision(scene, mem).is_colliding)
-is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I} = get_first_collision(scene, vehicle_indeces, mem).is_colliding
+get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I} = get_first_collision(scene, 1:length(scene), mem)
+is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I} = !(get_first_collision(scene, mem).is_colliding)
+is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I} = get_first_collision(scene, vehicle_indeces, mem).is_colliding

@@ -95,7 +95,10 @@ export
     AbstractAgentDefinition,
     AgentClass,
     VehicleDef,
-    BicycleModel
+    BicycleModel,
+    length,
+    width,
+    class
 
 include("agent-definitions/agent_definitions.jl")
 

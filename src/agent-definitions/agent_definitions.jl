@@ -1,7 +1,29 @@
 abstract type AbstractAgentDefinition end
 
 """
-original location: 1d/definitions.jl
+    length(def::AbstractAgentDefinition)
+return the length of the vehicle 
+"""
+Base.length(def::AbstractAgentDefinition) = error("length not implemented for agent definition of type $(typeof(def))")
+
+"""
+    width(def::AbstractAgentDefinition)
+return the width of the vehicle 
+"""
+width(def::AbstractAgentDefinition) = error("width not implemented for agent definition of type $(typeof(def))")
+
+"""
+    class(def::AbstractAgentDefinition)
+return the class of the vehicle 
+"""
+class(def::AbstractAgentDefinition) = error("width not implemented for agent definition of type $(typeof(def))")
+
+"""
+A module to represent the different class of agents:
+- Motorcycle
+- Car
+- Truck
+- Pedestrian
 """
 module AgentClass
     const MOTORCYCLE = 1
@@ -12,21 +34,23 @@ end
 
 
 """
-    Vehicle definition which contains a class and a bounding box.
+    VehicleDef(;class::Float64, length::Float64, width::Float64)
+Vehicle definition which contains a class and a bounding box.
 """
-struct VehicleDef
+struct VehicleDef <: AbstractAgentDefinition
     class::Int64 # ∈ AgentClass
     length::Float64
     width::Float64
 end
-function VehicleDef(;
-    class::Int=AgentClass.CAR,
-    length::Float64=4.0,
-    width::Float64=1.8,
-    )
-
-    VehicleDef(class, length, width)
+function VehicleDef(;class::Int64 = AgentClass.CAR,
+                   length::Float64 = 4.0,
+                    width::Float64 = 1.8)
+    return VehicleDef(class, length, width)
 end
+
+Base.length(d::VehicleDef) = d.length
+width(d::VehicleDef) = d.width
+class(d::VehicleDef) = d.class
 
 const NULL_VEHICLEDEF = VehicleDef(AgentClass.CAR, NaN, NaN)
 
@@ -48,9 +72,11 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleDef})
 end
 
 """
-original location: src/2d/definitions.jl
+    BicycleModel
+    BicycleModel(def::VehicleDef; a::Float64 = 1.5, b::Float64 = 1.5)
+Vehicle definition representing the bicycle model
 """
-struct BicycleModel
+struct BicycleModel <: AbstractAgentDefinition
     def::VehicleDef
     a::Float64 # distance between cg and front axle [m]
     b::Float64 # distance between cg and rear axle [m]
@@ -62,3 +88,7 @@ function BicycleModel(def::VehicleDef;
 
     return BicycleModel(def, a, b)
 end
+
+Base.length(d::BicycleModel) = d.def.length
+width(d::BicycleModel) = d.def.width
+class(d::BicycleModel) = d.def.class

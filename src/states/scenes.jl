@@ -4,8 +4,10 @@ Scene(arr::Vector{Vehicle}) = Frame{Vehicle}(arr, length(arr))
 
 Base.show(io::IO, scene::Scene) = print(io, "Scene(with $(length(scene)) cars)")
 
-#TODO parameterize Vehicle with the agent definition
-Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, BicycleModel, Int64}) = Vehicle(veh.state, veh.def.def, veh.id)
+function Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, D, Int64}) where D<:AbstractAgentDefinition
+    vehdef = VehicleDef(class(veh.def), length(veh.def), width(veh.def))
+    return Vehicle(veh.state, vehdef, veh.id)
+end
 
 const SceneRecord = QueueRecord{Vehicle}
 SceneRecord(capacity::Int, timestep::Float64, frame_capacity::Int=100) = QueueRecord(Vehicle, capacity, timestep, frame_capacity)
