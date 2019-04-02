@@ -331,39 +331,6 @@ struct CPAMemory
 end
 is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
 Vec.get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
-function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAMemory=CPAMemory())
-
-    to_oriented_bounding_box!(mem.vehA, a)
-    to_oriented_bounding_box!(mem.vehB, b)
-    minkowksi_sum!(mem.mink, mem.vehA, mem.vehB)
-
-    rel_pos = convert(VecE2, b.state.posG - a.state.posG)
-    rel_velocity = polar(b.state.v, b.state.posG.θ) - polar(a.state.v, a.state.posG.θ)
-    ray_speed = norm(VecE2(rel_velocity))
-    ray = VecSE2(rel_pos, atan(rel_velocity))
-
-    if in(convert(VecE2, ray), mem.mink)
-        return (0.0, 0.0)
-    end
-
-    best_t_CPA = NaN
-    best_d_CPA = Inf
-    if_no_col_skip_eval = false
-
-    for i in 1 : length(mem.mink)
-        seg = get_edge(mem.mink, i)
-        t_CPA, d_CPA = get_time_and_dist_of_closest_approach(ray, seg, ray_speed, if_no_col_skip_eval)
-        if d_CPA < best_d_CPA
-            best_t_CPA = t_CPA
-            best_d_CPA = d_CPA
-            if d_CPA == 0.0
-                if_no_col_skip_eval = true
-            end
-        end
-    end
-
-    (best_t_CPA, best_d_CPA)
-end
 
 _bounding_radius(veh::Vehicle) = sqrt(veh.def.length*veh.def.length/4 + veh.def.width*veh.def.width/4)
 
