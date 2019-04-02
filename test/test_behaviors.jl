@@ -99,6 +99,29 @@ end
     @test get_name(lanemodel) == "MOBIL"
     set_desired_speed!(lanemodel,20.0)
     @test lanemodel.mlon.v_des == 20.0
+
+    roadway = gen_straight_roadway(3, 1000.0)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 0.0), roadway, 10.)
+    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 20.0), roadway, 2.)
+    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+
+    dt = 0.5
+    n_steps = 10
+    models = Dict{Int, DriverModel}()
+    models[1] = Tim2DDriver(dt, mlane=MOBIL(dt))
+    set_desired_speed!(models[1], 10.0)
+    models[2] = Tim2DDriver(dt, mlane=MOBIL(dt))
+    set_desired_speed!(models[2], 2.0)
+
+    scene = Scene([veh1, veh2])
+
+    rec = SceneRecord(n_steps, dt)
+    simulate!(rec, scene, roadway, models, n_steps)
+
+    @test scene[1].state.posF.roadind.tag == LaneTag(1, 2)
+    @test scene[2].state.posF.roadind.tag == LaneTag(1, 2)
+
 end
 
 @testset "Tim2DDriver" begin
@@ -109,6 +132,28 @@ end
     set_desired_speed!(drivermodel,20.0)
     @test drivermodel.mlon.v_des == 20.0
     @test drivermodel.mlane.v_des == 20.0
+
+    roadway = gen_straight_roadway(3, 1000.0)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 0.0), roadway, 10.)
+    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 10.0), roadway, 2.)
+    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+
+    dt = 0.5
+    n_steps = 10
+    models = Dict{Int, DriverModel}()
+    models[1] = Tim2DDriver(dt)
+    set_desired_speed!(models[1], 10.0)
+    models[2] = Tim2DDriver(dt)
+    set_desired_speed!(models[2], 2.0)
+
+    scene = Scene([veh1, veh2])
+
+    rec = SceneRecord(n_steps, dt)
+    simulate!(rec, scene, roadway, models, n_steps)
+
+    @test scene[1].state.posF.roadind.tag == LaneTag(1, 3)
+    @test scene[2].state.posF.roadind.tag == LaneTag(1, 2)
 end
 
 @testset "lane following" begin 

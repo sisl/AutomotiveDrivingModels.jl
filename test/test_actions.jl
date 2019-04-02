@@ -11,6 +11,9 @@ end
     trajdata = get_test_trajdata(roadway)
     veh = get(trajdata, 1, 1)
     a = AccelTurnrate(0.1,0.2)
+    io = IOBuffer()
+    show(io, a)
+    close(io)
     @test a == convert(AccelTurnrate, [0.1,0.2])
     @test copyto!([NaN, NaN], AccelTurnrate(0.1,0.2)) == [0.1,0.2]
     @test length(AccelTurnrate) == 2
@@ -47,6 +50,9 @@ end
     trajdata = get_test_trajdata(roadway)
     veh = get(trajdata, 1, 1)
     a = AccelSteeringAngle(0.1,0.2)
+    io = IOBuffer()
+    show(io, a)
+    close(io)
     @test a == convert(AccelSteeringAngle, [0.1,0.2])
     @test copyto!([NaN, NaN], AccelSteeringAngle(0.1,0.2)) == [0.1,0.2]
     @test length(AccelSteeringAngle) == 2
@@ -55,13 +61,15 @@ end
     # won't work with the veh type loaded from test_tra
     @test_throws ErrorException propagate(veh, AccelSteeringAngle(0.0,0.0), roadway, 1.0)
 
-    
-    # TODO Test the branch condition within propagate
-    # s = propagate(veh, AccelSteeringAngle(0.0,0.0), roadway, 1.0)
-    # @test isapprox(s.posG.x, veh.state.v*1.0)
-    # @test isapprox(s.posG.y, 0.0)
-    # @test isapprox(s.posG.θ, 0.0)
-    # @test isapprox(s.v, veh.state.v)
+    veh = Entity(veh.state, BicycleModel(veh.def), veh.id)
+    s = propagate(veh, AccelSteeringAngle(0.0,0.0), roadway, 1.0)
+    @test isapprox(s.posG.x, veh.state.v*1.0)
+    @test isapprox(s.posG.y, 0.0)
+    @test isapprox(s.posG.θ, 0.0)
+    @test isapprox(s.v, veh.state.v)
+    # Test the branch condition within propagate
+    s = propagate(veh, AccelSteeringAngle(0.0,1.0), roadway, 1.0)
+    @test isapprox(s.v, veh.state.v)
 end
 
 @testset "LaneFollowingAccel" begin 
@@ -78,6 +86,9 @@ end
     trajdata = get_test_trajdata(roadway)
     veh = get(trajdata, 1, 1)
     a = LatLonAccel(0.1,0.2)
+    io = IOBuffer()
+    show(io, a)
+    close(io)
     @test a == convert(LatLonAccel, [0.1,0.2])
     @test copyto!([NaN, NaN], LatLonAccel(0.1,0.2)) == [0.1,0.2]
     @test length(LatLonAccel) == 2
