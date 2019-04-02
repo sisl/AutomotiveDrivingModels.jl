@@ -52,7 +52,7 @@ end
     veh2 = Vehicle(VehicleState(VecSE2(10.0, 0.0, 0.0), roadway, 5.0), VehicleDef(), 2)
     scene = Scene([veh1, veh2])
     @test is_collision_free(scene)
-    @test get_distance(veh1, veh2) ≈ 1.20
+    @test get_distance(veh1, veh2) ≈ 6.0
 end
 
 @testset "parallel axis" begin 
