@@ -19,7 +19,7 @@ function propagate(veh::Vehicle1D, action::LaneFollowingAccel, roadway::Straight
     return State1D(s′, v′)
 end
 
-function propagate(veh::Vehicle, action::LaneFollowingAccel, roadway::Roadway, ΔT::Float64)
+function propagate(veh::Entity{VehicleState,D,I}, action::LaneFollowingAccel, roadway::Roadway, ΔT::Float64) where {D,I}
 
     a_lon = action.a
 
