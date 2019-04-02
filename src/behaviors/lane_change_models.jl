@@ -9,12 +9,7 @@ struct LaneChangeChoice
     dir::Int # -1, 0, 1
 end
 Base.show(io::IO, a::LaneChangeChoice) = @printf(io, "LaneChangeChoice(%d)", a.dir)
-Base.length(::Type{LaneChangeChoice}) = 1
-Base.convert(::Type{LaneChangeChoice}, v::Vector{Float64}) = LaneChangeChoice(convert(Int, v[1]))
-function Base.copyto!(v::Vector{Float64}, a::LaneChangeChoice)
-    v[1] = a.dir
-    v
-end
+
 function get_lane_offset(a::LaneChangeChoice, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     if a.dir == DIR_MIDDLE
         rec[pastframe][vehicle_index].state.posF.t
@@ -30,7 +25,7 @@ end
 
 abstract type LaneChangeModel end
 get_name(::LaneChangeModel) = "???"
-set_desired_speed!(::LaneChangeModel, v_des::Float64) = model # # do nothing by default
+set_desired_speed!(model::LaneChangeModel, v_des::Float64) = model # # do nothing by default
 reset_hidden_state!(model::LaneChangeModel) = model # do nothing by default
 observe!(model::LaneChangeModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
 Base.rand(model::LaneChangeModel) = error("rand not implemented for model $model")

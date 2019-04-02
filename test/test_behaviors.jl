@@ -73,6 +73,25 @@ end
     simulate!(rec, scene, roadway, models, 1)
 end
 
+struct FakeLaneChanger <: LaneChangeModel end
+@testset "lane change interface" begin 
+    l = LaneChangeChoice(DIR_RIGHT)
+    io = IOBuffer()
+    show(io, l)
+    close(io)
+    roadway = get_test_roadway()
+    trajdata = get_test_trajdata(roadway)
+    veh = get(trajdata, 1, 1)
+
+    model = FakeLaneChanger()
+    reset_hidden_state!(model)
+    observe!(model, Scene(), roadway, 1)
+
+    @test get_name(model) == "???"
+    @test set_desired_speed!(model, 0.0) == FakeLaneChanger()
+    @test_throws ErrorException rand(model)
+end
+
 @testset "MOBIL" begin
     timestep = 0.1
     lanemodel = MOBIL(timestep)
