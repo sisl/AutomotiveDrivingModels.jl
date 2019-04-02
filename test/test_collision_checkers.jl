@@ -39,6 +39,20 @@ end
     @test col.B == 2
 
     @test get_first_collision(get!(scene, trajdata, 2), CPAMemory()).is_colliding == true
+    scene = Scene()
+    @test is_collision_free(get!(scene, trajdata, 1)) == false
+    @test is_collision_free(get!(scene, trajdata, 1), [1]) == false
+    @test is_colliding(scene[1], scene[2])
+    @test get_distance(scene[1], scene[2]) == 0
+    @test is_collision_free(get!(scene, trajdata, 3)) 
+    get_distance(scene[1], scene[2])
+    
+    roadway = gen_straight_roadway(2, 100.0)
+    veh1 = Vehicle(VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 10.0), VehicleDef(), 1)
+    veh2 = Vehicle(VehicleState(VecSE2(10.0, 0.0, 0.0), roadway, 5.0), VehicleDef(), 2)
+    scene = Scene([veh1, veh2])
+    @test is_collision_free(scene)
+    @test get_distance(veh1, veh2) ≈ 1.20
 end
 
 @testset "parallel axis" begin 

@@ -35,7 +35,7 @@ end
 
 ######################################
 
-function get_signed_area(pts::Vector{VecE2}, npts::Int = length(pts))
+function get_signed_area(pts::Vector{VecE2{Float64}}, npts::Int = length(pts))
 
     # https://en.wikipedia.org/wiki/Shoelace_formula
     # sign of -1 means clockwise, sign of 1 means counterclockwise
@@ -48,7 +48,7 @@ function get_signed_area(pts::Vector{VecE2}, npts::Int = length(pts))
 
     retval / 2
 end
-function get_edge(pts::Vector{VecE2}, i::Int, npts::Int=length(pts))
+function get_edge(pts::Vector{VecE2{Float64}}, i::Int, npts::Int=length(pts))
     a = pts[i]
     b = i+1 ≤ npts ? pts[i+1] : pts[1]
     LineSegment(a,b)
@@ -57,12 +57,12 @@ end
 ######################################
 
 mutable struct ConvexPolygon
-    pts::Vector{VecE2} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
+    pts::Vector{VecE2{Float64}} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
     npts::Int # number of pts that are currently used (since we preallocate a longer array)
 end
 
-ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2}(undef, npts), 0)
-ConvexPolygon(pts::Vector{VecE2}) = ConvexPolygon(pts, length(pts))
+ConvexPolygon(npts::Int) = ConvexPolygon(Array{VecE2{Float64}}(undef, npts), 0)
+ConvexPolygon(pts::Vector{VecE2{Float64}}) = ConvexPolygon(pts, length(pts))
 
 function Base.iterate(poly::ConvexPolygon, i::Int=1)
     if i > length(poly)
@@ -258,7 +258,7 @@ function is_colliding(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=Co
 end
 function Vec.get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygon=ConvexPolygon(length(P) + length(Q)))
     minkowski_difference!(temp, P, Q)
-    get_distance(VecE2(0,0), temp)
+    get_distance(temp, VecE2(0,0))
 end
 
 function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64}, len::Float64, wid::Float64)
@@ -337,7 +337,7 @@ function get_time_and_dist_of_closest_approach(a::Vehicle, b::Vehicle, mem::CPAM
     to_oriented_bounding_box!(mem.vehB, b)
     minkowksi_sum!(mem.mink, mem.vehA, mem.vehB)
 
-    rel_pos = convert(VecE2, b.state.posG) - a.state.posG
+    rel_pos = convert(VecE2, b.state.posG - a.state.posG)
     rel_velocity = polar(b.state.v, b.state.posG.θ) - polar(a.state.v, a.state.posG.θ)
     ray_speed = norm(VecE2(rel_velocity))
     ray = VecSE2(rel_pos, atan(rel_velocity))
