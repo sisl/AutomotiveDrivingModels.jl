@@ -18,14 +18,6 @@ const APPRAISING = -1 # Decelerate until reach curbside
 const CROSSING = 0 # Accelerate until desired speed
 const LEAVING = 1 # Keep walking at constant speed
 
-Base.show(io::IO, a::CrossingPhase) = @printf(io, "CrossingPhase(%d)", a.phase)
-Base.length(::Type{CrossingPhase}) = 1
-Base.convert(::Type{CrossingPhase}, v::Vector{Float64}) = CrossingPhase(convert(Int, v[1]))
-function Base.copy!(v::Vector{Float64}, a::CrossingPhase)
-    v[1] = a.phase
-    v
-end
-
 """
     SidewalkPedestrianModel
 
@@ -193,17 +185,4 @@ end
 function get_lane(roadway::Roadway, vehicle::Vehicle)
     lane_tag = vehicle.state.posF.roadind.tag
     return roadway[lane_tag]
-end
-
-function get_lane(roadway::Roadway, vehicle::VehicleState)
-    lane_tag = vehicle.posF.roadind.tag
-    return roadway[lane_tag]
-end
-
-function get_end(lane::Lane)
-    s_end = round(lane.curve[end].s)
-    if s_end % 2 == 1
-        s_end -= 1
-    end
-    return s_end
 end
