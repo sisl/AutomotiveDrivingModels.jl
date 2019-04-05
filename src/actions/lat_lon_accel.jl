@@ -14,7 +14,7 @@ function Base.copyto!(v::Vector{Float64}, a::LatLonAccel)
     v[2] = a.a_lon
     v
 end
-function propagate(veh::Entity{VehicleState, D, I}, action::LatLonAccel, roadway::Roadway, ΔT::Float64) where {D<:AbstractAgentDefinition, I}
+function propagate(veh::Entity{VehicleState, D, I}, action::LatLonAccel, roadway::Roadway, ΔT::Float64) where {D, I}
 
     a_lat = action.a_lat
     a_lon = action.a_lon

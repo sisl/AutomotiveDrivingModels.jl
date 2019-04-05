@@ -25,7 +25,7 @@ end
 Propagate vehicle forward in time using a desired acceleration and
 turn rate
 """
-function propagate(veh::Vehicle, action::AccelTurnrate, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4)
+function propagate(veh::Entity{VehicleState,D,I}, action::AccelTurnrate, roadway::Roadway, Δt::Float64; n_integration_steps::Int=4) where {D,I}
 
     a = action.a # accel
     ω = action.ω # turnrate
