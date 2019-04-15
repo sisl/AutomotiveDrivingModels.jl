@@ -1,5 +1,5 @@
 # Behaviors
-These stand one level above the `actions`. They provided a higher level decision that
+These stands one level above the `actions`. They provide a higher level decision that
 the `actions` then implement in order to propagate the simulation forward.
 
 
