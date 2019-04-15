@@ -22,6 +22,21 @@ const LEAVING = 1 # Keep walking at constant speed
     SidewalkPedestrianModel
 
 Walks along the sidewalk until approaching the crosswalk. Waits for the cars to pass, then crosses.
+
+# Fields
+- `timestep::Float64`
+- `phase::Int = APPROACHING`
+- `ttc_threshold::Float64 = clamp(rand(Normal(4.0, 2.5)), 1.0, Inf)`
+- `crosswalk::Lane = Lane()`
+- `sw_origin::Lane = Lane()`
+- `sw_dest::Lane = Lane()`
+- `a::PedestrianLatLonAccel = PedestrianLatLonAccel(0.0, 0.0, sw_origin)` makes you turn, left/right
+- `σ::Float64 = NaN` optional stdev on top of the model, set to zero or NaN for deterministic
+- `v_des_approach::Float64 = clamp(rand(Normal(1.28, 0.18)), 0.0, Inf)` Based on Feliciani et al. results
+- `v_des_appraise::Float64 = clamp(rand(Normal(0.94, 0.21)), 0.0, Inf)`
+- `v_des_cross::Float64 = clamp(rand(Normal(1.35, 0.18)), 0.0, Inf)`
+- `ped_accel::Float64 = 0.30`
+- `ped_decel::Float64 = -0.50`
 """
 @with_kw mutable struct SidewalkPedestrianModel <: DriverModel{PedestrianLatLonAccel}
     timestep::Float64

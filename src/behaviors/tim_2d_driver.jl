@@ -1,6 +1,21 @@
 """
-Driver that combines longitudinal driver and lateral driver including lane
-change model into one driving model
+	Tim2DDriver
+Driver that combines longitudinal driver and lateral driver into one model.
+
+# Constructors
+Tim2DDriver(
+        timestep::Float64;
+        mlon::LaneFollowingDriver=IntelligentDriverModel(),
+        mlat::LateralDriverModel=ProportionalLaneTracker(),
+        mlane::LaneChangeModel=TimLaneChanger(timestep),
+        rec::SceneRecord = SceneRecord(1, timestep)
+        )
+
+# Fields
+- `rec::SceneRecord` A record that will hold the resulting simulation results
+- `mlon::LaneFollowingDriver = IntelligentDriverModel()` Longitudinal driving model
+- `mlat::LateralDriverModel = ProportionalLaneTracker()` Lateral driving model
+- `mlane::LaneChangeModel =TimLaneChanger` Lane change model
 """
 mutable struct Tim2DDriver <: DriverModel{LatLonAccel}
     rec::SceneRecord
