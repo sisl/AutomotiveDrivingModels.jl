@@ -82,11 +82,20 @@ curveindex_end(curve::Curve) = CurveIndex(length(curve)-1,1.0)
 
 Base.getindex(curve::Curve, ind::CurveIndex) = lerp(curve[ind.i], curve[ind.i+1], ind.t)
 
+"""
+    is_at_curve_end(ind::CurveIndex, curve::Curve)
+returns true if the curve index is at the end of the curve
+"""
 function is_at_curve_end(ind::CurveIndex, curve::Curve)
     (ind.i == 1 && ind.t == 0.0) ||
     (ind.i == length(curve)-1 && ind.t == 1.0)
 end
 
+"""
+    index_closest_to_point(curve::Curve, target::AbstractVec)
+returns the curve index closest to the point described by `target`.
+`target` must be [x, y].
+"""
 function index_closest_to_point(curve::Curve, target::AbstractVec)
 
     a = 1

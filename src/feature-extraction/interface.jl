@@ -105,6 +105,7 @@ end
 
 ###
 
+generate_feature_functions("PosFs", :posFs, Float64, "m")
 generate_feature_functions("PosFt", :posFt, Float64, "m")
 generate_feature_functions("PosFyaw", :posFyaw, Float64, "rad")
 generate_feature_functions("Speed", :speed, Float64, "m/s")

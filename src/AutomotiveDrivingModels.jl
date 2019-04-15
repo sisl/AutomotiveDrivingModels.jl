@@ -62,14 +62,10 @@ export
     next_lane_point,
     prev_lane_point,
     connect!,
-    prev,
-    project_to_closest_lane,
     move_along,
     n_lanes_left,
     n_lanes_right,
-    get_neighbor_lanetag_left,
-    get_neighbor_lanetag_right,
-    read_dxf
+    read
 
 include("roadways/roadways.jl")
 

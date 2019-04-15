@@ -1,3 +1,10 @@
+"""
+    LaneBoundary
+Data structure to represent lanes boundaries such as double yellow lines.
+# Fields
+    - `style::Symbol` ∈ :solid, :broken, :double
+    - `color::Symbol` ∈ :yellow, white
+"""
 struct LaneBoundary
     style::Symbol # ∈ :solid, :broken, :double
     color::Symbol # ∈ :yellow, white
@@ -5,7 +12,13 @@ end
 const NULL_BOUNDARY = LaneBoundary(:unknown, :unknown)
 
 #######################
-
+"""
+    SpeedLimit
+Datastructure to represent a speed limit
+# Fields 
+- `lo::Float64` [m/s] lower speed limit 
+- `hi::Float64` [m/s] higher speed limit
+"""
 struct SpeedLimit
     lo::Float64 # [m/s]
     hi::Float64 # [m/s]
@@ -13,7 +26,17 @@ end
 const DEFAULT_SPEED_LIMIT = SpeedLimit(-Inf, Inf)
 
 #######################
-
+"""
+    LaneTag 
+An identifier for a lane. The lane object can be retrieved by indexing the roadway by the lane tag:
+```julia
+tag = LaneTag(1, 2) # second lane segment 1
+lane = roadway[tag] # returns a Lane object
+```
+# Fields 
+- `segment::Int64` segment id
+- `lane::Int64` index in segment.lanes of this lane
+"""
 struct LaneTag
     segment::Int64 # segment id
     lane::Int64 # index in segment.lanes of this lane
@@ -23,6 +46,14 @@ const NULL_LANETAG = LaneTag(0,0)
 
 #######################################
 
+"""
+    RoadIndex{I <: Integer, T <: Real}
+A data structure to index points in a roadway. Calling `roadway[roadind]` will return the point
+associated to the road index.
+# Fields 
+- `ind::CurveIndex{I,T}` the index of the point in the curve
+- `tag::LaneTag` the lane tag of the point
+"""
 struct RoadIndex{I <: Integer, T <: Real}
     ind::CurveIndex{I, T}
     tag::LaneTag
@@ -34,6 +65,14 @@ Base.write(io::IO, r::RoadIndex) = @printf(io, "%d %.6f %d %d", r.ind.i, r.ind.t
 
 #######################################
 
+"""
+    LaneConnection{I <: Integer, T <: Real}
+Data structure to specify the connection of a lane. It connects `mylane` to the point `target`. 
+`target` would typically be the starting point of a new lane.
+- `downstream::Bool`
+- `mylane::CurveIndex{I,T}`
+- `target::RoadIndex{I,T}`
+"""
 struct LaneConnection{I <: Integer, T <: Real}
     downstream::Bool # if true, mylane → target, else target → mylane
     mylane::CurveIndex{I, T}
@@ -122,13 +161,34 @@ function Lane(
     return lane
 end
 
+"""
+    has_next(lane::Lane)
+returns true if the end of the lane is connected to another lane (i.e. if it has an exit lane)
+"""
 has_next(lane::Lane) = !isempty(lane.exits) && lane.exits[1].mylane == curveindex_end(lane.curve)
+
+"""
+    has_prev(lane::Lane)
+returns true if another lane is connected to the beginning of that lane. (i.e. if it has an entrance lane)
+"""
 has_prev(lane::Lane) = !isempty(lane.entrances) && lane.entrances[1].mylane == CURVEINDEX_START
 
+"""
+    is_in_exits(lane::Lane, target::LaneTag)
+returns true if `target` is in the exit lanes of `lane`.
+"""
 is_in_exits(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.exits) != nothing
+
+"""
+    is_in_entrances(lane::Lane, target::LaneTag)
+returns true if `target` is in the entrances lanes of `lane`.
+"""
 is_in_entrances(lane::Lane, target::LaneTag) = findfirst(lc->lc.target.tag == target, lane.entrances) != nothing
 
-
+"""
+    connect!(source::Lane, dest::Lane)
+connect two lanes to each other. Useful for roadway construction.
+"""
 function connect!(source::Lane, dest::Lane)
     # place these at the front
 
@@ -164,6 +224,8 @@ RoadSegment(id::Int) = RoadSegment(id, Lane[])
 """
     Roadway
 The main datastructure to represent road network, it consists of a list of `RoadSegment`
+# Fields
+- `segments::Vector{RoadSegment}`
 """
 mutable struct Roadway
     segments::Vector{RoadSegment}
@@ -171,6 +233,10 @@ end
 Roadway() = Roadway(RoadSegment[]) 
 
 Base.show(io::IO, roadway::Roadway) = @printf(io, "Roadway")
+"""
+    Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
+write all the roadway information to a text file
+"""
 function Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
     # writes to a text file
 
@@ -200,6 +266,11 @@ function Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
         end
     end
 end
+
+"""
+    Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
+extract roadway information from a text file and returns a roadway object.
+"""
 function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
     lines = readlines(io)
     line_index = 1
@@ -299,6 +370,11 @@ function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
         lerp( pt_lo, pt_hi, ind.t)
     end
 end
+
+"""
+    Base.getindex(roadway::Roadway, segid::Int)
+returns the segment associated with id `segid`
+"""
 function Base.getindex(roadway::Roadway, segid::Int)
     for seg in roadway.segments
         if seg.id == segid
@@ -307,20 +383,59 @@ function Base.getindex(roadway::Roadway, segid::Int)
     end
     error("Could not find segid $segid in roadway")
 end
+
+"""
+    Base.getindex(roadway::Roadway, tag::LaneTag)
+returns the lane identified by the tag `LaneTag`
+"""
 function Base.getindex(roadway::Roadway, tag::LaneTag)
     seg = roadway[tag.segment]
     seg.lanes[tag.lane]
 end
 
+"""
+    is_between_segments_lo(ind::CurveIndex)
+"""
 is_between_segments_lo(ind::CurveIndex) = ind.i == 0
+
+"""
+    is_between_segments_hi(ind::CurveIndex, curve::Curve)
+"""
 is_between_segments_hi(ind::CurveIndex, curve::Curve) = ind.i == length(curve)
+
+"""
+    is_between_segments(ind::CurveIndex, curve::Curve)
+"""
 is_between_segments(ind::CurveIndex, curve::Curve) = is_between_segments_lo(ind) || is_between_segments_hi(ind, curve)
 
+"""
+    next_lane(lane::Lane, roadway::Roadway)
+returns the lane connected to the end `lane`. If `lane` has several exits, it returns the first one
+"""
 next_lane(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target.tag]
+
+"""
+    prev_lane(lane::Lane, roadway::Roadway)
+returns the lane connected to the beginning `lane`. If `lane` has several entrances, it returns the first one
+"""
 prev_lane(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target.tag]
+
+"""
+    next_lane_point(lane::Lane, roadway::Roadway) 
+returns the point of connection between `lane` and its first exit
+"""
 next_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.exits[1].target]
+
+"""
+    prev_lane_point(lane::Lane, roadway::Roadway)
+returns the point of connection between `lane` and its first entrance
+"""
 prev_lane_point(lane::Lane, roadway::Roadway) = roadway[lane.entrances[1].target]
 
+"""
+    has_segment(roadway::Roadway, segid::Int)
+returns true if `segid` is in `roadway`.
+"""
 function has_segment(roadway::Roadway, segid::Int)
     for seg in roadway.segments
         if seg.id == segid
@@ -329,6 +444,11 @@ function has_segment(roadway::Roadway, segid::Int)
     end
     false
 end
+
+"""
+    has_lanetag(roadway::Roadway, tag::LaneTag)
+returns true if `roadway` contains a lane identified by `tag`
+"""
 function has_lanetag(roadway::Roadway, tag::LaneTag)
     if !has_segment(roadway, tag.segment)
         return false
@@ -337,6 +457,13 @@ function has_lanetag(roadway::Roadway, tag::LaneTag)
     1 ≤ tag.lane ≤ length(seg.lanes)
 end
 
+"""
+    RoadProjection{I <: Integer, T <: Real}
+represents the projection of a point on the roadway
+# Fields
+- `curveproj::CurveProjection{I, T}`
+- `tag::LaneTag`
+"""
 struct RoadProjection{I <: Integer, T <: Real}
     curveproj::CurveProjection{I, T}
     tag::LaneTag
@@ -394,9 +521,10 @@ function get_closest_perpendicular_point_between_points(A::VecSE2{T}, B::VecSE2{
 end
 
 """
-    proj(posG::VecSE2{T}, lane::Lane, roadway::Roadway) where T <: Real
+    proj(posG::VecSE2{T}, lane::Lane, roadway::Roadway; move_along_curves::Bool=true) where T <: Real
 Return the RoadProjection for projecting posG onto the lane.
 This will automatically project to the next or prev curve as appropriate.
+if `move_along_curves` is false, will only project to lane.curve
 """
 function Vec.proj(posG::VecSE2{T}, lane::Lane, roadway::Roadway;
     move_along_curves::Bool = true, # if false, will only project to lane.curve
@@ -505,6 +633,10 @@ end
 
 RoadIndex(roadproj::RoadProjection) = RoadIndex(roadproj.curveproj.ind, roadproj.tag)
 
+"""
+    Base.getindex(roadway::Roadway, roadind::RoadIndex)
+returns the CurvePt on the roadway associated to `roadind`
+"""
 function Base.getindex(roadway::Roadway, roadind::RoadIndex)
     lane = roadway[roadind.tag]
     lane[roadind.ind, roadway]
@@ -574,8 +706,16 @@ function move_along(roadind::RoadIndex{I, T},
     end
 end
 
-
+"""
+    n_lanes_right(lane::Lane, roadway::Roadway)
+returns the number of lanes to the right of `lane`
+"""
 n_lanes_right(lane::Lane, roadway::Roadway) = lane.tag.lane - 1
+
+"""
+    n_lanes_left(lane::Lane, roadway::Roadway)
+returns the number of lanes to the left of `lane`
+"""
 function n_lanes_left(lane::Lane, roadway::Roadway)
     seg = roadway[lane.tag.segment]
     length(seg.lanes) - lane.tag.lane

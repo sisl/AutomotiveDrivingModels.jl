@@ -1,3 +1,6 @@
+function Base.get(::Feature_PosFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
+    FeatureValue(rec[pastframe][vehicle_index].state.posF.s)
+end
 function Base.get(::Feature_PosFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
     FeatureValue(rec[pastframe][vehicle_index].state.posF.t)
 end
