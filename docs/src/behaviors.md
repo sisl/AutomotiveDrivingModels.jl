@@ -2,8 +2,14 @@
 These stands one level above the `actions`. They provide a higher level decision that
 the `actions` then implement in order to propagate the simulation forward.
 
+A behavior model can be interpreted as a control law. Given the current scene, representing all 
+the vehicles present in the environment, a behavior model returns an action to execute. 
 
 ## Interface
+
+We provide an interface to interact with behavior model or implement your own. 
+
+
 
 ## Available Behaviors
 ```@docs
