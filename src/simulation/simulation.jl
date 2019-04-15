@@ -1,3 +1,9 @@
+"""
+    get_actions!(actions::Vector{A}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I, M},) where {S,D,I,A,R,M<:DriverModel}
+Fill in `actions` with the actions of each agent present in the scene. It calls `observe!`
+and `rand` for each driver models. 
+`actions` will contain the actions to apply to update the state of each vehicle.
+"""
 function get_actions!(
     actions::Vector{A},
     scene::EntityFrame{S,D,I},
@@ -15,6 +21,11 @@ function get_actions!(
     actions
 end
 
+"""
+    tick!(scene::EntityFrame{S,D,I}, roadway::R, actions::Vector{A}, Δt::Float64) where {S,D,I,A,R}
+update `scene` in place by updating the state of each vehicle given their current action in `actions`. 
+It calls the `propagate` method for each vehicle in the scene.
+"""
 function tick!(
     scene::EntityFrame{S,D,I},
     roadway::R,
@@ -31,6 +42,10 @@ function tick!(
     return scene
 end
 
+"""
+    reset_hidden_states!(models::Dict{Int,M}) where {M<:DriverModel}
+reset hidden states of all driver models in `models`
+"""
 function reset_hidden_states!(models::Dict{Int,M}) where {M<:DriverModel}
     for model in values(models)
         reset_hidden_state!(model)
@@ -39,7 +54,14 @@ function reset_hidden_states!(models::Dict{Int,M}) where {M<:DriverModel}
 end
 
 """
+    simulate!(::Type{A}, rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int) where {S,D,I,A,R,M<:DriverModel}
+    simulate!(rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int) where {S,D,I,R,M<:DriverModel}
 Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
+
+    simulate!(::Type{A},rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int, callbacks::C) where {S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+    simulate!(rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int, callbacks::C) where {S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+Callback objects can also be passed in the simulate! function.
+
 """
 function simulate!(
     ::Type{A},

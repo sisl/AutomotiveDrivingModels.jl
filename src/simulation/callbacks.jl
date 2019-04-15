@@ -1,4 +1,9 @@
 # run callback and return whether simlation should terminate
+"""
+    run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel}
+run callback and return whether simlation should terminate
+A new method should be implemented when defining a new callback object.
+"""
 run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel} = error("run_callback not implemented for callback $(typeof(callback))")
 
 function _run_callbacks(callbacks::C, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
