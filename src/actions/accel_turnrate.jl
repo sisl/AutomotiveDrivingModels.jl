@@ -1,4 +1,11 @@
-#TODO: What exactly is ω? Should we say rate of change of heading angle?
+"""
+    AccelTurnrate
+An action type with a longitudinal acceleration and a turn rate
+
+# Fields
+- `a::Float64` longitudinal acceleration [m/s^2]
+- `ω::Float64` desired turn rate [rad/sec]
+"""
 struct AccelTurnrate
     a::Float64
     ω::Float64
