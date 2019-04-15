@@ -141,7 +141,6 @@ export
     ConvexPolygon,
     CPAMemory,
     CollisionCheckResult,
-    LineSegment,
     to_oriented_bounding_box!,
     get_oriented_bounding_box,
     is_colliding,
@@ -152,8 +151,8 @@ export
     is_collision_free,
     get_distance,
     get_edge,
-    get_side,
-    collision_checker
+    collision_checker,
+    polygon
 
 include("collision-checkers/minkowski.jl")
 include("collision-checkers/parallel_axis.jl")

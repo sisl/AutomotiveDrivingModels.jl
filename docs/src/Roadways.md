@@ -8,8 +8,11 @@ The data structure to represent roadways can be decomposed as follows:
     - **Lane**: A driving lane on a roadway. It identified by a `LaneTag`. A lane is defined by a curve which
 represents a center line and a width. In addition it has attributed like speed limit. A lane can be connected to other lane in the roadway, the connection are specified in the exits
 and entrances fields.
-      - **Curves**: A curve is a list of `CurvePt`
-      - **CurvePt**: the lowest level type. It represents a point on a curve by its global position, position along the curve, curvature at this point and derivative of the curvature at this point. Other types like `CurveIndex` or `CurveProjection` are used to identify a curve point along a curve. 
+
+**Lower level types:**
+
+- **Curves**: A curve is a list of `CurvePt`
+- **CurvePt**: the lowest level type. It represents a point on a curve by its global position, position along the curve, curvature at this point and derivative of the curvature at this point. Other types like `CurveIndex` or `CurveProjection` are used to identify a curve point along a curve. 
 
 ```@docs
       Roadway

@@ -48,6 +48,10 @@ function get_signed_area(pts::Vector{VecE2{Float64}}, npts::Int = length(pts))
 
     retval / 2
 end
+"""
+    get_edge(pts::Vector{VecE2{Float64}}, i::Int, npts::Int=length(pts))
+returns the ith edge in pts
+"""
 function get_edge(pts::Vector{VecE2{Float64}}, i::Int, npts::Int=length(pts))
     a = pts[i]
     b = i+1 ≤ npts ? pts[i+1] : pts[1]
@@ -56,6 +60,15 @@ end
 
 ######################################
 
+"""
+    ConvexPolygon
+    ConvexPolygon(npts::Int)
+    ConvexPolygon(pts::Vector{VecE2{Float64}})
+Mutable structure to represent a convex polygon. It is used by the Minkowski sum collision checker
+# Fields 
+- `pts::Vector{VecE2{Float64}}`
+- `npts::Int`
+"""
 mutable struct ConvexPolygon
     pts::Vector{VecE2{Float64}} # ordered counterclockwise along polygon boundary s.t. first edge has minimum polar angle in [0,2π]
     npts::Int # number of pts that are currently used (since we preallocate a longer array)
@@ -261,6 +274,12 @@ function Vec.get_distance(P::ConvexPolygon, Q::ConvexPolygon, temp::ConvexPolygo
     get_distance(temp, VecE2(0,0))
 end
 
+"""
+    to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64}, len::Float64, wid::Float64)
+    to_oriented_bounding_box!(retval::ConvexPolygon, veh::Entity{S,D,I}, center::VecSE2{Float64} = get_center(veh))
+
+Fills in the vertices of `retval` according to the rectangle specification: center, length, width
+"""
 function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64}, len::Float64, wid::Float64)
 
     @assert(len > 0)
@@ -283,7 +302,6 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, center::VecSE2{Float64
 
     retval
 end
-get_oriented_bounding_box(center::VecSE2{Float64}, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
 function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Entity{S,D,I}, center::VecSE2{Float64} = get_center(veh)) where {S,D<:AbstractAgentDefinition,I}
 
     # get an oriented bounding box at the vehicle's position
@@ -292,12 +310,23 @@ function to_oriented_bounding_box!(retval::ConvexPolygon, veh::Entity{S,D,I}, ce
 
     retval
 end
+
+"""
+    get_oriented_bounding_box(center::VecSE2{Float64}, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
+    get_oriented_bounding_box(veh::Entity{S,D,I}, center::VecSE2{Float64} = get_center(veh))  where {S,D<:AbstractAgentDefinition,I}
+Returns a ConvexPolygon representing a bounding rectangle of the size specified by center, length, width
+"""
+get_oriented_bounding_box(center::VecSE2{Float64}, len::Float64, wid::Float64) = to_oriented_bounding_box!(ConvexPolygon(4), center, len, wid)
 function get_oriented_bounding_box(veh::Entity{S,D,I}, center::VecSE2{Float64} = get_center(veh))  where {S,D<:AbstractAgentDefinition,I}
     return to_oriented_bounding_box!(ConvexPolygon(4), veh, center)
 end
 
 ######################################
 
+"""
+    is_colliding(ray::VecSE2{Float64}, poly::ConvexPolygon)
+returns true if the ray collides with the polygon
+"""
 function is_colliding(ray::VecSE2{Float64}, poly::ConvexPolygon)
     # collides if at least one of the segments collides with the ray
 
@@ -309,6 +338,11 @@ function is_colliding(ray::VecSE2{Float64}, poly::ConvexPolygon)
     end
     false
 end
+
+"""
+    get_collision_time(ray::VecSE2{Float64}, poly::ConvexPolygon, ray_speed::Float64)
+returns the collision time between a ray and a polygon given `ray_speed`
+"""
 function get_collision_time(ray::VecSE2{Float64}, poly::ConvexPolygon, ray_speed::Float64)
     min_col_time = Inf
     for i in 1 : length(poly)
@@ -323,7 +357,17 @@ end
 
 ######################################
 
+"""
+    CPAMemory
+A structure to cache the bounding boxes around vehicle. It is part of the internals of the 
+Minkowski collision checker.
 
+# Fields 
+- `vehA::ConvexPolygon` bounding box for vehicle A
+- `vehB::ConvexPolygon` bounding box for vehicle B
+- `mink::ConvexPolygon` minkowski bounding box
+
+"""
 struct CPAMemory
     vehA::ConvexPolygon # bounding box for vehicle A
     vehB::ConvexPolygon # bounding box for vehicle B
@@ -331,14 +375,13 @@ struct CPAMemory
 
     CPAMemory() = new(ConvexPolygon(4), ConvexPolygon(4), ConvexPolygon(8))
 end
-is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
-Vec.get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
 
 function _bounding_radius(veh::Entity{S,D,I}) where {S,D<:AbstractAgentDefinition,I} 
     return sqrt(length(veh.def)*length(veh.def)/4 + width(veh.def)*width(veh.def)/4)
 end
 
 """
+    is_potentially_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}) where {D<:AbstractAgentDefinition,I} 
 A fast collision check to remove things clearly not colliding
 """
 function is_potentially_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}) where {D<:AbstractAgentDefinition,I} 
@@ -348,6 +391,12 @@ function is_potentially_colliding(A::Entity{VehicleState,D,I}, B::Entity{Vehicle
     Δ² ≤ r_a*r_a + 2*r_a*r_b + r_b*r_b
 end
 
+"""
+    is_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, mem::CPAMemory=CPAMemory()) where {D<:AbstractAgentDefinition,I} 
+returns true if the vehicles A and B are colliding. It uses Minkowski sums.
+    is_colliding(mem::CPAMemory)
+returns true if vehA and vehB in mem collides.
+"""
 function is_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, mem::CPAMemory=CPAMemory()) where {D<:AbstractAgentDefinition,I} 
     if is_potentially_colliding(A, B)
         to_oriented_bounding_box!(mem.vehA, A)
@@ -356,20 +405,37 @@ function is_colliding(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, 
     end
     false
 end
+is_colliding(mem::CPAMemory) = is_colliding(mem.vehA, mem.vehB, mem.mink)
+
+"""
+    Vec.get_distance(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, mem::CPAMemory=CPAMemory()) where {D<:AbstractAgentDefinition,I} 
+returns the euclidean distance between A and B.
+"""
 function Vec.get_distance(A::Entity{VehicleState,D,I}, B::Entity{VehicleState,D,I}, mem::CPAMemory=CPAMemory()) where {D<:AbstractAgentDefinition,I} 
     to_oriented_bounding_box!(mem.vehA, A)
     to_oriented_bounding_box!(mem.vehB, B)
     get_distance(mem)
 end
+Vec.get_distance(mem::CPAMemory) = get_distance(mem.vehA, mem.vehB, mem.mink)
 
+"""
+    CollisionCheckResult
+A type to store the result of a collision checker
+
+# Fields
+- `is_colliding::Bool`
+- `A::Int64` # index of 1st vehicle
+- `B::Int64` # index of 2nd vehicle
+"""
 struct CollisionCheckResult
     is_colliding::Bool
-    A::Int # index of 1st vehicle
-    B::Int # index of 2nd vehicle
+    A::Int64 # index of 1st vehicle
+    B::Int64 # index of 2nd vehicle
     # TODO: penetration vector?
 end
 
 """
+    get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 Loops through the scene and finds the first collision between a vehicle and scene[target_index]
 """
 function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
@@ -389,7 +455,8 @@ function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::
 end
 
 """
-Loops through the scene and finds the first collision between any two vehicles
+    get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+Loops through the scene and finds the first collision between any two vehicles in `vehicle_indeces`.
 """
 function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
 
@@ -411,6 +478,18 @@ function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::Abstrac
 
     CollisionCheckResult(false, 0, 0)
 end
+"""
+    get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
+Loops through the scene and finds the first collision between any two vehicles
+"""
 get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I} = get_first_collision(scene, 1:length(scene), mem)
+
+"""
+    is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
+    is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
+Check that there is no collisions between any two vehicles in `scene`
+
+If `vehicle_indeces` is used, it only checks for vehicles within `scene[vehicle_indeces]`
+"""
 is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I} = !(get_first_collision(scene, mem).is_colliding)
 is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I} = get_first_collision(scene, vehicle_indeces, mem).is_colliding
