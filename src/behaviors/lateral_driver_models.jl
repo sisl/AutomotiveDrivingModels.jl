@@ -6,6 +6,25 @@ Base.rand(model::LateralDriverModel) = error("rand not implemented for model $mo
 Distributions.pdf(model::LateralDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
 Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
 
+
+"""
+	ProportionalLaneTracker
+TODO: Why does this struct live in the `lateral_driver_models.jl` file
+A controller that executes the lane change decision made by the `lane change models`
+
+# Constructor
+ProportionalLaneTracker(;
+        σ::Float64 = NaN,
+        kp::Float64 = 3.0,
+        kd::Float64 = 2.0,
+        )
+
+# Fields
+- `a::Float64 = NaN` predicted acceleration
+- `σ::Float64 = NaN` optional stdev on top of the model, set to zero or NaN for deterministic behavior
+- `kp::Float64 = 3.0` proportional constant for lane tracking
+- `kd::Float64 = 2.0` derivative constant for lane tracking
+"""
 mutable struct ProportionalLaneTracker <: LateralDriverModel
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior

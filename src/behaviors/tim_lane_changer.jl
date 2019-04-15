@@ -1,11 +1,31 @@
-#=
+"""
+	TimLaneChanger
 A simple lane change behavior that changes lanes whenever the lead car is going slower than our desired speed.
 Lane changes are made when there is an available lane, fore/rear gaps exceed our thresholds, we are faster 
 than a rear vehicle in the target lane, and any lead vehicle in the target lane is faster than we can currently go.
 
 Has not been published anywhere, so first use in a paper would have to describe this.
 See MOBIL if you want a lane changer you can cite.
-=#
+
+# Constructors
+function TimLaneChanger(
+        timestep::Float64;
+        v_des::Float64=29.0,
+        rec::SceneRecord=SceneRecord(2,timestep),
+        threshold_fore::Float64 = 50.0,
+        threshold_lane_change_gap_fore::Float64 = 10.0,
+        threshold_lane_change_gap_rear::Float64 = 10.0,
+        dir::Int=DIR_MIDDLE,
+        )
+
+# Fields
+- `dir::Int = DIR_MIDDLE` the desired lane to go to eg: left,middle (i.e. stay in same lane) or right
+- `rec::SceneRecord` TODO
+- `v_des::Float64 = 29.0` desired velocity
+- `threshold_fore::Float64 = 50.0` Distance from lead vehicle
+- `threshold_lane_change_gap_fore::Float64 = 10.0` Space in front
+- `threshold_lane_change_gap_rear::Float64 = 10.0` Space rear
+"""
 mutable struct TimLaneChanger <: LaneChangeModel
     dir::Int
     rec::SceneRecord

@@ -1,5 +1,24 @@
 """
-Commonly referred to as IDM
+	IntelligentDriverModel <: LaneFollowingDriver
+
+The Intelligent Driver Model. A rule based driving model that is governed by parameter
+settings. The output is an longitudinal acceleration.
+
+Here, we have extended IDM to the errorable IDM. If a standard deviation parameter is
+specified, then the output is a longitudinal acceleration sampled from a normal distribution
+around the non-errorable IDM output.
+
+# Fields
+- `a::Float64 = NaN` the predicted acceleration i.e. the output of the model
+- `σ::Float64 = NaN` allows errorable IDM, optional stdev on top of the model, set to zero or NaN for deterministic behavior
+- `k_spd::Float64 = 1.0` proportional constant for speed tracking when in freeflow [s⁻¹]
+- `δ::Float64 = 4.0` acceleration exponent
+- `T::Float64  = 1.5` desired time headway [s]
+- `v_des::Float64 = 29.0` desired speed [m/s]
+- `s_min::Float64 = 5.0` minimum acceptable gap [m]
+- `a_max::Float64 = 3.0` maximum acceleration ability [m/s²]
+- `d_cmf::Float64 = 2.0` comfortable deceleration [m/s²] (positive)
+- `d_max::Float64 = 9.0` maximum deceleration [m/s²] (positive)
 """
 @with_kw mutable struct IntelligentDriverModel <: LaneFollowingDriver
     a::Float64 = NaN # predicted acceleration
@@ -13,7 +32,7 @@ Commonly referred to as IDM
     s_min::Float64 = 5.0 # minimum acceptable gap [m]
     a_max::Float64 = 3.0 # maximum acceleration ability [m/s²]
     d_cmf::Float64 = 2.0 # comfortable deceleration [m/s²] (positive)
-    d_max::Float64 = 9.0 # maximum decelleration [m/s²] (positive)
+    d_max::Float64 = 9.0 # maximum deceleration [m/s²] (positive)
 end
 get_name(::IntelligentDriverModel) = "IDM"
 function set_desired_speed!(model::IntelligentDriverModel, v_des::Float64)
