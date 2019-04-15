@@ -1,6 +1,9 @@
 """
     LaneFollowingAccel
 Longitudinal acceleration
+
+# Fields
+- `a::Float64` longitudinal acceleration [m/s^2]
 """
 struct LaneFollowingAccel
     a::Float64

@@ -1,6 +1,10 @@
 """
     LatLonAccel
 Acceleration in the frenet frame
+
+# Fields
+- `a_lat::Float64` Lateral acceleration [m/s^2]
+- `a_lon::Float64` Longitudinal acceleration [m/s^2]
 """
 struct LatLonAccel
     a_lat::Float64

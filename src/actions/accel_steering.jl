@@ -1,6 +1,11 @@
 """
+	AccelSteeringAngle
 Allows driving the car in a circle based on the steering angle
 If steering angle less than threshold 0.01 radian, just drives straight
+
+# Fields
+- `a::Float64` longitudinal acceleration [m/s^2]
+- `δ::Float64` Steering angle [rad]
 """
 struct AccelSteeringAngle
     a::Float64 # accel [m/s²]

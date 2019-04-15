@@ -2,6 +2,11 @@
     PedestrianLatLonAccel
 Pedestrian walking action. Acceleration in the Frenet frame, along with
 desired lane after crossing the street.
+
+# Fields
+- `a_lat::Float64` lateral acceleration [m/s^2]
+- `a_lon::Float64` longitudinal accelaration [m/s^2]
+- `lane_des::Lane` desired lane to move to
 """
 struct PedestrianLatLonAccel
     a_lat::Float64
