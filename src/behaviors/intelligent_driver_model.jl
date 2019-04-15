@@ -25,15 +25,16 @@ function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_ot
     if !isnan(v_oth)
         @assert !isnan(headway)
         if headway < 0.0
-            @warn("IntelligentDriverModel Warning: IDM received a negative headway $headway"*
+            @debug("IntelligentDriverModel Warning: IDM received a negative headway $headway"*
                   ", a collision may have occured.")
-            model.a = model.d_max
-        end
+            model.a = -model.d_max
+        else
 
-        Δv = v_oth - v_ego
-        s_des = model.s_min + v_ego*model.T - v_ego*Δv / (2*sqrt(model.a_max*model.d_cmf))
-        v_ratio = model.v_des > 0.0 ? (v_ego/model.v_des) : 1.0
-        model.a = model.a_max * (1.0 - v_ratio^model.δ - (s_des/headway)^2)
+            Δv = v_oth - v_ego
+            s_des = model.s_min + v_ego*model.T - v_ego*Δv / (2*sqrt(model.a_max*model.d_cmf))
+            v_ratio = model.v_des > 0.0 ? (v_ego/model.v_des) : 1.0
+            model.a = model.a_max * (1.0 - v_ratio^model.δ - (s_des/headway)^2)
+        end
     else
         # no lead vehicle, just drive to match desired speed
         Δv = model.v_des - v_ego
