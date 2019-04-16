@@ -3,14 +3,7 @@
 See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 
 # Constructor
-MOBIL(
-        timestep::Float64;
-        rec::SceneRecord=SceneRecord(2,timestep),
-        mlon::LaneFollowingDriver=IntelligentDriverModel(),
-        safe_decel::Float64=2.0, # [m/s²]
-        politeness::Float64=0.35,
-        advantage_threshold::Float64=0.1,
-        )
+	MOBIL(timestep::Float64;rec::SceneRecord=SceneRecord(2,timestep), mlon::LaneFollowingDriver=IntelligentDriverModel(),safe_decel::Float64=2.0,       politeness::Float64=0.35,advantage_threshold::Float64=0.1)
 
 # Fields
 - `dir::Int`

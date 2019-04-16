@@ -12,12 +12,8 @@ Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf 
 
 A controller that executes the lane change decision made by the `lane change models`
 
-# Constructor
-ProportionalLaneTracker(;
-        σ::Float64 = NaN,
-        kp::Float64 = 3.0,
-        kd::Float64 = 2.0,
-        )
+# Constructors
+	ProportionalLaneTracker(;σ::Float64 = NaN,kp::Float64 = 3.0,kd::Float64 = 2.0)
 
 # Fields
 - `a::Float64 = NaN` predicted acceleration

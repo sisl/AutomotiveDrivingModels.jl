@@ -3,13 +3,7 @@
 Driver that combines longitudinal driver and lateral driver into one model.
 
 # Constructors
-Tim2DDriver(
-        timestep::Float64;
-        mlon::LaneFollowingDriver=IntelligentDriverModel(),
-        mlat::LateralDriverModel=ProportionalLaneTracker(),
-        mlane::LaneChangeModel=TimLaneChanger(timestep),
-        rec::SceneRecord = SceneRecord(1, timestep)
-        )
+	Tim2DDriver(timestep::Float64;mlon::LaneFollowingDriver=IntelligentDriverModel(), mlat::LateralDriverModel=ProportionalLaneTracker(), mlane::LaneChangeModel=TimLaneChanger(timestep),rec::SceneRecord = SceneRecord(1, timestep))
 
 # Fields
 - `rec::SceneRecord` A record that will hold the resulting simulation results

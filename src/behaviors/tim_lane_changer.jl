@@ -8,15 +8,7 @@ Has not been published anywhere, so first use in a paper would have to describe 
 See MOBIL if you want a lane changer you can cite.
 
 # Constructors
-function TimLaneChanger(
-        timestep::Float64;
-        v_des::Float64=29.0,
-        rec::SceneRecord=SceneRecord(2,timestep),
-        threshold_fore::Float64 = 50.0,
-        threshold_lane_change_gap_fore::Float64 = 10.0,
-        threshold_lane_change_gap_rear::Float64 = 10.0,
-        dir::Int=DIR_MIDDLE,
-        )
+	TimLaneChanger(timestep::Float64;v_des::Float64=29.0,rec::SceneRecord=SceneRecord(2,timestep),threshold_fore::Float64 = 50.0,threshold_lane_change_gap_fore::Float64 = 10.0, threshold_lane_change_gap_rear::Float64 = 10.0,dir::Int=DIR_MIDDLE)
 
 # Fields
 - `dir::Int = DIR_MIDDLE` the desired lane to go to eg: left,middle (i.e. stay in same lane) or right
