@@ -1,3 +1,8 @@
+"""
+    AbstractAgentDefinition
+An Agent definition represents static parameters characterizing an agent, 
+such as its physical dimensions.
+"""
 abstract type AbstractAgentDefinition end
 
 """
@@ -75,6 +80,11 @@ end
     BicycleModel
     BicycleModel(def::VehicleDef; a::Float64 = 1.5, b::Float64 = 1.5)
 Vehicle definition representing the bicycle model
+
+# Fields 
+- `def::VehicleDef`
+- `a::Float64` distance between cg and front axle [m]
+- `b::Float64` distance between cg and rear axle [m]
 """
 struct BicycleModel <: AbstractAgentDefinition
     def::VehicleDef

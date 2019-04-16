@@ -9,6 +9,7 @@ You can implement your own agent definition by creating a new type inheriting fr
 The following three functions must be implemented for your custom type:
 
 ```@docs
+    AbstractAgentDefinition
     length
     width
     class

@@ -7,8 +7,19 @@ the vehicles present in the environment, a behavior model returns an action to e
 
 ## Interface
 
-We provide an interface to interact with behavior model or implement your own. 
+We provide an interface to interact with behavior model or implement your own. To implement your own driver model you can create a type that inherits from the abstract type `DriverModel`. Then you can implement the following methods:
 
+```@docs
+    DriverModel{DriveAction}
+    get_name(::DriverModel)
+    action_type(::DriverModel{A}) where A
+    set_desired_speed!(model::DriverModel, v_des::Float64)
+    reset_hidden_state!(model::DriverModel)
+    observe!(model::DriverModel, scene::EntityFrame{S,D,I}, roadway::R, egoid::Integer) where {S,D,I,R}
+    Base.rand(model::DriverModel)
+```
+
+`observe!` and `rand` are usually the most important methods to implement. `observe!` sets the model state in a given situation and `rand` allows to sample an action from the model.
 
 
 ## Available Behaviors
@@ -26,6 +37,10 @@ We provide an interface to interact with behavior model or implement your own.
 
 ```@docs
     SidewalkPedestrianModel
+```
+
+```@docs 
+    StaticDriver
 ```
 
 ## Lane change helper functions
