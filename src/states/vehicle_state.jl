@@ -112,8 +112,16 @@ returns the position of the front of the vehicle
 """
 get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
 
+<<<<<<< HEAD:src/states/vehicle_state.jl
 """
     get_rear(veh::Vehicle)
 returns the position of the rear of the vehicle
 """
 get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
+=======
+    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    posG = roadway[roadind].pos
+    posF = Frenet(roadind, roadway, t = veh.state.posF.t, ϕ = veh.state.posF.ϕ)
+    VehicleState(posG, posF, v₂)
+end
+>>>>>>> master:src/2d/vehicles/vehicles.jl
