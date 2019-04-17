@@ -1,10 +1,12 @@
 using Test
-
 using AutomotiveDrivingModels
+using Distributions
 
-include("interface/runtests.jl")
-include("2d/runtests.jl")
-
-# using NBInclude
-# nbinclude(joinpath(dirname(@__FILE__), "..", "docs", "1DMobius.ipynb"))
-# nbinclude(joinpath(dirname(@__FILE__), "..", "docs", "2DStadium.ipynb"))
+include("test_roadways.jl")
+include("test_agent_definitions.jl")
+include("test_states.jl")
+include("test_collision_checkers.jl")
+include("test_actions.jl")
+include("test_features.jl")
+include("test_behaviors.jl")
+include("test_simulation.jl")

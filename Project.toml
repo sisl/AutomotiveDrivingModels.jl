@@ -7,10 +7,10 @@ version = "0.7.0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Records = "5984c134-fa48-5ed5-a57f-fc2f6936871f"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Vec = "44eeaf0b-fee4-471f-9310-ed6585cb3142"
 
 [extras]
