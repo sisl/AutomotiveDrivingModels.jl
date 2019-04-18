@@ -146,10 +146,10 @@ function index_closest_to_point(curve::Curve, target::AbstractVec)
 end
 
 """
-    get_curve_index(curve::Curve, s::T) where T <: Real
+    get_curve_index(curve::Curve{T}, s::T) where T <: Real
 Return the CurveIndex for the closest s-location on the curve
 """
-function get_curve_index(curve::Curve, s::T) where T <: Real
+function get_curve_index(curve::Curve{T}, s::T) where T <: Real
 
     if s ≤ 0.0
         return CURVEINDEX_START

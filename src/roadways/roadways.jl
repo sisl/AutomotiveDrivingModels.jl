@@ -95,7 +95,7 @@ function Base.parse(::Type{LaneConnection}, line::AbstractString)
                 CurveIndex(parse(Int, tokens[4]), parse(Float64, tokens[5])),
                 LaneTag(parse(Int, tokens[6]), parse(Int, tokens[7]))
             )
-    LaneConnection(downstream, mylane, target)
+    LaneConnection{Int64, Float64}(downstream, mylane, target)
 end
 
 #######################################
@@ -119,30 +119,30 @@ and entrances fields.
 - `exits::Vector{LaneConnection} # list of exits; put the primary exit (at end of lane) first`
 - `entrances::Vector{LaneConnection} # list of entrances; put the primary entrance (at start of lane) first`
 """
-mutable struct Lane
+mutable struct Lane{T <: Real} 
     tag            :: LaneTag
-    curve          :: Curve
+    curve          :: Curve{T}
     width          :: Float64 # [m]
     speed_limit    :: SpeedLimit
     boundary_left  :: LaneBoundary
     boundary_right :: LaneBoundary
-    exits          :: Vector{LaneConnection} # list of exits; put the primary exit (at end of lane) first
-    entrances      :: Vector{LaneConnection} # list of entrances; put the primary entrance (at start of lane) first
+    exits          :: Vector{LaneConnection{Int64, T}} # list of exits; put the primary exit (at end of lane) first
+    entrances      :: Vector{LaneConnection{Int64, T}} # list of entrances; put the primary entrance (at start of lane) first
 end
 function Lane(
     tag::LaneTag,
-    curve::Curve;
+    curve::Curve{T};
     width::Float64 = DEFAULT_LANE_WIDTH,
     speed_limit::SpeedLimit = DEFAULT_SPEED_LIMIT,
     boundary_left::LaneBoundary = NULL_BOUNDARY,
     boundary_right::LaneBoundary = NULL_BOUNDARY,
-    exits::Vector{LaneConnection} = LaneConnection[],
-    entrances::Vector{LaneConnection} = LaneConnection[],
+    exits::Vector{LaneConnection{Int64, T}} = LaneConnection{Int64,T}[],
+    entrances::Vector{LaneConnection{Int64, T}} = LaneConnection{Int64,T}[],
     next::RoadIndex=NULL_ROADINDEX,
     prev::RoadIndex=NULL_ROADINDEX,
-    ) 
+    ) where T
 
-    lane = Lane(tag, 
+    lane = Lane{T}(tag, 
                 curve,
                 width,
                 speed_limit,
@@ -207,17 +207,17 @@ end
 
 #######################################
 """
-    RoadSegment
+    RoadSegment{T}
 a list of lanes forming a single road with a common direction
 # Fields
-- `id::Int`
-- `lanes::Vector{Lane}` lanes are stored right to left
+- `id::Int64`
+- `lanes::Vector{Lane{T}}` lanes are stored right to left
 """
-mutable struct RoadSegment
-    id::Int
-    lanes::Vector{Lane} 
+mutable struct RoadSegment{T<:Real}
+    id::Int64
+    lanes::Vector{Lane{T}} 
 end
-RoadSegment(id::Int) = RoadSegment(id, Lane[])
+RoadSegment{T}(id::Int64) where T = RoadSegment{T}(id, Lane{T}[])
 
 #######################################
 
@@ -227,10 +227,11 @@ The main datastructure to represent road network, it consists of a list of `Road
 # Fields
 - `segments::Vector{RoadSegment}`
 """
-mutable struct Roadway
-    segments::Vector{RoadSegment}
+mutable struct Roadway{T<:Real}
+    segments::Vector{RoadSegment{T}}
 end
-Roadway() = Roadway(RoadSegment[]) 
+Roadway{T}() where T = Roadway{T}(RoadSegment{T}[]) 
+Roadway() = Roadway{Float64}()
 
 Base.show(io::IO, roadway::Roadway) = @printf(io, "Roadway")
 """
@@ -285,11 +286,11 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
     end
 
     nsegs = parse(Int, advance!())
-    roadway = Roadway(Array{RoadSegment}(undef, nsegs))
+    roadway = Roadway{Float64}(Array{RoadSegment{Float64}}(undef, nsegs))
     for i_seg in 1:nsegs
         segid = parse(Int, advance!())
         nlanes = parse(Int, advance!())
-        seg = RoadSegment(segid, Array{Lane}(undef, nlanes))
+        seg = RoadSegment(segid, Array{Lane{Float64}}(undef, nlanes))
         for i_lane in 1:nlanes
             @assert(i_lane == parse(Int, advance!()))
             tag = LaneTag(segid, i_lane)
@@ -304,8 +305,8 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
             tokens = split(advance!(), ' ')
             boundary_right = LaneBoundary(Symbol(tokens[1]), Symbol(tokens[2]))
 
-            exits = LaneConnection[]
-            entrances = LaneConnection[]
+            exits = LaneConnection{Int64, Float64}[]
+            entrances = LaneConnection{Int64, Float64}[]
             n_conns = parse(Int, advance!())
             for i_conn in 1:n_conns
                 conn = parse(LaneConnection, advance!())
@@ -353,21 +354,21 @@ is on the section between two lanes, we use:
     ind.i = length(curve), ind.t ∈ [0,1] for the region between curve[end] → next
     ind.i = 0,             ind.t ∈ [0,1] for the region between prev → curve[1]
 """
-function Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
+function Base.getindex(lane::Lane{T}, ind::CurveIndex{I, T}, roadway::Roadway{T}) where {I<:Integer,T<:Real}
     if ind.i == 0
         pt_lo = prev_lane_point(lane, roadway)
         pt_hi = lane.curve[1]
         s_gap = norm(VecE2(pt_hi.pos - pt_lo.pos))
-        pt_lo = CurvePt(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
-        lerp(pt_lo, pt_hi, ind.t)
+        pt_lo = CurvePt{T}(pt_lo.pos, -s_gap, pt_lo.k, pt_lo.kd)
+        return lerp(pt_lo, pt_hi, ind.t)
     elseif ind.i < length(lane.curve)
-        lane.curve[ind]
+        return lane.curve[ind]
     else
         pt_hi = next_lane_point(lane, roadway)
         pt_lo = lane.curve[end]
         s_gap = norm(VecE2(pt_hi.pos - pt_lo.pos))
-        pt_hi = CurvePt(pt_hi.pos, pt_lo.s + s_gap, pt_hi.k, pt_hi.kd)
-        lerp( pt_lo, pt_hi, ind.t)
+        pt_hi = CurvePt{T}(pt_hi.pos, pt_lo.s + s_gap, pt_hi.k, pt_hi.kd)
+        return lerp( pt_lo, pt_hi, ind.t)
     end
 end
 
@@ -526,7 +527,7 @@ Return the RoadProjection for projecting posG onto the lane.
 This will automatically project to the next or prev curve as appropriate.
 if `move_along_curves` is false, will only project to lane.curve
 """
-function Vec.proj(posG::VecSE2{T}, lane::Lane, roadway::Roadway;
+function Vec.proj(posG::VecSE2{T}, lane::Lane{T}, roadway::Roadway{T};
     move_along_curves::Bool = true, # if false, will only project to lane.curve
     ) where T <: Real
     curveproj = proj(posG, lane.curve)

@@ -33,7 +33,7 @@ function gen_straight_segment(seg_id::Integer, nlanes::Integer, length::Float64=
     boundary_middle::LaneBoundary=LaneBoundary(:broken, :white),
     )
 
-    seg = RoadSegment(seg_id, Array{Lane}(undef, nlanes))
+    seg = RoadSegment(seg_id, Array{Lane{Float64}}(undef, nlanes))
     y = -lane_widths[1]/2
     for i in 1 : nlanes
         y += lane_widths[i]/2
@@ -148,10 +148,10 @@ function gen_stadium_roadway(nlanes::Int;
     C = VecE2(0.0, width + radius)
     D = VecE2(0.0, radius)
 
-    seg1 = RoadSegment(1, Array{Lane}(undef, nlanes))
-    seg2 = RoadSegment(2, Array{Lane}(undef, nlanes))
-    seg3 = RoadSegment(3, Array{Lane}(undef, nlanes))
-    seg4 = RoadSegment(4, Array{Lane}(undef, nlanes))
+    seg1 = RoadSegment(1, Array{Lane{Float64}}(undef, nlanes))
+    seg2 = RoadSegment(2, Array{Lane{Float64}}(undef, nlanes))
+    seg3 = RoadSegment(3, Array{Lane{Float64}}(undef, nlanes))
+    seg4 = RoadSegment(4, Array{Lane{Float64}}(undef, nlanes))
     for i in 1 : nlanes
         curvepts1 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)
         curvepts2 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)

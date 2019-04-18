@@ -41,12 +41,12 @@ function propagate(veh::Entity{VehicleState, D, I}, action::LatLonAccel, roadway
 
     roadind = move_along(veh.state.posF.roadind, roadway, Δs)
     footpoint = roadway[roadind]
-    posF = Frenet(roadind, roadway, t = t + Δt, ϕ = ϕ + ϕ₂)
-    posG = convert(VecE2, footpoint.pos) + polar(t + Δt, footpoint.pos.θ + π/2)
+    posG = VecE2{Float64}(footpoint.pos.x,footpoint.pos.y) + polar(t + Δt, footpoint.pos.θ + π/2)
 
-    posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
+    posG = VecSE2{Float64}(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
 
-    return VehicleState(posG, posF, v₂)
+    veh = VehicleState(posG, roadway, v₂)
+    return veh
 end
 function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     accel_lat = get(ACCFT, rec, roadway, vehicle_index, pastframe)
