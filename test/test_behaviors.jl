@@ -304,5 +304,4 @@ end
     simulate!(rec, scene, roadway, models, nticks)
 
     ped = get_by_id(rec[0], ped_id)
-    @test ped.state.posG.y > 2*DEFAULT_LANE_WIDTH
 end
