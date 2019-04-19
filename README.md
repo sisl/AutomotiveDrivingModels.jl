@@ -13,6 +13,15 @@ For visualization code please see [AutoViz](https://github.com/sisl/AutoViz.jl).
 
 ## Installation 
 
+Using the SISL registry (recommanded): 
+
+```julia 
+] registry add https://github.com/sisl/Registry
+] add AutomotiveDrivingModels 
+```
+
+Manually installing all the dependencies:
+
 ```julia 
 using Pkg
 Pkg.add(PackageSpec(url="https://github.com/sisl/Vec.jl"))
