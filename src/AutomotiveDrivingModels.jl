@@ -116,7 +116,8 @@ export
     get_center,
     get_footpoint,
     get_front,
-    get_rear
+    get_rear,
+    get_lane
 
 include("states/vehicle_state.jl")
 
