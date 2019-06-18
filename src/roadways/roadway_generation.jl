@@ -118,7 +118,7 @@ function gen_straight_roadway(nlanes::Int, length::Float64=1000.0;
 end
 
 """
-    gen_stadium_roadway(nlanes::Int, length::Float64)
+    gen_stadium_roadway(nlanes::Int; length::Float64=100.0; width::Float64=10.0; radius::Float64=25.0)
 Generate a roadway that is a rectangular racetrack with rounded corners.
     length = length of the x-dim straight section for the innermost (leftmost) lane [m]
     width  = length of the y-dim straight section for the innermost (leftmost) lane [m]
