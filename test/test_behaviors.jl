@@ -119,8 +119,8 @@ end
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, n_steps)
 
-    @test scene[1].state.posF.roadind.tag == LaneTag(1, 2)
-    @test scene[2].state.posF.roadind.tag == LaneTag(1, 2)
+    @test scene[1].state.posF.roadind.tag == LaneTag(1, 3)
+    @test scene[2].state.posF.roadind.tag == LaneTag(1, 1)
 
 end
 
