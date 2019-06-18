@@ -22,6 +22,7 @@ Two states data structure are provided.
 
 ### 2D states and vehicles
 
+Here we list useful functions to interact with vehicle states and retrieve interesting information like the position of the front of the vehicle or the lane to which the vehicle belong.
 
 ```@docs 
     VehicleState
@@ -34,6 +35,7 @@ Two states data structure are provided.
     get_rear
     get_center
     get_footpoint
+    get_lane
     Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, D, Int64}) where D<:AbstractAgentDefinition
 ```
 
