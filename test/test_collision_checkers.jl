@@ -74,4 +74,10 @@ end
     @test !collision_checker(VEH_REF, veh2)
     veh2 = create_vehicle(3.1, 2.2, 1.0pi, id=2)
     @test !collision_checker(VEH_REF, veh2)
+
+    roadway = get_test_roadway()
+    trajdata = get_test_trajdata(roadway)
+    scene = Scene()
+    get!(scene, trajdata, 1)
+    @test collision_checker(scene, 1)
 end
