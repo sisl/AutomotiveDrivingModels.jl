@@ -65,6 +65,8 @@ export
     move_along,
     n_lanes_left,
     n_lanes_right,
+    lanes,
+    lanetags,
     read
 
 include("roadways/roadways.jl")

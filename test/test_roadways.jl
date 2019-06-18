@@ -447,6 +447,20 @@ end # curve tests
     @test n_lanes_left(roadway[LaneTag(2,2)], roadway) == 1
     @test n_lanes_left(roadway[LaneTag(2,3)], roadway) == 0
 
+    ####
+    roadway = get_test_roadway()
+    all_lanes = lanes(roadway)
+    all_lane_tags = lanetags(roadway)
+    @test all_lane_tags == [l.tag for l in all_lanes]
+    @test all_lanes == Lane{Float64}[roadway[tag] for tag in all_lane_tags]
+    for i=1:2
+        for j=1:3
+            @test roadway[LaneTag(i,j)] in all_lanes
+            @test LaneTag(i,j) in all_lane_tags
+        end
+    end
+
+
 end # roadway test
 
 @testset "roadway read/write" begin  
