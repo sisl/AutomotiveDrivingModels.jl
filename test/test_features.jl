@@ -78,7 +78,7 @@
     place_at!(2, 10.0)
     frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
     @test frp.origin == scene[1].state.posF.roadind
-    @test frp.target.ind.i == 0
+    @test frp.target.ind.i == 1
     @test isapprox(frp.target.ind.t, 0.1, atol=0.01)
     @test frp.target.tag == scene[1].state.posF.roadind.tag
     @test isapprox(frp.Δs, 10.0, atol=1e-2)
@@ -89,7 +89,7 @@
     place_at!(2, 20.0)
     frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
     @test frp.origin == scene[1].state.posF.roadind
-    @test frp.target.ind.i == 0
+    @test frp.target.ind.i == 1
     @test isapprox(frp.target.ind.t, 0.2, atol=0.01)
     @test frp.target.tag == scene[1].state.posF.roadind.tag
     @test isapprox(frp.Δs, 10.0, atol=1e-2)
@@ -99,7 +99,8 @@
     place_at!(1, 0.0)
     place_at!(2, 120.0)
     frp = get_frenet_relative_position(scene[2].state.posG, scene[1].state.posF.roadind, roadway, max_distance_fore=Inf)
-    @test frp.target.tag == scene[1].state.posF.roadind.tag
+    @test frp.target.tag == LaneTag(1, 1)
+    @test scene[1].state.posF.roadind.tag == LaneTag(6, 1)
     @test isapprox(frp.Δs, 120.0, atol=1e-2)
     @test isapprox(frp.t, 0.0, atol=1e-5)
     @test isapprox(frp.ϕ, 0.0, atol=1e-7)

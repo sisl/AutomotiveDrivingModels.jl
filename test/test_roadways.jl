@@ -730,7 +730,7 @@ end
 @testset "stadium roadway" begin
     roadway = gen_stadium_roadway(1, length=100.0, width=10.0,
                                   radius=25.0, ncurvepts_per_turn=2)
-    @test length(roadway.segments) == 4
+    @test length(roadway.segments) == 6
 
     seg = roadway[1]
     @test length(seg.lanes) == 1
