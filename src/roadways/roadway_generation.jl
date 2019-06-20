@@ -152,11 +152,15 @@ function gen_stadium_roadway(nlanes::Int;
     seg2 = RoadSegment(2, Array{Lane{Float64}}(undef, nlanes))
     seg3 = RoadSegment(3, Array{Lane{Float64}}(undef, nlanes))
     seg4 = RoadSegment(4, Array{Lane{Float64}}(undef, nlanes))
+    seg5 = RoadSegment(5, Array{Lane{Float64}}(undef, nlanes))
+    seg6 = RoadSegment(6, Array{Lane{Float64}}(undef, nlanes))
     for i in 1 : nlanes
         curvepts1 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)
         curvepts2 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)
-        curvepts3 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)
+        curvepts3 = Array{CurvePt{Float64}}(undef, 2)
         curvepts4 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)
+        curvepts5 = Array{CurvePt{Float64}}(undef, ncurvepts_per_turn)
+        curvepts6 = Array{CurvePt{Float64}}(undef, 2)
 
         r = radius + lane_width*(i-1)
         for j in 1:ncurvepts_per_turn
@@ -164,30 +168,37 @@ function gen_stadium_roadway(nlanes::Int;
             s = r*π/2*t
             curvepts1[j] = CurvePt(VecSE2(A + polar(r, lerp(-π/2,  0.0, t)), lerp(0.0,π/2,t)),  s)
             curvepts2[j] = CurvePt(VecSE2(B + polar(r, lerp( 0.0,  π/2, t)), lerp(π/2,π,  t)),  s)
-            curvepts3[j] = CurvePt(VecSE2(C + polar(r, lerp( π/2,  π,   t)), lerp(π, 3π/2,t)),  s)
-            curvepts4[j] = CurvePt(VecSE2(D + polar(r, lerp( π,   3π/2, t)), lerp(3π/2,2π,t)),  s)
+            curvepts4[j] = CurvePt(VecSE2(C + polar(r, lerp( π/2,  π,   t)), lerp(π, 3π/2,t)),  s)
+            curvepts5[j] = CurvePt(VecSE2(D + polar(r, lerp( π,   3π/2, t)), lerp(3π/2,2π,t)),  s)
         end
+        # fill in straight segments
+        curvepts3[1] = CurvePt(curvepts2[end].pos, 0.0)
+        curvepts3[2] = CurvePt(curvepts4[1].pos, length)
+        curvepts6[1] = CurvePt(curvepts5[end].pos, 0.0)
+        curvepts6[2] = CurvePt(curvepts1[1].pos, length)
 
         laneindex = nlanes-i+1
         tag1 = LaneTag(1,laneindex)
         tag2 = LaneTag(2,laneindex)
         tag3 = LaneTag(3,laneindex)
         tag4 = LaneTag(4,laneindex)
+        tag5 = LaneTag(5,laneindex)
+        tag6 = LaneTag(6,laneindex)
 
         boundary_left = (laneindex == nlanes ? boundary_leftmost : boundary_middle)
         boundary_right = (laneindex == 1 ? boundary_rightmost : boundary_middle)
         curveind_lo = CurveIndex(1,0.0)
-        curveind_hi = CurveIndex(ncurvepts_per_turn-1,1.0)
+        curveind_hi = CurveIndex(ncurvepts_per_turn,1.0)
 
         seg1.lanes[laneindex] = Lane(tag1, curvepts1, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
                                       next = RoadIndex(curveind_lo, tag2),
-                                      prev = RoadIndex(curveind_hi, tag4),
+                                      prev = RoadIndex(curveind_hi, tag6),
                                      )
         seg2.lanes[laneindex] = Lane(tag2, curvepts2, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
                                       next = RoadIndex(curveind_lo, tag3),
-                                      prev = RoadIndex(curveind_hi, tag1),
+                                      prev = RoadIndex(CurveIndex(ncurvepts_per_turn - 1,1.0), tag1),
                                      )
         seg3.lanes[laneindex] = Lane(tag3, curvepts3, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
@@ -196,9 +207,19 @@ function gen_stadium_roadway(nlanes::Int;
                                      )
         seg4.lanes[laneindex] = Lane(tag4, curvepts4, width=lane_width,
                                       boundary_left=boundary_left, boundary_right=boundary_right,
-                                      next = RoadIndex(curveind_lo, tag1),
+                                      next = RoadIndex(curveind_lo, tag5),
                                       prev = RoadIndex(curveind_hi, tag3),
                                      )
+        seg5.lanes[laneindex] = Lane(tag5, curvepts5, width=lane_width,
+                                      boundary_left=boundary_left, boundary_right=boundary_right,
+                                      next = RoadIndex(curveind_lo, tag6),
+                                      prev = RoadIndex(CurveIndex(ncurvepts_per_turn - 1,1.0), tag4),
+                                     )
+        seg6.lanes[laneindex] = Lane(tag6, curvepts6, width=lane_width,
+                                boundary_left=boundary_left, boundary_right=boundary_right,
+                                next = RoadIndex(curveind_lo, tag1),
+                                prev = RoadIndex(curveind_hi, tag5),
+                                )
     end
 
     retval = Roadway()
@@ -206,5 +227,7 @@ function gen_stadium_roadway(nlanes::Int;
     push!(retval.segments, seg2)
     push!(retval.segments, seg3)
     push!(retval.segments, seg4)
+    push!(retval.segments, seg5)
+    push!(retval.segments, seg6)
     retval
 end

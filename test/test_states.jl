@@ -62,6 +62,16 @@ end
 
     @test get_front(veh).x == vehdef.length/2
     @test get_rear(veh).x == -vehdef.length/2
+
+    roadway = gen_straight_roadway(3, 100.0)
+    veh = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 0.0)
+    veh = Vehicle(veh, VehicleDef(), 1)
+    @test get_lane(roadway, veh).tag == LaneTag(1,1)
+    @test get_lane(roadway, veh).tag == get_lane(roadway, veh.state).tag
+    veh = VehicleState(VecSE2(0.0, 3.0, 0.0), roadway, 0.0)
+    @test get_lane(roadway, veh).tag == LaneTag(1,2)
+    veh = VehicleState(VecSE2(0.0, 6.0, 0.0), roadway, 0.0)
+    @test get_lane(roadway, veh).tag == LaneTag(1,3)
 end
 
 @testset "scene" begin 

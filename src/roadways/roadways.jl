@@ -722,3 +722,30 @@ function n_lanes_left(lane::Lane, roadway::Roadway)
     length(seg.lanes) - lane.tag.lane
 end
 
+"""
+    lanes(roadway::Roadway{T}) where T
+return a list of all the lanes present in roadway. 
+"""
+function lanes(roadway::Roadway{T}) where T
+    lanes = Lane{T}[]
+    for i=1:length(roadway.segments)
+        for lane in roadway.segments[i].lanes
+            push!(lanes, lane)
+        end
+    end
+    return lanes
+end
+
+"""
+    lanetags(roadway::Roadway)
+return a list of all the lane tags present in roadway.
+"""
+function lanetags(roadway::Roadway)
+    lanetags = LaneTag[]
+    for i=1:length(roadway.segments)
+        for lane in roadway.segments[i].lanes
+            push!(lanetags, lane.tag)
+        end
+    end
+    return lanetags
+end

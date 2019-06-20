@@ -40,6 +40,8 @@ The `Lane` data structure represent a driving lane in the roadway. The default l
 ```@docs
       Lane
       LaneTag
+      lanes
+      lanetags
       SpeedLimit
       LaneBoundary
       LaneConnection

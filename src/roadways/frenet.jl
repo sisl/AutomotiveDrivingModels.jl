@@ -1,10 +1,21 @@
 """
-Frenet
-______
-roadind: road index
-s: distance along lane
-t: lane offset, positive is to left. zero point is the centerline of the lane.
-ϕ: lane relative heading
+    Frenet
+
+Represents a vehicle position and heading in a lane relative frame. 
+
+# Constructors
+- `Frenet(roadind::RoadIndex, roadway::Roadway; t::Float64=0.0, ϕ::Float64=0.0)`
+- `Frenet(roadproj::RoadProjection, roadway::Roadway)`
+- `Frenet(lane::Lane, s::Float64, t::Float64=0.0, ϕ::Float64=0.0)`
+- `Frenet(posG::VecSE2, roadway::Roadway)`
+- `Frenet(posG::VecSE2, lane::Lane, roadway::Roadway)`
+
+
+# Fields
+- `roadind`: road index
+- `s`: distance along lane
+- `t`: lane offset, positive is to left. zero point is the centerline of the lane.
+- `ϕ`: lane relative heading
 """
 struct Frenet
     roadind::RoadIndex{Int64, Float64}

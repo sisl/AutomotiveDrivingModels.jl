@@ -65,6 +65,8 @@ export
     move_along,
     n_lanes_left,
     n_lanes_right,
+    lanes,
+    lanetags,
     read
 
 include("roadways/roadways.jl")
@@ -116,7 +118,8 @@ export
     get_center,
     get_footpoint,
     get_front,
-    get_rear
+    get_rear,
+    get_lane
 
 include("states/vehicle_state.jl")
 

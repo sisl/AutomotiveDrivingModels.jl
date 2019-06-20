@@ -117,3 +117,17 @@ get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.pos
 returns the position of the rear of the vehicle
 """
 get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
+
+
+"""
+    get_lane(roadway::Roadway, vehicle::Vehicle)
+    get_lane(roadway::Roadway, vehicle::VehicleState)
+return the lane where `vehicle` is in.
+"""
+function get_lane(roadway::Roadway, vehicle::Vehicle)
+    get_lane(roadway, vehicle.state)
+end
+function get_lane(roadway::Roadway, vehicle::VehicleState)
+    lane_tag = vehicle.posF.roadind.tag
+    return roadway[lane_tag]
+end

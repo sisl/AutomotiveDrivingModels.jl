@@ -30,6 +30,23 @@ function collision_checker(veh_a::VehicleState, veh_b::VehicleState, veh_a_def::
     return false
 end
 
+
+"""
+    collision_checker(scene::Frame{Entity{S,D,I}}, egoid::I) where {S, D<:AbstractAgentDefinition, I}
+return true if any entity in the scene collides with the entity of id `egoid`.
+"""
+function collision_checker(scene::Frame{Entity{S,D,I}}, egoid::I) where {S, D<:AbstractAgentDefinition, I}
+    ego = get_by_id(scene, egoid)
+    for veh in scene
+        if veh.id != egoid
+            if collision_checker(veh, ego)
+                return true
+            end
+        end
+    end
+    return false
+end
+
 """ 
     polygon(pos::VecSE2{Float64}, veh_def::AbstractAgentDefinition)
     polygon(x::Float64,y::Float64,theta::Float64, length::Float64, width::Float64)

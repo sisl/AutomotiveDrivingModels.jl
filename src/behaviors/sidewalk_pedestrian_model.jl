@@ -196,8 +196,3 @@ function get_distance_to_lane(veh::Vehicle, lane_des::Lane, roadway::Roadway)
     Δs = lane_des_proj.s - veh.state.posF.s
     return Δs
 end
-
-function get_lane(roadway::Roadway, vehicle::Vehicle)
-    lane_tag = vehicle.state.posF.roadind.tag
-    return roadway[lane_tag]
-end
