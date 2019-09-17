@@ -1,11 +1,12 @@
 """
-    get_neighbor_index_fore(scene::Scene, vehicle_index::Int, roadway::Roadway)
-Return the index of the vehicle that is in the same lane as scene[vehicle_index] and
-in front of it with the smallest distance along the lane
+    NeighborLongitudinalResult
 
-    The method will search on the current lane first, and if no vehicle is found it
-    will continue to travel along the lane following next_lane(lane, roadway).
-    If no vehicle is found within `max_distance_fore,` a value of `nothing` is returned instead.
+A structure to retrieve information about a neihbor in the longitudinal direction i.e. rear and front neighbors on the same lane.
+If the neighbor index is equal to `nothing` it means there is no neighbor.
+
+# Fields
+- `ind::Union{Nothing, Int64}` index of the neighbor in the scene
+- `Δs::Float64` positive distance along the lane between vehicles positions
 """
 struct NeighborLongitudinalResult
     ind::Union{Nothing, Int64} # index in scene of the neighbor
@@ -55,6 +56,20 @@ get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.length/
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
+"""
+    get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, roadway::Roadway, tag_start::LaneTag, s_base::Float64, targetpoint_primary::VehicleTargetPoint, targetpoint_valid::VehicleTargetPoint;
+                                 max_distance_fore::Float64 = 250.0, index_to_ignore::Int=-1) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+
+Return the index and the longitudinal distance of the vehicle that is in the same lane as scene[vehicle_index] and
+in front of it with the smallest distance along the lane. The result is returned as a `NeighborLongitudinalResult` object.
+The method will search on the current lane first, and if no vehicle is found it will continue to travel along the lane following next_lane(lane, roadway).
+If no vehicle is found within `max_distance_fore,` the index takes a value of `nothing`.
+
+# Notes on the optional arguments:
+- `targetpoint_primary::VehicleTargetPoint` the reference point whose distance we want to minimize
+- `targetpoint_valid::VehicleTargetPoint` the reference point, which if distance to is positive, we include the vehicle
+
+"""
 function get_neighbor_fore_along_lane(
     scene::EntityFrame{S,D,I},
     roadway::Roadway,
