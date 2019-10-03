@@ -7,16 +7,16 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
     veh = get(trajdata, 1, 1)
 
     model = FakeDriverModel()
-    reset_hidden_state!(model)
-    observe!(model, Scene(), roadway, 1)
-    prime_with_history!(model, trajdata, roadway, 1, 2, 1)
+    @test_throws MethodError reset_hidden_state!(model)
+    @test_throws MethodError observe!(model, Scene(), roadway, 1)
+    @test_throws MethodError prime_with_history!(model, trajdata, roadway, 1, 2, 1)
 
-    @test get_name(model) == "???"
+    @test_throws MethodError get_name(model)
     @test action_type(model) <: FakeDriveAction
-    @test set_desired_speed!(model, 0.0) == FakeDriverModel()
+    @test_throws MethodError set_desired_speed!(model, 0.0)
     @test_throws ErrorException rand(model)
-    @test_throws ErrorException pdf(model, FakeDriveAction())
-    @test_throws ErrorException logpdf(model, FakeDriveAction())
+    @test_throws MethodError pdf(model, FakeDriveAction())
+    @test_throws MethodError logpdf(model, FakeDriveAction())
 end
 
 @testset "IDM test" begin
@@ -84,11 +84,11 @@ struct FakeLaneChanger <: LaneChangeModel end
     veh = get(trajdata, 1, 1)
 
     model = FakeLaneChanger()
-    reset_hidden_state!(model)
-    observe!(model, Scene(), roadway, 1)
+    @test_throws MethodError reset_hidden_state!(model)
+    @test_throws MethodError observe!(model, Scene(), roadway, 1)
 
-    @test get_name(model) == "???"
-    @test set_desired_speed!(model, 0.0) == FakeLaneChanger()
+    @test_throws MethodError get_name(model) 
+    @test_throws MethodError set_desired_speed!(model, 0.0)
     @test_throws ErrorException rand(model)
 end
 

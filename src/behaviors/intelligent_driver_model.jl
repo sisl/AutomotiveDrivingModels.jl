@@ -66,6 +66,9 @@ function track_longitudinal!(model::IntelligentDriverModel, v_ego::Float64, v_ot
 
     return model
 end
+
+reset_hidden_state!(model::IntelligentDriverModel) = model
+
 function Base.rand(model::IntelligentDriverModel)
     if isnan(model.σ) || model.σ ≤ 0.0
         LaneFollowingAccel(model.a)
