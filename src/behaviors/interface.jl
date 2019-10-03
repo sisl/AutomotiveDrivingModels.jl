@@ -13,7 +13,7 @@ abstract type DriverModel{DriveAction} end
     get_name(::DriverModel)
 returns the name of the driver model
 """
-get_name(::DriverModel) = "???"
+function get_name end
 
 """
     action_type(::DriverModel{A}) where {A}
@@ -23,31 +23,28 @@ action_type(::DriverModel{A}) where {A} = A
 
 """
     set_desired_speed!(model::DriverModel, v_des::Float64)
-Sets a desired speed. It does nothing by default. 
+Sets a desired speed.
 This method is relevant for models like IDM where the vehicle tracks a nominal speed.
 """
-set_desired_speed!(model::DriverModel, v_des::Float64) = model # do nothing by default
+function set_desired_speed! end
 
 """
     reset_hidden_state!(model::DriverModel)
-Resets the hidden states of the model. It does nothing by default
+Resets the hidden states of the model. 
 """
-reset_hidden_state!(model::DriverModel) = model # do nothing by default
+function reset_hidden_state! end
 
 """
-    observe!(model::DriverModel, scene::EntityFrame{S,D,I}, roadway::R, egoid::Integer) where {S,D,I,R}
-Observes the scene and updates the model states accordingly. It does nothing by default.
+    observe!(model::DriverModel, scene, roadway, egoid)
+Observes the scene and updates the model states accordingly. 
 """
-observe!(model::DriverModel, scene::EntityFrame{S,D,I}, roadway::R, egoid::Integer) where {S,D,I,R} = model  # do nothing by default
+function observe! end 
 
 """
     rand(model::DriverModel)
 Samples an action from the model.
 """
-Base.rand(model::DriverModel) = error("rand not implemented for model $model")
-
-Distributions.pdf(model::DriverModel{A}, a::A) where {A} = error("pdf not implemented for model $model")
-Distributions.logpdf(model::DriverModel{A}, a::A) where {A} = error("logpdf not implemented for model $model")
+Base.rand(model::DriverModel) = error("Rand not implemented for model $(typeof(model))")
 
 function prime_with_history!(
     model::DriverModel,

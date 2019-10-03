@@ -24,6 +24,9 @@ function track_longitudinal!(model::ProportionalSpeedTracker, v_ego::Float64, v_
     model.a = Δv*model.k # predicted accel to match target speed
     return model
 end
+
+reset_hidden_state!(model::ProportionalSpeedTracker) = model
+
 function Base.rand(model::ProportionalSpeedTracker)
     if isnan(model.σ) || model.σ ≤ 0.0
         LaneFollowingAccel(model.a)

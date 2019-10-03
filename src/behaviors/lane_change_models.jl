@@ -24,8 +24,4 @@ end
 ####################
 
 abstract type LaneChangeModel end
-get_name(::LaneChangeModel) = "???"
-set_desired_speed!(model::LaneChangeModel, v_des::Float64) = model # # do nothing by default
-reset_hidden_state!(model::LaneChangeModel) = model # do nothing by default
-observe!(model::LaneChangeModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
-Base.rand(model::LaneChangeModel) = error("rand not implemented for model $model")
+Base.rand(model::LaneChangeModel) = error("Rand not implemented for model $(typeof(model))")
