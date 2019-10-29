@@ -71,22 +71,22 @@ reset_hidden_state!(model::IntelligentDriverModel) = model
 
 function Base.rand(model::IntelligentDriverModel)
     if isnan(model.σ) || model.σ ≤ 0.0
-        LaneFollowingAccel(model.a)
+        return LaneFollowingAccel(model.a)
     else
-        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
+        return LaneFollowingAccel(rand(Normal(model.a, model.σ)))
     end
 end
 function Distributions.pdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
-        a == model.a ? Inf : 0.
+        return a == model.a ? Inf : 0.
     else
-        pdf(Normal(model.a, model.σ), a.a)
+        return pdf(Normal(model.a, model.σ), a.a)
     end
 end
 function Distributions.logpdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
-        a == model.a ? Inf : 0.
+        return a == model.a ? Inf : 0.
     else
-        logpdf(Normal(model.a, model.σ), a.a)
+        return logpdf(Normal(model.a, model.σ), a.a)
     end
 end
