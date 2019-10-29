@@ -78,14 +78,14 @@ function Base.rand(model::IntelligentDriverModel)
 end
 function Distributions.pdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
-        Inf
+        a == model.a ? Inf : 0.
     else
         pdf(Normal(model.a, model.σ), a.a)
     end
 end
 function Distributions.logpdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
-        Inf
+        a == model.a ? Inf : 0.
     else
         logpdf(Normal(model.a, model.σ), a.a)
     end
