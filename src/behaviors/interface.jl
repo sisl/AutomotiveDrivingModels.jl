@@ -104,3 +104,5 @@ end
 
 Distributions.pdf(model::StaticDriver{A}, a::A) where {A} = pdf(model.distribution, convert(Vector{Float64}, a))
 Distributions.logpdf(model::StaticDriver{A}, a::A) where {A} = logpdf(model.distribution, convert(Vector{Float64}, a))
+set_desired_speed!(model::StaticDriver, v::Float64) = model
+observe!(model::StaticDriver, scene::S, roadway::Roadway, egoid::I) where {S, I} = model
