@@ -27,11 +27,11 @@ end
 
 reset_hidden_state!(model::ProportionalSpeedTracker) = model
 
-function Base.rand(model::ProportionalSpeedTracker)
+function Base.rand(rng::AbstractRNG, model::ProportionalSpeedTracker)
     if isnan(model.σ) || model.σ ≤ 0.0
         LaneFollowingAccel(model.a)
     else
-        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
+        LaneFollowingAccel(rand(rng, Normal(model.a, model.σ)))
     end
 end
 function Distributions.pdf(model::ProportionalSpeedTracker, a::LaneFollowingAccel)

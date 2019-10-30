@@ -16,7 +16,7 @@ See the tutorials for examples.
 
 ## Callbacks 
 
-One can define callback function that will be run at each simulation step. The callback function can interrupt the simulation if it return `false`. It is also useful to log simulation information. 
+One can define callback function that will be run at each simulation step. The callback function can interrupt the simulation if it return `true`. It is also useful to log simulation information. 
 
 To implement a custom callback function you must implement a type and the associated `run_callback` method. Here is an example of a callback that checks if a vehicle longitudinal position has reached some goal position and stops the simulation if it is the case.
 ```julia

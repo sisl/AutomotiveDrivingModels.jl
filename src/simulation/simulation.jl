@@ -54,12 +54,18 @@ function reset_hidden_states!(models::Dict{Int,M}) where {M<:DriverModel}
 end
 
 """
-    simulate!(::Type{A}, rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int) where {S,D,I,A,R,M<:DriverModel}
-    simulate!(rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int) where {S,D,I,R,M<:DriverModel}
+    simulate!(scene::Frame{E}, roadway::R, models::Dict{I,M<:DriverModel}, nticks::Int64, timestep::Float64; rng::AbstractRNG = Random.GLOBAL_RNG, scenes::Vector{Frame{E}} = [Frame(E, length(scene)) for i=1:nticks+1], callbacks=nothing)
+
+Run `nticks` steps of simulation with time step `dt` and return a vector of scenes from time step 0 to nticks.
+
+    simulate!(::Type{A}, rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M<:DriverModel}, nticks::Int)
+    simulate!(rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M<:DriverModel}, nticks::Int)
+
 Run nticks of simulation and place all nticks+1 scenes into the QueueRecord
 
     simulate!(::Type{A},rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int, callbacks::C) where {S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
     simulate!(rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int, callbacks::C) where {S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+
 Callback objects can also be passed in the simulate! function.
 
 """
@@ -89,10 +95,52 @@ function simulate!(
     scene::EntityFrame{S,D,I},
     roadway::R,
     models::Dict{I,M},
-    nticks::Int,
+    nticks::Int
     ) where {S,D,I,R,M<:DriverModel}
 
     return simulate!(Any, rec, scene, roadway, models, nticks)
+end
+
+function simulate!(
+    scene::Frame{E},
+    roadway::R,
+    models::Dict{I,M},
+    nticks::Int64,
+    timestep::Float64;
+    rng::AbstractRNG = Random.GLOBAL_RNG,    
+    scenes::Vector{Frame{E}} = [Frame(E, length(scene)) for i=1:nticks+1],
+    callbacks = nothing
+    ) where {E,R,I,M<:DriverModel}
+
+    copyto!(scenes[1], scene)
+
+    # potential early out right off the bat
+    if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, 0)
+        return scenes
+    end
+
+    final_tick = nticks + 1
+    for tick in 1:nticks
+
+        empty!(scenes[tick + 1])
+        
+        for (i, veh) in enumerate(scenes[tick])
+
+            observe!(models[veh.id], scenes[tick], roadway, veh.id)
+            a = rand(rng, models[veh.id])
+        
+            veh_state_p  = propagate(veh, a, roadway, timestep)
+
+            push!(scenes[tick + 1], Entity(veh_state_p, veh.def, veh.id))
+            
+        end
+
+        if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, tick)
+            final_tick = tick + 1
+            break
+        end
+    end
+    return scenes[1:final_tick]
 end
 
 """

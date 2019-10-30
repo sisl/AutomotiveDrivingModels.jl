@@ -44,7 +44,8 @@ function observe! end
     rand(model::DriverModel)
 Samples an action from the model.
 """
-Base.rand(model::DriverModel) = error("Rand not implemented for model $(typeof(model))")
+Base.rand(model::DriverModel) = rand(Random.GLOBAL_RNG, model)
+Base.rand(rng::AbstractRNG, model::DriverModel) = error("AutomotiveDrivingModelsError: Base.rand(::AbstractRNG, ::$(typeof(model))) not implemented")
 
 function prime_with_history!(
     model::DriverModel,
@@ -96,9 +97,10 @@ struct StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
 end
 
 get_name(::StaticDriver) = "StaticDriver"
-function Base.rand(model::StaticDriver{A,P}) where {A,P}
-    a = rand(model.distribution)
+function Base.rand(rng::AbstractRNG, model::StaticDriver{A,P}) where {A,P}
+    a = rand(rng, model.distribution)
     return convert(A, a)
 end
+
 Distributions.pdf(model::StaticDriver{A}, a::A) where {A} = pdf(model.distribution, convert(Vector{Float64}, a))
 Distributions.logpdf(model::StaticDriver{A}, a::A) where {A} = logpdf(model.distribution, convert(Vector{Float64}, a))

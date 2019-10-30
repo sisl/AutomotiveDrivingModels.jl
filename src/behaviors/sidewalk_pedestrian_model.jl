@@ -66,7 +66,7 @@ Walks along the sidewalk until approaching the crosswalk. Waits for the cars to 
 end
 
 AutomotiveDrivingModels.get_name(model::SidewalkPedestrianModel) = "SidewalkPedestrianModel"
-Base.rand(model::SidewalkPedestrianModel) = model.a
+Base.rand(rng::AbstractRNG, model::SidewalkPedestrianModel) = model.a
 
 function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Scene, roadway::Roadway, egoid::Int)
     ped = scene[findfirst(egoid, scene)]

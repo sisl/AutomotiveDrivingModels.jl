@@ -6,6 +6,7 @@ using Parameters
 using StaticArrays
 using Distributions
 using Reexport
+using Random
 @reexport using Vec 
 @reexport using Records
 

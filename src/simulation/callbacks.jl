@@ -1,18 +1,21 @@
 # run callback and return whether simlation should terminate
 """
+    run_callback(callback::Any, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel}    
     run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel}
 run callback and return whether simlation should terminate
 A new method should be implemented when defining a new callback object.
 """
 run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel} = error("run_callback not implemented for callback $(typeof(callback))")
+run_callback(callback::Any, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel} = error("run_callback not implemented for callback $(typeof(callback))")
 
-function _run_callbacks(callbacks::C, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+function _run_callbacks(callbacks::C, scenes, roadway::R, models::Dict{I,M}, tick::Int) where {I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
     isdone = false
     for callback in callbacks
-        isdone |= run_callback(callback, rec, roadway, models, tick)
+        isdone |= run_callback(callback, scenes, roadway, models, tick)
     end
     return isdone
 end
+
 function simulate!(
     ::Type{A},
     rec::EntityQueueRecord{S,D,I},
@@ -74,4 +77,15 @@ function run_callback(
     ) where {S,D,I,R,M<:DriverModel}
 
     return !is_collision_free(rec[0], callback.mem)
+end
+
+function run_callback(
+    callback::CollisionCallback,
+    scenes::Vector{Scene},
+    roadway::R,
+    models::Dict{I,M},
+    tick::Int,
+    ) where {S,D,I,R,M<:DriverModel}
+
+    return !is_collision_free(scenes[end], callback.mem)
 end

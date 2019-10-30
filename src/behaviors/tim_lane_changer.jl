@@ -101,4 +101,4 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
 
     model
 end
-Base.rand(model::TimLaneChanger) = LaneChangeChoice(model.dir)
+Base.rand(rng::AbstractRNG, model::TimLaneChanger) = LaneChangeChoice(model.dir)

@@ -2,7 +2,9 @@ abstract type LateralDriverModel end
 get_name(::LateralDriverModel) = "???"
 reset_hidden_state!(model::LateralDriverModel) = model # do nothing by default
 observe!(model::LateralDriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
-Base.rand(model::LateralDriverModel) = error("rand not implemented for model $model")
+Base.rand(model::LateralDriverModel) = rand(Random.GLOBAL_RNG, model)
+Base.rand(rng::AbstractRNG, model::LateralDriverModel) =  error("AutomotiveDrivingModelsError: Base.rand(::AbstractRNG, ::$(typeof(model))) not implemented")
+
 Distributions.pdf(model::LateralDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
 Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
 
@@ -56,11 +58,11 @@ function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway
 
     model
 end
-function Base.rand(model::ProportionalLaneTracker)
+function Base.rand(rng::AbstractRNG, model::ProportionalLaneTracker)
     if isnan(model.σ) || model.σ ≤ 0.0
         model.a
     else
-        rand(Normal(model.a, model.σ))
+        rand(rng, Normal(model.a, model.σ))
     end
 end
 function Distributions.pdf(model::ProportionalLaneTracker, a_lat::Float64)

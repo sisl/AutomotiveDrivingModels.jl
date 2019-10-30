@@ -50,6 +50,10 @@ struct DummyCallback end
 
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+
+    simulate!(scene, roadway, models, n_steps, dt)
+
+    simulate!(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
 end
 
 
