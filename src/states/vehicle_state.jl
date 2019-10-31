@@ -96,35 +96,35 @@ const Vehicle = Entity{VehicleState,VehicleDef,Int64}
 
 # XXX Should this go in features
 """
-    get_center(veh::Vehicle)
+    get_center(veh::Entity{VehicleState, D, I})
 returns the position of the center of the vehicle
 """
-get_center(veh::Vehicle) = veh.state.posG
+get_center(veh::Entity{VehicleState, D, I}) where {D, I} = veh.state.posG
 """
-    get_footpoint(veh::Vehicle)
+    get_footpoint(veh::Entity{VehicleState, D, I})
 returns the position of the footpoint of the vehicle
 """
-get_footpoint(veh::Vehicle) = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
+get_footpoint(veh::Entity{VehicleState, D, I}) where {D, I} = veh.state.posG + polar(veh.state.posF.t, veh.state.posG.θ-veh.state.posF.ϕ-π/2)
 
 """
-    get_front(veh::Vehicle)
+    get_front(veh::Entity{VehicleState, VehicleDef, I})
 returns the position of the front of the vehicle
 """
-get_front(veh::Vehicle) = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
+get_front(veh::Entity{VehicleState, VehicleDef, I}) where I = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
 
 """
-    get_rear(veh::Vehicle)
+    get_rear(veh::Entity{VehicleState, VehicleDef, I})
 returns the position of the rear of the vehicle
 """
-get_rear(veh::Vehicle) = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
+get_rear(veh::Entity{VehicleState, VehicleDef, I}) where I = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
 
 
 """
-    get_lane(roadway::Roadway, vehicle::Vehicle)
+    get_lane(roadway::Roadway, vehicle::Entity{S, D, I})
     get_lane(roadway::Roadway, vehicle::VehicleState)
 return the lane where `vehicle` is in.
 """
-function get_lane(roadway::Roadway, vehicle::Vehicle)
+function get_lane(roadway::Roadway, vehicle::Entity{S, D, I}) where {S, D, I}
     get_lane(roadway, vehicle.state)
 end
 function get_lane(roadway::Roadway, vehicle::VehicleState)

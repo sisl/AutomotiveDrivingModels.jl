@@ -48,11 +48,11 @@ end
 
 abstract type VehicleTargetPoint end
 struct VehicleTargetPointFront <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointFront, veh::Vehicle) = veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, VehicleDef, I}) where I = veh.def.length/2*cos(veh.state.posF.ϕ)
 struct VehicleTargetPointCenter <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointCenter, veh::Vehicle) = 0.0
+get_targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{VehicleState, VehicleDef, I}) where I = 0.0
 struct VehicleTargetPointRear <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointRear, veh::Vehicle) = -veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, VehicleDef, I}) where I = -veh.def.length/2*cos(veh.state.posF.ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
@@ -107,10 +107,10 @@ function get_neighbor_fore_along_lane(
                 end
 
                 if !isnan(s_adjust)
-                    s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, convert(Vehicle, veh)) + s_adjust
+                    s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh) + s_adjust
                     dist_valid = s_valid - s_base + dist_searched
                     if dist_valid ≥ 0.0
-                        s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, convert(Vehicle, veh)) + s_adjust
+                        s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh) + s_adjust
                         dist = s_primary - s_base + dist_searched
                         if dist < best_dist
                             best_dist = dist
@@ -149,7 +149,7 @@ function get_neighbor_fore_along_lane(
 
     veh_ego = scene[vehicle_index]
     tag_start = veh_ego.state.posF.roadind.tag
-    s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, convert(Vehicle, veh_ego))
+    s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
     get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
         targetpoint_primary, targetpoint_valid,
@@ -173,7 +173,7 @@ function get_neighbor_fore_along_left_lane(
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         roadproj = proj(veh_ego.state.posG, lane_left, roadway)
         tag_start = roadproj.tag
-        s_base = lane_left[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, convert(Vehicle, veh_ego))
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
         retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
                                               targetpoint_primary, targetpoint_valid,
@@ -201,7 +201,7 @@ function get_neighbor_fore_along_right_lane(
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(veh_ego.state.posG, lane_right, roadway)
         tag_start = roadproj.tag
-        s_base = lane_right[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, convert(Vehicle, veh_ego))
+        s_base = lane_right[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
         retval = get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
                                               targetpoint_primary, targetpoint_valid,
@@ -295,10 +295,10 @@ function get_neighbor_rear_along_lane(
                 end
 
                 if !isnan(s_adjust)
-                    s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, convert(Vehicle, veh)) + s_adjust
+                    s_valid = veh.state.posF.s + get_targetpoint_delta(targetpoint_valid, veh) + s_adjust
                     dist_valid = s_base - s_valid + dist_searched
                     if dist_valid ≥ 0.0
-                        s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, convert(Vehicle, veh)) + s_adjust
+                        s_primary = veh.state.posF.s + get_targetpoint_delta(targetpoint_primary, veh) + s_adjust
                         dist = s_base - s_primary + dist_searched
                         if dist < best_dist
                             best_dist = dist
@@ -339,7 +339,7 @@ function get_neighbor_rear_along_lane(
 
     veh_ego = scene[vehicle_index]
     tag_start = veh_ego.state.posF.roadind.tag
-    s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, convert(Vehicle, veh_ego))
+    s_base = veh_ego.state.posF.s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
     get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
         targetpoint_primary, targetpoint_valid,
@@ -363,7 +363,7 @@ function get_neighbor_rear_along_left_lane(
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         roadproj = proj(veh_ego.state.posG, lane_left, roadway)
         tag_start = roadproj.tag
-        s_base = lane_left[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, convert(Vehicle, veh_ego))
+        s_base = lane_left[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
         retval = get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
                                               targetpoint_primary, targetpoint_valid,
@@ -391,7 +391,7 @@ function get_neighbor_rear_along_right_lane(
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(veh_ego.state.posG, lane_right, roadway)
         tag_start = roadproj.tag
-        s_base = lane_right[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, convert(Vehicle, veh_ego))
+        s_base = lane_right[roadproj.curveproj.ind, roadway].s + get_targetpoint_delta(targetpoint_ego, veh_ego)
 
         retval = get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
                                               targetpoint_primary, targetpoint_valid,
@@ -550,4 +550,4 @@ function get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex,
 
     retval
 end
-get_frenet_relative_position(veh_fore::Vehicle, veh_rear::Vehicle, roadway::Roadway) = get_frenet_relative_position(veh_fore.state.posG, veh_rear.state.posF.roadind, roadway)
+get_frenet_relative_position(veh_fore::Entity{VehicleState, D, I}, veh_rear::Entity{VehicleState, D, I}, roadway::Roadway) where D, I = get_frenet_relative_position(veh_fore.state.posG, veh_rear.state.posF.roadind, roadway)
