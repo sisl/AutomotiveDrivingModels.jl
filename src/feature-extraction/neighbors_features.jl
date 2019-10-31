@@ -48,11 +48,11 @@ end
 
 abstract type VehicleTargetPoint end
 struct VehicleTargetPointFront <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, VehicleDef, I}) where I = veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = veh.def.length/2*cos(veh.state.posF.ϕ)
 struct VehicleTargetPointCenter <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{VehicleState, VehicleDef, I}) where I = 0.0
+get_targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = 0.0
 struct VehicleTargetPointRear <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, VehicleDef, I}) where I = -veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = -veh.def.length/2*cos(veh.state.posF.ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
@@ -550,4 +550,4 @@ function get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex,
 
     retval
 end
-get_frenet_relative_position(veh_fore::Entity{VehicleState, D, I}, veh_rear::Entity{VehicleState, D, I}, roadway::Roadway) where D, I = get_frenet_relative_position(veh_fore.state.posG, veh_rear.state.posF.roadind, roadway)
+get_frenet_relative_position(veh_fore::Entity{VehicleState, D, I}, veh_rear::Entity{VehicleState, D, I}, roadway::Roadway) where {D, I} = get_frenet_relative_position(veh_fore.state.posG, veh_rear.state.posF.roadind, roadway)
