@@ -17,7 +17,7 @@ end
 function get_headway(veh_rear::Vehicle1D, veh_fore::Vehicle1D, roadway::StraightRoadway)
     return get_headway(get_front(veh_rear), get_rear(veh_fore), roadway)
 end
-function get_neighbor_fore(scene::Scene1D, vehicle_index::Int, roadway::StraightRoadway)
+function get_neighbor_fore(scene::Frame{Entity{State1D, D, I}}, vehicle_index::I, roadway::StraightRoadway) where {D, I}
     ego = scene[vehicle_index]
     best_ind = nothing
     best_gap = Inf
@@ -31,7 +31,7 @@ function get_neighbor_fore(scene::Scene1D, vehicle_index::Int, roadway::Straight
     end
     return NeighborLongitudinalResult(best_ind, best_gap)
 end
-function get_neighbor_rear(scene::Scene1D, vehicle_index::Int, roadway::StraightRoadway)
+function get_neighbor_rear(scene::Frame{Entity{State1D, D, I}}, vehicle_index::I, roadway::StraightRoadway) where {D, I}
     ego = scene[vehicle_index]
     best_ind = nothing
     best_gap = Inf
