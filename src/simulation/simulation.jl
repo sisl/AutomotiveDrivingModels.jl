@@ -115,8 +115,8 @@ function simulate!(
     copyto!(scenes[1], scene)
 
     # potential early out right off the bat
-    if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, 0)
-        return scenes
+    if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, 1)
+        return scenes[1:1]
     end
 
     final_tick = nticks + 1
@@ -135,12 +135,11 @@ function simulate!(
             
         end
 
-        if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, tick)
-            final_tick = tick + 1
-            break
+        if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, tick+1)
+            return scenes[1:tick+1]
         end
     end
-    return scenes[1:final_tick]
+    return scenes
 end
 
 """
