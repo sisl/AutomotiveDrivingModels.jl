@@ -4,7 +4,7 @@ struct LatLonSeparableDriver <: DriverModel{LatLonAccel}
     mlon::LaneFollowingDriver
 end
 
-function observe!(model::LaneFollowingDriver, scene::Scene, roadway::Roadway, egoid::Int)
+function observe!(model::LaneFollowingDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     vehicle_index = findfirst(egoid, scene)
 
@@ -29,7 +29,7 @@ function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model
 end
-function observe!(model::LatLonSeparableDriver, scene::Scene, roadway::Roadway, egoid::Int)
+function observe!(model::LatLonSeparableDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
     observe!(model.mlat, scene, roadway, egoid)
     observe!(model.mlon, scene, roadway, egoid)
     model

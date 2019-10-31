@@ -52,7 +52,7 @@ function set_desired_speed!(model::TimLaneChanger, v_des::Float64)
     model.v_des = v_des
     model
 end
-function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::Int)
+function observe!(model::TimLaneChanger, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     rec = model.rec
     update!(rec, scene)

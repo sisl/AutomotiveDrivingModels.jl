@@ -1,7 +1,7 @@
 abstract type LateralDriverModel end
 get_name(::LateralDriverModel) = "???"
 reset_hidden_state!(model::LateralDriverModel) = model # do nothing by default
-observe!(model::LateralDriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
+observe!(model::LateralDriverModel, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I} = model  # do nothing by default
 Base.rand(model::LateralDriverModel) = error("rand not implemented for model $model")
 Distributions.pdf(model::LateralDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
 Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
@@ -46,7 +46,7 @@ function track_lateral!(model::ProportionalLaneTracker, laneoffset::Float64, lat
     model.a = -laneoffset*model.kp - lateral_speed*model.kd
     model
 end
-function observe!(model::ProportionalLaneTracker, scene::Scene, roadway::Roadway, egoid::Int)
+function observe!(model::ProportionalLaneTracker, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     ego_index = findfirst(egoid, scene)
     veh_ego = scene[ego_index]

@@ -68,7 +68,7 @@ end
 AutomotiveDrivingModels.get_name(model::SidewalkPedestrianModel) = "SidewalkPedestrianModel"
 Base.rand(model::SidewalkPedestrianModel) = model.a
 
-function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Scene, roadway::Roadway, egoid::Int)
+function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, egoid::I) where {D, I}
     ped = scene[findfirst(egoid, scene)]
 
     push!(model.pos_x, ped.state.posG.x)
