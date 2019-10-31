@@ -18,7 +18,7 @@ See MOBIL if you want a lane changer you can cite.
 - `threshold_lane_change_gap_fore::Float64 = 10.0` Space in front
 - `threshold_lane_change_gap_rear::Float64 = 10.0` Space rear
 """
-mutable struct TimLaneChanger <: LaneChangeModel
+mutable struct TimLaneChanger <: LaneChangeModel{LaneChangeChoice}
     dir::Int
     rec::SceneRecord
 
@@ -101,4 +101,4 @@ function observe!(model::TimLaneChanger, scene::Scene, roadway::Roadway, egoid::
 
     model
 end
-Base.rand(model::TimLaneChanger) = LaneChangeChoice(model.dir)
+Base.rand(rng::AbstractRNG, model::TimLaneChanger) = LaneChangeChoice(model.dir)

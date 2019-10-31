@@ -34,9 +34,9 @@ function observe!(model::LatLonSeparableDriver, scene::Scene, roadway::Roadway, 
     observe!(model.mlon, scene, roadway, egoid)
     model
 end
-function Base.rand(model::LatLonSeparableDriver)
-    alat = rand(model.mlat)
-    alon = rand(model.mlon).a
+function Base.rand(rng::AbstractRNG, model::LatLonSeparableDriver)
+    alat = rand(rng, model.mlat)
+    alon = rand(rng, model.mlon).a
     LatLonAccel(alat, alon)
 end
 Distributions.pdf(model::LatLonSeparableDriver, a::LatLonAccel) = pdf(model.mlat, a.a_lat) * pdf(model.mlon, a.a_lon)

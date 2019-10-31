@@ -74,6 +74,6 @@ function observe!(driver::Tim2DDriver, scene::Scene, roadway::Roadway, egoid::In
 
     driver
 end
-Base.rand(driver::Tim2DDriver) = LatLonAccel(rand(driver.mlat), rand(driver.mlon).a)
+Base.rand(rng::AbstractRNG, driver::Tim2DDriver) = LatLonAccel(rand(rng, driver.mlat), rand(rng, driver.mlon).a)
 Distributions.pdf(driver::Tim2DDriver, a::LatLonAccel) = pdf(driver.mlat, a.a_lat) * pdf(driver.mlon, a.a_lon)
 Distributions.logpdf(driver::Tim2DDriver, a::LatLonAccel) = logpdf(driver.mlat, a.a_lat) * logpdf(driver.mlon, a.a_lon)

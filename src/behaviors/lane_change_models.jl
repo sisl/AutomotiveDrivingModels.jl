@@ -23,5 +23,4 @@ end
 
 ####################
 
-abstract type LaneChangeModel end
-Base.rand(model::LaneChangeModel) = error("Rand not implemented for model $(typeof(model))")
+abstract type LaneChangeModel{A} <: DriverModel{A} end

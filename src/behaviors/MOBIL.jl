@@ -13,7 +13,7 @@ See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 - `politeness::Float64=0.35`
 - `advantage_threshold::Float64=0.1`
 """
-@with_kw mutable struct MOBIL <: LaneChangeModel
+@with_kw mutable struct MOBIL <: LaneChangeModel{LaneChangeChoice}
     dir::Int64
     rec::SceneRecord
     mlon::LaneFollowingDriver
@@ -203,4 +203,4 @@ function observe!(model::MOBIL, scene::Scene, roadway::Roadway, egoid::Int)
 
     model
 end
-Base.rand(model::MOBIL) = LaneChangeChoice(model.dir)
+Base.rand(rng::AbstractRNG, model::MOBIL) = LaneChangeChoice(model.dir)

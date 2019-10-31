@@ -33,11 +33,11 @@ function track_longitudinal!(model::PrincetonDriver, v_ego::Float64, v_oth::Floa
 
     model
 end
-function Base.rand(model::PrincetonDriver)
+function Base.rand(rng::AbstractRNG, model::PrincetonDriver)
     if isnan(model.σ) || model.σ ≤ 0.0
         LaneFollowingAccel(model.a)
     else
-        LaneFollowingAccel(rand(Normal(model.a, model.σ)))
+        LaneFollowingAccel(rand(rng, Normal(model.a, model.σ)))
     end
 end
 function Distributions.pdf(model::PrincetonDriver, a::LaneFollowingAccel)

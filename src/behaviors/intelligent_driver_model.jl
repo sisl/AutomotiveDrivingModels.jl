@@ -69,13 +69,14 @@ end
 
 reset_hidden_state!(model::IntelligentDriverModel) = model
 
-function Base.rand(model::IntelligentDriverModel)
+function Base.rand(rng::AbstractRNG, model::IntelligentDriverModel)
     if isnan(model.σ) || model.σ ≤ 0.0
         return LaneFollowingAccel(model.a)
     else
-        return LaneFollowingAccel(rand(Normal(model.a, model.σ)))
+        LaneFollowingAccel(rand(rng, Normal(model.a, model.σ)))
     end
 end
+
 function Distributions.pdf(model::IntelligentDriverModel, a::LaneFollowingAccel)
     if isnan(model.σ) || model.σ ≤ 0.0
         return a == model.a ? Inf : 0.

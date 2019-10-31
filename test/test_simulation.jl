@@ -21,6 +21,8 @@ struct DummyCallback end
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, n_steps)
 
+    @inferred simulate!(scene, roadway, models, n_steps, dt)
+
     reset_hidden_states!(models)
 
       # initializing vehicles too close
@@ -36,6 +38,9 @@ struct DummyCallback end
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
+    scenes = simulate!(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
+    @test length(scenes) < 10
+
     @test_throws ErrorException simulate!(rec, scene, roadway, models, 10, (DummyCallback(),))
 
     # collision right from start
@@ -50,6 +55,9 @@ struct DummyCallback end
 
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+
+    scenes = simulate!(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
+    @test length(scenes) == 1
 end
 
 
