@@ -103,13 +103,13 @@ function update_approaching(ped::Entity{S, D, I},
     end
 end
 
-function update_appraising(ped::Entity{S, VehicleDef, I},
+function update_appraising(ped::Entity{S, D, I},
                            scene::Scene,
                            model::SidewalkPedestrianModel,
                            roadway::Roadway,
                            crosswalk::Lane,
                            sw_origin::Lane,
-                           ) where {S, I}
+                           ) where {S, D<:Union{VehicleDef, BicycleModel}, I}
 
     Δs = get_distance_to_lane(ped, crosswalk, roadway)
     if Δs < 0.1

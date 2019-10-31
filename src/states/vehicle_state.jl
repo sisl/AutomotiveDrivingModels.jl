@@ -110,13 +110,13 @@ get_footpoint(veh::Entity{VehicleState, D, I}) where {D, I} = veh.state.posG + p
     get_front(veh::Entity{VehicleState, VehicleDef, I})
 returns the position of the front of the vehicle
 """
-get_front(veh::Entity{VehicleState, VehicleDef, I}) where I = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
+get_front(veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = veh.state.posG + polar(veh.def.length/2, veh.state.posG.θ)
 
 """
     get_rear(veh::Entity{VehicleState, VehicleDef, I})
 returns the position of the rear of the vehicle
 """
-get_rear(veh::Entity{VehicleState, VehicleDef, I}) where I = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
+get_rear(veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = veh.state.posG - polar(veh.def.length/2, veh.state.posG.θ)
 
 
 """
