@@ -1,12 +1,4 @@
-abstract type LateralDriverModel end
-get_name(::LateralDriverModel) = "???"
-reset_hidden_state!(model::LateralDriverModel) = model # do nothing by default
-observe!(model::LateralDriverModel, scene::Scene, roadway::Roadway, egoid::Int) = model  # do nothing by default
-Base.rand(model::LateralDriverModel) = rand(Random.GLOBAL_RNG, model)
-Base.rand(rng::AbstractRNG, model::LateralDriverModel) =  error("AutomotiveDrivingModelsError: Base.rand(::AbstractRNG, ::$(typeof(model))) not implemented")
-
-Distributions.pdf(model::LateralDriverModel, a_lon::Float64) = error("pdf not implemented for model $model")
-Distributions.logpdf(model::LateralDriverModel, a_lon::Float64) = error("logpdf not implemented for model $model")
+abstract type LateralDriverModel{A} <: DriverModel{A} end
 
 # TODO: Why does this struct live in the `lateral_driver_models.jl` file
 """
@@ -23,7 +15,7 @@ A controller that executes the lane change decision made by the `lane change mod
 - `kp::Float64 = 3.0` proportional constant for lane tracking
 - `kd::Float64 = 2.0` derivative constant for lane tracking
 """
-mutable struct ProportionalLaneTracker <: LateralDriverModel
+mutable struct ProportionalLaneTracker <: LateralDriverModel{Float64}
     a::Float64 # predicted acceleration
     σ::Float64 # optional stdev on top of the model, set to zero or NaN for deterministic behavior
     kp::Float64 # proportional constant for lane tracking

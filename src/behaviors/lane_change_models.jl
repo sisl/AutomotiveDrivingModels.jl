@@ -23,6 +23,4 @@ end
 
 ####################
 
-abstract type LaneChangeModel end
-Base.rand(model::LaneChangeModel) = rand(Random.GLOBAL_RNG, model)
-Base.rand(rng::AbstractRNG, model::LaneChangeModel) =  error("AutomotiveDrivingModelsError: Base.rand(::AbstractRNG, ::$(typeof(model))) not implemented")
+abstract type LaneChangeModel{A} <: DriverModel{A} end

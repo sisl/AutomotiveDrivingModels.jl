@@ -73,7 +73,7 @@ end
     simulate!(rec, scene, roadway, models, 1)
 end
 
-struct FakeLaneChanger <: LaneChangeModel end
+struct FakeLaneChanger <: LaneChangeModel{LaneChangeChoice} end
 @testset "lane change interface" begin 
     l = LaneChangeChoice(DIR_RIGHT)
     io = IOBuffer()
