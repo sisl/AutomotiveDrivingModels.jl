@@ -68,7 +68,7 @@ end
 AutomotiveDrivingModels.get_name(model::SidewalkPedestrianModel) = "SidewalkPedestrianModel"
 Base.rand(rng::AbstractRNG, model::SidewalkPedestrianModel) = model.a
 
-function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Scene, roadway::Roadway, egoid::Int)
+function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, egoid::I) where {D, I}
     ped = scene[findfirst(egoid, scene)]
 
     push!(model.pos_x, ped.state.posG.x)
@@ -89,12 +89,12 @@ function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene:
     end
 end
 
-function update_approaching(ped::Vehicle,
+function update_approaching(ped::Entity{S, D, I},
                             model::SidewalkPedestrianModel,
                             roadway::Roadway,
                             crosswalk::Lane,
                             sw_origin::Lane
-                            )
+                            ) where {S, D, I}
     # Keep walking at constant speed until close to crosswalk
     # If waiting to cross, go to appraising. Else, go to leaving phase
     Δs = get_distance_to_lane(ped, crosswalk, roadway)
@@ -103,20 +103,20 @@ function update_approaching(ped::Vehicle,
     end
 end
 
-function update_appraising(ped::Vehicle,
+function update_appraising(ped::Entity{S, D, I},
                            scene::Scene,
                            model::SidewalkPedestrianModel,
                            roadway::Roadway,
                            crosswalk::Lane,
                            sw_origin::Lane,
-                           )
+                           ) where {S, D<:AbstractAgentDefinition, I}
 
     Δs = get_distance_to_lane(ped, crosswalk, roadway)
     if Δs < 0.1
         set_inst_vel(ped, model, sw_origin, 0.0)
 
         for veh in scene
-            if veh.def.class == AgentClass.PEDESTRIAN
+            if class(veh.def) == AgentClass.PEDESTRIAN
                 continue
             end
 
@@ -139,12 +139,12 @@ function update_appraising(ped::Vehicle,
 end
 
 
-function update_crossing(ped::Vehicle,
+function update_crossing(ped::Entity{S, D, I},
                          scene::Scene,
                          model::SidewalkPedestrianModel,
                          roadway::Roadway,
                          crosswalk::Lane
-                         )
+                         ) where {S, D, I}
     # Accelerate until desired speed
     set_accel(ped, model, model.v_des_cross, crosswalk)
     # If ped is at end of crosswalk, transition to leaving phase.
@@ -157,17 +157,17 @@ function update_crossing(ped::Vehicle,
 end
 
 
-function update_leaving(ped::Vehicle,
+function update_leaving(ped::Entity{S, D, I},
                         scene::Scene,
                         model::SidewalkPedestrianModel,
                         roadway::Roadway,
                         sw_dest::Lane
-                        )
+                        ) where {S, D, I}
     # Keep walking at constant speed
     set_accel(ped, model, model.v_des_approach, model.sw_dest)
 end
 
-function set_inst_vel(ped::Vehicle, model::SidewalkPedestrianModel, lane_des::Lane, v_des::Float64)
+function set_inst_vel(ped::Entity{VehicleState, D, I}, model::SidewalkPedestrianModel, lane_des::Lane, v_des::Float64) where {D, I}
     model.a = PedestrianLatLonAccel(0.0, calc_a(ped.state.v, v_des, model.timestep), lane_des)
 end
 
@@ -175,7 +175,7 @@ function calc_a(v_init::Float64, v::Float64, Δt::Float64)
     return (v - v_init)/Δt
 end
 
-function set_accel(ped::Vehicle, model::SidewalkPedestrianModel, v_des::Float64, lane_des::Lane)
+function set_accel(ped::Entity{VehicleState, D, I}, model::SidewalkPedestrianModel, v_des::Float64, lane_des::Lane) where {D, I}
     if ped.state.v < v_des
         model.a = PedestrianLatLonAccel(0.0, model.ped_accel, lane_des)
     elseif ped.state.v > v_des
@@ -188,7 +188,7 @@ end
 
 # Edited from AutomotivePOMDPs.jl - projects collision point onto the lane.
 # Should work in any orientation.
-function get_distance_to_lane(veh::Vehicle, lane_des::Lane, roadway::Roadway)
+function get_distance_to_lane(veh::Entity{VehicleState, D, I}, lane_des::Lane, roadway::Roadway) where {D, I}
     vehlane = get_lane(roadway, veh)
     lane_segment = LineSegment(lane_des.curve[1].pos, lane_des.curve[end].pos)
     collision_point = intersect(Ray(veh.state.posG), lane_segment)

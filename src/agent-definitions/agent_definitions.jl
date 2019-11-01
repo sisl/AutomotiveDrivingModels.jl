@@ -21,7 +21,7 @@ width(def::AbstractAgentDefinition) = error("width not implemented for agent def
     class(def::AbstractAgentDefinition)
 return the class of the vehicle 
 """
-class(def::AbstractAgentDefinition) = error("width not implemented for agent definition of type $(typeof(def))")
+class(def::AbstractAgentDefinition) = error("class not implemented for agent definition of type $(typeof(def))")
 
 """
 A module to represent the different class of agents:

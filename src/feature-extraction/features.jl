@@ -309,8 +309,8 @@ function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehi
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
-        len_ego = scene[vehicle_index].def.length
-        len_oth = scene[neighborfore.ind].def.length
+        len_ego = length(scene[vehicle_index].def)
+        len_oth = length(scene[neighborfore.ind].def)
         FeatureValue(neighborfore.Δs - len_ego/2 - len_oth/2)
     end
 end
@@ -337,8 +337,8 @@ function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle
         FeatureValue(censor_hi, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
-        len_ego = scene[vehicle_index].def.length
-        len_oth = scene[neighborfore.ind].def.length
+        len_ego = length(scene[vehicle_index].def)
+        len_oth = length(scene[neighborfore.ind].def)
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
         if Δs > 0.0
@@ -363,8 +363,8 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
         veh_fore = scene[neighborfore.ind]
         veh_rear = scene[vehicle_index]
 
-        len_ego = veh_fore.def.length
-        len_oth = veh_rear.def.length
+        len_ego = length(veh_fore.def)
+        len_oth = length(veh_rear.def)
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
 
@@ -443,8 +443,8 @@ function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehic
         FeatureValue(100.0, FeatureState.CENSORED_HI)
     else
         scene = rec[pastframe]
-        len_ego = scene[vehicle_index].def.length
-        len_oth = scene[neighborrear.ind].def.length
+        len_ego = length(scene[vehicle_index].def)
+        len_oth = length(scene[neighborrear.ind].def)
         FeatureValue(neighborrear.Δs - len_ego/2 - len_oth/2)
     end
 end

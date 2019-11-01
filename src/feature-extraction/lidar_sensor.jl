@@ -28,7 +28,7 @@ function LidarSensor(nbeams::Int;
     LidarSensor(angles, ranges, range_rates, max_range, ConvexPolygon(4))
 end
 nbeams(lidar::LidarSensor) = length(lidar.angles)
-function observe!(lidar::LidarSensor, scene::Scene, roadway::Roadway, vehicle_index::Int)
+function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int) where {D<:AbstractAgentDefinition, I}
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(state_ego.v, state_ego.posG.θ)
@@ -40,7 +40,7 @@ function observe!(lidar::LidarSensor, scene::Scene, roadway::Roadway, vehicle_in
             distance = norm(VecE2(state_ego.posG - veh.state.posG))
             # account for the length and width of the vehicle by considering
             # the worst case where their maximum radius is aligned
-            distance = distance - hypot(veh.def.length/2.,veh.def.width/2.)
+            distance = distance - hypot(length(veh.def)/2.,width(veh.def)/2.)
             if distance < lidar.max_range
                 push!(in_range_ids, veh.id)
             end
@@ -168,7 +168,7 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_i
 
     lidar
 end
-function observe!(lidar::RoadlineLidarSensor, scene::Scene, roadway::Roadway, vehicle_index::Int)
+function observe!(lidar::RoadlineLidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int) where {D, I}
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(state_ego.v, state_ego.posG.θ)
@@ -420,7 +420,7 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_i
     end
     lidar
 end
-function observe!(lidar::RoadlineLidarSensor, scene::Scene, roadway::Roadway, vehicle_index::Int, rlc::RoadwayLidarCulling)
+function observe!(lidar::RoadlineLidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int, rlc::RoadwayLidarCulling) where {D, I}
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(state_ego.v, state_ego.posG.θ)

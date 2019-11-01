@@ -455,10 +455,10 @@ function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::
 end
 
 """
-    get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 Loops through the scene and finds the first collision between any two vehicles in `vehicle_indeces`.
 """
-function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     N = length(vehicle_indeces)
     for (a,A) in enumerate(vehicle_indeces)

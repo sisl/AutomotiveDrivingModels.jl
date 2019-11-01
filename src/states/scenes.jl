@@ -18,9 +18,9 @@ Base.show(io::IO, scene::Scene) = print(io, "Scene(with $(length(scene)) cars)")
 
 Converts an entity in Vehicle (it is converting the agent definition only)
 """
-function Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, D, Int64}) where D<:AbstractAgentDefinition
+function Base.convert(::Type{Entity{VehicleState, VehicleDef, I}}, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I}
     vehdef = VehicleDef(class(veh.def), length(veh.def), width(veh.def))
-    return Vehicle(veh.state, vehdef, veh.id)
+    return Entity{VehicleState, VehicleDef, I}(veh.state, vehdef, veh.id)
 end
 
 """
