@@ -48,17 +48,17 @@ end
 
 abstract type VehicleTargetPoint end
 struct VehicleTargetPointFront <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = veh.def.length/2*cos(veh.state.posF.ϕ)
 struct VehicleTargetPointCenter <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = 0.0
+get_targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = 0.0
 struct VehicleTargetPointRear <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, D, I}) where {D<:Union{VehicleDef, BicycleModel}, I} = -veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = -veh.def.length/2*cos(veh.state.posF.ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
 """
     get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, roadway::Roadway, tag_start::LaneTag, s_base::Float64, targetpoint_primary::VehicleTargetPoint, targetpoint_valid::VehicleTargetPoint;
-                                 max_distance_fore::Float64 = 250.0, index_to_ignore::Int=-1) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+                                 max_distance_fore::Float64 = 250.0, index_to_ignore::Int=-1) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
 Return the index and the longitudinal distance of the vehicle that is in the same lane as scene[vehicle_index] and
 in front of it with the smallest distance along the lane. The result is returned as a `NeighborLongitudinalResult` object.
@@ -79,7 +79,7 @@ function get_neighbor_fore_along_lane(
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     index_to_ignore::Int=-1,
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
     best_ind = nothing
     best_dist = max_distance_fore
     tag_target = tag_start
@@ -145,7 +145,7 @@ function get_neighbor_fore_along_lane(
     targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     veh_ego = scene[vehicle_index]
     tag_start = veh_ego.state.posF.roadind.tag
@@ -163,7 +163,7 @@ function get_neighbor_fore_along_left_lane(
     targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     retval = NeighborLongitudinalResult(nothing, max_distance_fore)
 
@@ -191,7 +191,7 @@ function get_neighbor_fore_along_right_lane(
     targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     retval = NeighborLongitudinalResult(nothing, max_distance_fore)
 
@@ -219,7 +219,7 @@ function get_neighbor_fore_along_lane(
     s_base::Float64;
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     index_to_ignore::Int=-1,
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -228,7 +228,7 @@ function get_neighbor_fore_along_lane(
 end
 function get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_fore_along_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -236,7 +236,7 @@ function get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::
 end
 function get_neighbor_fore_along_left_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -244,7 +244,7 @@ function get_neighbor_fore_along_left_lane(scene::EntityFrame{S,D,I}, vehicle_in
 end
 function get_neighbor_fore_along_right_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -260,7 +260,7 @@ function get_neighbor_rear_along_lane(
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_rear::Float64 = 250.0, # max distance to search rearward [m]
     index_to_ignore::Int=-1,
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     best_ind = nothing
     best_dist = max_distance_rear
@@ -335,7 +335,7 @@ function get_neighbor_rear_along_lane(
     targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_rear::Float64 = 250.0 # max distance to search rearward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     veh_ego = scene[vehicle_index]
     tag_start = veh_ego.state.posF.roadind.tag
@@ -353,7 +353,7 @@ function get_neighbor_rear_along_left_lane(
     targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     retval = NeighborLongitudinalResult(nothing, max_distance_rear)
 
@@ -381,7 +381,7 @@ function get_neighbor_rear_along_right_lane(
     targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
     targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     retval = NeighborLongitudinalResult(nothing, max_distance_rear)
 
@@ -409,7 +409,7 @@ function get_neighbor_rear_along_lane(
     s_base::Float64;
     max_distance_rear::Float64 = 250.0, # max distance to search rearward [m]
     index_to_ignore::Int=-1,
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -418,7 +418,7 @@ function get_neighbor_rear_along_lane(
 end
 function get_neighbor_rear_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_rear_along_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -429,7 +429,7 @@ function get_neighbor_rear_along_left_lane(
     vehicle_index::Int,
     roadway::Roadway;
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
@@ -440,7 +440,7 @@ function get_neighbor_rear_along_right_lane(
     vehicle_index::Int,
     roadway::Roadway;
     max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S<:VehicleState,D<:Union{VehicleDef, BicycleModel},I}
+    ) where {S<:VehicleState,D<:AbstractAgentDefinition,I}
 
     get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,

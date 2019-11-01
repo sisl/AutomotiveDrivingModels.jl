@@ -109,7 +109,7 @@ function update_appraising(ped::Entity{S, D, I},
                            roadway::Roadway,
                            crosswalk::Lane,
                            sw_origin::Lane,
-                           ) where {S, D<:Union{VehicleDef, BicycleModel}, I}
+                           ) where {S, D<:AbstractAgentDefinition, I}
 
     Δs = get_distance_to_lane(ped, crosswalk, roadway)
     if Δs < 0.1

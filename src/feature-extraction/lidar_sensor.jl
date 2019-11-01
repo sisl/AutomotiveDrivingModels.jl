@@ -28,7 +28,7 @@ function LidarSensor(nbeams::Int;
     LidarSensor(angles, ranges, range_rates, max_range, ConvexPolygon(4))
 end
 nbeams(lidar::LidarSensor) = length(lidar.angles)
-function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int) where {D<:Union{VehicleDef, BicycleModel}, I}
+function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int) where {D<:AbstractAgentDefinition, I}
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(state_ego.v, state_ego.posG.θ)
