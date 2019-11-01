@@ -116,7 +116,7 @@ function update_appraising(ped::Entity{S, D, I},
         set_inst_vel(ped, model, sw_origin, 0.0)
 
         for veh in scene
-            if veh.def.class == AgentClass.PEDESTRIAN
+            if class(veh.def) == AgentClass.PEDESTRIAN
                 continue
             end
 

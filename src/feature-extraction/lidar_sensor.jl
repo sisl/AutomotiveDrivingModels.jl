@@ -40,7 +40,7 @@ function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, 
             distance = norm(VecE2(state_ego.posG - veh.state.posG))
             # account for the length and width of the vehicle by considering
             # the worst case where their maximum radius is aligned
-            distance = distance - hypot(veh.def.length/2.,veh.def.width/2.)
+            distance = distance - hypot(length(veh.def)/2.,width(veh.def)/2.)
             if distance < lidar.max_range
                 push!(in_range_ids, veh.id)
             end

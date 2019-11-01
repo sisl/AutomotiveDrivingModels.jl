@@ -48,11 +48,11 @@ end
 
 abstract type VehicleTargetPoint end
 struct VehicleTargetPointFront <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = length(veh.def)/2*cos(veh.state.posF.ϕ)
 struct VehicleTargetPointCenter <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = 0.0
 struct VehicleTargetPointRear <: VehicleTargetPoint end
-get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = -veh.def.length/2*cos(veh.state.posF.ϕ)
+get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = -length(veh.def)/2*cos(veh.state.posF.ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 

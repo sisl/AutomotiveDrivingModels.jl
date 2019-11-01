@@ -41,5 +41,5 @@ Scene1D(arr::Vector{Vehicle1D}) = Frame{Vehicle1D}(arr, length(arr))
 
 get_center(veh::Vehicle1D) = veh.state.s
 get_footpoint(veh::Vehicle1D) = veh.state.s
-get_front(veh::Vehicle1D) = veh.state.s + veh.def.length/2
-get_rear(veh::Vehicle1D) = veh.state.s - veh.def.length/2
+get_front(veh::Vehicle1D) = veh.state.s + length(veh.def)/2
+get_rear(veh::Vehicle1D) = veh.state.s - length(veh.def)/2
