@@ -4,14 +4,45 @@ In this section of the documentation we explain the default vehicle state type p
 as well as the data types used to represent driving scene. Most of the underlying structures are defined in `Records.jl`. 
 The data structure provided in ADM.jl are concrete instances of parametric types defined in Records. It is possible in principle to define your custom state definition and use the interface defined in ADM.jl.
 
-## Agent States
+## Entity state
 
-Agents are represented by  the entity data type provided by `Records.jl`.
+Entities are represented by  the entity data type provided by `Records.jl`.
 The entity data type has three field: a state, a definition, and an id. 
 
 The state of an entity usually describes physical quantity such as position and velocity. 
 
 Two states data structure are provided.
+
+## Defining your own state type
+
+You can define your own state type if the provided `VehicleState` does not contain the right information.
+There are a couple functions that needs to be defined such that other functions in AutomotiveDrivingModels can work smoothly with your custom state type.
+
+```@docs
+    posg()
+    posf
+    vel
+    velf
+    velg
+```
+
+**Example of a custom state type containing acceleration:**
+
+```julia
+
+# you can use composition to define your state type
+struct MyVehicleState
+    veh::VehicleState
+    acc::Float64
+end
+
+# define the function from the interface 
+posg(s::MyVehicleState) = posg(s.veh) # those functions are implemented for the `VehicleState` type
+posf(s::MyVehicleState) = posf(s.veh)
+velg(s::MyVehicleState) = velg(s.veh)
+velf(s::MyVehicleState) = velf(s.veh)
+vel(s::MyVehicleState) = vel(s.veh)
+```
 
 ### 1D states and vehicles
 
@@ -27,8 +58,6 @@ Here we list useful functions to interact with vehicle states and retrieve inter
 ```@docs 
     VehicleState
     Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
-    get_vel_s
-    get_vel_t
     move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64; ϕ₂::Float64=vehstate.posF.ϕ, ::Float64=vehstate.posF.t, v₂::Float64=vehstate.v)
     Vehicle
     get_front

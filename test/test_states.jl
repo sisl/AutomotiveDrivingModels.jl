@@ -41,8 +41,8 @@ end
 
 @testset "VehicleState" begin 
     s = VehicleState(VecSE2(0.0,0.0,0.0), Frenet(NULL_ROADINDEX, 0.0, 0.0, 0.0), 10.0)
-    @test isapprox(get_vel_s(s), 10.0)
-    @test isapprox(get_vel_t(s),  0.0)
+    @test isapprox(velf(s).s, 10.0)
+    @test isapprox(velf(s).t,  0.0)
     show(IOBuffer(), s.posF)
     show(IOBuffer(), s)
 

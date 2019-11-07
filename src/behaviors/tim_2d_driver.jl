@@ -16,25 +16,17 @@ mutable struct Tim2DDriver <: DriverModel{LatLonAccel}
     mlon::LaneFollowingDriver
     mlat::LateralDriverModel
     mlane::LaneChangeModel
-
-    function Tim2DDriver(
+end
+function Tim2DDriver(
         timestep::Float64;
         mlon::LaneFollowingDriver=IntelligentDriverModel(),
         mlat::LateralDriverModel=ProportionalLaneTracker(),
         mlane::LaneChangeModel=TimLaneChanger(timestep),
         rec::SceneRecord = SceneRecord(1, timestep)
         )
-
-        retval = new()
-
-        retval.rec = rec
-        retval.mlon = mlon
-        retval.mlat = mlat
-        retval.mlane = mlane
-
-        retval
-    end
+    return Tim2DDriver(rec, mlon, mlat, mlane)
 end
+
 get_name(::Tim2DDriver) = "Tim2DDriver"
 function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
@@ -42,9 +34,9 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     model
 end
 function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::I, fore::NeighborLongitudinalResult) where {D, I}
-    v_ego = scene[vehicle_index].state.v
+    v_ego = vel(scene[vehicle_index].state)
     if fore.ind != nothing
-        headway, v_oth = fore.Δs, scene[fore.ind].state.v
+        headway, v_oth = fore.Δs, vel(scene[fore.ind].state)
     else
         headway, v_oth = NaN, NaN
     end

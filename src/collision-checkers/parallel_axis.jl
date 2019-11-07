@@ -1,23 +1,23 @@
 """
-    collision_checker(veh_a::Vehicle, veh_b::Vehicle)
-    collision_checker(veh_a::VehicleState, veh_b::VehicleState, veh_a_def::AbstractAgentDefinition, veh_b_def::AbstractAgentDefinition)
+    collision_checker(veh_a::Entity, veh_b::Entity)
+    collision_checker(veh_a, veh_b, veh_a_def::AbstractAgentDefinition, veh_b_def::AbstractAgentDefinition)
 return True if `veh_a` and `veh_b` collides.
 Relies on the parallel axis theorem.
 """
-function collision_checker(veh_a::Entity{VehicleState, D, I}, veh_b::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I}
+function collision_checker(veh_a::Entity, veh_b::Entity)
     return collision_checker(veh_a.state, veh_b.state, veh_a.def, veh_b.def)
 end
 
-function collision_checker(veh_a::VehicleState, veh_b::VehicleState, veh_a_def::AbstractAgentDefinition, veh_b_def::AbstractAgentDefinition)
-    center_a = veh_a.posG
-    center_b = veh_b.posG
+function collision_checker(veh_a, veh_b, veh_a_def::AbstractAgentDefinition, veh_b_def::AbstractAgentDefinition) 
+    center_a = posg(veh_a)
+    center_b = posg(veh_b)
     l_a = length(veh_a_def)
     w_a = width(veh_a_def)
     l_b = length(veh_b_def)
     w_b = width(veh_b_def)
     # first fast check:
     @fastmath begin
-        Δ = sqrt((veh_a.posG.x - veh_b.posG.x)^2 + (veh_a.posG.y - veh_b.posG.y)^2)
+        Δ = sqrt((posg(veh_a).x - posg(veh_b).x)^2 + (posg(veh_a).y - posg(veh_b).y)^2)
         r_a = sqrt(l_a*l_a/4 + w_a*w_a/4)
         r_b = sqrt(l_b*l_b/4 + w_b*w_b/4)
     end

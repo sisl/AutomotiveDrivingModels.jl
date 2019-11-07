@@ -23,7 +23,13 @@ VehicleState() = VehicleState(VecSE2(), NULL_FRENET, NaN)
 VehicleState(posG::VecSE2{Float64}, v::Float64) = VehicleState(posG, NULL_FRENET, v)
 VehicleState(posG::VecSE2{Float64}, roadway::Roadway, v::Float64) = VehicleState(posG, Frenet(posG, roadway), v)
 VehicleState(posG::VecSE2{Float64}, lane::Lane, roadway::Roadway, v::Float64) = VehicleState(posG, Frenet(posG, lane, roadway), v)
-VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = VehicleState(get_posG(posF, roadway), posF, v)
+VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = VehicleState(posg(posF, roadway), posF, v)
+
+posf(veh::VehicleState) = veh.posF
+posg(veh::VehicleState) = veh.posG
+vel(veh::VehicleState) = veh.v
+velf(veh::VehicleState) = (s=veh.v*cos(veh.posF.ϕ), t=s=veh.v*sin(veh.posF.ϕ))
+velg(veh::VehicleState) = (s=veh.v*cos(veh.posG.θ), t=s=veh.v*sin(veh.posG.θ))
 
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 
@@ -72,10 +78,10 @@ get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 returns a vehicle state after moving vehstate of a length Δs along its lane.
 """
 function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
-    ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v
+    ϕ₂::Float64=posf(vehstate).ϕ, t₂::Float64=posf(vehstate).t, v₂::Float64=vel(vehstate)
     )
 
-    roadind = move_along(vehstate.posF.roadind, roadway, Δs)
+    roadind = move_along(posf(vehstate).roadind, roadway, Δs)
     try
         footpoint = roadway[roadind]
     catch

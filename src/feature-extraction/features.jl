@@ -1,26 +1,26 @@
-function Base.get(::Feature_PosFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
-    FeatureValue(rec[pastframe][vehicle_index].state.posF.s)
+function Base.get(::Feature_PosFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
+    FeatureValue(posf(rec[pastframe][vehicle_index].state).s)
 end
-function Base.get(::Feature_PosFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
-    FeatureValue(rec[pastframe][vehicle_index].state.posF.t)
+function Base.get(::Feature_PosFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
+    FeatureValue(posf(rec[pastframe][vehicle_index].state).t)
 end
-function Base.get(::Feature_PosFyaw, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
-    FeatureValue(rec[pastframe][vehicle_index].state.posF.ϕ)
+function Base.get(::Feature_PosFyaw, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
+    FeatureValue(posf(rec[pastframe][vehicle_index].state).ϕ)
 end
-function Base.get(::Feature_Speed, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
-    FeatureValue(rec[pastframe][vehicle_index].state.v)
+function Base.get(::Feature_Speed, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
+    FeatureValue(vel(rec[pastframe][vehicle_index].state))
 end
-function Base.get(::Feature_VelFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
+function Base.get(::Feature_VelFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
     veh = rec[pastframe][vehicle_index]
-    FeatureValue(veh.state.v*cos(veh.state.posF.ϕ))
+    FeatureValue(velf(veh.state).s)
 end
-function Base.get(::Feature_VelFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
+function Base.get(::Feature_VelFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
     veh = rec[pastframe][vehicle_index]
-    FeatureValue(veh.state.v*sin(veh.state.posF.ϕ))
+    FeatureValue(velf(veh.state).t)
 end
 
 generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
-function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1) where {S<:VehicleState,D,I,R}
+function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1) where {S,D,I,R}
 
     id = rec[pastframe][vehicle_index].id
 
@@ -32,8 +32,8 @@ function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R
         veh_index_prev = findfirst(id, rec[pastframe2])
 
         if veh_index_prev != nothing
-            curr = rec[pastframe][veh_index_curr].state.posG.θ
-            past = rec[pastframe2][veh_index_prev].state.posG.θ
+            curr = posg(rec[pastframe][veh_index_curr].state).θ
+            past = posg(rec[pastframe2][veh_index_prev].state).θ
             Δt = get_elapsed_time(rec, pastframe2, pastframe)
             retval = FeatureValue(deltaangle(past, curr) / Δt)
         end
@@ -42,29 +42,29 @@ function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R
     retval
 end
 generate_feature_functions("TurnRateF", :turnrateF, Float64, "rad/s")
-function Base.get(::Feature_TurnRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
+function Base.get(::Feature_TurnRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
     _get_feature_derivative_backwards(POSFYAW, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AngularRateG", :angrateG, Float64, "rad/s²")
-function Base.get(::Feature_AngularRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
+function Base.get(::Feature_AngularRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
     _get_feature_derivative_backwards(TURNRATEG, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("AngularRateF", :angrateF, Float64, "rad/s²")
-function Base.get(::Feature_AngularRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S<:VehicleState,D,I,R}
+function Base.get(::Feature_AngularRateF, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
     _get_feature_derivative_backwards(TURNRATEF, rec, roadway, vehicle_index, pastframe)
 end
 generate_feature_functions("DesiredAngle", :desang, Float64, "rad")
 function Base.get(::Feature_DesiredAngle, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0; 
     kp_desired_angle::Float64 = 1.0,
-    ) where {S<:VehicleState,D,I,R}
+    ) where {S,D,I,R}
 
     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
     if pastframe_inbounds(rec, pastframe) && pastframe_inbounds(rec, pastframe-1)
 
         id = rec[pastframe][vehicle_index].id
 
-        pastϕ = get_state(rec, id, pastframe-1).posF.ϕ
-        currϕ = get_state(rec, id, pastframe).posF.ϕ
+        pastϕ = posf(get_state(rec, id, pastframe-1)).ϕ
+        currϕ = posf(get_state(rec, id, pastframe)).ϕ
 
         Δt = rec.timestep
         expconst = exp(-kp_desired_angle*Δt)
@@ -88,9 +88,9 @@ function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roa
     =#
 
     veh = rec[pastframe][vehicle_index]
-    lane = roadway[veh.state.posF.roadind.tag]
+    lane = get_lane(roadway, veh)
     if n_lanes_left(lane, roadway) > 0
-        offset = veh.state.posF.t
+        offset = posf(veh.state).t
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         FeatureValue(lane.width/2 - offset + lane_left.width)
     else
@@ -104,9 +104,9 @@ function Base.get(::Feature_MarkerDist_Right_Right, rec::SceneRecord, roadway::R
     =#
 
     veh = rec[pastframe][vehicle_index]
-    lane = roadway[veh.state.posF.roadind.tag]
+    lane = get_lane(roadway, veh)
     if n_lanes_right(lane, roadway) > 0
-        offset = veh.state.posF.t
+        offset = posf(veh.state).t
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         FeatureValue(lane.width/2 + offset + lane_right.width)
     else
@@ -116,9 +116,9 @@ end
 generate_feature_functions("RoadEdgeDist_Left", :d_edgel, Float64, "m")
 function Base.get(::Feature_RoadEdgeDist_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
-    offset = veh.state.posF.t
+    offset = posf(veh.state).t
     footpoint = get_footpoint(veh)
-    seg = roadway[veh.state.posF.roadind.tag.segment]
+    seg = roadway[get_lane(roadway, veh.state).tag.segment]
     lane = seg.lanes[end]
     roadproj = proj(footpoint, lane, roadway)
     curvept = roadway[RoadIndex(roadproj)]
@@ -128,9 +128,9 @@ end
 generate_feature_functions("RoadEdgeDist_Right", :d_edger, Float64, "m")
 function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
-    offset = veh.state.posF.t
+    offset = posf(veh.state).t
     footpoint = get_footpoint(veh)
-    seg = roadway[veh.state.posF.roadind.tag.segment]
+    seg = roadway[get_lane(roadway, veh).tag.segment]
     lane = seg.lanes[1]
     roadproj = proj(footpoint, lane, roadway)
     curvept = roadway[RoadIndex(roadproj)]
@@ -140,8 +140,8 @@ end
 generate_feature_functions("LaneOffsetLeft", :posFtL, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh_ego = rec[pastframe][vehicle_index]
-    t = veh_ego.state.posF.t
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    t = posf(veh_ego.state).t
+    lane = get_lane(roadway, veh_ego)
     if n_lanes_left(lane, roadway) > 0
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         lane_offset = t - lane.width/2 - lane_left.width/2
@@ -153,8 +153,8 @@ end
 generate_feature_functions("LaneOffsetRight", :posFtR, Float64, "m", can_be_missing=true)
 function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh_ego = rec[pastframe][vehicle_index]
-    t = veh_ego.state.posF.t
-    lane = roadway[veh_ego.state.posF.roadind.tag]
+    t = posf(veh_ego.state).t
+    lane = get_lane(roadway, veh_ego)
     if n_lanes_right(lane, roadway) > 0
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         lane_offset = t + lane.width/2 + lane_right.width/2
@@ -165,14 +165,14 @@ function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway,
 end
 generate_feature_functions("N_Lane_Right", :n_lane_right, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    nlr = rec[pastframe][vehicle_index].state.posF.roadind.tag.lane - 1
+    nlr = get_lane(roadway, rec[pastframe][vehicle_index]).tag.lane - 1
     FeatureValue(convert(Float64, nlr))
 end
 generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
-    seg = roadway[veh.state.posF.roadind.tag.segment]
-    nll = length(seg.lanes) - veh.state.posF.roadind.tag.lane
+    seg = roadway[get_lane(roadway, veh).tag.segment]
+    nll = length(seg.lanes) - get_lane(roadway, veh).tag.lane
     FeatureValue(convert(Float64, nll))
 end
 generate_feature_functions("Has_Lane_Right", :has_lane_right, Bool, "-", lowerbound=0.0, upperbound=1.0)
@@ -188,7 +188,7 @@ end
 generate_feature_functions("LaneCurvature", :curvature, Float64, "1/m", can_be_missing=true)
 function Base.get(::Feature_LaneCurvature, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     veh = rec[pastframe][vehicle_index]
-    curvept = roadway[veh.state.posF.roadind]
+    curvept = roadway[posf(veh.state).roadind]
     val = curvept.k
     if isnan(val)
         FeatureValue(0.0, FeatureState.MISSING)
@@ -322,7 +322,7 @@ function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, veh
     if neighborfore.ind == nothing
         FeatureValue(0.0, FeatureState.MISSING)
     else
-        FeatureValue(rec[pastframe][neighborfore.ind].state.v)
+        FeatureValue(vel(rec[pastframe][neighborfore.ind].state))
     end
 end
 generate_feature_functions("Timegap", :timegap, Float64, "s", can_be_missing=true)
@@ -331,7 +331,7 @@ function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle
     censor_hi::Float64 = 10.0,
     )
 
-    v = rec[pastframe][vehicle_index].state.v
+    v = vel(rec[pastframe][vehicle_index].state)
 
     if v ≤ 0.0 || neighborfore.ind == nothing
         FeatureValue(censor_hi, FeatureState.CENSORED_HI)
@@ -368,7 +368,7 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
         Δs = neighborfore.Δs - len_ego/2 - len_oth/2
 
 
-        Δv = veh_fore.state.v - veh_rear.state.v
+        Δv = vel(veh_fore.state) - vel(veh_rear.state)
 
         if Δs < 0.0 # collision!
             FeatureValue(censor_hi, FeatureState.CENSORED_HI)
@@ -456,7 +456,7 @@ function Base.get(::Feature_Speed_Rear, rec::SceneRecord, roadway::Roadway, vehi
     if neighborrear.ind == nothing
         FeatureValue(0.0, FeatureState.MISSING)
     else
-        FeatureValue(rec[pastframe][neighborrear.ind].state.v)
+        FeatureValue(vel(rec[pastframe][neighborrear.ind].state))
     end
 end
 

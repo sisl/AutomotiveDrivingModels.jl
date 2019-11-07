@@ -28,16 +28,16 @@ function LidarSensor(nbeams::Int;
     LidarSensor(angles, ranges, range_rates, max_range, ConvexPolygon(4))
 end
 nbeams(lidar::LidarSensor) = length(lidar.angles)
-function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int) where {D<:AbstractAgentDefinition, I}
+function observe!(lidar::LidarSensor, scene::Frame{E}, roadway::Roadway, vehicle_index::Int) where {E<:Entity}
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
-    ego_vel = polar(state_ego.v, state_ego.posG.θ)
+    ego_vel = polar(vel(state_ego), posg(state_ego).θ)
 
     # precompute the set of vehicles within max_range of the vehicle
     in_range_ids = Set()
     for veh in scene
         if veh.id != egoid 
-            distance = norm(VecE2(state_ego.posG - veh.state.posG))
+            distance = norm(VecE2(posg(state_ego) - posg(veh.state)))
             # account for the length and width of the vehicle by considering
             # the worst case where their maximum radius is aligned
             distance = distance - hypot(length(veh.def)/2.,width(veh.def)/2.)
@@ -49,9 +49,9 @@ function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, 
 
     # compute range and range_rate for each angle
     for (i,angle) in enumerate(lidar.angles)
-        ray_angle = state_ego.posG.θ + angle
+        ray_angle = posg(state_ego).θ + angle
         ray_vec = polar(1.0, ray_angle)
-        ray = VecSE2(state_ego.posG.x, state_ego.posG.y, ray_angle)
+        ray = VecSE2(posg(state_ego).x, posg(state_ego).y, ray_angle)
 
         range = lidar.max_range
         range_rate = 0.0
@@ -63,7 +63,7 @@ function observe!(lidar::LidarSensor, scene::Frame{Entity{VehicleState, D, I}}, 
                 range2 = AutomotiveDrivingModels.get_collision_time(ray, lidar.poly, 1.0)
                 if !isnan(range2) && range2 < range
                     range = range2
-                    relative_speed = polar(veh.state.v, veh.state.posG.θ) - ego_vel
+                    relative_speed = polar(vel(veh.state), posg(veh.state).θ) - ego_vel
                     range_rate = proj(relative_speed, ray_vec, Float64)
                 end
             end
@@ -168,15 +168,15 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_i
 
     lidar
 end
-function observe!(lidar::RoadlineLidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int) where {D, I}
+function observe!(lidar::RoadlineLidarSensor, scene::Frame{E}, roadway::Roadway, vehicle_index::Int) where E<:Entity
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
-    ego_vel = polar(state_ego.v, state_ego.posG.θ)
+    ego_vel = polar(vel(state_ego), posg(state_ego).θ)
 
     fill!(lidar.ranges, lidar.max_range)
     for (beam_index,angle) in enumerate(lidar.angles)
-        ray_angle = state_ego.posG.θ + angle
-        ray = VecSE2(state_ego.posG.x, state_ego.posG.y, ray_angle)
+        ray_angle = posg(state_ego).θ + angle
+        ray = VecSE2(posg(state_ego).x, posg(state_ego).y, ray_angle)
 
         _update_lidar!(lidar, ray, beam_index, roadway)
     end
@@ -420,15 +420,15 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_i
     end
     lidar
 end
-function observe!(lidar::RoadlineLidarSensor, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int, rlc::RoadwayLidarCulling) where {D, I}
+function observe!(lidar::RoadlineLidarSensor, scene::Frame{E}, roadway::Roadway, vehicle_index::Int, rlc::RoadwayLidarCulling) where E<:Entity
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
-    ego_vel = polar(state_ego.v, state_ego.posG.θ)
+    ego_vel = polar(vel(state_ego), posg(state_ego).θ)
 
     fill!(lidar.ranges, lidar.max_range)
     for (beam_index,angle) in enumerate(lidar.angles)
-        ray_angle = state_ego.posG.θ + angle
-        ray = VecSE2(state_ego.posG.x, state_ego.posG.y, ray_angle)
+        ray_angle = posg(state_ego).θ + angle
+        ray = VecSE2(posg(state_ego).x, posg(state_ego).y, ray_angle)
 
         _update_lidar!(lidar, ray, beam_index, roadway, rlc)
     end

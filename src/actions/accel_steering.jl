@@ -43,16 +43,14 @@ function propagate(veh::Entity{VehicleState, BicycleModel, Int}, action::AccelSt
     a = action.a # accel [m/s²]
     δ = action.δ # steering wheel angle [rad]
 
-    x = veh.state.posG.x
-    y = veh.state.posG.y
-    θ = veh.state.posG.θ
-    v = veh.state.v
+    x, y, θ = posg(veh.state)
+    v = vel(veh.state)
 
     s = v*Δt + a*Δt*Δt/2 # distance covered
     v′ = v + a*Δt
 
     if abs(δ) < 0.01 # just drive straight
-        posG = veh.state.posG + polar(s, θ)
+        posG = posg(veh.state) + polar(s, θ)
     else # drive in circle
 
         R = L/tan(δ) # turn radius

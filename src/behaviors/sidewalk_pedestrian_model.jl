@@ -71,9 +71,9 @@ Base.rand(rng::AbstractRNG, model::SidewalkPedestrianModel) = model.a
 function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, egoid::I) where {D, I}
     ped = scene[findfirst(egoid, scene)]
 
-    push!(model.pos_x, ped.state.posG.x)
-    push!(model.pos_y, ped.state.posG.y)
-    push!(model.velocities, ped.state.v)
+    push!(model.pos_x, posg(ped.state).x)
+    push!(model.pos_y, posg(ped.state).y)
+    push!(model.velocities, vel(ped.state))
     push!(model.phases, model.phase)
 
     if model.phase == APPROACHING
@@ -121,11 +121,11 @@ function update_appraising(ped::Entity{S, D, I},
             end
 
             # Check vehicle distance to the crosswalk
-            posG = veh.state.posG
+            posG = posg(veh.state)
             cw_posF = Frenet(posG, model.crosswalk, roadway)
             lane = get_lane(roadway, veh)
             Δs = get_distance_to_lane(veh, model.crosswalk, roadway)
-            ttc = Δs/veh.state.v
+            ttc = Δs/vel(veh.state)
 
             if 0.0 < ttc < model.ttc_threshold
                 return # Exit if any car is not within threshold
@@ -168,7 +168,7 @@ function update_leaving(ped::Entity{S, D, I},
 end
 
 function set_inst_vel(ped::Entity{VehicleState, D, I}, model::SidewalkPedestrianModel, lane_des::Lane, v_des::Float64) where {D, I}
-    model.a = PedestrianLatLonAccel(0.0, calc_a(ped.state.v, v_des, model.timestep), lane_des)
+    model.a = PedestrianLatLonAccel(0.0, calc_a(vel(ped.state), v_des, model.timestep), lane_des)
 end
 
 function calc_a(v_init::Float64, v::Float64, Δt::Float64)
@@ -176,9 +176,9 @@ function calc_a(v_init::Float64, v::Float64, Δt::Float64)
 end
 
 function set_accel(ped::Entity{VehicleState, D, I}, model::SidewalkPedestrianModel, v_des::Float64, lane_des::Lane) where {D, I}
-    if ped.state.v < v_des
+    if vel(ped.state) < v_des
         model.a = PedestrianLatLonAccel(0.0, model.ped_accel, lane_des)
-    elseif ped.state.v > v_des
+    elseif vel(ped.state) > v_des
         model.a = PedestrianLatLonAccel(0.0, model.ped_decel, lane_des)
     else
         model.a = PedestrianLatLonAccel(0.0, 0.0, lane_des)
@@ -191,8 +191,8 @@ end
 function get_distance_to_lane(veh::Entity{VehicleState, D, I}, lane_des::Lane, roadway::Roadway) where {D, I}
     vehlane = get_lane(roadway, veh)
     lane_segment = LineSegment(lane_des.curve[1].pos, lane_des.curve[end].pos)
-    collision_point = intersect(Ray(veh.state.posG), lane_segment)
+    collision_point = intersect(Ray(posg(veh.state)), lane_segment)
     lane_des_proj = Frenet(VecSE2(collision_point), vehlane, roadway)
-    Δs = lane_des_proj.s - veh.state.posF.s
+    Δs = lane_des_proj.s - posf(veh.state).s
     return Δs
 end

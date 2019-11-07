@@ -12,7 +12,7 @@ Base.show(io::IO, a::LaneChangeChoice) = @printf(io, "LaneChangeChoice(%d)", a.d
 
 function get_lane_offset(a::LaneChangeChoice, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
     if a.dir == DIR_MIDDLE
-        rec[pastframe][vehicle_index].state.posF.t
+        posf(rec[pastframe][vehicle_index].state).t
     elseif a.dir == DIR_LEFT
         convert(Float64, get(LANEOFFSETLEFT, rec, roadway, vehicle_index, pastframe))
     else
