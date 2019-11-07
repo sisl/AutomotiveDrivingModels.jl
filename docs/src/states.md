@@ -6,7 +6,7 @@ The data structures provided in ADM.jl are concrete instances of parametric type
 
 ## Entity state
 
-Entities are represented by the `Entity` data type provided by `Records.jl`.
+Entities are represented by the `Entity` data type provided by `Records.jl` (https://github.com/sisl/Records.jl/blob/master/src/entities.jl).
 The `Entity` data type has three fields: a state, a definition and an id. 
 
 The state of an entity usually describes physical quantity such as position and velocity. 
