@@ -28,8 +28,8 @@ VehicleState(posF::Frenet, roadway::Roadway, v::Float64) = VehicleState(posg(pos
 posf(veh::VehicleState) = veh.posF
 posg(veh::VehicleState) = veh.posG
 vel(veh::VehicleState) = veh.v
-velf(veh::VehicleState) = (s=veh.v*cos(veh.posF.ϕ), t=s=veh.v*sin(veh.posF.ϕ))
-velg(veh::VehicleState) = (s=veh.v*cos(veh.posG.θ), t=s=veh.v*sin(veh.posG.θ))
+velf(veh::VehicleState) = (s=veh.v*cos(veh.posF.ϕ), t=veh.v*sin(veh.posF.ϕ))
+velg(veh::VehicleState) = (x=veh.v*cos(veh.posG.θ), y=veh.v*sin(veh.posG.θ))
 
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 
