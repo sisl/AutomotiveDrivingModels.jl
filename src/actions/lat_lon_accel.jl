@@ -10,6 +10,8 @@ struct LatLonAccel
     a_lat::Float64
     a_lon::Float64
 end
+LatLonAccel(alat::Float64, alon::LaneFollowingAccel) = LatLonAccel(alat, alon.a)
+
 Base.show(io::IO, a::LatLonAccel) = @printf(io, "LatLonAccel(%6.3f, %6.3f)", a.a_lat, a.a_lon)
 Base.length(::Type{LatLonAccel}) = 2
 Base.convert(::Type{LatLonAccel}, v::Vector{Float64}) = LatLonAccel(v[1], v[2])
