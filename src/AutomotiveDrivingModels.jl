@@ -74,7 +74,6 @@ include("roadways/roadways.jl")
 
 export 
     Frenet,
-    get_posG,
     NULL_FRENET
 
 include("roadways/frenet.jl")
@@ -112,6 +111,11 @@ export
 include("states/1d_states.jl")
 
 export
+    posf,
+    posg,
+    vel,
+    velf,
+    velg,
     VehicleState,
     Vehicle,
     get_vel_s,
@@ -122,6 +126,7 @@ export
     get_rear,
     get_lane
 
+include("states/interface.jl")
 include("states/vehicle_state.jl")
 
 export
@@ -294,5 +299,7 @@ export
 
 include("simulation/simulation.jl")
 include("simulation/callbacks.jl")
+
+include("deprecated.jl")
 
 end # AutomotiveDrivingModels

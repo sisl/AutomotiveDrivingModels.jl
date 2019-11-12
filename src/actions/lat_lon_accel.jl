@@ -25,10 +25,10 @@ function propagate(veh::Entity{VehicleState, D, I}, action::LatLonAccel, roadway
     a_lat = action.a_lat
     a_lon = action.a_lon
 
-     v = veh.state.v
-     ϕ = veh.state.posF.ϕ
+     v = vel(veh.state)
+     ϕ = posf(veh.state).ϕ
     ds = v*cos(ϕ)
-     t = veh.state.posF.t
+     t = posf(veh.state).t
     dt = v*sin(ϕ)
 
     ΔT² = ΔT*ΔT
@@ -41,7 +41,7 @@ function propagate(veh::Entity{VehicleState, D, I}, action::LatLonAccel, roadway
     v₂ = sqrt(dt₂*dt₂ + ds₂*ds₂) # v is the magnitude of the velocity vector
     ϕ₂ = atan(dt₂, ds₂)
 
-    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    roadind = move_along(posf(veh.state).roadind, roadway, Δs)
     footpoint = roadway[roadind]
     posG = VecE2{Float64}(footpoint.pos.x,footpoint.pos.y) + polar(t + Δt, footpoint.pos.θ + π/2)
 

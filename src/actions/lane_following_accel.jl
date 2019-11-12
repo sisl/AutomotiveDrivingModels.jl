@@ -26,26 +26,15 @@ function propagate(veh::Entity{VehicleState,D,I}, action::LaneFollowingAccel, ro
 
     a_lon = action.a
 
-    ds = veh.state.v
+    ds = vel(veh.state)
 
     ΔT² = ΔT*ΔT
     Δs = ds*ΔT + 0.5*a_lon*ΔT²
 
     v₂ = ds + a_lon*ΔT
 
-    roadind = move_along(veh.state.posF.roadind, roadway, Δs)
+    roadind = move_along(posf(veh.state).roadind, roadway, Δs)
     posG = roadway[roadind].pos
-    posF = Frenet(roadind, roadway, t=veh.state.posF.t, ϕ=veh.state.posF.ϕ)
+    posF = Frenet(roadind, roadway, t=posf(veh.state).t, ϕ=posf(veh.state).ϕ)
     VehicleState(posG, posF, v₂)
 end
-
-
-#XXX these should probably be removed
-# Base.show(io::IO, a::LaneFollowingAccel) = @printf(io, "LaneFollowingAccel(%6.3f)", a.a)
-# Base.length(::Type{LaneFollowingAccel}) = 1
-# Base.convert(::Type{LaneFollowingAccel}, v::Vector{Float64}) = LaneFollowingAccel(v[1])
-
-# function Base.copyto!(v::Vector{Float64}, a::LaneFollowingAccel)
-#     v[1] = a.a
-#     v
-# end

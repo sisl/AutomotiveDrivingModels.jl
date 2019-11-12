@@ -1,10 +1,10 @@
 """
-    get_lane_width(veh::Vehicle, roadway::Roadway)
+    get_lane_width(veh::Entity, roadway::Roadway)
 Returns the width of the lane where `veh` is.
 """
-function get_lane_width(veh::Entity{VehicleState, D, I}, roadway::Roadway) where {D, I}
+function get_lane_width(veh::Entity, roadway::Roadway)
 
-    lane = roadway[veh.state.posF.roadind.tag]
+    lane = get_lane(roadway, veh.state)
 
     if n_lanes_left(lane, roadway) > 0
         footpoint = get_footpoint(veh)
@@ -16,21 +16,21 @@ function get_lane_width(veh::Entity{VehicleState, D, I}, roadway::Roadway) where
 end
 
 """
-    get_markerdist_left(veh::Vehicle, roadway::Roadway)
+    get_markerdist_left(veh::Entity, roadway::Roadway)
 distance of `veh` to the left marker of the lane
 """
-function get_markerdist_left(veh::Entity{VehicleState, D, I}, roadway::Roadway) where {D, I}
-    t = veh.state.posF.t
+function get_markerdist_left(veh::Entity, roadway::Roadway)
+    t = posf(veh.state).t
     lane_width = get_lane_width(veh, roadway)
     return lane_width/2 - t
 end
 
 """
-    get_markerdist_left(veh::Vehicle, roadway::Roadway)
+    get_markerdist_left(veh::Entity, roadway::Roadway)
 distance of `veh` to the right marker of the lane
 """
-function get_markerdist_right(veh::Entity{VehicleState, D, I}, roadway::Roadway) where {D, I}
-    t = veh.state.posF.t
+function get_markerdist_right(veh::Entity, roadway::Roadway)
+    t = posf(veh.state).t
     lane_width = get_lane_width(veh, roadway)
     return lane_width/2 + t
 end

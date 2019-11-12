@@ -37,10 +37,8 @@ function propagate(veh::Entity{VehicleState,D,I}, action::AccelTurnrate, roadway
     a = action.a # accel
     ω = action.ω # turnrate
 
-    x = veh.state.posG.x
-    y = veh.state.posG.y
-    θ = veh.state.posG.θ
-    v = veh.state.v
+    x, y, θ = posg(veh.state)
+    v = vel(veh.state)
 
     δt = Δt / n_integration_steps
 

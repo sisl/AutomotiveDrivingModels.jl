@@ -632,7 +632,7 @@ end
     @test isapprox(f.s, 0.0)
     @test f.t == 0.0
     @test f.ϕ == 0.0
-    @test get_posG(f, roadway) == VecSE2(0.0, 0.0, 0.0)
+    @test posg(f, roadway) == VecSE2(0.0, 0.0, 0.0)
     
     lane = roadway[LaneTag(1,1)]
     f = Frenet(lane, 1.0, 0.0, 0.0)

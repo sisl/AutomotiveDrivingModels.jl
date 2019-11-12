@@ -52,10 +52,10 @@ function _mod2pi2(x::Float64)
 end
 
 """
-    get_posG(frenet::Frenet, roadway::Roadway)
+    posg(frenet::Frenet, roadway::Roadway)
 projects the Frenet position into the global frame
 """
-function get_posG(frenet::Frenet, roadway::Roadway)
+function posg(frenet::Frenet, roadway::Roadway)
     curvept = roadway[frenet.roadind]
     pos = curvept.pos + polar(frenet.t, curvept.pos.θ + π/2)
     VecSE2(pos.x, pos.y, frenet.ϕ + curvept.pos.θ)

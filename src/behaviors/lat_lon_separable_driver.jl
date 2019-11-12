@@ -11,12 +11,12 @@ function observe!(model::LaneFollowingDriver, scene::Frame{Entity{S, D, I}}, roa
 
     fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
 
-    v_ego = scene[vehicle_index].state.v
+    v_ego = vel(scene[vehicle_index].state)
     v_oth = NaN
     headway = NaN
 
     if fore.ind != nothing
-        v_oth = scene[fore.ind].state.v
+        v_oth = vel(scene[fore.ind].state)
         headway = fore.Δs
     end
 

@@ -52,7 +52,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     vehicle_index = findfirst(egoid, rec[0])
     veh_ego = scene[vehicle_index]
-    v = veh_ego.state.v
+    v = vel(veh_ego.state)
     egostate_M = veh_ego.state
 
     left_lane_exists = convert(Float64, get(N_LANE_LEFT, rec, roadway, vehicle_index)) > 0
@@ -72,11 +72,11 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
         # candidate position after lane change is over
         footpoint = get_footpoint(veh_ego)
-        lane = roadway[veh_ego.state.posF.roadind.tag]
+        lane = get_lane(roadway, veh_ego) 
         lane_L = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         roadproj = proj(footpoint, lane_L, roadway)
         frenet_L = Frenet(RoadIndex(roadproj), roadway)
-        egostate_L = VehicleState(frenet_L, roadway, veh_ego.state.v)
+        egostate_L = VehicleState(frenet_L, roadway, vel(veh_ego.state))
 
         Δaccel_n = 0.0
         passes_safety_criterion = true
@@ -140,7 +140,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
         lane_R = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         roadproj = proj(footpoint, lane_R, roadway)
         frenet_R = Frenet(RoadIndex(roadproj), roadway)
-        egostate_R = VehicleState(frenet_R, roadway, veh_ego.state.v)
+        egostate_R = VehicleState(frenet_R, roadway, vel(veh_ego.state))
 
         Δaccel_n = 0.0
         passes_safety_criterion = true

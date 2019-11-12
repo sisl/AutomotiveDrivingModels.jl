@@ -7,8 +7,8 @@ function observe!(model::LaneFollowingDriver, scene::Frame{Entity{State1D, D, I}
 
     fore_res = get_neighbor_fore(scene, vehicle_index, roadway)
 
-    v_ego = scene[vehicle_index].state.v
-    v_oth = scene[fore_res.ind].state.v
+    v_ego = vel(scene[vehicle_index].state)
+    v_oth = vel(scene[fore_res.ind].state)
     headway = fore_res.Δs
 
     track_longitudinal!(model, v_ego, v_oth, headway)
