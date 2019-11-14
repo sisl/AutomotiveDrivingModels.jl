@@ -1,4 +1,6 @@
 struct DummyCallback end
+struct NoActionCallback end
+AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel} = false
 
 @testset "simulation" begin
     roadway = gen_straight_roadway(1, 500.0)
@@ -21,11 +23,12 @@ struct DummyCallback end
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, n_steps)
 
-    @inferred simulate!(scene, roadway, models, n_steps, dt)
+    @inferred simulate(scene, roadway, models, n_steps, dt)
+    @test_deprecated simulate!(scene, roadway, models, n_steps, dt)
 
     reset_hidden_states!(models)
 
-      # initializing vehicles too close
+    # initializing vehicles too close
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
     veh1 = Vehicle(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 5.0), roadway, 5.)
@@ -38,10 +41,12 @@ struct DummyCallback end
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
-    scenes = simulate!(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
+    scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) < 10
 
     @test_throws ErrorException simulate!(rec, scene, roadway, models, 10, (DummyCallback(),))
+    # make sure run_callback without action argument is deprecated
+    @test_deprecated simulate(scene, roadway, models, 10, .1, callbacks=(NoActionCallback(),))
 
     # collision right from start
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
@@ -56,7 +61,7 @@ struct DummyCallback end
     rec = SceneRecord(n_steps, dt)
     simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
-    scenes = simulate!(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
+    scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) == 1
 end
 

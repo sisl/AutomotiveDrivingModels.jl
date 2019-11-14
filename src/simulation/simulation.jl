@@ -90,6 +90,8 @@ function simulate!(
 
     return rec
 end
+
+
 function simulate!(
     rec::EntityQueueRecord{S,D,I},
     scene::EntityFrame{S,D,I},
@@ -101,28 +103,91 @@ function simulate!(
     return simulate!(Any, rec, scene, roadway, models, nticks)
 end
 
-function simulate!(
+
+"""
+Simulate a scene. For detailed information, consult the documentation of `simulate!`.
+By default, returns a vector containing one scene per time step.
+By setting the keyword `log_actions` to `true`, the action history is tracked as well
+and the return value is a tuple consisting of `scenes` and `actions`.
+
+Note that `length(scenes) == length(actions)+1`.
+"""
+function simulate(
     scene::Frame{E},
     roadway::R,
     models::Dict{I,M},
     nticks::Int64,
     timestep::Float64;
     rng::AbstractRNG = Random.GLOBAL_RNG,    
-    scenes::Vector{Frame{E}} = [Frame(E, length(scene)) for i=1:nticks+1],
+    callbacks = nothing,
+) where {E,A,R,I,M<:DriverModel}
+    scenes = [Frame(E, length(scene)) for i=1:nticks+1]
+    n = simulate!(
+        scene, roadway, models, nticks, timestep, scenes, nothing,
+        rng=rng, callbacks=callbacks
+    )
+    return scenes[1:(n+1)]
+end
+function simulate_log_actions(
+    scene::Frame{E},
+    roadway::R,
+    models::Dict{I,M},
+    nticks::Int64,
+    timestep::Float64;
+    rng::AbstractRNG = Random.GLOBAL_RNG,    
+    callbacks = nothing,
+) where {E,A,R,I,M<:DriverModel}
+    scenes = [Frame(E, length(scene)) for i=1:nticks+1]
+    actions = [Frame(ActionMapping, length(scene)) for i=1:nticks]
+    n = simulate!(
+        scene, roadway, models, nticks, timestep, scenes, actions,
+        rng=rng, callbacks=callbacks
+    )
+    return scenes[1:(n+1)], actions[1:n]
+end
+
+
+"""
+Simulate the entities in `scene` along a `roadway` for a maximum of
+`nticks` time steps of size `timestep`.
+Returns the number of successfully performed timesteps.
+
+At each time step, `models` is used to determine the action for each agent.
+`scenes` and `actions` are pre-allocated vectors of `Frame`s containing either
+`Entity`s (for scenes) or `ActionMapping`s (for actions).
+If `actions` is equal to `nothing` (default), the action history is not tracked.
+`scenes` must always be provided.
+
+`callbacks` is an array of callback functions which are invoked before
+the simulation starts and after every simulation step.
+Any callback function can cause an early termination by returning `true`
+(the default return value for callback funcitons should be `false`).
+The random number generator for the simulation can be provided using the `rng`
+keyword argument, it defaults to `Random.GLOBAL_RNG`.
+"""
+function simulate!(
+    scene::Frame{E},
+    roadway::R,
+    models::Dict{I,M},
+    nticks::Int64,
+    timestep::Float64,
+    scenes::Vector{Frame{E}},
+    actions::Union{Nothing, Vector{Frame{ActionMapping{I}}}} = nothing;
+    rng::AbstractRNG = Random.GLOBAL_RNG,    
     callbacks = nothing
-    ) where {E,R,I,M<:DriverModel}
+    ) where {E,A,R,I,M<:DriverModel}
 
     copyto!(scenes[1], scene)
 
     # potential early out right off the bat
-    if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, 1)
-        return scenes[1:1]
+    if (callbacks !== nothing) && _run_callbacks(callbacks, scenes, actions, roadway, models, 1)
+        return 0
     end
 
-    final_tick = nticks + 1
     for tick in 1:nticks
 
         empty!(scenes[tick + 1])
+        if (actions !== nothing) empty!(actions[tick]) end
         
         for (i, veh) in enumerate(scenes[tick])
 
@@ -132,14 +197,15 @@ function simulate!(
             veh_state_p  = propagate(veh, a, roadway, timestep)
 
             push!(scenes[tick + 1], Entity(veh_state_p, veh.def, veh.id))
+            if (actions !== nothing) push!(actions[tick], ActionMapping(a, veh.id)) end
             
         end
 
-        if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, roadway, models, tick+1)
-            return scenes[1:tick+1]
+        if !(callbacks === nothing) && _run_callbacks(callbacks, scenes, actions, roadway, models, tick+1)
+            return tick
         end
     end
-    return scenes
+    return nticks
 end
 
 """
