@@ -82,10 +82,10 @@ end
 function run_callback(
     callback::CollisionCallback,
     scenes::Vector{Scene},
+    actions::Union{Nothing, Vector{Frame{ActionMapping}}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,
     ) where {S,D,I,R,M<:DriverModel}
-
     return !is_collision_free(scenes[tick], callback.mem)
 end
