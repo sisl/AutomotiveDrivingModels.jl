@@ -6,7 +6,6 @@ run callback and return whether simlation should terminate
 A new method should be implemented when defining a new callback object.
 """
 run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel} = error("run_callback not implemented for callback $(typeof(callback))")
-run_callback(callback::Any, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel} = error("run_callback not implemented for callback $(typeof(callback))")
 
 function _run_callbacks(callbacks::C, scenes, actions, roadway::R, models::Dict{I,M}, tick::Int) where {I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
     isdone = false
