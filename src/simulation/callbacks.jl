@@ -1,13 +1,7 @@
-# run callback and return whether simlation should terminate
 """
-    run_callback(callback::Any, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel}    
-    run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel}
-run callback and return whether simlation should terminate
-A new method should be implemented when defining a new callback object.
+Run all callbacks
 """
-run_callback(callback::Any, rec::EntityQueueRecord{S,D,I}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,R,M<:DriverModel} = error("run_callback not implemented for callback $(typeof(callback))")
-
-function _run_callbacks(callbacks::C, scenes, actions, roadway::R, models::Dict{I,M}, tick::Int) where {I,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+function _run_callbacks(callbacks::C, scenes::Union{EntityQueueRecord{S,D,I}, Vector{Frame{Entity{S,D,I}}}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,A<:ActionMapping,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
     isdone = false
     for callback in callbacks
         isdone |= run_callback(callback, scenes, actions, roadway, models, tick)
@@ -67,12 +61,13 @@ Terminates the simulation once a collision occurs
 @with_kw struct CollisionCallback
     mem::CPAMemory=CPAMemory()
 end
+
 function run_callback(
     callback::CollisionCallback,
     rec::EntityQueueRecord{S,D,I},
     roadway::R,
     models::Dict{I,M},
-    tick::Int,
+    tick::Int
     ) where {S,D,I,R,M<:DriverModel}
 
     return !is_collision_free(rec[0], callback.mem)
@@ -80,11 +75,11 @@ end
 
 function run_callback(
     callback::CollisionCallback,
-    scenes::Vector{Scene},
-    actions::Union{Nothing, Vector{Frame{ActionMapping}}},
+    scenes::Vector{Frame{E}},
+    actions::Union{Nothing, Vector{Frame{A}}},
     roadway::R,
     models::Dict{I,M},
-    tick::Int,
-    ) where {S,D,I,R,M<:DriverModel}
+    tick::Int
+) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
     return !is_collision_free(scenes[tick], callback.mem)
 end

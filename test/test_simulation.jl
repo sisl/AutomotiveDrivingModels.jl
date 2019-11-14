@@ -1,8 +1,8 @@
-struct DummyCallback end
+struct NoCallback end
 struct NoActionCallback end
-AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel} = false
+AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{Frame{E}}, roadway::R, models::Dict{I,M}, tick::Int) where {E,R,I,M<:DriverModel} = false
 struct WithActionCallback end
-AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{FE}, actions::Union{Nothing, Vector{Frame{ActionMapping}}}, roadway::R, models::Dict{I,M}, tick::Int) where {FE,FA,I,R,M<:DriverModel} = false
+AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{Frame{E}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel} = false
 
 @testset "simulation" begin
     roadway = gen_straight_roadway(1, 500.0)
@@ -46,8 +46,8 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) < 10
 
-    @test_throws ErrorException simulate!(rec, scene, roadway, models, 10, (DummyCallback(),))
-    # make sure run_callback without action argument is deprecated
+    # make sure warnings, errors and deprecations in run_callback work as expected
+    @test_throws MethodError simulate!(rec, scene, roadway, models, 10, (NoCallback(),))
     @test_deprecated simulate(scene, roadway, models, 10, .1, callbacks=(NoActionCallback(),))
     @test_nowarn simulate(scene, roadway, models, 10, .1, callbacks=(WithActionCallback(),))
 

@@ -120,30 +120,13 @@ function simulate(
     timestep::Float64;
     rng::AbstractRNG = Random.GLOBAL_RNG,    
     callbacks = nothing,
-) where {E,A,R,I,M<:DriverModel}
+) where {E<:Entity,A,R,I,M<:DriverModel}
     scenes = [Frame(E, length(scene)) for i=1:nticks+1]
     n = simulate!(
         scene, roadway, models, nticks, timestep, scenes, nothing,
         rng=rng, callbacks=callbacks
     )
     return scenes[1:(n+1)]
-end
-function simulate_log_actions(
-    scene::Frame{E},
-    roadway::R,
-    models::Dict{I,M},
-    nticks::Int64,
-    timestep::Float64;
-    rng::AbstractRNG = Random.GLOBAL_RNG,    
-    callbacks = nothing,
-) where {E,A,R,I,M<:DriverModel}
-    scenes = [Frame(E, length(scene)) for i=1:nticks+1]
-    actions = [Frame(ActionMapping, length(scene)) for i=1:nticks]
-    n = simulate!(
-        scene, roadway, models, nticks, timestep, scenes, actions,
-        rng=rng, callbacks=callbacks
-    )
-    return scenes[1:(n+1)], actions[1:n]
 end
 
 
@@ -172,10 +155,10 @@ function simulate!(
     nticks::Int64,
     timestep::Float64,
     scenes::Vector{Frame{E}},
-    actions::Union{Nothing, Vector{Frame{ActionMapping{I}}}} = nothing;
+    actions::Union{Nothing, Vector{Frame{A}}} = nothing;
     rng::AbstractRNG = Random.GLOBAL_RNG,    
     callbacks = nothing
-    ) where {E,A,R,I,M<:DriverModel}
+    ) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
 
     copyto!(scenes[1], scene)
 

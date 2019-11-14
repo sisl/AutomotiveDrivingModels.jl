@@ -28,12 +28,12 @@ To run a custom callback function in the simulation loop, you must implement a c
 ```julia
 function AutomotiveDrivingModels.run_callback(
     cb::ReachGoalCallback,
-    scenes::Vector{Frame{Entity}},
-    actions::Vector{Frame{ActionMapping}},
+    scenes::Vector{Frame{E}},
+    actions::Vector{Frame{A}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,
-    ) where {S,D,I,R,M<:DriverModel}
+    ) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
 end
 ```
 The `scenes` object holds a snapshot of a scene at each timestep in the range `1:tick`, and the `actions` object holds a frame of `ActionMapping`s which record the action of each vehicle for the time steps `1:(tick-1)`.
@@ -47,12 +47,12 @@ end
 
 function AutomotiveDrivingModels.run_callback(
     cb::ReachGoalCallback,
-    scenes::Vector{Frame{Entity}},
-    actions::Vector{Frame{ActionMapping}},
+    scenes::Vector{Frame{E}},
+    actions::Vector{Frame{A}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,
-    ) where {S,D,I,R,M<:DriverModel}
+    ) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
     veh = get_by_id(last(scenes), cb.veh_id)
     return veh.state.posF.s > cb.goal_pos 
 end
