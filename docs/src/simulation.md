@@ -33,10 +33,10 @@ function AutomotiveDrivingModels.run_callback(
     roadway::R,
     models::Dict{I,M},
     tick::Int,
-    ) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
+    ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
 end
 ```
-The `scenes` object holds a snapshot of a scene at each timestep in the range `1:tick`, and the `actions` object holds a frame of `ActionMapping`s which record the action of each vehicle for the time steps `1:(tick-1)`.
+The `scenes` object holds a snapshot of a scene at each timestep in the range `1:tick`, and the `actions` object holds a frame of `EntityAction`s which record the action of each vehicle for the time steps `1:(tick-1)`.
 
 Here is an example of a callback that checks if a vehicle's longitudinal position has reached some goal position and stops the simulation if it is the case.
 ```julia
@@ -52,7 +52,7 @@ function AutomotiveDrivingModels.run_callback(
     roadway::R,
     models::Dict{I,M},
     tick::Int,
-    ) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
+    ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
     veh = get_by_id(last(scenes), cb.veh_id)
     return veh.state.posF.s > cb.goal_pos 
 end

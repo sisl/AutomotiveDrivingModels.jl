@@ -9,21 +9,21 @@ propagate(veh::Entity{S,D,I}, action::A, roadway::R, Δt::Float64) where {S,D,I,
 propagate(veh::Entity{S,D,I}, state::S, roadway::R, Δt::Float64) where {S,D,I,R} = state
 
 """
-Mapping from actions to vehicle ids. The main use case is for keeping track of the action history
+Mapping from actions to entity ids. The main use case is for keeping track of the action history
 in the same way as the scene history in the `simulate!` function.
 
 Initialize as
 
-    ActionMapping(a, id)
+    EntityAction(a, id)
 
 where `a` is an action which can be used to propagate entities. `id` is the entity identifier.
 """
-struct ActionMapping{A,I}
+struct EntityAction{A,I}
     action::A
     id::I
 end
 
-function Base.findfirst(id::I, frame::Frame{ActionMapping{A, I}}) where {A,I}
+function Base.findfirst(id, frame::Frame{A}) where {A<:EntityAction}
     for am_index in 1 : frame.n
         am = frame.entities[am_index]
         if am.id == id
@@ -32,9 +32,9 @@ function Base.findfirst(id::I, frame::Frame{ActionMapping{A, I}}) where {A,I}
     end
     return nothing
 end
-function Records.id2index(frame::Frame{ActionMapping{A,I}}, id::I) where {A,I}
+function Records.id2index(frame::Frame{A}, id) where {A<:EntityAction}
     entity_index = findfirst(id, frame)
-    entity_index === nothing && throw(BoundsError(frame, id))
+    if (entity_index === nothing) throw(BoundsError(frame, id)) end
     return entity_index
 end
-Records.get_by_id(frame::Frame{ActionMapping{A,I}}, id::I) where {A,I} = frame[id2index(frame, id)] 
+Records.get_by_id(frame::Frame{A}, id) where {A<:EntityAction} = frame[id2index(frame, id)] 

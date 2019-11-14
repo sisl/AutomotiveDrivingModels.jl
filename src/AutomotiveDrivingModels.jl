@@ -295,7 +295,7 @@ export
     reset_hidden_states!,
     simulate,
     simulate!,
-    ActionMapping,
+    EntityAction,
     run_callback,
     CollisionCallback
 

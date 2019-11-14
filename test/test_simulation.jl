@@ -2,7 +2,7 @@ struct NoCallback end
 struct NoActionCallback end
 AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{Frame{E}}, roadway::R, models::Dict{I,M}, tick::Int) where {E,R,I,M<:DriverModel} = false
 struct WithActionCallback end
-AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{Frame{E}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel} = false
+AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{Frame{E}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel} = false
 
 @testset "simulation" begin
     roadway = gen_straight_roadway(1, 500.0)

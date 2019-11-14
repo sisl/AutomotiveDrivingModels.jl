@@ -1,7 +1,7 @@
 """
 Run all callbacks
 """
-function _run_callbacks(callbacks::C, scenes::Union{EntityQueueRecord{S,D,I}, Vector{Frame{Entity{S,D,I}}}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,A<:ActionMapping,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+function _run_callbacks(callbacks::C, scenes::Union{EntityQueueRecord{S,D,I}, Vector{Frame{Entity{S,D,I}}}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,A<:EntityAction,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
     isdone = false
     for callback in callbacks
         isdone |= run_callback(callback, scenes, actions, roadway, models, tick)
@@ -18,6 +18,12 @@ function simulate!(
     nticks::Int,
     callbacks::C,
     ) where {S,D,I,A,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+    Base.depwarn(
+"`simulate!` using `EntityQueueRecord`s is deprecated since v0.7.10 and may be removed in future versions.
+ You should pass a pre-allocated vector of entitites `scenes::Vector{Frame{Entity{S,D,I}}}` to `simulate!`
+ or use the convenience function `simulate` without pre-allocation instead.",
+        :simulate_rec
+    )
 
     empty!(rec)
     update!(rec, scene)
@@ -80,6 +86,6 @@ function run_callback(
     roadway::R,
     models::Dict{I,M},
     tick::Int
-) where {E<:Entity,A<:ActionMapping,R,I,M<:DriverModel}
+) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
     return !is_collision_free(scenes[tick], callback.mem)
 end

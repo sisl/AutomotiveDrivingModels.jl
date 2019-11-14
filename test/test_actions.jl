@@ -119,7 +119,7 @@ end
     a3 = LaneFollowingAccel(0.)
     actions = [a1, a2, a3]
     ids = [:vehA, :vehB, :vehC]
-    action_mappings = Frame([ActionMapping(a, id) for (a,id) in zip(actions, ids)])
+    action_mappings = Frame([EntityAction(a, id) for (a,id) in zip(actions, ids)])
     for (action,id) in zip(actions, ids)
         @test get_by_id(action_mappings, id).action.a == action.a
     end

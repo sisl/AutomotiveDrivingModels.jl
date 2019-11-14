@@ -28,7 +28,7 @@ end
 run callback and return whether simlation should terminate
 A new method should be implemented when defining a new callback object.
 """
-function run_callback(callback, scenes, actions::Union{Nothing, Vector{Frame{A}}}, roadway, models, tick) where {A<:ActionMapping}
+function run_callback(callback, scenes, actions::Union{Nothing, Vector{Frame{A}}}, roadway, models, tick) where {A<:EntityAction}
     Base.depwarn(
 "Using a deprecated version of `run_callback`. Since v0.7.10, user-defined callback functions should also take an `actions` argument.
  If you have implemented `run_callback` with an actions argument, make sure the method signature is more specific than this one.\n
