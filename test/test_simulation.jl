@@ -1,6 +1,8 @@
 struct DummyCallback end
 struct NoActionCallback end
 AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{F}, roadway::R, models::Dict{I,M}, tick::Int) where {F,I,R,M<:DriverModel} = false
+struct WithActionCallback end
+AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{FE}, actions::Union{Nothing, Vector{Frame{ActionMapping}}}, roadway::R, models::Dict{I,M}, tick::Int) where {FE,FA,I,R,M<:DriverModel} = false
 
 @testset "simulation" begin
     roadway = gen_straight_roadway(1, 500.0)
@@ -47,6 +49,7 @@ AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{
     @test_throws ErrorException simulate!(rec, scene, roadway, models, 10, (DummyCallback(),))
     # make sure run_callback without action argument is deprecated
     @test_deprecated simulate(scene, roadway, models, 10, .1, callbacks=(NoActionCallback(),))
+    @test_nowarn simulate(scene, roadway, models, 10, .1, callbacks=(WithActionCallback(),))
 
     # collision right from start
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
