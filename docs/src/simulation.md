@@ -21,21 +21,38 @@ See the tutorials for examples.
 
 ## Callbacks 
 
-One can define callback function that will be run at each simulation step. The callback function can interrupt the simulation if it return `true`. It is also useful to log simulation information. 
+One can define callback functions that will be run at each simulation step. The callback function can terminate the simulation by returning `true`. The default return value of a callback function should be `false`. Callback functions are also useful to log simulation information. 
 
-To implement a custom callback function you must implement a type and the associated `run_callback` method. Here is an example of a callback that checks if a vehicle longitudinal position has reached some goal position and stops the simulation if it is the case.
+To run a custom callback function in the simulation loop, you must implement a custom callback type and an associated `run_callback` method for that type with the following signature
+
+```julia
+function AutomotiveDrivingModels.run_callback(
+    cb::ReachGoalCallback,
+    scenes::Vector{Frame{E}},
+    actions::Vector{Frame{A}},
+    roadway::R,
+    models::Dict{I,M},
+    tick::Int,
+    ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
+end
+```
+The `scenes` object holds a snapshot of a scene at each timestep in the range `1:tick`, and the `actions` object holds a frame of `EntityAction`s which record the action of each vehicle for the time steps `1:(tick-1)`.
+
+Here is an example of a callback that checks if a vehicle's longitudinal position has reached some goal position and stops the simulation if it is the case.
 ```julia
 struct ReachGoalCallback # a callback that checks if vehicle veh_id has reach a certain position 
     goal_pos::Float64
     veh_id::Int64
 end 
 
-function AutomotiveDrivingModels.run_callback(cb::ReachGoalCallback,
-    scenes::Vector{Scene},
+function AutomotiveDrivingModels.run_callback(
+    cb::ReachGoalCallback,
+    scenes::Vector{Frame{E}},
+    actions::Vector{Frame{A}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,
-    ) where {S,D,I,R,M<:DriverModel}
+    ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
     veh = get_by_id(last(scenes), cb.veh_id)
     return veh.state.posF.s > cb.goal_pos 
 end

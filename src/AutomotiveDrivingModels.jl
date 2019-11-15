@@ -293,7 +293,9 @@ export
     get_actions!,
     tick!,
     reset_hidden_states!,
+    simulate,
     simulate!,
+    EntityAction,
     run_callback,
     CollisionCallback
 

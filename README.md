@@ -13,7 +13,7 @@ For visualization code please see [AutoViz](https://github.com/sisl/AutoViz.jl).
 
 ## Installation 
 
-Using the SISL registry (recommanded): 
+Using the SISL registry (recommended): 
 
 ```julia 
 ] registry add https://github.com/sisl/Registry

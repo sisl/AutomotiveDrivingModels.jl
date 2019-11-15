@@ -1,7 +1,7 @@
 name = "AutomotiveDrivingModels"
 uuid = "99497e54-f3d6-53d3-a3a9-fa9315a7f1ba"
 repo = "https://github.com/sisl/AutomotiveDrivingModels.jl.git"
-version = "0.7.9"
+version = "0.7.10"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
