@@ -1,6 +1,7 @@
 """
     LaneFollowingAccel
-Longitudinal acceleration
+Longitudinal acceleration.
+The resulting vehicle velocity is capped below at 0 (i.e. standstill). Negative velocities are not allowed.
 
 # Fields
 - `a::Float64` longitudinal acceleration [m/s^2]
@@ -15,7 +16,7 @@ function propagate(veh::Vehicle1D, action::LaneFollowingAccel, roadway::Straight
     s, v = veh.state.s, veh.state.v
 
     s′ = s + v*Δt + a*Δt*Δt/2
-    v′ = v + a*Δt
+    v′ = max(v + a*Δt, 0.)  # no negative velocities
 
     s′ = mod_position_to_roadway(s′, roadway)
 
@@ -31,7 +32,7 @@ function propagate(veh::Entity{VehicleState,D,I}, action::LaneFollowingAccel, ro
     ΔT² = ΔT*ΔT
     Δs = ds*ΔT + 0.5*a_lon*ΔT²
 
-    v₂ = ds + a_lon*ΔT
+    v₂ = max(ds + a_lon*ΔT, 0.)  # no negative velocities
 
     roadind = move_along(posf(veh.state).roadind, roadway, Δs)
     posG = roadway[roadind].pos
