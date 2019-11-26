@@ -16,7 +16,7 @@ function propagate(veh::Vehicle1D, action::LaneFollowingAccel, roadway::Straight
     s, v = veh.state.s, veh.state.v
 
     s′ = s + v*Δt + a*Δt*Δt/2
-    v′ = maximum((v + a*Δt, 0.))  # no negative velocities
+    v′ = max(v + a*Δt, 0.)  # no negative velocities
 
     s′ = mod_position_to_roadway(s′, roadway)
 
@@ -32,7 +32,7 @@ function propagate(veh::Entity{VehicleState,D,I}, action::LaneFollowingAccel, ro
     ΔT² = ΔT*ΔT
     Δs = ds*ΔT + 0.5*a_lon*ΔT²
 
-    v₂ = maximum((ds + a_lon*ΔT, 0.))  # no negative velocities
+    v₂ = max(ds + a_lon*ΔT, 0.)  # no negative velocities
 
     roadind = move_along(posf(veh.state).roadind, roadway, Δs)
     posG = roadway[roadind].pos
