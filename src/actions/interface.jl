@@ -34,7 +34,7 @@ function Base.findfirst(id, frame::Frame{A}) where {A<:EntityAction}
 end
 function Records.id2index(frame::Frame{A}, id) where {A<:EntityAction}
     entity_index = findfirst(id, frame)
-    if (entity_index === nothing) throw(BoundsError(frame, id)) end
+    if (entity_index === nothing) throw(BoundsError(frame, [id])) end
     return entity_index
 end
 Records.get_by_id(frame::Frame{A}, id) where {A<:EntityAction} = frame[id2index(frame, id)] 
