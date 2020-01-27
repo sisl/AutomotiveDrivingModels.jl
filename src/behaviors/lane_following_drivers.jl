@@ -16,6 +16,26 @@ function observe!(model::LaneFollowingDriver, scene::Frame{Entity{State1D, D, I}
     return model
 end
 
+function observe!(model::LaneFollowingDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+
+    vehicle_index = findfirst(egoid, scene)
+
+    fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+
+    v_ego = vel(scene[vehicle_index].state)
+    v_oth = NaN
+    headway = NaN
+
+    if fore.ind != nothing
+        v_oth = vel(scene[fore.ind].state)
+        headway = fore.Δs
+    end
+
+    track_longitudinal!(model, v_ego, v_oth, headway)
+
+    return model
+end
+
 mutable struct StaticLaneFollowingDriver <: LaneFollowingDriver
     a::LaneFollowingAccel
 end
