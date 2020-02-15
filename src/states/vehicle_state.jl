@@ -31,6 +31,12 @@ vel(veh::VehicleState) = veh.v
 velf(veh::VehicleState) = (s=veh.v*cos(veh.posF.ϕ), t=veh.v*sin(veh.posF.ϕ))
 velg(veh::VehicleState) = (x=veh.v*cos(veh.posG.θ), y=veh.v*sin(veh.posG.θ))
 
+posf(veh::Entity) = posf(veh.state)
+posg(veh::Entity) = posg(veh.state)
+vel(veh::Entity)  = vel(veh.state)
+velf(veh::Entity) = velf(veh.state)
+velg(veh::Entity) = velg(veh.state)
+
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 
 function Base.write(io::IO, ::MIME"text/plain", s::VehicleState)
