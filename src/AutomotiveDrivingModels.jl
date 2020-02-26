@@ -304,4 +304,9 @@ include("simulation/callbacks.jl")
 
 include("deprecated.jl")
 
+export
+    uncertain_IDM
+
+include("behaviors/uncertain_idm.jl")
+
 end # AutomotiveDrivingModels

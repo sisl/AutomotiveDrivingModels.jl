@@ -46,7 +46,7 @@ function set_desired_speed!(model::MOBIL, v_des::Float64)
     model
 end
 function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
-
+    # print("MOBIL: observe! has been called\n")
     rec = model.rec
     update!(rec, scene)
 
@@ -67,7 +67,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
     advantage_threshold = model.advantage_threshold
 
     if left_lane_exists
-
+    # print("MOBIL: left lane exists\n")
         rear_L = get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
         # candidate position after lane change is over
@@ -131,7 +131,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
     end
 
     if right_lane_exists
-
+    # print("MOBIL:right lane exists \n")
         rear_R = get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
         # candidate position after lane change is over

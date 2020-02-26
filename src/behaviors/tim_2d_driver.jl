@@ -35,15 +35,19 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
 end
 function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::I, fore::NeighborLongitudinalResult) where {D, I}
     v_ego = vel(scene[vehicle_index].state)
+    print("ego id = $(scene[vehicle_index].id)\n")
     if fore.ind != nothing
         headway, v_oth = fore.Δs, vel(scene[fore.ind].state)
+        print("guy in front index = $(scene[fore.ind].id)\n")
     else
         headway, v_oth = NaN, NaN
+        print("No guy in front \n")
     end
+    
     return track_longitudinal!(driver, v_ego, v_oth, headway)
 end
 function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
-
+    print("Tim2DDriver observe! says egoid = $(egoid)\n")
     update!(driver.rec, scene)
     observe!(driver.mlane, scene, roadway, egoid)
 
@@ -62,6 +66,7 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
     end
 
     track_lateral!(driver.mlat, laneoffset, lateral_speed)
+    print("Tim2DDriver observe! says: Lateral stuff done. Now I will call longitudinal observe!\n")
     track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
 
     driver
