@@ -1,9 +1,10 @@
 name = "AutomotiveDrivingModels"
 uuid = "99497e54-f3d6-53d3-a3a9-fa9315a7f1ba"
 repo = "https://github.com/sisl/AutomotiveDrivingModels.jl.git"
-version = "0.7.11"
+version = "0.7.12"
 
 [deps]
+AutoViz = "82aa6e0c-a491-5edf-8d4b-c16b98e4ea17"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
