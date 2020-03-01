@@ -17,4 +17,15 @@ However it has been designed to support custom types.
 Each section of the documentation contains an interface, which is a list of functions that a user must implement to use its own types.
 
 ```@contents
+Pages = [
+    "Roadways.md",
+    "actions.md",
+    "states.md",
+    "agent_definitions.md",
+    "behaviors.md",
+    "simulation.md",
+    "collision_checkers.md",
+    "feature_extraction.md",
+    "examples.md",
+]
 ```

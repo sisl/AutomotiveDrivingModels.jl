@@ -68,7 +68,6 @@ The Frenet frame is a lane relative frame to represent a position on the road ne
 
 ```@docs
       Frenet
-      get_posG
 ```
 
 ## Accessing objects and projections
