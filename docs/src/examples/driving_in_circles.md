@@ -20,8 +20,10 @@ using AutoViz
 using Distributions
 
 roadway = gen_stadium_roadway(3)
-c = render([roadway])
+# TODO: use FitToContentCamera
+c = render([roadway]) # , camera=FitToContentCamera())
 write("stadium.svg", c) # hide
+write("stadium.png", c) # TODO: current interface also allows using this, DANGEROUS - change behavior
 ```
 ![three lane stadium](stadium.svg)
 
@@ -39,7 +41,8 @@ renderables = [
     roadway,
     (FancyCar(car=veh, color=car_colors[veh.id]) for veh in scene)...
 ]
-render(renderables)
+# TODO: use FitToContentCamera
+render(renderables) # , camera=FitToContentCamera())
 write("stadium_with_cars.svg", render(renderables)) # hide
 ```
 ![stadium with cars](stadium_with_cars.svg)
@@ -48,7 +51,7 @@ We can assign driver models to each agent and simulate the scenario.
 
 ```@example driving_in_circles
 timestep = 0.1
-nticks = 100
+nticks = 300
 
 models = Dict{Symbol, DriverModel}()
 models[:alice] = LatLonSeparableDriver( # produces LatLonAccels
@@ -57,6 +60,7 @@ models[:alice] = LatLonSeparableDriver( # produces LatLonAccels
 )
 # TODO: Tim2DDriver makes use of QueueRecord structure for scenes
 # see tim_2d_driver.jl line 47
+# see issue https://github.com/sisl/AutomotiveDrivingModels.jl/issues/62
 # models[:bob] = Tim2DDriver(
 #     timestep, mlane = MOBIL(timestep),
 # )
@@ -80,18 +84,19 @@ An animation of the simulation can be rendered using the `Reel` package
 
 ```@example driving_in_circles
 using Reel
+using Printf # hide
 
-camera = TargetFollowCamera(:ego; zoom=10.)
+camera = TargetFollowCamera(:alice; zoom=10.)
 
 animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
     i = Int(floor(t/dt)) + 1
-    # update_camera!(camera, scenes[i])
-    # renderables = [
-    #     roadway,
-    #     (FancyCar(car=veh, color=car_colors[veh.id]) for veh in scenes[i])...
-    # ]
-    # TODO: push!(renderables, IDOverlay())
-    renderables = [roadway]
+    update_camera!(camera, scenes[i])
+    renderables = [
+        roadway,
+        (FancyCar(car=veh, color=car_colors[veh.id]) for veh in scenes[i])...,
+        RenderableOverlay(IDOverlay(x_off=-2, y_off=1), scenes[i], roadway),
+        TextOverlay(text=[@sprintf("time: %.1fs", t)], pos=VecE2(40,40), font_size=24)
+    ]
     render(renderables, camera=camera)
 end
 
