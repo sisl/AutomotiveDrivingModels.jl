@@ -104,7 +104,7 @@ function update_approaching(ped::Entity{S, D, I},
 end
 
 function update_appraising(ped::Entity{S, D, I},
-                           scene::Scene,
+                           scene::Frame,
                            model::SidewalkPedestrianModel,
                            roadway::Roadway,
                            crosswalk::Lane,
@@ -140,7 +140,7 @@ end
 
 
 function update_crossing(ped::Entity{S, D, I},
-                         scene::Scene,
+                         scene::Frame,
                          model::SidewalkPedestrianModel,
                          roadway::Roadway,
                          crosswalk::Lane
@@ -158,7 +158,7 @@ end
 
 
 function update_leaving(ped::Entity{S, D, I},
-                        scene::Scene,
+                        scene::Frame,
                         model::SidewalkPedestrianModel,
                         roadway::Roadway,
                         sw_dest::Lane
