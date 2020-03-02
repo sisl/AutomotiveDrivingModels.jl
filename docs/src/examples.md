@@ -15,7 +15,11 @@ The following examples will showcase some of the simulation functionality of `Au
 
 ```@contents
 Pages = [
-    "examples/driving_in_circles.md",
+    "examples/straight_roadway.md",
+    "examples/stadium.md",
+    "examples/intersection.md",
+    "examples/crosswalk.md",
+    "examples/sidewalk.md",
 ]
 
 ```

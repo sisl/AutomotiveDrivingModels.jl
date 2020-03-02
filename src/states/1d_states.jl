@@ -12,7 +12,13 @@ struct State1D
     v::Float64 # speed [m/s]
 end
 
+# TODO: needs more work
+posf(s::State1D) = VecSE2{Float64}(s.s)
+posg(s::State1D) = VecSE2{Float64}(s.s, 0., 0.)  # TODO: how to derive global position & angle
 vel(s::State1D) = s.v
+velf(s::State1D) = (s=s.v, t=0.)
+velg(s::State1D) = (x=s.v*cos(posg(s).θ), y=s.v*sin(posg(s).θ))
+
 
 Base.write(io::IO, ::MIME"text/plain", s::State1D) = @printf(io, "%.16e %.16e", s.s, s.v)
 function Base.read(io::IO, ::MIME"text/plain", ::Type{State1D})

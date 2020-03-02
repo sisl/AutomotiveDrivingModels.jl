@@ -6,4 +6,4 @@ Records = "5984c134-fa48-5ed5-a57f-fc2f6936871f"
 
 [compat]
 AutoViz = "^0.8.0"
-AutomotiveDrivingModels = "^0.7.11"
+AutomotiveDrivingModels = "^0.7.12"
