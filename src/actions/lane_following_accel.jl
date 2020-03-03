@@ -10,19 +10,6 @@ struct LaneFollowingAccel
     a::Float64
 end
 
-function propagate(veh::Vehicle1D, action::LaneFollowingAccel, roadway::StraightRoadway, Δt::Float64)
-
-    a = action.a
-    s, v = veh.state.s, veh.state.v
-
-    s′ = s + v*Δt + a*Δt*Δt/2
-    v′ = max(v + a*Δt, 0.)  # no negative velocities
-
-    s′ = mod_position_to_roadway(s′, roadway)
-
-    return State1D(s′, v′)
-end
-
 function propagate(veh::Entity{VehicleState,D,I}, action::LaneFollowingAccel, roadway::Roadway, ΔT::Float64) where {D,I}
 
     a_lon = action.a

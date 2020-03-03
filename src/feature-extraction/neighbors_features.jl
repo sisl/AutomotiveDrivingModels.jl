@@ -13,39 +13,6 @@ struct NeighborLongitudinalResult
     Δs::Float64 # positive distance along lane between vehicles' positions
 end
 
-
-function get_headway(veh_rear::Vehicle1D, veh_fore::Vehicle1D, roadway::StraightRoadway)
-    return get_headway(get_front(veh_rear), get_rear(veh_fore), roadway)
-end
-function get_neighbor_fore(scene::Frame{Entity{State1D, D, I}}, vehicle_index::I, roadway::StraightRoadway) where {D, I}
-    ego = scene[vehicle_index]
-    best_ind = nothing
-    best_gap = Inf
-    for (i,veh) in enumerate(scene)
-        if i != vehicle_index
-            Δs = get_headway(ego, veh, roadway)
-            if Δs < best_gap
-                best_gap, best_ind = Δs, i
-            end
-        end
-    end
-    return NeighborLongitudinalResult(best_ind, best_gap)
-end
-function get_neighbor_rear(scene::Frame{Entity{State1D, D, I}}, vehicle_index::I, roadway::StraightRoadway) where {D, I}
-    ego = scene[vehicle_index]
-    best_ind = nothing
-    best_gap = Inf
-    for (i,veh) in enumerate(scene)
-        if i != vehicle_index
-            Δs = get_headway(veh, ego, roadway)
-            if Δs < best_gap
-                best_gap, best_ind = Δs, i
-            end
-        end
-    end
-    return NeighborLongitudinalResult(best_ind, best_gap)
-end
-
 abstract type VehicleTargetPoint end
 struct VehicleTargetPointFront <: VehicleTargetPoint end
 get_targetpoint_delta(::VehicleTargetPointFront, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition, I} = length(veh.def)/2*cos(posf(veh.state).ϕ)
