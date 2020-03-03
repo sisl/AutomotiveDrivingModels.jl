@@ -81,10 +81,10 @@ such as lane or curve points:
   RoadIndex
   CurveIndex
   RoadProjection
-  proj(posG::VecSE2{T}, lane::Lane, roadway::Roadway;move_along_curves::Bool = true ) where T<: Real
+  proj(posG::VecSE2{T}, lane::Lane{T}, roadway::Roadway{T};move_along_curves::Bool = true ) where T<: Real
   proj(posG::VecSE2{T}, seg::RoadSegment, roadway::Roadway) where T<: Real
   proj(posG::VecSE2{T}, roadway::Roadway) where T<: Real
-  Base.getindex(lane::Lane, ind::CurveIndex, roadway::Roadway)
+  Base.getindex(lane::Lane{T}, ind::CurveIndex{I,T}, roadway::Roadway{T}) where{I<:Integer, T<:Real}
   Base.getindex(roadway::Roadway, segid::Int)
   Base.getindex(roadway::Roadway, tag::LaneTag)
 ```

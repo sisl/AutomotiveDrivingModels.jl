@@ -104,6 +104,13 @@ include("agent-definitions/agent_definitions.jl")
 ## states
 
 export
+    State1D,
+    Vehicle1D,
+    Scene1D
+
+include("states/1d_states.jl")
+
+export
     posf,
     posg,
     vel,
