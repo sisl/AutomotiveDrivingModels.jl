@@ -48,23 +48,20 @@ We can assign driver models to each agent and simulate the scenario.
 timestep = 0.1
 nticks = 300
 
-models = Dict{Symbol, DriverModel}()
-models[:alice] = LatLonSeparableDriver( # produces LatLonAccels
-    ProportionalLaneTracker(), # lateral model
-    IntelligentDriverModel(), # longitudinal model
-)
-# TODO: Tim2DDriver makes use of QueueRecord structure for scenes
-# see tim_2d_driver.jl line 47
-# see issue https://github.com/sisl/AutomotiveDrivingModels.jl/issues/62
-# models[:bob] = Tim2DDriver(
-#     timestep, mlane = MOBIL(timestep),
-# )
-models[:bob] = LatLonSeparableDriver( # produces LatLonAccels
-    ProportionalLaneTracker(), # lateral model
-    IntelligentDriverModel(), # longitudinal model
-)
-models[:charlie] = StaticDriver{AccelTurnrate, MvNormal}(
-    MvNormal([0.0,0.0], [1.0,0.1])
+models = Dict{Symbol, DriverModel}(
+    :alice => LatLonSeparableDriver( # produces LatLonAccels
+        ProportionalLaneTracker(), # lateral model
+        IntelligentDriverModel(), # longitudinal model
+    ),
+    # :bob => Tim2DDriver(
+    #     timestep, mlane = MOBIL(timestep),
+    # ),
+    :bob => StaticDriver{AccelTurnrate, MvNormal}(
+        MvNormal([0.0,0.0], [1.0,0.1])
+    ),
+    :charlie => StaticDriver{AccelTurnrate, MvNormal}(
+        MvNormal([0.0,0.0], [1.0,0.1])
+    )
 )
 
 set_desired_speed!(models[:alice],   12.0)
