@@ -117,7 +117,8 @@ We then add a new method to the `add_renderable!` function that execute the spec
 action (coloring in blue). Look at `Autoviz.jl` for more detail on the function
 `add_renderable!`.
 
-Use the slider to highlight each lane. The number corresponds to a road segment.
+The following animation iterates over the individual lanes of the intersection
+layout and highlights them:
 
 ```@example intersection
 struct LaneOverlay <: SceneOverlay
@@ -197,7 +198,7 @@ AutomotiveDrivingModels.observe!(model::InterDriver, scene::Scene, roadway::Road
 Base.rand(::AbstractRNG, model::InterDriver) = model.a
 ```
 
-**Simulate: **
+**Simulate:**
 
 First associate a model to each driver in the scene using a dictionary.
 Here we only have one driver identified by its ID: 1.

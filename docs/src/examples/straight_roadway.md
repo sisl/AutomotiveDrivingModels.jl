@@ -30,8 +30,6 @@ write("straight_roadway.svg", snapshot) # hide
 
 In the call to the `render` function, we used the default rendering behavior for
 entities. More advanced examples will show how the rendering of entities can be customized.
-### TODO: show how rendering works in :fancy vs :basic modes
-### TODO: showcase different car types (arrowcar, entityrectangle, fancycar) in future example
 
 We can add an overlay that displays the car id:
 
@@ -44,7 +42,7 @@ end
 snapshot = render(renderables, camera=camera)
 write("straight_roadway_with_id.svg", snapshot) # hide
 ```
-![three cars with id](straight_roadway_with_id.png)
+![three cars with id](straight_roadway_with_id.svg)
 
 
 Alternatively, we can create a new `SceneOverlay` object which takes care of
@@ -103,7 +101,6 @@ end
 write("straight_roadway_animated.gif", animation) # hide
 nothing # hide
 ```
-### TODO make ids move with vehicles
 ![three vehicles animated](straight_roadway_animated.gif)
 
 In order to inspect the simulation interactively, we can use the `Interact` package

@@ -26,7 +26,7 @@ Here, we create a new type of environment called SidewalkEnv. It consists of a r
     roadway::Roadway
     crosswalk::Lane
     sidewalk::Vector{Lane}
-end
+end;
 nothing # hide
 ```
 
@@ -81,7 +81,7 @@ sw_segment = RoadSegment(3, [top_sidewalk, bottom_sidewalk])
 push!(roadway.segments, sw_segment)
 
 # Initialize crosswalk environment
-env = SidewalkEnv(roadway, crosswalk, [top_sidewalk, bottom_sidewalk])
+env = SidewalkEnv(roadway, crosswalk, [top_sidewalk, bottom_sidewalk]);
 nothing # hide
 ```
 
@@ -135,6 +135,7 @@ Now we can define our pedestrian.
 ```@example sidewalk
 # We define its class and the dimensions of its bounding box.
 const PEDESTRIAN_DEF = VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0)
+nothing # hide
 ```
 
 We assign models to each agent in the scene.
@@ -179,8 +180,8 @@ scenes = simulate(scene, roadway, models, nticks, timestep)
 animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
     i = Int(floor(t/dt)) + 1
     render([env, scenes[i]], camera=camera)
-end
-write("sidewalk_animation.gif", animation) # hide
+end;
+write("sidewalk_animation.gif", animation); # hide
 nothing # hide
 ```
 ![sidewalk animation](sidewalk_animation.gif)
