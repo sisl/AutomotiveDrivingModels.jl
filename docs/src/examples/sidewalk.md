@@ -125,8 +125,7 @@ end
 
 
 ```@example sidewalk
-camera = FitToContentCamera(0.0)
-render([env], camera=camera);
+render([env]);
 ```
 
 Now we can define our pedestrian.
@@ -179,7 +178,7 @@ scenes = simulate(scene, roadway, models, nticks, timestep)
 
 animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
     i = Int(floor(t/dt)) + 1
-    render([env, scenes[i]], camera=camera)
+    render([env, scenes[i]])
 end;
 write("sidewalk_animation.gif", animation); # hide
 nothing # hide
@@ -196,9 +195,8 @@ using Reel
 using Blink
 
 w = Window()
-camera = FitToContentCamera(.1)
 viz = @manipulate for i in 1 : length(scenes)
-    render([env, scenes[i]], camera=camera)
+    render([env, scenes[i]])
 end
 body!(w, viz)
 ```

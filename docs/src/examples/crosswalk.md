@@ -75,8 +75,7 @@ function AutoViz.add_renderable!(rendermodel::RenderModel, env::CrosswalkEnv)
     return rendermodel
 end
 
-camera = FitToContentCamera(0.)
-snapshot = render([env], camera=camera)
+snapshot = render([env])
 write("crosswalk.svg", snapshot) # hide
 ```
 ![crosswalk](crosswalk.svg)
@@ -111,7 +110,7 @@ ped = Entity(ped_initial_state, PEDESTRIAN_DEF, :pedestrian)
 scene = Frame([car, ped])
 
 # visualize the initial state
-snapshot = render([env, scene], camera=camera)
+snapshot = render([env, scene])
 write("crosswalk_initial.svg", snapshot) # hide
 ```
 ![initial state of crosswalk](crosswalk_initial.svg)
@@ -163,12 +162,12 @@ nothing # hide
 ```@example crosswalk
 using Reel
 
-function animate_record(scenes::Vector{Frame{E}},dt::Float64, env::CrosswalkEnv, camera=camera) where {E<:Entity}
+function animate_record(scenes::Vector{Frame{E}},dt::Float64, env::CrosswalkEnv) where {E<:Entity}
     duration = length(scenes)*dt::Float64
     fps = Int(1/dt)
     function render_rec(t, dt)
         frame_index = Int(floor(t/dt)) + 1
-        return render([env, scenes[frame_index]], camera=camera)
+        return render([env, scenes[frame_index]])
     end
     return duration, fps, render_rec
 end

@@ -59,7 +59,7 @@ lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
 push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
 
 # visualize the current lane constellation
-snapshot = render([roadway], camera=FitToContentCamera(.1))
+snapshot = render([roadway])
 write("partial_intersection.svg", snapshot) # hide
 ```
 
@@ -104,7 +104,7 @@ append_to_curve!(curve, gen_straight_curve(convert(VecE2, A), convert(VecE2, A+V
 lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
 push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
 
-snapshot = render([roadway], camera=FitToContentCamera(.1))
+snapshot = render([roadway])
 write("intersection.svg", snapshot) # hide
 ```
 ![intersection](intersection.svg)
@@ -139,7 +139,7 @@ animation = roll(fps=1.0, duration=length(roadway.segments)) do t, dt
         roadway,
         LaneOverlay(roadway, roadway[LaneTag(i,1)], RGBA(0.0,0.0,1.0,0.5))
     ]
-    render(renderables, camera=FitToContentCamera(.1))
+    render(renderables)
 end;
 
 write("highlighted_lanes.gif", animation) # hide
@@ -156,7 +156,7 @@ Let's populate the intersection
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0) # initial state of the vehicle
 scene = Scene([Vehicle(vs0, VehicleDef(), 1)])
 
-snapshot = render([roadway, scene], camera=FitToContentCamera(.1))
+snapshot = render([roadway, scene])
 write("intersection_populated.svg", snapshot) # hide
 ```
 ![populated intersection](intersection_populated.svg)
@@ -219,7 +219,7 @@ scenes = simulate!(scene, roadway, models, nticks, timestep)
 animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
     i = Int(floor(t/dt)) + 1
     renderables = [roadway, scenes[i]]
-    render(renderables, camera=FitToContentCamera(.1))
+    render(renderables)
 end
 
 write("animated_intersection.gif", animation) # hide

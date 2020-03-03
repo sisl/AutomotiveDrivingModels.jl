@@ -18,7 +18,7 @@ using AutoViz
 using Distributions
 
 roadway = gen_stadium_roadway(3)
-snapshot = render([roadway], camera=FitToContentCamera(.1))
+snapshot = render([roadway])
 write("stadium.svg", snapshot) # hide
 ```
 ![three lane stadium](stadium.svg)
@@ -37,7 +37,7 @@ renderables = [
     roadway,
     (FancyCar(car=veh, color=car_colors[veh.id]) for veh in scene)...
 ]
-snapshot = render(renderables, camera=FitToContentCamera(.1))
+snapshot = render(renderables)
 write("stadium_with_cars.svg", snapshot) # hide
 ```
 ![stadium with cars](stadium_with_cars.svg)
@@ -105,9 +105,8 @@ using Reel
 using Blink
 
 w = Window()
-camera = FitToContentCamera(.1)
 viz = @manipulate for step in 1 : length(scenes)
-    render([roadway, scenes[step]], camera=camera)
+    render([roadway, scenes[step]])
 end
 body!(w, viz)
 ```
