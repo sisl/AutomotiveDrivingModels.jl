@@ -47,10 +47,9 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
     update!(driver.rec, scene)
     observe!(driver.mlane, scene, roadway, egoid)
 
-    vehicle_index = findfirst(egoid, scene)
     lane_change_action = rand(driver.mlane)
-    laneoffset = get_lane_offset(lane_change_action, driver.rec, roadway, vehicle_index)
-    lateral_speed = convert(Float64, get(VELFT, driver.rec, roadway, vehicle_index))
+    ego = get_by_id(scene, egoid)
+    vehicle_index = findfirst(egoid, scene)
 
     if lane_change_action.dir == DIR_MIDDLE
         fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
@@ -61,7 +60,7 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
         fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     end
 
-    track_lateral!(driver.mlat, laneoffset, lateral_speed)
+    track_lateral!(driver.mlat, posf(ego).t, velf(ego).t)
     track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
 
     driver
