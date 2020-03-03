@@ -30,8 +30,8 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     set_desired_speed!(model.mlane, v_des)
     model
 end
-function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::I, fore::NeighborLongitudinalResult) where {D, I}
-    v_ego = vel(scene[vehicle_index].state)
+function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_id::I, fore::NeighborLongitudinalResult) where {D, I}
+    v_ego = vel(get_by_id(scene, vehicle_id))
     if fore.ind != nothing
         headway, v_oth = fore.Δs, vel(scene[fore.ind].state)
     else
@@ -57,7 +57,7 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
     end
 
     track_lateral!(driver.mlat, posf(ego).t, velf(ego).t)
-    track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
+    track_longitudinal!(driver.mlon, scene, roadway, egoid, fore)
 
     driver
 end

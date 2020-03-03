@@ -50,9 +50,6 @@ function generate_feature_functions(
     )
 
     for feature in values(SYMBOL_TO_FEATURE)
-        if(sym in (:N_Lane_Right, :N_Lane_Left))  # temporary hack - seems like trying to make sure there is only one extraction method per symbol
-            break
-        end
         @assert(sym != Symbol(feature), "symb: $name -> $feature")
     end
     @assert(lowerbound ≤ upperbound)

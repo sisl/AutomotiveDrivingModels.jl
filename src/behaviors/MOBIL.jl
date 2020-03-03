@@ -49,8 +49,8 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
     v = vel(veh_ego.state)
     egostate_M = veh_ego.state
 
-    left_lane_exists = convert(Float64, get(N_LANE_LEFT, scene, roadway, vehicle_index)) > 0
-    right_lane_exists = convert(Float64, get(N_LANE_RIGHT, scene, roadway, vehicle_index)) > 0
+    left_lane_exists = convert(Float64, get(N_LANE_LEFT, scene, roadway, egoid)) > 0
+    right_lane_exists = convert(Float64, get(N_LANE_RIGHT, scene, roadway, egoid)) > 0
     fore_M = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     rear_M = get_neighbor_rear_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
