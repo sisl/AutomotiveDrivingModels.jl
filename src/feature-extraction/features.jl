@@ -475,3 +475,23 @@ function Base.get(::Feature_Is_Colliding, rec::EntityQueueRecord{S,D,I}, roadway
     is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
     FeatureValue(is_colliding)
 end
+
+
+#############################################
+# Compat with new interface
+#############################################
+
+generate_feature_functions("N_Lane_Right", :n_lane_right, Int, "-", lowerbound=0.0)
+function Base.get(::Feature_N_Lane_Right, scene::Frame, roadway::Roadway, vehicle_id)
+    veh = get_by_id(scene, vehicle_id)
+    nlr = get_lane(roadway, veh).tag.lane - 1
+    FeatureValue(convert(Float64, nlr))  # TODO: shouldn't this be int?
+end
+
+generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
+function Base.get(::Feature_N_Lane_Left, scene::Frame, roadway::Roadway, vehicle_id)
+    veh = get_by_id(scene, vehicle_id)
+    seg = roadway[get_lane(roadway, veh).tag.segment]
+    nll = length(seg.lanes) - get_lane(roadway, veh).tag.lane
+    FeatureValue(convert(Float64, nll))  # TODO: shouldn't this be int?
+end
