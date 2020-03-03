@@ -44,7 +44,6 @@ function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{Ve
 end
 function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
-    update!(driver.rec, scene)
     observe!(driver.mlane, scene, roadway, egoid)
 
     lane_change_action = rand(driver.mlane)
