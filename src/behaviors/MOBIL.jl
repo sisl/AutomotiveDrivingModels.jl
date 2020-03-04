@@ -49,8 +49,8 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
     v = vel(veh_ego.state)
     egostate_M = veh_ego.state
 
-    left_lane_exists = convert(Float64, get(N_LANE_LEFT, scene, roadway, egoid)) > 0
-    right_lane_exists = convert(Float64, get(N_LANE_RIGHT, scene, roadway, egoid)) > 0
+    ego_lane = get_lane(roadway, veh_ego)
+
     fore_M = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     rear_M = get_neighbor_rear_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
@@ -60,7 +60,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     advantage_threshold = model.advantage_threshold
 
-    if left_lane_exists
+    if n_lanes_left(ego_lane, roadway) > 0
 
         rear_L = get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
@@ -124,7 +124,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
         end
     end
 
-    if right_lane_exists
+    if n_lanes_right(ego_lane, roadway) > 0
 
         rear_R = get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 

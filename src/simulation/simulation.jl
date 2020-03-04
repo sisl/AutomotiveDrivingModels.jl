@@ -54,7 +54,7 @@ function reset_hidden_states!(models::Dict{Int,M}) where {M<:DriverModel}
 end
 
 """
-    DEPRECATION WARNING: this version of `simulate!` is now deprecated.
+DEPRECATION WARNING: this version of `simulate!` is now deprecated.
 
     simulate!(scene::Frame{E}, roadway::R, models::Dict{I,M<:DriverModel}, nticks::Int64, timestep::Float64; rng::AbstractRNG = Random.GLOBAL_RNG, scenes::Vector{Frame{E}} = [Frame(E, length(scene)) for i=1:nticks+1], callbacks=nothing)
 
@@ -113,7 +113,12 @@ end
 
 
 """
-Simulate a scene. For detailed information, consult the documentation of `simulate!`.
+    simulate(
+        scene::Frame{E}, roadway::R, models::Dict{I,M}, nticks::Int64, timestep::Float64;
+        rng::AbstractRNG = Random.GLOBAL_RNG, callbacks = nothing
+    ) where {E<:Entity,A,R,I,M<:DriverModel}
+
+Simulate a `scene`. For detailed information, consult the documentation of `simulate!`.
 By default, returns a vector containing one scene per time step.
 """
 function simulate(

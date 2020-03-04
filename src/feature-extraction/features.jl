@@ -481,19 +481,19 @@ end
 # Compat with new interface
 #############################################
 
-function Base.get(::Feature_N_Lane_Right, scene::Frame, roadway::Roadway, vehicle_id)
-    veh = get_by_id(scene, vehicle_id)
-    nlr = get_lane(roadway, veh).tag.lane - 1
-    FeatureValue(convert(Float64, nlr))  # TODO: shouldn't this be int? Why FeatureValue and not just return value
-end
+# function Base.get(::Feature_N_Lane_Right, scene::Frame, roadway::Roadway, vehicle_id)
+#     veh = get_by_id(scene, vehicle_id)
+#     nlr = get_lane(roadway, veh).tag.lane - 1
+#     FeatureValue(convert(Float64, nlr))
+# end
 
-# generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
-function Base.get(::Feature_N_Lane_Left, scene::Frame, roadway::Roadway, vehicle_id)
-    veh = get_by_id(scene, vehicle_id)
-    seg = roadway[get_lane(roadway, veh).tag.segment]
-    nll = length(seg.lanes) - get_lane(roadway, veh).tag.lane
-    FeatureValue(convert(Float64, nll))  # TODO: shouldn't this be int? Why FeatureValue and not just return value
-end
+# # generate_feature_functions("N_Lane_Left", :n_lane_left, Int, "-", lowerbound=0.0)
+# function Base.get(::Feature_N_Lane_Left, scene::Frame, roadway::Roadway, vehicle_id)
+#     veh = get_by_id(scene, vehicle_id)
+#     seg = roadway[get_lane(roadway, veh).tag.segment]
+#     nll = length(seg.lanes) - get_lane(roadway, veh).tag.lane
+#     FeatureValue(convert(Float64, nll))
+# end
 
 # WOULD BE NICE: Base.get(scene::Frame{E}, roadway::Roadway, :n_lane_left, :ego)
 # TODO: Define macro that takes care of calling generate_feature_functions

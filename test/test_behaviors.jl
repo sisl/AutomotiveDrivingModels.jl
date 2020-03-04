@@ -115,12 +115,10 @@ end
     set_desired_speed!(models[2], 2.0)
 
     scene = Scene([veh1, veh2])
+    scenes = simulate(scene, roadway, models, n_steps, dt)
 
-    rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
-
-    @test scene[1].state.posF.roadind.tag == LaneTag(1, 3)
-    @test scene[2].state.posF.roadind.tag == LaneTag(1, 1)
+    @test posf(last(scenes)[1]).roadind.tag == LaneTag(1, 3)
+    @test posf(last(scenes)[2]).roadind.tag == LaneTag(1, 1)
 
 end
 
