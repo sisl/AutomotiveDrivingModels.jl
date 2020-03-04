@@ -31,7 +31,7 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     model
 end
 function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int64, fore::NeighborLongitudinalResult) where {D, I}
-    v_ego = vel(scene[vehicle_index])
+    v_ego = vel(scene[vehicle_index].state)
     if fore.ind != nothing
         headway, v_oth = fore.Δs, vel(scene[fore.ind].state)
     else
@@ -43,9 +43,12 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
 
     observe!(driver.mlane, scene, roadway, egoid)
 
-    lane_change_action = rand(driver.mlane)
-    ego = get_by_id(scene, egoid)
     vehicle_index = findfirst(egoid, scene)
+    ego = scene[vehicle_index]
+    lane_change_action = rand(driver.mlane)
+
+    laneoffset = get_lane_offset(lane_change_action, scene, roadway, vehicle_index)
+    lateral_speed = convert(Float64, get(VELFT, scene, roadway, vehicle_index))
 
     if lane_change_action.dir == DIR_MIDDLE
         fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
@@ -56,7 +59,7 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
         fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     end
 
-    track_lateral!(driver.mlat, posf(ego).t, velf(ego).t)
+    track_lateral!(driver.mlat, laneoffset, lateral_speed)
     track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
 
     driver
