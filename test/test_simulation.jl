@@ -23,10 +23,9 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     n_steps = 40
     dt = 0.1
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
-
-    @inferred simulate(scene, roadway, models, n_steps, dt)
+    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     @test_deprecated simulate!(scene, roadway, models, n_steps, dt)
+    @inferred simulate(scene, roadway, models, n_steps, dt)
 
     reset_hidden_states!(models)
 
@@ -41,13 +40,13 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     push!(scene, veh2)
 
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+    @test_deprecated simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) < 10
 
     # make sure warnings, errors and deprecations in run_callback work as expected
-    @test_throws MethodError simulate!(rec, scene, roadway, models, 10, (NoCallback(),))
+    @test_deprecated @test_throws MethodError simulate!(rec, scene, roadway, models, 10, (NoCallback(),))
     @test_deprecated simulate(scene, roadway, models, 10, .1, callbacks=(NoActionCallback(),))
     @test_nowarn simulate(scene, roadway, models, 10, .1, callbacks=(WithActionCallback(),))
 
@@ -62,14 +61,13 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     push!(scene, veh2)
 
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
+    @test_deprecated simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) == 1
 end
 
-
-@testset "trajdata simulation" begin 
+@testset "trajdata simulation" begin
   roadway = get_test_roadway()
   trajdata = get_test_trajdata(roadway)
 

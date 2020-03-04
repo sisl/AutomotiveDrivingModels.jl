@@ -11,7 +11,6 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
     @test_throws MethodError observe!(model, Scene(), roadway, 1)
     @test_throws MethodError prime_with_history!(model, trajdata, roadway, 1, 2, 1)
 
-    @test_throws MethodError get_name(model)
     @test action_type(model) <: FakeDriveAction
     @test_throws MethodError set_desired_speed!(model, 0.0)
     @test_throws ErrorException rand(model)
@@ -25,7 +24,6 @@ end
     models = Dict{Int, DriverModel}()
     models[1] = IntelligentDriverModel(k_spd = 1.0, v_des = 10.0)
     models[2] = IntelligentDriverModel(k_spd = 1.0)
-    get_name(models[1]) == "IDM"
     set_desired_speed!(models[2], 5.0)
     @test models[2].v_des == 5.0
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
@@ -40,7 +38,8 @@ end
     n_steps = 40
     dt = 0.1
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
+    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
+    simulate(scene, roadway, models, n_steps, dt)
 
     @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des)
 
@@ -53,7 +52,8 @@ end
     n_steps = 40
     dt = 0.1
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
+    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
+    simulate(scene, roadway, models, n_steps, dt)
 
     prime_with_history!(IntelligentDriverModel(), rec, roadway, 2)
 
@@ -70,7 +70,8 @@ end
     push!(scene, veh2)
 
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, 1)
+    @test_deprecated simulate!(rec, scene, roadway, models, 1)
+    simulate(scene, roadway, models, 1, dt)
 end
 
 struct FakeLaneChanger <: LaneChangeModel{LaneChangeChoice} end
@@ -87,7 +88,6 @@ struct FakeLaneChanger <: LaneChangeModel{LaneChangeChoice} end
     @test_throws MethodError reset_hidden_state!(model)
     @test_throws MethodError observe!(model, Scene(), roadway, 1)
 
-    @test_throws MethodError get_name(model) 
     @test_throws MethodError set_desired_speed!(model, 0.0)
     @test_throws ErrorException rand(model)
 end
@@ -96,7 +96,6 @@ end
     timestep = 0.1
     lanemodel = MOBIL(timestep)
 
-    @test get_name(lanemodel) == "MOBIL"
     set_desired_speed!(lanemodel,20.0)
     @test lanemodel.mlon.v_des == 20.0
 
@@ -125,7 +124,6 @@ end
 @testset "Tim2DDriver" begin
     timestep = 0.1
     drivermodel = Tim2DDriver(timestep)
-    @test get_name(drivermodel) == "Tim2DDriver"
 
     set_desired_speed!(drivermodel,20.0)
     @test drivermodel.mlon.v_des == 20.0
@@ -148,7 +146,8 @@ end
     scene = Scene([veh1, veh2])
 
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
+    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
+    simulate(scene, roadway, models, n_steps, dt)
 
     @test scene[1].state.posF.roadind.tag == LaneTag(1, 3)
     @test scene[2].state.posF.roadind.tag == LaneTag(1, 2)
@@ -159,17 +158,14 @@ end
 
     models = Dict{Int, DriverModel}()
     models[1] = StaticLaneFollowingDriver()
-    @test get_name(models[1]) == "ProportionalSpeedTracker"
     @test pdf(models[1], LaneFollowingAccel(-1.0)) ≈ 0.0
     @test logpdf(models[1], LaneFollowingAccel(-1.0)) ≈ -Inf
     models[2] = PrincetonDriver(k = 1.0)
-    @test get_name(models[2]) == "PrincetonDriver"
     @test pdf(models[2], LaneFollowingAccel(-1.0)) == Inf
     @test logpdf(models[2], LaneFollowingAccel(-1.0)) == Inf
     set_desired_speed!(models[2], 5.0)
     @test models[2].v_des == 5.0
     models[3] = ProportionalSpeedTracker(k = 1.0)
-    @test get_name(models[3]) == "ProportionalSpeedTracker"
     @test pdf(models[3], LaneFollowingAccel(-1.0)) == Inf
     @test logpdf(models[3], LaneFollowingAccel(-1.0)) == Inf
     set_desired_speed!(models[3], 5.0)
@@ -190,7 +186,8 @@ end
     n_steps = 40
     dt = 0.1
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
+    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
+    simulate(scene, roadway, models, n_steps, dt)
 
     @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1e-3)
     @test isapprox(get_by_id(scene, 3).state.v, models[3].v_des)
@@ -210,7 +207,8 @@ end
     n_steps = 40
     dt = 0.1
     rec = SceneRecord(n_steps, dt)
-    simulate!(rec, scene, roadway, models, n_steps)
+    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
+    simulate(scene, roadway, models, n_steps, dt)
 
     
     @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1.0)
@@ -262,7 +260,6 @@ end
                                 sw_dest = roadway[LaneTag(1,1)]
                                 )
     @test ped.ttc_threshold >= 1.0
-    @test get_name(ped) == "SidewalkPedestrianModel"
 
     timestep = 0.1
 
@@ -299,7 +296,8 @@ end
     nticks = 300
     rec = SceneRecord(nticks+1, timestep)
     # Execute the simulation
-    simulate!(rec, scene, roadway, models, nticks)
+    @test_deprecated simulate!(rec, scene, roadway, models, nticks)
+    simulate(scene, roadway, models, nticks, timestep)
 
     ped = get_by_id(rec[0], ped_id)
 end
