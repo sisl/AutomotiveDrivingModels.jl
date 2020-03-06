@@ -3,6 +3,7 @@ AutoViz = "82aa6e0c-a491-5edf-8d4b-c16b98e4ea17"
 AutomotiveDrivingModels = "99497e54-f3d6-53d3-a3a9-fa9315a7f1ba"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Records = "5984c134-fa48-5ed5-a57f-fc2f6936871f"
+Reel = "71555da5-176e-5e73-a222-aebc6c6e4f2f"
 
 [compat]
 AutoViz = "^0.8.0"
