@@ -8,7 +8,7 @@ In this notebook, we will be creating a sidewalk environment in which
 using Parameters
 using AutomotiveDrivingModels
 using AutoViz
-using Interact
+AutoViz.colortheme["background"] = colorant"white"; # hide
 using Cairo
 
 # Define sidewalk IDs

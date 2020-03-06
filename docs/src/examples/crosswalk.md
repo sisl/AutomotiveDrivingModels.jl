@@ -12,6 +12,7 @@ and the crosswalk definition which is just a regular lane.
 ```@example crosswalk
 using AutomotiveDrivingModels
 using AutoViz
+AutoViz.colortheme["background"] = colorant"white"; # hide
 using Random
 
 struct CrosswalkEnv

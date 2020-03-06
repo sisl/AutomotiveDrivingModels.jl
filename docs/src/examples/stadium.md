@@ -15,6 +15,7 @@ We load relevant modules and generate a 3-lane stadium roadway:
 ```@example driving_in_circles
 using AutomotiveDrivingModels
 using AutoViz
+AutoViz.colortheme["background"] = colorant"white"; # hide
 using Distributions
 
 roadway = gen_stadium_roadway(3)

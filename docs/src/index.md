@@ -14,18 +14,27 @@ See the specific section of the documentation for a more thorough explanation.
 
 This package provides a default structure for representing entity states, entities, scenes, driver models and actions.
 However it has been designed to support custom types. 
+
+`AutomotiveDrivingModels` is templated to efficiently run simulations with different types of entities.
+An entity represents an agent in the simulation, and it is parameterized by
+
+- `S`: state of the entity, may change over time
+- `D`: definition of the entity, does not change over time
+- `I`: unique identifier for the entity, typically an `Int64` or `Symbol`
+
+In addition to the state, definition and identifier for each simulation agent,
+one can also customize the actions, environment and the driver models used by
+the agents.
+
 Each section of the documentation contains an interface, which is a list of functions that a user must implement to use its own types.
 
-```@contents
-Pages = [
-    "Roadways.md",
-    "actions.md",
-    "states.md",
-    "agent_definitions.md",
-    "behaviors.md",
-    "simulation.md",
-    "collision_checkers.md",
-    "feature_extraction.md",
-    "examples.md",
-]
-```
+## Examples
+
+The following examples will showcase some of the simulation functionality of `AutomotiveDrivingModels`
+
+- [Driving on a Straight Roadway](@ref)
+- [Driving in a Stadium](@ref)
+- [Intersection](@ref)
+- [Crosswalk](@ref)
+- [Sidewalk](@ref)
+

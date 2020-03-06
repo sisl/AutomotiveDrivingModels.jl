@@ -10,6 +10,7 @@ In order to generate the road network, we first initialize a Roadway object.
 ```@example intersection
 using AutomotiveDrivingModels
 using AutoViz
+AutoViz.colortheme["background"] = colorant"white"; # hide
 using Random
 
 roadway = Roadway()

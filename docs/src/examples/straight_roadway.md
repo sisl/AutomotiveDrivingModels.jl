@@ -13,6 +13,7 @@ We use a `StraightRoadway` as our environment and `LaneFollowingDriver`s that pr
 ```@example straight_roadway
 using AutomotiveDrivingModels
 using AutoViz
+AutoViz.colortheme["background"] = colorant"white"; # hide
 
 roadway = StraightRoadway(200.)  # 200m long straight roadway
 scene = Scene1D([
