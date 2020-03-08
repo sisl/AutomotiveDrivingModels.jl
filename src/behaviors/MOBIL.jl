@@ -3,11 +3,10 @@
 See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 
 # Constructor
-	MOBIL(timestep::Float64;rec::SceneRecord=SceneRecord(2,timestep), mlon::LaneFollowingDriver=IntelligentDriverModel(),safe_decel::Float64=2.0,       politeness::Float64=0.35,advantage_threshold::Float64=0.1)
+	MOBIL(timestep::Float64;mlon::LaneFollowingDriver=IntelligentDriverModel(),safe_decel::Float64=2.0,       politeness::Float64=0.35,advantage_threshold::Float64=0.1)
 
 # Fields
 - `dir::Int`
-- `rec::SceneRecord`
 - `mlon::LaneFollowingDriver=IntelligentDriverModel()`
 - `safe_decel::Float64=2.0`
 - `politeness::Float64=0.35`
@@ -15,7 +14,6 @@ See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 """
 @with_kw mutable struct MOBIL <: LaneChangeModel{LaneChangeChoice}
     dir::Int64
-    rec::SceneRecord
     mlon::LaneFollowingDriver
     safe_decel::Float64 # safe deceleration (positive value)
     politeness::Float64 # politeness factor (suggested p ∈ [0.2,0.5])
@@ -24,13 +22,12 @@ end
 
 function MOBIL(
     timestep::Float64;
-    rec::SceneRecord=SceneRecord(2,timestep),
     mlon::LaneFollowingDriver=IntelligentDriverModel(),
     safe_decel::Float64=2.0, # [m/s²]
     politeness::Float64=0.35,
     advantage_threshold::Float64=0.1,
     )
-    return MOBIL(DIR_MIDDLE, rec, mlon, safe_decel, politeness, advantage_threshold)
+    return MOBIL(DIR_MIDDLE, mlon, safe_decel, politeness, advantage_threshold)
 end
 
 """
@@ -47,16 +44,13 @@ function set_desired_speed!(model::MOBIL, v_des::Float64)
 end
 function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
-    rec = model.rec
-    update!(rec, scene)
-
-    vehicle_index = findfirst(egoid, rec[0])
+    vehicle_index = findfirst(egoid, scene)
     veh_ego = scene[vehicle_index]
     v = vel(veh_ego.state)
     egostate_M = veh_ego.state
 
-    left_lane_exists = convert(Float64, get(N_LANE_LEFT, rec, roadway, vehicle_index)) > 0
-    right_lane_exists = convert(Float64, get(N_LANE_RIGHT, rec, roadway, vehicle_index)) > 0
+    ego_lane = get_lane(roadway, veh_ego)
+
     fore_M = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
     rear_M = get_neighbor_rear_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
@@ -66,7 +60,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     advantage_threshold = model.advantage_threshold
 
-    if left_lane_exists
+    if n_lanes_left(ego_lane, roadway) > 0
 
         rear_L = get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
@@ -130,7 +124,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
         end
     end
 
-    if right_lane_exists
+    if n_lanes_right(ego_lane, roadway) > 0
 
         rear_R = get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 

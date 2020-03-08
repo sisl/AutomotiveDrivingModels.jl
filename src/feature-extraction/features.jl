@@ -10,13 +10,21 @@ end
 function Base.get(::Feature_Speed, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
     FeatureValue(vel(rec[pastframe][vehicle_index].state))
 end
-function Base.get(::Feature_VelFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
-    veh = rec[pastframe][vehicle_index]
+
+function Base.get(::Feature_VelFs, scene::Frame, roadway::R, vehicle_index::Int, pastframe::Int=0) where {R}
+    veh = scene[vehicle_index]
     FeatureValue(velf(veh.state).s)
 end
-function Base.get(::Feature_VelFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
-    veh = rec[pastframe][vehicle_index]
+function Base.get(f::Feature_VelFs, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
+    get(f, rec[pastframe], roadway, vehicle_index)
+end
+
+function Base.get(::Feature_VelFt, scene::Frame, roadway::R, vehicle_index::Int, pastframe::Int=0) where {R}
+    veh = scene[vehicle_index]
     FeatureValue(velf(veh.state).t)
+end
+function Base.get(f::Feature_VelFt, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0) where {S,D,I,R}
+    get(f, rec[pastframe], roadway, vehicle_index)
 end
 
 generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
@@ -138,8 +146,8 @@ function Base.get(::Feature_RoadEdgeDist_Right, rec::SceneRecord, roadway::Roadw
     FeatureValue(lane.width/2 + norm(VecE2(curvept.pos - footpoint)) + offset)
 end
 generate_feature_functions("LaneOffsetLeft", :posFtL, Float64, "m", can_be_missing=true)
-function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh_ego = rec[pastframe][vehicle_index]
+function Base.get(::Feature_LaneOffsetLeft, scene::Frame, roadway::Roadway, vehicle_index::Int)
+    veh_ego = scene[vehicle_index]
     t = posf(veh_ego.state).t
     lane = get_lane(roadway, veh_ego)
     if n_lanes_left(lane, roadway) > 0
@@ -150,9 +158,12 @@ function Base.get(::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, 
         FeatureValue(NaN, FeatureState.MISSING)
     end
 end
+function Base.get(f::Feature_LaneOffsetLeft, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    get(f, rec[pastframe], roadway, vehicle_index)
+end
 generate_feature_functions("LaneOffsetRight", :posFtR, Float64, "m", can_be_missing=true)
-function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    veh_ego = rec[pastframe][vehicle_index]
+function Base.get(::Feature_LaneOffsetRight, scene::Frame, roadway::Roadway, vehicle_index::Int)
+    veh_ego = scene[vehicle_index]
     t = posf(veh_ego.state).t
     lane = get_lane(roadway, veh_ego)
     if n_lanes_right(lane, roadway) > 0
@@ -162,6 +173,9 @@ function Base.get(::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway,
     else
         FeatureValue(NaN, FeatureState.MISSING)
     end
+end
+function Base.get(f::Feature_LaneOffsetRight, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
+    get(f, rec[pastframe], roadway, vehicle_index)
 end
 generate_feature_functions("N_Lane_Right", :n_lane_right, Int, "-", lowerbound=0.0)
 function Base.get(::Feature_N_Lane_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
@@ -475,3 +489,6 @@ function Base.get(::Feature_Is_Colliding, rec::EntityQueueRecord{S,D,I}, roadway
     is_colliding = convert(Float64, get_first_collision(scene, vehicle_index, mem).is_colliding)
     FeatureValue(is_colliding)
 end
+
+# WOULD BE NICE: Base.get(scene::Frame{E}, roadway::Roadway, :n_lane_left, :ego)
+# TODO: Define macro that takes care of calling generate_feature_functions

@@ -3,16 +3,14 @@
 Driver that combines longitudinal driver and lateral driver into one model.
 
 # Constructors
-	Tim2DDriver(timestep::Float64;mlon::LaneFollowingDriver=IntelligentDriverModel(), mlat::LateralDriverModel=ProportionalLaneTracker(), mlane::LaneChangeModel=TimLaneChanger(timestep),rec::SceneRecord = SceneRecord(1, timestep))
+	Tim2DDriver(timestep::Float64;mlon::LaneFollowingDriver=IntelligentDriverModel(), mlat::LateralDriverModel=ProportionalLaneTracker(), mlane::LaneChangeModel=TimLaneChanger(timestep))
 
 # Fields
-- `rec::SceneRecord` A record that will hold the resulting simulation results
 - `mlon::LaneFollowingDriver = IntelligentDriverModel()` Longitudinal driving model
 - `mlat::LateralDriverModel = ProportionalLaneTracker()` Lateral driving model
 - `mlane::LaneChangeModel =TimLaneChanger` Lane change model
 """
 mutable struct Tim2DDriver <: DriverModel{LatLonAccel}
-    rec::SceneRecord
     mlon::LaneFollowingDriver
     mlat::LateralDriverModel
     mlane::LaneChangeModel
@@ -22,9 +20,8 @@ function Tim2DDriver(
         mlon::LaneFollowingDriver=IntelligentDriverModel(),
         mlat::LateralDriverModel=ProportionalLaneTracker(),
         mlane::LaneChangeModel=TimLaneChanger(timestep),
-        rec::SceneRecord = SceneRecord(1, timestep)
         )
-    return Tim2DDriver(rec, mlon, mlat, mlane)
+    return Tim2DDriver(mlon, mlat, mlane)
 end
 
 get_name(::Tim2DDriver) = "Tim2DDriver"
@@ -33,7 +30,7 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     set_desired_speed!(model.mlane, v_des)
     model
 end
-function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::I, fore::NeighborLongitudinalResult) where {D, I}
+function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int64, fore::NeighborLongitudinalResult) where {D, I}
     v_ego = vel(scene[vehicle_index].state)
     if fore.ind != nothing
         headway, v_oth = fore.Δs, vel(scene[fore.ind].state)
@@ -44,13 +41,14 @@ function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{Ve
 end
 function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
-    update!(driver.rec, scene)
     observe!(driver.mlane, scene, roadway, egoid)
 
     vehicle_index = findfirst(egoid, scene)
+    ego = scene[vehicle_index]
     lane_change_action = rand(driver.mlane)
-    laneoffset = get_lane_offset(lane_change_action, driver.rec, roadway, vehicle_index)
-    lateral_speed = convert(Float64, get(VELFT, driver.rec, roadway, vehicle_index))
+
+    laneoffset = get_lane_offset(lane_change_action, scene, roadway, vehicle_index)
+    lateral_speed = convert(Float64, get(VELFT, scene, roadway, vehicle_index))
 
     if lane_change_action.dir == DIR_MIDDLE
         fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
