@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Driving on a Straight Roadway · AutomotiveDrivingModels.jl</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">AutomotiveDrivingModels.jl</span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Driving on a Straight Roadway</a></li><li><a class="tocitem" href="../stadium/">Driving in a Stadium</a></li><li><a class="tocitem" href="../intersection/">Intersection</a></li><li><a class="tocitem" href="../crosswalk/">Crosswalk</a></li><li><a class="tocitem" href="../sidewalk/">Sidewalk</a></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../Roadways/">Roadways</a></li><li><a class="tocitem" href="../../actions/">Driving Actions</a></li><li><a class="tocitem" href="../../states/">States</a></li><li><a class="tocitem" href="../../agent_definitions/">Agent Definition</a></li><li><a class="tocitem" href="../../behaviors/">Behaviors</a></li><li><a class="tocitem" href="../../simulation/">Simulation</a></li><li><a class="tocitem" href="../../collision_checkers/">Collision Checker</a></li><li><a class="tocitem" href="../../feature_extraction/">Feature Extraction [WIP]</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Driving on a Straight Roadway</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Driving on a Straight Roadway</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/sisl/AutomotiveDrivingModels.jl/blob/master/docs/src/examples/straight_roadway.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Driving-on-a-Straight-Roadway-1"><a class="docs-heading-anchor" href="#Driving-on-a-Straight-Roadway-1">Driving on a Straight Roadway</a><a class="docs-heading-anchor-permalink" href="#Driving-on-a-Straight-Roadway-1" title="Permalink"></a></h1><p>This notebook demonstrates a simple, one-dimensional driving simulation in which cars drive along a straight roadway. The types are:</p><ul><li><code>S</code> - <code>State1D</code>, containing the vehicle position and speed</li><li><code>D</code> - <code>VehicleDef</code>, containing length, width, and class</li><li><code>I</code> - <code>Int</code>, a unique label for each vehicle`</li></ul><p>We use a <code>StraightRoadway</code> as our environment and <code>LaneFollowingDriver</code>s that produce <code>LaneFollowingAccel</code>s.</p><pre><code class="language-julia">using AutomotiveDrivingModels
+using AutoViz
+
+roadway = StraightRoadway(200.)  # 200m long straight roadway
+scene = Scene1D([
+    Entity(State1D(10.0,  8.0), VehicleDef(), 1),
+    Entity(State1D(50.0, 12.5), VehicleDef(), 2),
+    Entity(State1D(150.0, 6.0), VehicleDef(), 3),
+])
+
+camera = StaticCamera(position=VecE2(100.0,0.0), zoom=4.75, canvas_height=100)
+renderables = [roadway, scene]::Vector{Any}
+snapshot = render(renderables, camera=camera)</code></pre><pre><code class="language-none">┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = ip:0x0
+└ @ Core :-1</code></pre><p><img src="../straight_roadway.svg" alt="three cars on road"/></p><p>In the call to the <code>render</code> function, we used the default rendering behavior for entities. More advanced examples will show how the rendering of entities can be customized.</p><p>We can add an overlay that displays the car id:</p><pre><code class="language-julia">for veh in scene
+    push!(renderables,
+        TextOverlay(text=[&quot;$(veh.id)&quot;], coordinate_system=:scene, pos=VecE2(veh.state.s-0.7, 3))
+    )
+end
+snapshot = render(renderables, camera=camera)</code></pre><p><img src="../straight_roadway_with_id.svg" alt="three cars with id"/></p><p>Alternatively, we can create a new <code>SceneOverlay</code> object which takes care of displaying information for us:</p><pre><code class="language-">using Parameters
+@with_kw struct CarIDOverlay &lt;: SceneOverlay
+    scene::Scene1D
+    roadway::StraightRoadway
+    textparams::TextParams=TextParams()
+end
+function AutoViz.add_renderable!(rendermodel::RenderModel, overlay::CarIDOverlay)
+    for veh in overlay.scene
+        x = veh.state.s - 0.7
+        y = 3.0
+        text = string(veh.id)
+        add_instruction!(rendermodel, render_text, (text, x, y, overlay.textparams.size, overlay.textparams.color), coordinate_system=:scene)
+    end
+    return rendermodel
+end
+
+snapshot = render([roadway, scene, CarIDOverlay(scene=scene, roadway=roadway)], camera=camera)
+write(&quot;straight_roadway_with_overlay.svg&quot;, snapshot) # hide</code></pre><p><img src="straight_roadway_with_overlay.svg" alt="three vehicles with custom overlay"/></p><p>To run a simulation we need driving models that produce actions. For this we will use <code>LaneFollowingDriver</code>s that produce <code>LaneFollowingAccel</code>s. For this demo, we will give each car a different model.</p><pre><code class="language-julia">models = Dict{Int, LaneFollowingDriver}(
+    1 =&gt; StaticLaneFollowingDriver(0.0), # always produce zero acceleration
+    2 =&gt; IntelligentDriverModel(v_des=12.0), # default IDM with a desired speed of 12 m/s
+    3 =&gt; PrincetonDriver(v_des = 10.0), # default Princeton driver with a desired speed of 10m/s
+)
+
+nticks = 100
+timestep = 0.1
+scenes = simulate(scene, roadway, models, nticks, timestep)</code></pre><pre><code class="language-none">┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = #simulate!#82(::Random._GLOBAL_RNG, ::Nothing, ::typeof(simulate!), ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Dict{Int64,LaneFollowingDriver}, ::Int64, ::Float64, ::Array{Frame{Entity{State1D,VehicleDef,Int64}},1}, ::Nothing) at simulation.jl:194
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/simulation/simulation.jl:194
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::StaticLaneFollowingDriver, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:180
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:180
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = get_neighbor_fore(::Frame{Entity{State1D,VehicleDef,Int64}}, ::Int64, ::StraightRoadway) at deprecated.jl:138
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:138
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = get_headway(::Entity{State1D,VehicleDef,Int64}, ::Entity{State1D,VehicleDef,Int64}, ::StraightRoadway) at deprecated.jl:129
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:129
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = get_headway(::Entity{State1D,VehicleDef,Int64}, ::Entity{State1D,VehicleDef,Int64}, ::StraightRoadway) at deprecated.jl:129
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:129
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::StaticLaneFollowingDriver, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:182
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:182
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::StaticLaneFollowingDriver, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:183
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:183
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = #simulate!#82(::Random._GLOBAL_RNG, ::Nothing, ::typeof(simulate!), ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Dict{Int64,LaneFollowingDriver}, ::Int64, ::Float64, ::Array{Frame{Entity{State1D,VehicleDef,Int64}},1}, ::Nothing) at simulation.jl:197
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/simulation/simulation.jl:197
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::IntelligentDriverModel, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:180
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:180
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::IntelligentDriverModel, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:182
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:182
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::IntelligentDriverModel, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:183
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:183
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::PrincetonDriver, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:180
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:180
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::PrincetonDriver, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:182
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:182
+┌ Warning:     State1D, Vehicle1D, and Scene1D are deprecated, use VehicleState, Vehicle, and Scene instead.
+│   caller = observe!(::PrincetonDriver, ::Frame{Entity{State1D,VehicleDef,Int64}}, ::StraightRoadway, ::Int64) at deprecated.jl:183
+└ @ AutomotiveDrivingModels ~/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:183</code></pre><p>We can visualize the simulation as a sequence of images, for example using the <code>Reel</code> package</p><pre><code class="language-">using Reel
+
+animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
+    i = Int(floor(t/dt)) + 1
+    renderables = [roadway, scenes[i], CarIDOverlay(scene=scenes[i], roadway=roadway)]
+    render(renderables, camera=camera)
+end
+write(&quot;straight_roadway_animated.gif&quot;, animation) # hide
+nothing # hide</code></pre><p><img src="straight_roadway_animated.gif" alt="three vehicles animated"/></p><p>In order to inspect the simulation interactively, we can use the <code>Interact</code> package</p><pre><code class="language-julia">using Interact
+using Blink
+using ElectronDisplay
+
+w = Window()
+viz = @manipulate for step in 1 : length(scenes)
+    renderables = [roadway, scenes[step], CarIDOverlay(scene=scenes[step], roadway=roadway)]
+    render(renderables, camera=camera)
+end
+body!(w, viz)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../stadium/">Driving in a Stadium »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 8 March 2020 23:52">Sunday 8 March 2020</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

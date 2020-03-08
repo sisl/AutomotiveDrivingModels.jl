@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Sidewalk · AutomotiveDrivingModels.jl</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">AutomotiveDrivingModels.jl</span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../straight_roadway/">Driving on a Straight Roadway</a></li><li><a class="tocitem" href="../stadium/">Driving in a Stadium</a></li><li><a class="tocitem" href="../intersection/">Intersection</a></li><li><a class="tocitem" href="../crosswalk/">Crosswalk</a></li><li class="is-active"><a class="tocitem" href>Sidewalk</a></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../Roadways/">Roadways</a></li><li><a class="tocitem" href="../../actions/">Driving Actions</a></li><li><a class="tocitem" href="../../states/">States</a></li><li><a class="tocitem" href="../../agent_definitions/">Agent Definition</a></li><li><a class="tocitem" href="../../behaviors/">Behaviors</a></li><li><a class="tocitem" href="../../simulation/">Simulation</a></li><li><a class="tocitem" href="../../collision_checkers/">Collision Checker</a></li><li><a class="tocitem" href="../../feature_extraction/">Feature Extraction [WIP]</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Sidewalk</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Sidewalk</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/sisl/AutomotiveDrivingModels.jl/blob/master/docs/src/examples/sidewalk.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Sidewalk-1"><a class="docs-heading-anchor" href="#Sidewalk-1">Sidewalk</a><a class="docs-heading-anchor-permalink" href="#Sidewalk-1" title="Permalink"></a></h1><p>In this notebook, we will be creating a sidewalk environment in which  pedestrians can walk along the sidewalk and cross the street as cars pass.</p><pre><code class="language-">using Parameters
+using AutomotiveDrivingModels
+using AutoViz
+AutoViz.colortheme[&quot;background&quot;] = colorant&quot;white&quot;; # hide
+using Cairo
+
+# Define sidewalk IDs
+const TOP = 1
+const BOTTOM = 2
+nothing # hide</code></pre><h3 id="Creating-the-Environment-1"><a class="docs-heading-anchor" href="#Creating-the-Environment-1">Creating the Environment</a><a class="docs-heading-anchor-permalink" href="#Creating-the-Environment-1" title="Permalink"></a></h3><p>Here, we create a new type of environment called SidewalkEnv. It consists of a roadway, crosswalk, and sidewalk. A sidewalk is a Vector of Lanes that run alongside the road.</p><pre><code class="language-">@with_kw mutable struct SidewalkEnv
+    roadway::Roadway
+    crosswalk::Lane
+    sidewalk::Vector{Lane}
+end;
+nothing # hide</code></pre><h4 id="Defining-the-Sidewalk-1"><a class="docs-heading-anchor" href="#Defining-the-Sidewalk-1">Defining the Sidewalk</a><a class="docs-heading-anchor-permalink" href="#Defining-the-Sidewalk-1" title="Permalink"></a></h4><p>We define the sidewalk&#39;s parameters.</p><pre><code class="language-julia"># Geometry parameters
+roadway_length = 100.
+crosswalk_length = 15.
+crosswalk_width = 6.0
+crosswalk_pos = roadway_length/2
+sidewalk_width = 3.0
+sidewalk_pos = crosswalk_length/2 - sidewalk_width / 2</code></pre><p>Now we create the sidewalk environment.  Our environment will consist of:</p><ul><li>1-way road with 2 lanes</li><li>Unsignalized zebra crosswalk perpendicular to the road</li><li>Sidewalks above and below the road</li></ul><pre><code class="language-"># Generate straight roadway of length roadway_length with 2 lanes.
+# Returns a Roadway type (Array of segments).
+# There is already a method to generate a simple straight roadway, which we use here.
+roadway = gen_straight_roadway(2, roadway_length) 
+
+# Generate the crosswalk.
+# Our crosswalk does not have a predefined method for generation, so we define it with a LaneTag and a curve.
+n_samples = 2 # for curve generation
+crosswalk = Lane(LaneTag(2,1), gen_straight_curve(VecE2(crosswalk_pos, -crosswalk_length/2),
+                                                  VecE2(crosswalk_pos, crosswalk_length/2),
+                                                   n_samples), width = crosswalk_width)
+cw_segment = RoadSegment(2, [crosswalk])
+push!(roadway.segments, cw_segment) # Append the crosswalk to the roadway
+
+# Generate the sidewalk.
+top_sidewalk = Lane(LaneTag(3, TOP), gen_straight_curve(VecE2(0., sidewalk_pos),
+                                                      VecE2(roadway_length, sidewalk_pos),
+                                                        n_samples), width = sidewalk_width)
+bottom_sidewalk = Lane(LaneTag(3, BOTTOM), gen_straight_curve(VecE2(0., -(sidewalk_pos - sidewalk_width)),
+                                                          VecE2(roadway_length, -(sidewalk_pos - sidewalk_width)),
+                                                            n_samples), width = sidewalk_width) 
+    # Note: we subtract the sidewalk_width from the sidewalk position so that the edge is flush with the road.
+
+
+sw_segment = RoadSegment(3, [top_sidewalk, bottom_sidewalk])
+push!(roadway.segments, sw_segment)
+
+# Initialize crosswalk environment
+env = SidewalkEnv(roadway, crosswalk, [top_sidewalk, bottom_sidewalk]);
+nothing # hide</code></pre><p>Since there is no defined <code>add_renderable!</code> method for the crosswalk and the sidewalk, we must define it ourselves.</p><pre><code class="language-">function AutoViz.add_renderable!(rendermodel::RenderModel, env::SidewalkEnv)
+    # Render sidewalk
+    for sw in env.sidewalk
+        curve = sw.curve
+        n = length(curve)
+        pts = Array{Float64}(undef, 2, n)
+        for (i,pt) in enumerate(curve)
+            pts[1,i] = pt.pos.x
+            pts[2,i] = pt.pos.y
+        end
+        add_instruction!(rendermodel, render_line, (pts, colorant&quot;grey&quot;, sw.width, Cairo.CAIRO_LINE_CAP_BUTT))
+    end
+    
+    # Render roadway
+    roadway = gen_straight_roadway(2, roadway_length)
+    add_renderable!(rendermodel, roadway)
+    
+    # Render crosswalk
+    curve = env.crosswalk.curve
+    n = length(curve)
+    pts = Array{Float64}(undef, 2, n)
+    for (i,pt) in enumerate(curve)
+        pts[1,i] = pt.pos.x
+        pts[2,i] = pt.pos.y
+    end
+
+    # We can add render instructions from AutoViz.
+    # Here we want the crosswalk to appear as a white-striped zebra crossing rather than a road.
+    add_instruction!(rendermodel, render_dashed_line, (pts, colorant&quot;white&quot;, env.crosswalk.width, 1.0, 1.0, 0.0, Cairo.CAIRO_LINE_CAP_BUTT))
+
+    return rendermodel
+end</code></pre><pre><code class="language-">render([env]);</code></pre><p>Now we can define our pedestrian.</p><pre><code class="language-"># We define its class and the dimensions of its bounding box.
+const PEDESTRIAN_DEF = VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0)
+nothing # hide</code></pre><p>We assign models to each agent in the scene.</p><pre><code class="language-">timestep = 0.1
+
+# Crossing pedestrian definition
+ped_init_state = VehicleState(VecSE2(49.0,-3.0,0.), env.sidewalk[BOTTOM], roadway, 1.3)
+ped = Entity(ped_init_state, PEDESTRIAN_DEF, :pedestrian)
+
+# Car definition
+car_initial_state = VehicleState(VecSE2(0.0, 0., 0.), roadway.segments[1].lanes[1],roadway, 8.0)
+car = Entity(car_initial_state, VehicleDef(), :car)
+
+scene = Frame([ped, car])
+
+# Define a model for each entity present in the scene
+models = Dict{Symbol, DriverModel}(
+    :pedestrian =&gt; SidewalkPedestrianModel(
+        timestep=timestep, crosswalk=env.crosswalk,
+        sw_origin = env.sidewalk[BOTTOM], sw_dest = env.sidewalk[TOP]
+    ),
+    :car        =&gt; LatLonSeparableDriver( # produces LatLonAccels
+        ProportionalLaneTracker(), # lateral model
+        IntelligentDriverModel(), # longitudinal model
+    )
+)
+nothing # hide</code></pre><h3 id="Simulate-1"><a class="docs-heading-anchor" href="#Simulate-1">Simulate</a><a class="docs-heading-anchor-permalink" href="#Simulate-1" title="Permalink"></a></h3><p>Finally, we simulate and visualize the scene.</p><pre><code class="language-">using Reel
+
+nticks = 300
+scenes = simulate(scene, roadway, models, nticks, timestep)
+
+animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
+    i = Int(floor(t/dt)) + 1
+    render([env, scenes[i]])
+end;
+write(&quot;sidewalk_animation.gif&quot;, animation); # hide
+nothing # hide</code></pre><p><img src="sidewalk_animation.gif" alt="sidewalk animation"/></p><p>We can use a slider to scroll through each frame in the simulation. This usually takes less time than rendering a video.</p><pre><code class="language-julia">using Interact
+using Reel
+using Blink
+
+w = Window()
+viz = @manipulate for i in 1 : length(scenes)
+    render([env, scenes[i]])
+end
+body!(w, viz)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../crosswalk/">« Crosswalk</a><a class="docs-footer-nextpage" href="../../Roadways/">Roadways »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 8 March 2020 23:52">Sunday 8 March 2020</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
