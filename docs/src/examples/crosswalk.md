@@ -130,8 +130,6 @@ mutable struct LinearDriver <: DriverModel{LaneFollowingAccel}
     k::Float64 # gain
 end
 
-AutomotiveDrivingModels.get_name(model::LinearDriver) = "linear driver"
-
 function AutomotiveDrivingModels.observe!(model::LinearDriver, scene::Frame, roadway::Roadway, egoid) 
     model.a = LaneFollowingAccel(model.k*model.p)
     # change the confidence based on some policy
