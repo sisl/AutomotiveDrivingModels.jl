@@ -11,11 +11,10 @@ We provide an interface to interact with behavior model or implement your own. T
 
 ```@docs
     DriverModel{DriveAction}
-    get_name(::DriverModel)
     action_type(::DriverModel{A}) where A
-    set_desired_speed!(model::DriverModel, v_des::Float64)
-    reset_hidden_state!(model::DriverModel)
-    observe!(model::DriverModel, scene::EntityFrame{S,D,I}, roadway, egoid::I) where {S,D,I}
+    set_desired_speed!
+    reset_hidden_state!
+    observe!
     Base.rand(model::DriverModel)
 ```
 

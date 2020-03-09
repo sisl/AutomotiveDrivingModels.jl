@@ -194,7 +194,7 @@ Here we will define the simplest model, which is to repeat the same action.
 struct InterDriver <: DriverModel{LaneSpecificAccelLatLon}
     a::LaneSpecificAccelLatLon
 end
-AutomotiveDrivingModels.get_name(model::InterDriver) = "InterDriver"
+
 AutomotiveDrivingModels.observe!(model::InterDriver, scene::Scene, roadway::Roadway, egoid::Int64) = model
 Base.rand(::AbstractRNG, model::InterDriver) = model.a
 ```

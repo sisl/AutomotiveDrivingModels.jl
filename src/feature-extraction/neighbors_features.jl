@@ -24,8 +24,14 @@ get_targetpoint_delta(::VehicleTargetPointRear, veh::Entity{S, D, I}) where {S,D
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
 """
+    get_neighbor_fore_along_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway; max_distance_fore::Float64 = 250.0) 
     get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, roadway::Roadway, tag_start::LaneTag, s_base::Float64, targetpoint_primary::VehicleTargetPoint, targetpoint_valid::VehicleTargetPoint;
                                  max_distance_fore::Float64 = 250.0, index_to_ignore::Int=-1) where {S,D<:AbstractAgentDefinition,I}
+    
+                                 get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway, targetpoint_ego::VehicleTargetPoint, targetpoint_primary::VehicleTargetPoint, # the reference point whose distance we want to minimize
+    targetpoint_valid::VehicleTargetPoint; # the reference point, which if distance to is positive, we include the vehicle
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    ) where {S,D<:AbstractAgentDefinition,I}
 
 Return the index and the longitudinal distance of the vehicle that is in the same lane as scene[vehicle_index] and
 in front of it with the smallest distance along the lane. The result is returned as a `NeighborLongitudinalResult` object.
@@ -122,6 +128,53 @@ function get_neighbor_fore_along_lane(
         targetpoint_primary, targetpoint_valid,
         max_distance_fore=max_distance_fore, index_to_ignore=vehicle_index)
 end
+function get_neighbor_fore_along_lane(
+    scene::EntityFrame{S,D,I},
+    roadway::Roadway,
+    tag_start::LaneTag,
+    s_base::Float64;
+    max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
+    index_to_ignore::Int=-1,
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+    get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        max_distance_fore=max_distance_fore,
+        index_to_ignore=index_to_ignore)
+end
+function get_neighbor_fore_along_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    ) 
+
+    get_neighbor_fore_along_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
+end
+
+"""
+    get_neighbor_fore_along_left_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway; max_distance_fore::Float64 = 250.0 )
+    get_neighbor_fore_along_left_lane(
+    scene::EntityFrame{S,D,I},
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint,
+    targetpoint_valid::VehicleTargetPoint;
+    max_distance_fore::Float64 = 250.0
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+Returns the information about the front neighbor of a vehicle on its left lane. 
+
+# Arguments
+
+- `scene` the scene containing all vehicles information 
+- `vehicle_index` the index of the vehicle in the scene for which we want to find the neighbor (ego vehicle)
+- `roadway` the roadway layout 
+- `targetpoint_ego` a target point on the ego vehicle that will be used to calculate the distance 
+- `targetpoint_primary` the reference point whose distance we want to minimize
+- `targetpoint_valid` the reference point, which if distance to is positive, we include the vehicle
+- `max_distance_fore` max distance to search forward [m]
+"""
 function get_neighbor_fore_along_left_lane(
     scene::EntityFrame{S,D,I},
     vehicle_index::Int,
@@ -150,6 +203,39 @@ function get_neighbor_fore_along_left_lane(
 
     retval
 end
+function get_neighbor_fore_along_left_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway;
+    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
+    )
+
+    get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
+end
+
+"""
+    get_neighbor_fore_along_right_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway; max_distance_fore::Float64 = 250.0 )
+    get_neighbor_fore_along_right_lane(
+    scene::EntityFrame{S,D,I},
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint,
+    targetpoint_valid::VehicleTargetPoint;
+    max_distance_fore::Float64 = 250.0
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+Returns the information about the front neighbor of a vehicle on its right lane. 
+
+# Arguments
+
+- `scene` the scene containing all vehicles information 
+- `vehicle_index` the index of the vehicle in the scene for which we want to find the neighbor (ego vehicle)
+- `roadway` the roadway layout 
+- `targetpoint_ego` a target point on the ego vehicle that will be used to calculate the distance 
+- `targetpoint_primary` the reference point whose distance we want to minimize
+- `targetpoint_valid` the reference point, which if distance to is positive, we include the vehicle
+- `max_distance_fore` max distance to search forward [m]
+"""
 function get_neighbor_fore_along_right_lane(
     scene::EntityFrame{S,D,I},
     vehicle_index::Int,
@@ -178,46 +264,39 @@ function get_neighbor_fore_along_right_lane(
 
     retval
 end
-
-function get_neighbor_fore_along_lane(
-    scene::EntityFrame{S,D,I},
-    roadway::Roadway,
-    tag_start::LaneTag,
-    s_base::Float64;
-    max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
-    index_to_ignore::Int=-1,
-    ) where {S,D<:AbstractAgentDefinition,I}
-
-    get_neighbor_fore_along_lane(scene, roadway, tag_start, s_base,
-        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
-        max_distance_fore=max_distance_fore,
-        index_to_ignore=index_to_ignore)
-end
-function get_neighbor_fore_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
+function get_neighbor_fore_along_right_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway;
     max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S,D<:AbstractAgentDefinition,I}
-
-    get_neighbor_fore_along_lane(scene, vehicle_index, roadway,
-        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
-        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
-end
-function get_neighbor_fore_along_left_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
-    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S,D<:AbstractAgentDefinition,I}
-
-    get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway,
-        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
-        VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
-end
-function get_neighbor_fore_along_right_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
-    max_distance_fore::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S,D<:AbstractAgentDefinition,I}
+    )
 
     get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway,
         VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
         VEHICLE_TARGET_POINT_CENTER, max_distance_fore=max_distance_fore)
 end
 
+"""
+    get_neighbor_fore_along_rear_lane(scene::EntityFrame, vehicle_index::Int, roadway::Roadway; max_distance_fore::Float64 = 250.0 )
+    get_neighbor_fore_along_rear_lane(
+    scene::EntityFrame{S,D,I},
+    vehicle_index::Int,
+    roadway::Roadway,
+    targetpoint_ego::VehicleTargetPoint,
+    targetpoint_primary::VehicleTargetPoint,
+    targetpoint_valid::VehicleTargetPoint;
+    max_distance_fore::Float64 = 250.0
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+Returns the information about the rear neighbor of a vehicle on its own lane. 
+
+# Arguments
+
+- `scene` the scene containing all vehicles information 
+- `vehicle_index` the index of the vehicle in the scene for which we want to find the neighbor (ego vehicle)
+- `roadway` the roadway layout 
+- `targetpoint_ego` a target point on the ego vehicle that will be used to calculate the distance 
+- `targetpoint_primary` the reference point whose distance we want to minimize
+- `targetpoint_valid` the reference point, which if distance to is positive, we include the vehicle
+- `max_distance_fore` max distance to search forward [m]
+"""
 function get_neighbor_rear_along_lane(
     scene::EntityFrame{S,D,I},
     roadway::Roadway,
@@ -312,6 +391,30 @@ function get_neighbor_rear_along_lane(
         targetpoint_primary, targetpoint_valid,
         max_distance_rear=max_distance_rear, index_to_ignore=vehicle_index)
 end
+
+function get_neighbor_rear_along_lane(
+    scene::EntityFrame{S,D,I},
+    roadway::Roadway,
+    tag_start::LaneTag,
+    s_base::Float64;
+    max_distance_rear::Float64 = 250.0, # max distance to search rearward [m]
+    index_to_ignore::Int=-1,
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+    get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        max_distance_rear=max_distance_rear,
+        index_to_ignore=index_to_ignore)
+end
+function get_neighbor_rear_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+    get_neighbor_rear_along_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
+end
+
 function get_neighbor_rear_along_left_lane(
     scene::EntityFrame{S,D,I},
     vehicle_index::Int,
@@ -340,6 +443,19 @@ function get_neighbor_rear_along_left_lane(
 
     retval
 end
+function get_neighbor_rear_along_left_lane(
+    scene::EntityFrame{S,D,I},
+    vehicle_index::Int,
+    roadway::Roadway;
+    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
+    ) where {S,D<:AbstractAgentDefinition,I}
+
+    get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway,
+        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
+        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
+end
+
+
 function get_neighbor_rear_along_right_lane(
     scene::EntityFrame{S,D,I},
     vehicle_index::Int,
@@ -368,40 +484,6 @@ function get_neighbor_rear_along_right_lane(
 
     retval
 end
-
-function get_neighbor_rear_along_lane(
-    scene::EntityFrame{S,D,I},
-    roadway::Roadway,
-    tag_start::LaneTag,
-    s_base::Float64;
-    max_distance_rear::Float64 = 250.0, # max distance to search rearward [m]
-    index_to_ignore::Int=-1,
-    ) where {S,D<:AbstractAgentDefinition,I}
-
-    get_neighbor_rear_along_lane(scene, roadway, tag_start, s_base,
-        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
-        max_distance_rear=max_distance_rear,
-        index_to_ignore=index_to_ignore)
-end
-function get_neighbor_rear_along_lane(scene::EntityFrame{S,D,I}, vehicle_index::Int, roadway::Roadway;
-    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S,D<:AbstractAgentDefinition,I}
-
-    get_neighbor_rear_along_lane(scene, vehicle_index, roadway,
-        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
-        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
-end
-function get_neighbor_rear_along_left_lane(
-    scene::EntityFrame{S,D,I},
-    vehicle_index::Int,
-    roadway::Roadway;
-    max_distance_rear::Float64 = 250.0 # max distance to search forward [m]
-    ) where {S,D<:AbstractAgentDefinition,I}
-
-    get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway,
-        VEHICLE_TARGET_POINT_CENTER, VEHICLE_TARGET_POINT_CENTER,
-        VEHICLE_TARGET_POINT_CENTER, max_distance_rear=max_distance_rear)
-end
 function get_neighbor_rear_along_right_lane(
     scene::EntityFrame{S,D,I},
     vehicle_index::Int,
@@ -415,8 +497,16 @@ function get_neighbor_rear_along_right_lane(
 end
 
 """
-    Project the given point to the same lane as the given RoadIndex.
-This will return the projection of the point, along with the Δs along the lane from the RoadIndex.
+    FrenetRelativePosition
+
+Contains information about the projection of a point on a lane. See `get_frenet_relative_position`.
+
+# Fields 
+- `origin::RoadIndex` original roadindex used for the projection, contains the target lane ID.
+- `target::RoadIndex` roadindex reached after projection
+- `Δs::Float64` longitudinal distance to the original roadindex 
+- `t::Float64` lateral distance to the original roadindex in the frame of the target lane
+- `ϕ::Float64` angle with the original roadindex in the frame of the target lane
 """
 struct FrenetRelativePosition
     origin::RoadIndex
@@ -425,6 +515,18 @@ struct FrenetRelativePosition
     t::Float64
     ϕ::Float64
 end
+
+"""
+    get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex, roadway::Roadway;
+        max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
+        max_distance_rear::Float64 = 250.0, # max distance to search backward [m]
+        improvement_threshold::Float64 = 1e-4,
+    )
+
+Project the given point to the same lane as the given RoadIndex.
+This will return the projection of the point, along with the Δs along the lane from the RoadIndex.
+The returned type is a `FrenetRelativePosition` object.
+"""
 function get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex, roadway::Roadway;
     max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
     max_distance_rear::Float64 = 250.0, # max distance to search backward [m]
