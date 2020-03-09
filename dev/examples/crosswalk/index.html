@@ -6,26 +6,7 @@ using Random
 struct CrosswalkEnv
     roadway::Roadway{Float64}
     crosswalk::Lane{Float64}
-end</code></pre><pre><code class="language-none">WARNING: Method definition write(IO, Base.Multimedia.MIME{Symbol(&quot;text/plain&quot;)}, AutomotiveDrivingModels.State1D) in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:23 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:70.
-  ** incremental compilation may be fatally broken for this module **
-
-WARNING: Method definition read(IO, Base.Multimedia.MIME{Symbol(&quot;text/plain&quot;)}, Type{AutomotiveDrivingModels.State1D}) in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:25 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:74.
-  ** incremental compilation may be fatally broken for this module **
-
-WARNING: Method definition (::Type{AutomotiveDrivingModels.State1D})(Float64, Float64) in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:11 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:60.
-  ** incremental compilation may be fatally broken for this module **
-
-WARNING: Method definition (::Type{AutomotiveDrivingModels.State1D})(Any, Any) in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:11 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:60.
-  ** incremental compilation may be fatally broken for this module **
-
-WARNING: Method definition (::Type{Records.Frame{Records.Entity{AutomotiveDrivingModels.State1D, AutomotiveDrivingModels.VehicleDef, Int64}}})() in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:48 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:100.
-  ** incremental compilation may be fatally broken for this module **
-
-WARNING: Method definition (::Type{Records.Frame{Records.Entity{AutomotiveDrivingModels.State1D, AutomotiveDrivingModels.VehicleDef, Int64}}})(Int64) in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:48 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:100.
-  ** incremental compilation may be fatally broken for this module **
-
-WARNING: Method definition (::Type{Records.Frame{Records.Entity{AutomotiveDrivingModels.State1D, AutomotiveDrivingModels.VehicleDef, Int64}}})(Array{Records.Entity{AutomotiveDrivingModels.State1D, AutomotiveDrivingModels.VehicleDef, Int64}, 1}) in module AutomotiveDrivingModels at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/states/1d_states.jl:49 overwritten at /home/travis/build/sisl/AutomotiveDrivingModels.jl/src/deprecated.jl:105.
-  ** incremental compilation may be fatally broken for this module **</code></pre><p>The crosswalk lane consists of a straight road segment perpendicular to the road. We will define the roadway just as a straight road.</p><pre><code class="language-julia"># geometry parameters
+end</code></pre><p>The crosswalk lane consists of a straight road segment perpendicular to the road. We will define the roadway just as a straight road.</p><pre><code class="language-julia"># geometry parameters
 roadway_length = 50.
 crosswalk_length = 20.
 crosswalk_width = 6.0
@@ -41,14 +22,14 @@ cw_segment = RoadSegment(2, [crosswalk])
 push!(roadway.segments, cw_segment) # append it to the roadway
 
 # initialize crosswalk environment
-env = CrosswalkEnv(roadway, crosswalk)</code></pre><p><strong>Render the crosswalk</strong></p><p>We will define a new method to render this new environment. The roadway part is just rendered regularly, we add specific instuction for the crosswalk part that will display the white stripes.</p><pre><code class="language-">using Cairo
+env = CrosswalkEnv(roadway, crosswalk)</code></pre><p><strong>Render the crosswalk</strong></p><p>We will define a new method to render this new environment. The roadway part is just rendered regularly, we add specific instuction for the crosswalk part that will display the white stripes.</p><pre><code class="language-julia">using Cairo
 
 function AutoViz.add_renderable!(rendermodel::RenderModel, env::CrosswalkEnv)
 
     # render the road without the crosswalk
     roadway = gen_straight_roadway(2, roadway_length)
     add_renderable!(rendermodel, roadway)
-    
+
     # render crosswalk
     curve = env.crosswalk.curve
     n = length(curve)
@@ -65,11 +46,10 @@ function AutoViz.add_renderable!(rendermodel::RenderModel, env::CrosswalkEnv)
     return rendermodel
 end
 
-snapshot = render([env])
-write(&quot;crosswalk.svg&quot;, snapshot) # hide</code></pre><p><img src="crosswalk.svg" alt="crosswalk"/></p><h3 id="Navigate-the-crosswalk-example-1"><a class="docs-heading-anchor" href="#Navigate-the-crosswalk-example-1">Navigate the crosswalk example</a><a class="docs-heading-anchor-permalink" href="#Navigate-the-crosswalk-example-1" title="Permalink"></a></h3><p>Cars will be navigating in the roadway just as before. For the pedestrian we can define a new vehicle definition where we specify the size of the bounding box represented by the pedestrian.</p><pre><code class="language-julia"># field of the VehicleDef type
+snapshot = render([env])</code></pre><p><img src="../crosswalk.svg" alt="crosswalk"/></p><h3 id="Navigate-the-crosswalk-example-1"><a class="docs-heading-anchor" href="#Navigate-the-crosswalk-example-1">Navigate the crosswalk example</a><a class="docs-heading-anchor-permalink" href="#Navigate-the-crosswalk-example-1" title="Permalink"></a></h3><p>Cars will be navigating in the roadway just as before. For the pedestrian we can define a new vehicle definition where we specify the size of the bounding box represented by the pedestrian.</p><pre><code class="language-julia"># field of the VehicleDef type
 fieldnames(VehicleDef)
 # Agent.Class is from AutomotiveDrivingModels
-const PEDESTRIAN_DEF = VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0)</code></pre><pre><code class="language-"># Car definition
+const PEDESTRIAN_DEF = VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0)</code></pre><pre><code class="language-julia"># Car definition
 car_initial_state = VehicleState(VecSE2(5.0, 0., 0.), roadway.segments[1].lanes[1],roadway, 8.0)
 car = Entity(car_initial_state, VehicleDef(), :car)
 
@@ -80,14 +60,11 @@ ped = Entity(ped_initial_state, PEDESTRIAN_DEF, :pedestrian)
 scene = Frame([car, ped])
 
 # visualize the initial state
-snapshot = render([env, scene])
-write(&quot;crosswalk_initial.svg&quot;, snapshot) # hide</code></pre><p><img src="crosswalk_initial.svg" alt="initial state of crosswalk"/></p><h3 id="Simulate-the-scenario-1"><a class="docs-heading-anchor" href="#Simulate-the-scenario-1">Simulate the scenario</a><a class="docs-heading-anchor-permalink" href="#Simulate-the-scenario-1" title="Permalink"></a></h3><p>As before, associate a driver model to each vehicle in the scene. We will use the model defined in the intersection example for both agents.</p><pre><code class="language-julia">mutable struct LinearDriver &lt;: DriverModel{LaneFollowingAccel}
+snapshot = render([env, scene])</code></pre><p><img src="../crosswalk_initial.svg" alt="initial state of crosswalk"/></p><h3 id="Simulate-the-scenario-1"><a class="docs-heading-anchor" href="#Simulate-the-scenario-1">Simulate the scenario</a><a class="docs-heading-anchor-permalink" href="#Simulate-the-scenario-1" title="Permalink"></a></h3><p>As before, associate a driver model to each vehicle in the scene. We will use the model defined in the intersection example for both agents.</p><pre><code class="language-julia">mutable struct LinearDriver &lt;: DriverModel{LaneFollowingAccel}
     a::LaneFollowingAccel
     p::Float64 # confidence on the pedestrian intention
     k::Float64 # gain
 end
-
-AutomotiveDrivingModels.get_name(model::LinearDriver) = &quot;linear driver&quot;
 
 function AutomotiveDrivingModels.observe!(model::LinearDriver, scene::Frame, roadway::Roadway, egoid)
     model.a = LaneFollowingAccel(model.k*model.p)
@@ -106,7 +83,7 @@ models[:car] = LinearDriver(LaneFollowingAccel(0.0), 20.0, -0.02)
 models[:pedestrian] = IntelligentDriverModel(v_des=1.0)
 
 # execute the simulation
-scenes = simulate(scene, roadway, models, nticks, timestep)</code></pre><h2 id="Generate-a-video-with-Reel.jl-1"><a class="docs-heading-anchor" href="#Generate-a-video-with-Reel.jl-1">Generate a video with Reel.jl</a><a class="docs-heading-anchor-permalink" href="#Generate-a-video-with-Reel.jl-1" title="Permalink"></a></h2><pre><code class="language-">using Reel
+scenes = simulate(scene, roadway, models, nticks, timestep)</code></pre><h2 id="Generate-a-video-with-Reel.jl-1"><a class="docs-heading-anchor" href="#Generate-a-video-with-Reel.jl-1">Generate a video with Reel.jl</a><a class="docs-heading-anchor-permalink" href="#Generate-a-video-with-Reel.jl-1" title="Permalink"></a></h2><pre><code class="language-julia">using Reel
 
 function animate_record(scenes::Vector{Frame{E}},dt::Float64, env::CrosswalkEnv) where {E&lt;:Entity}
     duration = length(scenes)*dt::Float64
@@ -119,6 +96,4 @@ function animate_record(scenes::Vector{Frame{E}},dt::Float64, env::CrosswalkEnv)
 end
 
 duration, fps, render_hist = animate_record(scenes, timestep, env)
-film = roll(render_hist, fps=fps, duration=duration)
-write(&quot;crosswalk_animated.gif&quot;, film) # hide
-nothing # hide</code></pre><p><img src="crosswalk_animated.gif" alt="animated crosswalk"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../intersection/">« Intersection</a><a class="docs-footer-nextpage" href="../sidewalk/">Sidewalk »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 9 March 2020 00:05">Monday 9 March 2020</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+film = roll(render_hist, fps=fps, duration=duration)</code></pre><p><img src="../crosswalk_animated.gif" alt="animated crosswalk"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../intersection/">« Intersection</a><a class="docs-footer-nextpage" href="../sidewalk/">Sidewalk »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 9 March 2020 03:08">Monday 9 March 2020</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
