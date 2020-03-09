@@ -42,6 +42,7 @@ function observe! end
 
 """
     rand(model::DriverModel)
+    rand(rng::AbstractRNG, model::DriverModel)
 Samples an action from the model.
 """
 Base.rand(model::DriverModel) = rand(Random.GLOBAL_RNG, model)

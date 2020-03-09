@@ -66,6 +66,11 @@ function vel(s::State1D)
     return s.v
 end
 
+posf(s::State1D) = VecSE2{Float64}(s.s)
+posg(s::State1D) = VecSE2{Float64}(s.s, 0., 0.)  # TODO: how to derive global position & angle
+velf(s::State1D) = (s=s.v, t=0.)
+velg(s::State1D) = (x=s.v*cos(posg(s).θ), y=s.v*sin(posg(s).θ))
+
 function Base.write(io::IO, ::MIME"text/plain", s::State1D)
     Base.depwarn(state_1d_dep_msgs, :write)
     @printf(io, "%.16e %.16e", s.s, s.v)
