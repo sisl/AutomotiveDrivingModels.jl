@@ -44,8 +44,35 @@ function AutomotiveDrivingModels.extract_feature(::PosFFeature, scene::EntityFra
     posf(veh)
 end
 
+struct VelFeature <: AbstractFeature end 
+
+function AutomotiveDrivingModels.extract_feature(::VelFeature, scene::EntityFrame, veh::Entity)
+    vel(veh)
+end
+
+struct VelGFeature <: AbstractFeature end
+
+function AutomotiveDrivingModels.extract_feature(::VelGFeature, scene::EntityFrame, veh::Entity)
+    velg(veh)
+end
+
+struct VelFFeature <: AbstractFeature end
+
+function AutomotiveDrivingModels.extract_feature(::VelFFeature, scene::EntityFrame, veh::Entity)
+    velf(veh)
+end
+
+struct CollisionFeature <: AbstractFeature end 
+
+function AutomotiveDrivingModels.extract_feature(::CollisionFeature, scene::EntityFrame, veh::Entity)
+    return collision_checker(scene, veh.id)
+end
+
 FEATURE_MAP = Dict("posg" => PosGFeature(),
-                   "posf" => PosFFeature())
+                   "posf" => PosFFeature(),
+                   "vel" => VelFeature(),
+                   "velf" => VelFFeature(),
+                   "velg" => VelGFeature())
 
 
 
