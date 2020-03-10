@@ -7,6 +7,7 @@ using StaticArrays
 using Distributions
 using Reexport
 using Random
+using DataFrames
 @reexport using Vec 
 @reexport using Records
 
@@ -182,24 +183,29 @@ export
 include("feature-extraction/neighbors_features.jl")
 include("feature-extraction/lane_features.jl")
 
-export 
-    AbstractFeature,
-    FeatureValue,
-    FeatureState,
-    is_feature_valid,
-    is_symbol_a_feature,
-    allfeatures,
-    symbol2feature,
-    AbstractFeatureExtractor,
-    FeatureExtractor,
-    SubsetExtractor,
-    StandardizingExtractor,
-    pull_features!,
-    rec_length
+# export 
+#     AbstractFeature,
+#     FeatureValue,
+#     FeatureState,
+#     is_feature_valid,
+#     is_symbol_a_feature,
+#     allfeatures,
+#     symbol2feature,
+#     AbstractFeatureExtractor,
+#     FeatureExtractor,
+#     SubsetExtractor,
+#     StandardizingExtractor,
+#     pull_features!,
+#     rec_length
 
-include("feature-extraction/interface.jl")
+# include("feature-extraction/interface.jl")
+# include("feature-extraction/features.jl")
+# include("feature-extraction/features_extractors.jl")
+
+export AbstractFeature,
+       extract_feature
+
 include("feature-extraction/features.jl")
-include("feature-extraction/features_extractors.jl")
 
 export
     LidarSensor,
