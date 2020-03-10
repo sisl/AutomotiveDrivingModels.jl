@@ -13,4 +13,11 @@ poss = extract_feature(AutomotiveDrivingModels.PosGFeature(), scene, [1,2])
 poss[1] == pos1
 poss[2] == pos2
 
+dfs1 = extract_feature("posg", [scene, scene], [1,2]) # dataframes
+dfs2 = extract_feature("posf", [scene, scene], [1,2]) # dataframes
+
+dfs = AutomotiveDrivingModels.extract_features(["posg", "posf"], [scene, scene], [1,2])
+
+df1 = DataFrame(posg = [f[1] for f in feature_dict])
+
 using DataFrames

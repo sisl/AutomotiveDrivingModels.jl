@@ -1,14 +1,28 @@
 abstract type AbstractFeature end
 
-function extract_feature end 
+
+# extract several features 
+function extract_features(features::Vector{String}, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+    dfs_list = extract_feature.(features, Ref(scenes), Ref(ids))
+    # join all the dataframes 
+    dfs = Dict{I, DataFrame}()
+    for id in ids 
+        dfs[id] = hcat([df[id] for df in dfs_list]...)
+    end
+    return dfs
+end
 
 # extract one feature from a list of scene
-function AutomotiveDrivingModels.extract_feature(feature::AbstractFeature, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
-    dfs = Dict{I, DataFrame}([(id, DataFrame()) for id in ids])
-    for scene in scenes 
-        feature_dict = extract_feature(feature, scene, ids)
-    end
-    return 
+function extract_feature(feature::String, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+    feature_type = FEATURE_MAP[feature]
+    feature_dicts = extract_feature.(Ref(feature_type), scenes, Ref(ids))
+
+    # convert the list of dictionary into a dictionary of dataframes
+    dfs = Dict{I, DataFrame}()
+    for id in ids 
+        dfs[id] = DataFrame(Pair(Symbol(feature), [f[id] for f in feature_dicts]))
+    end    
+    return dfs
 end
 
 # extract one feature from one scene with different vehicle
@@ -24,7 +38,14 @@ function AutomotiveDrivingModels.extract_feature(::PosGFeature, scene::EntityFra
     posg(veh)
 end
 
-FEATURE_MAP = Dict("posg" => PosGFeature())
+struct PosFFeature <: AbstractFeature end 
+
+function AutomotiveDrivingModels.extract_feature(::PosFFeature, scene::EntityFrame, veh::Entity)
+    posf(veh)
+end
+
+FEATURE_MAP = Dict("posg" => PosGFeature(),
+                   "posf" => PosFFeature())
 
 
 

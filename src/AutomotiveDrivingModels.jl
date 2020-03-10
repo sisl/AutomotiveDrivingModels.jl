@@ -203,7 +203,8 @@ include("feature-extraction/lane_features.jl")
 # include("feature-extraction/features_extractors.jl")
 
 export AbstractFeature,
-       extract_feature
+       extract_feature,
+       extract_features
 
 include("feature-extraction/features.jl")
 
