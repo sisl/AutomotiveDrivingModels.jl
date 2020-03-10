@@ -16,32 +16,61 @@ end
 """
     VehicleTargetPoint 
 
-Defines a point on a vehicle that is used to measure distances. 
+Defines a point on an entity that is used to measure distances. 
 The following target points are supported and are subtypes of VehicleTargetPoint: 
 - `VehicleTargetPointFront`
 - `VehicleTargetPointCenter`
 - `VehicleTargetPointRear`
+
+The method `targetpoint_delta(::VehicleTargetPoint, ::Entity)` can be used to 
+compute the delta in the longitudinal direction to add when considering a specific target point.
 """
 abstract type VehicleTargetPoint end
+
+"""
+    VehicleTargetPointFront <: VehicleTargetPoint
+Set the target point at the front (and center) of the entity.
+"""
 struct VehicleTargetPointFront <: VehicleTargetPoint end
+
 targetpoint_delta(::VehicleTargetPointFront, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition, I} = length(veh.def)/2*cos(posf(veh.state).ϕ)
+
+"""
+    VehicleTargetPointCenter <: VehicleTargetPoint
+Set the target point at the center of the entity.
+"""
 struct VehicleTargetPointCenter <: VehicleTargetPoint end
+
 targetpoint_delta(::VehicleTargetPointCenter, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition, I} = 0.0
+
+"""
+    VehicleTargetPointFront <: VehicleTargetPoint
+Set the target point at the front (and center) of the entity.
+"""
 struct VehicleTargetPointRear <: VehicleTargetPoint end
+
 targetpoint_delta(::VehicleTargetPointRear, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition, I} = -length(veh.def)/2*cos(posf(veh.state).ϕ)
 
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
 """
-    findneighbor
+    findneighbor(scene::Frame, roadway::Roawday, ego::Entity; kwargs...)
 
-search through road segments
+Search through lanes and road segments to find a neighbor of `ego` in the `scene`. 
 
-# Keywords:
-- rear 
-- max_distance 
-- posfun_ego
-- posfun_other
+# Arguments
+
+- `scene::Frame` the scene containing all the entities
+- `roadway::Roadway` the road topology on which entities are driving 
+- `ego::Entity` the entity that we want to compute the neighbor of.
+
+# Keyword arguments
+
+- `rear::Bool = false` set to true to search for rear neighbor, search forward neighbor by default 
+- `max_distance::Float64 = 250.0` stop searching after this distance is reached, if the neighbor is further than max_distance, returns nothing
+- `targetpoint_ego::VehicleTargetPoint` the point on the ego vehicle used for distance calculation, see `VehicleTargetPoint` for more info
+- `targetpoint_neighbor::VehicleTargetPoint` the point on the neighbor vehicle used for distance calculation, see `VehicleTargetPoint` for more info
+- `ids_to_ignore::Union{Nothing, Set{I}} = nothing` a list of entity ids to ignore for the search, ego is always ignored.
 """
 function findneighbor(scene::Frame, roadway::Roadway, ego::Entity{S,D,I};
                        lane::Lane = get_lane(roadway, ego),
