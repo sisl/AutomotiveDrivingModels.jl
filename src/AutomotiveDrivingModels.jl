@@ -7,8 +7,54 @@ using StaticArrays
 using Distributions
 using Reexport
 using Random
-@reexport using Vec 
+
 @reexport using Records
+
+include("vec/Vec.jl")
+using .Vec
+export
+    AbstractVec,
+    VecE,  # an abstract euclidean-group vector
+    VecSE, # an abstract special euclidean-group element
+
+    VecE2, # two-element Float64 vector, {x, y}
+    VecE3, # three-element Float64 vector, {x, y, z}
+    VecSE2, # point in special euclidean group of order 2, {x, y, θ}
+
+    polar, # construct a polar vector with (r,θ)
+
+    proj,  # vector projection
+           # proj(a::vec, b::vec, ::Type{Float64}) will do scalar projection of a onto b
+           # proj(a::vec, b::vec, ::Type{Vec}) will do vector projection of a onto b
+
+    lerp,  # linear interpolation between two vec's
+    invlerp,
+    lerp_angle,
+
+    normsquared,         # see docstrings below
+    scale_euclidean,
+    clamp_euclidean,
+    normalize_euclidian,
+
+    dist,  # scalar distance between two vec's
+    dist2, # squared scalar distance between two vec's
+
+    rot,   # rotate the vector, always using the Right Hand Rule
+    rot_normalized, # like rot, but assumes axis is normalized
+
+    deltaangle, # signed delta angle
+    angledist,  # distance between two angles
+
+    inertial2body,
+    body2inertial,
+
+    orientation,
+    are_collinear,
+    get_intersection,
+
+    Circ,
+    AABB,
+    OBB
 
 # Roadways
 
