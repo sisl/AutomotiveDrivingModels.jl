@@ -97,7 +97,7 @@ function Base.get(::Feature_MarkerDist_Left_Left, rec::SceneRecord, roadway::Roa
 
     veh = rec[pastframe][vehicle_index]
     lane = get_lane(roadway, veh)
-    if n_lanes_left(lane, roadway) > 0
+    if n_lanes_left(roadway, lane) > 0
         offset = posf(veh.state).t
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         FeatureValue(lane.width/2 - offset + lane_left.width)
@@ -113,7 +113,7 @@ function Base.get(::Feature_MarkerDist_Right_Right, rec::SceneRecord, roadway::R
 
     veh = rec[pastframe][vehicle_index]
     lane = get_lane(roadway, veh)
-    if n_lanes_right(lane, roadway) > 0
+    if n_lanes_right(roadway, lane) > 0
         offset = posf(veh.state).t
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         FeatureValue(lane.width/2 + offset + lane_right.width)
@@ -150,7 +150,7 @@ function Base.get(::Feature_LaneOffsetLeft, scene::Frame, roadway::Roadway, vehi
     veh_ego = scene[vehicle_index]
     t = posf(veh_ego.state).t
     lane = get_lane(roadway, veh_ego)
-    if n_lanes_left(lane, roadway) > 0
+    if n_lanes_left(roadway, lane) > 0
         lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
         lane_offset = t - lane.width/2 - lane_left.width/2
         FeatureValue(lane_offset)
@@ -166,7 +166,7 @@ function Base.get(::Feature_LaneOffsetRight, scene::Frame, roadway::Roadway, veh
     veh_ego = scene[vehicle_index]
     t = posf(veh_ego.state).t
     lane = get_lane(roadway, veh_ego)
-    if n_lanes_right(lane, roadway) > 0
+    if n_lanes_right(roadway, lane) > 0
         lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
         lane_offset = t + lane.width/2 + lane_right.width/2
         FeatureValue(lane_offset)

@@ -60,7 +60,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     advantage_threshold = model.advantage_threshold
 
-    if n_lanes_left(ego_lane, roadway) > 0
+    if n_lanes_left(roadway, ego_lane) > 0
 
         rear_L = get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
@@ -124,7 +124,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
         end
     end
 
-    if n_lanes_right(ego_lane, roadway) > 0
+    if n_lanes_right(roadway, ego_lane) > 0
 
         rear_R = get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
 
