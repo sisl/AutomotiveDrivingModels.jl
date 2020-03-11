@@ -440,12 +440,12 @@ end # curve tests
 
     ####
 
-    @test n_lanes_right(roadway[LaneTag(2,1)], roadway) == 0
-    @test n_lanes_right(roadway[LaneTag(2,2)], roadway) == 1
-    @test n_lanes_right(roadway[LaneTag(2,3)], roadway) == 2
-    @test n_lanes_left(roadway[LaneTag(2,1)], roadway) == 2
-    @test n_lanes_left(roadway[LaneTag(2,2)], roadway) == 1
-    @test n_lanes_left(roadway[LaneTag(2,3)], roadway) == 0
+    @test n_lanes_right(roadway, roadway[LaneTag(2,1)]) == 0
+    @test n_lanes_right(roadway, roadway[LaneTag(2,2)]) == 1
+    @test n_lanes_right(roadway, roadway[LaneTag(2,3)]) == 2
+    @test n_lanes_left(roadway, roadway[LaneTag(2,1)]) == 2
+    @test n_lanes_left(roadway, roadway[LaneTag(2,2)]) == 1
+    @test n_lanes_left(roadway, roadway[LaneTag(2,3)]) == 0
 
     ####
     roadway = get_test_roadway()

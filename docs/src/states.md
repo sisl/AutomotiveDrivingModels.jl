@@ -65,6 +65,8 @@ Here we list useful functions to interact with vehicle states and retrieve inter
     get_center
     get_footpoint
     get_lane
+    leftlane(::Roadway, ::Entity)
+    rightlane(::Roadway, ::Entity)
     Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, D, Int64}) where D<:AbstractAgentDefinition
 ```
 

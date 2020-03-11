@@ -60,6 +60,8 @@ The `Lane` data structure represent a driving lane in the roadway. The default l
       prev_lane_point
       n_lanes_left
       n_lanes_right
+      leftlane(::Roadway, ::Lane)
+      rightlane(::Roadway, ::Lane)
 ```
 
 ## Frenet frame 

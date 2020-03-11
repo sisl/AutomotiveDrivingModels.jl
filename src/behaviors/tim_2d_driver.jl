@@ -51,13 +51,17 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
     lateral_speed = convert(Float64, get(VELFT, scene, roadway, vehicle_index))
 
     if lane_change_action.dir == DIR_MIDDLE
-        fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        target_lane = get_lane(roadway, ego)
     elseif lane_change_action.dir == DIR_LEFT
-        fore = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        target_lane = leftlane(roadway, ego)
     else
         @assert(lane_change_action.dir == DIR_RIGHT)
-        fore = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+        target_lane = rightlane(roadway, ego)
     end
+    fore = find_neighbor(scene, roadway, ego, 
+                        lane=target_lane, 
+                        targetpoint_ego=VehicleTargetPointFront(), 
+                        targetpoint_neighbor=VehicleTargetPointRear())
 
     track_lateral!(driver.mlat, laneoffset, lateral_speed)
     track_longitudinal!(driver.mlon, scene, roadway, vehicle_index, fore)
