@@ -114,6 +114,29 @@
     @test isapprox(frp.ϕ, 0.0, atol=1e-7)
 end
 
+@testset begin "extract features"
+    roadway = gen_straight_roadway(4, 100.0)
+
+    scene = Scene([Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+       Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+        ])
+
+    pos1 = extract_feature(PosGFeature(), scene, scene[1])
+    pos2 = extract_feature(PosGFeature(), scene, scene[2])
+    poss = extract_feature(PosGFeature(), scene, [1,2])
+    @test poss[1] == pos1
+    @test poss[2] == pos2
+
+    dfs1 = extract_feature("posg", [scene, scene], [1,2]) # dataframes
+    dfs2 = extract_feature("posf", [scene, scene], [1,2]) # dataframes
+
+    dfs = AutomotiveDrivingModels.extract_features(["posg", "posf"], [scene, scene], [1,2])
+
+    @test dfs1[:posg, :] == dfs[1][:posg, :]
+    @test dfs2[:posf, :] == dfs[2][:posf, :]
+
+end
+
 @testset begin "features interface" 
     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
     rec = SceneRecord(1, 0.1, 5)

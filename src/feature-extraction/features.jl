@@ -1,8 +1,40 @@
+# define features traits
+
+# most general feature(roadway, scenes, actions, vehid)
 abstract type AbstractFeature end
 
+# feature(roadway, veh)
+struct EntityFeature <: AbstractFeature end
+# feature(roadway, scene, veh)
+struct FrameFeature <: AbstractFeature end
 
-# extract several features 
-function extract_features(features::Vector{String}, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+# feature(roadway, scenes, veh)
+struct TemporalFeature <: AbstractFeature end
+# feature(actions, veh)
+struct TemporalActionFeature <: AbstractFeature end 
+# feature(action, veh)
+struct ActionFeature <: AbstractFeature end
+
+# macro for automatic association of methods to traits
+macro feature(fun)
+    f = Main.eval(fun)
+    T = typeof(f)
+    if hasmethod(f, Tuple{Roadway, Entity})
+        return :(featuretype(::$T) = EntityFeature())
+    elseif hasmethod(f, Tuple{Roadway, Frame, Entity})
+        return :(featuretype(::$T) = FrameFeature())
+    elseif hasmethod(f, Tuple{Roadway, Vector{<:Frame}, Entity})
+        return :(featuretype(::$T) = TemporalFeature())
+    else
+        throw(ErrorException("unsupported feature type"))
+    end
+end
+
+# abstract type TemporalFeature <: AbstractFeature end
+
+
+# Top level extract several features 
+function extract_features(features, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
     dfs_list = extract_feature.(features, Ref(scenes), Ref(ids))
     # join all the dataframes 
     dfs = Dict{I, DataFrame}()
@@ -12,10 +44,12 @@ function extract_features(features::Vector{String}, scenes::Vector{<:Frame}, ids
     return dfs
 end
 
+
+
 # extract one feature from a list of scene
-function extract_feature(feature::String, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
-    feature_type = FEATURE_MAP[feature]
-    feature_dicts = extract_feature.(Ref(feature_type), scenes, Ref(ids))
+function extract_feature(feature::Function, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+    # feature_type = FEATURE_MAP[feature]
+    feature_dicts = extract_feature.(Ref(feature), scenes, Ref(ids))
 
     # convert the list of dictionary into a dictionary of dataframes
     dfs = Dict{I, DataFrame}()
@@ -25,54 +59,166 @@ function extract_feature(feature::String, scenes::Vector{<:Frame}, ids::Vector{I
     return dfs
 end
 
+# feature is a general (temporal) feature, broadcast on id only
+function extract_feature(feature::AbstractFeature, scenes::Vector{<:Frame}, ids)
+    values = feature.(Ref(scenes), ids)  # vector of vectors
+    return Dict(zip(ids, values))
+end
+
+# feature is a frame feature, broadcast on ids and scenes
+function extract_feature(feature::FrameFeature, scenes::Vector{<:Frame}, ids)
+    values = broadcast(id -> feature.(scenes, id), ids)
+    return Dict(zip(ids, values))
+end
+
+# feature is an entity feature, broadcast on ids and scenes 
+function extract_feature(feature::EntityFeature, scenes::Vector{<:Frame}, ids)
+    values = broadcast(ids) do id
+        veh_hist= get_by_id.(scenes, Ref(id))
+        feature.(veh_hist)
+    end
+    return Dict(zip(ids, values))
+end
+
 # extract one feature from one scene with different vehicle
-function AutomotiveDrivingModels.extract_feature(feature::AbstractFeature, scene::EntityFrame{S,D,I}, ids::Vector{I}) where {S,D,I}
+function AutomotiveDrivingModels.extract_feature(feature::Function, scene::EntityFrame{S,D,I}, ids::Vector{I}) where {S,D,I}
     vehicles = get_by_id.(Ref(scene), ids)
-    features = extract_feature.(Ref(feature), Ref(scene), vehicles)
+    # features = extract_feature.(Ref(feature), Ref(scene), vehicles)
+    features = feature.(Ref(scene), vehicles)
     return Dict(zip(ids, features))
 end
 
-struct PosGFeature <: AbstractFeature end 
+# feature functions 
 
-function AutomotiveDrivingModels.extract_feature(::PosGFeature, scene::EntityFrame, veh::Entity)
-    posg(veh)
+# posgx(scene::EntityFrame, veh::Entity) <: AbstractFeature = posg(veh).x
+# posgy(scene::EntityFrame, veh::Entity) <: AbstractFeature = posg(veh).y
+# posgθ(scene::EntityFrame, veh::Entity) <: AbstractFeature = posg(veh).θ
+# posfs(scene::EntityFrame, veh::Entity) <: AbstractFeature = posf(veh).s
+# posft(scene::EntityFrame, veh::Entity) <: AbstractFeature = posf(veh).t
+# posfϕ(scene::EntityFrame, veh::Entity) <: AbstractFeature = posf(veh).ϕ
+# collision(scene::EntityFrame, veh::Entity)  <: AbstractFeature = collision_checker(scene, veh.id)
+
+# vehicle only features 
+
+posgx(veh::Entity) = posg(veh).x
+featuretype(::Type{posgx}) = EntityFeature()
+posgy(veh::Entity) = posg(veh).y
+featuretype(::Type{posgy}) = EntityFeature()
+
+
+# posgθ(veh::Entity) <: EntityFeature = posg(veh).θ
+# posfs(veh::Entity) <: EntityFeature = posf(veh).s
+# posft(veh::Entity) <: EntityFeature = posf(veh).t
+# posfϕ(veh::Entity) <: EntityFeature = posf(veh).ϕ
+
+# scene features 
+
+collision(scene::EntityFrame, veh::Entity) = collision_checker(scene, veh.id)
+featuretype(::Type{collision}) = FrameFeature()
+
+function distance_to(egoid)
+    @eval begin 
+        function ($(Symbol("distance_to_$(egoid)")))(scene::EntityFrame, veh::Entity) <: FrameFeature
+            ego = get_by_id(scene, $egoid)
+            return norm(VecE2(posg(ego) - posg(veh)))
+        end
+    end
 end
 
-struct PosFFeature <: AbstractFeature end 
+# temporal features 
 
-function AutomotiveDrivingModels.extract_feature(::PosFFeature, scene::EntityFrame, veh::Entity)
-    posf(veh)
+# add a new type for temporal features...
+function turn_rate_g(scenes::Vector{<:Frame}, vehid)
+    result = zeros(Union{Missing,Float64},length(scenes))
+    angles = broadcast(x->get_by_id(x, vehid) |> posgθ, scenes)
+    result[1] = missing
+    result[2:end] = diff(angles)
+    return result
 end
 
-struct VelFeature <: AbstractFeature end 
 
-function AutomotiveDrivingModels.extract_feature(::VelFeature, scene::EntityFrame, veh::Entity)
-    vel(veh)
-end
 
-struct VelGFeature <: AbstractFeature end
+# generate_feature_functions("TurnRateG", :turnrateG, Float64, "rad/s")
+# function Base.get(::Feature_TurnRateG, rec::EntityQueueRecord{S,D,I}, roadway::R, vehicle_index::Int, pastframe::Int=0; frames_back::Int=1) where {S,D,I,R}
 
-function AutomotiveDrivingModels.extract_feature(::VelGFeature, scene::EntityFrame, veh::Entity)
-    velg(veh)
-end
+#     id = rec[pastframe][vehicle_index].id
 
-struct VelFFeature <: AbstractFeature end
+#     retval = FeatureValue(0.0, FeatureState.INSUF_HIST)
+#     pastframe2 = pastframe - frames_back
+#     if pastframe_inbounds(rec, pastframe2)
 
-function AutomotiveDrivingModels.extract_feature(::VelFFeature, scene::EntityFrame, veh::Entity)
-    velf(veh)
-end
+#         veh_index_curr = vehicle_index
+#         veh_index_prev = findfirst(id, rec[pastframe2])
 
-struct CollisionFeature <: AbstractFeature end 
+#         if veh_index_prev != nothing
+#             curr = posg(rec[pastframe][veh_index_curr].state).θ
+#             past = posg(rec[pastframe2][veh_index_prev].state).θ
+#             Δt = get_elapsed_time(rec, pastframe2, pastframe)
+#             retval = FeatureValue(deltaangle(past, curr) / Δt)
+#         end
+#     end
 
-function AutomotiveDrivingModels.extract_feature(::CollisionFeature, scene::EntityFrame, veh::Entity)
-    return collision_checker(scene, veh.id)
-end
+#     retval
+# end
 
-FEATURE_MAP = Dict("posg" => PosGFeature(),
-                   "posf" => PosFFeature(),
-                   "vel" => VelFeature(),
-                   "velf" => VelFFeature(),
-                   "velg" => VelGFeature())
+
+
+
+export posgx, posgy, collision, distance_to
+
+# struct PosGFeature <: AbstractFeature end 
+
+# function AutomotiveDrivingModels.extract_feature(::PosGFeature, scene::EntityFrame, veh::Entity)
+#     posg(veh)
+# end
+
+# struct PosFFeature <: AbstractFeature end 
+
+# function AutomotiveDrivingModels.extract_feature(::PosFFeature, scene::EntityFrame, veh::Entity)
+#     posf(veh)
+# end
+
+# struct PosFSFeature <: AbstractFeature end 
+
+# function AutomotiveDrivingModels.extract_feature(::PosFFeature, scene::EntityFrame, veh::Entity)
+#     posf(veh)
+# end
+
+# struct PosFTFeature <: AbstractFeature end 
+
+# function AutomotiveDrivingModels.extract_feature(::PosFTFeature, scene::EntityFrame, veh::Entity)
+#     posf(veh)
+# end
+
+# struct VelFeature <: AbstractFeature end 
+
+# function AutomotiveDrivingModels.extract_feature(::VelFeature, scene::EntityFrame, veh::Entity)
+#     vel(veh)
+# end
+
+# struct VelGFeature <: AbstractFeature end
+
+# function AutomotiveDrivingModels.extract_feature(::VelGFeature, scene::EntityFrame, veh::Entity)
+#     velg(veh)
+# end
+
+# struct VelFFeature <: AbstractFeature end
+
+# function AutomotiveDrivingModels.extract_feature(::VelFFeature, scene::EntityFrame, veh::Entity)
+#     velf(veh)
+# end
+
+# struct CollisionFeature <: AbstractFeature end 
+
+# function AutomotiveDrivingModels.extract_feature(::CollisionFeature, scene::EntityFrame, veh::Entity)
+#     return collision_checker(scene, veh.id)
+# end
+
+# FEATURE_MAP = Dict("posg" => PosGFeature(),
+#                    "posf" => PosFFeature(),
+#                    "vel" => VelFeature(),
+#                    "velf" => VelFFeature(),
+#                    "velg" => VelGFeature())
 
 
 

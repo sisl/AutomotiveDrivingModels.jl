@@ -20,4 +20,9 @@ dfs = AutomotiveDrivingModels.extract_features(["posg", "posf"], [scene, scene],
 
 df1 = DataFrame(posg = [f[1] for f in feature_dict])
 
+
+dfs = extract_features((posgx, posgy, distance_to(1)), [scene, scene], [1,2])
+
+
+
 using DataFrames
