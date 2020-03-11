@@ -7,7 +7,7 @@ function extract_features(features::Vector{String}, scenes::Vector{<:Frame}, ids
     # join all the dataframes 
     dfs = Dict{I, DataFrame}()
     for id in ids 
-        dfs[id] = hcat([df[id] for df in dfs_list]...)
+        dfs[id] = reduce(hcat, df[id] for df in dfs_list)
     end
     return dfs
 end
