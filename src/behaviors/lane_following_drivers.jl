@@ -3,11 +3,12 @@ track_longitudinal!(model::LaneFollowingDriver, v_ego::Float64, v_oth::Float64, 
 
 function observe!(model::LaneFollowingDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
-    vehicle_index = findfirst(egoid, scene)
+    ego = get_by_id(scene, egoid)
 
-    fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+    # fore = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront())
+    fore = findneighbor(scene, roadway, ego, targetpoint_ego=VehicleTargetPointFront(), targetpoint_neighbor=VehicleTargetPointRear())
 
-    v_ego = vel(scene[vehicle_index].state)
+    v_ego = vel(ego.state)
     v_oth = NaN
     headway = NaN
 

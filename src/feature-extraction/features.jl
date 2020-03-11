@@ -315,7 +315,7 @@ end
 
 generate_feature_functions("Dist_Front", :d_front, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index]),
     censor_hi::Float64=100.0,
     )
 
@@ -330,7 +330,7 @@ function Base.get(::Feature_Dist_Front, rec::SceneRecord, roadway::Roadway, vehi
 end
 generate_feature_functions("Speed_Front", :v_front, Float64, "m/s", can_be_missing=true)
 function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index]),
     )
 
     if neighborfore.ind == nothing
@@ -341,7 +341,7 @@ function Base.get(::Feature_Speed_Front, rec::SceneRecord, roadway::Roadway, veh
 end
 generate_feature_functions("Timegap", :timegap, Float64, "s", can_be_missing=true)
 function Base.get(::Feature_Timegap, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index]),
     censor_hi::Float64 = 10.0,
     )
 
@@ -365,7 +365,7 @@ end
 
 generate_feature_functions("Inv_TTC", :inv_ttc, Float64, "1/s", can_be_missing=true)
 function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index]),
     censor_hi::Float64 = 10.0,
     )
 
@@ -400,7 +400,7 @@ function Base.get(::Feature_Inv_TTC, rec::SceneRecord, roadway::Roadway, vehicle
 end
 generate_feature_functions("TTC", :ttc, Float64, "s", can_be_missing=true)
 function Base.get(::Feature_TTC, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index]),
     censor_hi::Float64 = 10.0,
     inv_ttc::FeatureValue = get(INV_TTC, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore, censor_hi=censor_hi),
     )
@@ -421,7 +421,7 @@ end
 #############################################
 generate_feature_functions("Dist_Front_Left", :d_front_left, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front_Left, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_left_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index], lane=leftlane(roadway, rec[pastframe][vehicle_index])),
     )
 
     get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
@@ -435,7 +435,7 @@ end
 
 generate_feature_functions("Dist_Front_Right", :d_front_right, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Front_Right, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborfore::NeighborLongitudinalResult = get_neighbor_fore_along_right_lane(rec[pastframe], vehicle_index, roadway),
+    neighborfore::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index], lane=rightlane(roadway, rec[pastframe][vehicle_index])),
     )
 
     get(DIST_FRONT, rec, roadway, vehicle_index, pastframe, neighborfore=neighborfore)
@@ -449,7 +449,7 @@ end
 
 generate_feature_functions("Dist_Rear", :d_rear, Float64, "m", lowerbound=0.0, can_be_missing=true)
 function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborrear::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index], rear=true),
     censor_hi::Float64=100.0,
     )
 
@@ -464,7 +464,7 @@ function Base.get(::Feature_Dist_Rear, rec::SceneRecord, roadway::Roadway, vehic
 end
 generate_feature_functions("Speed_Rear", :v_rear, Float64, "m/s", can_be_missing=true)
 function Base.get(::Feature_Speed_Rear, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0;
-    neighborrear::NeighborLongitudinalResult = get_neighbor_rear_along_lane(rec[pastframe], vehicle_index, roadway),
+    neighborrear::NeighborLongitudinalResult = findneighbor(rec[pastframe], roadway, rec[pastframe][vehicle_index], rear=true),
     )
 
     if neighborrear.ind == nothing
