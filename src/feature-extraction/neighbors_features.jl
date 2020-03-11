@@ -54,7 +54,7 @@ targetpoint_delta(::VehicleTargetPointRear, veh::Entity{S, D, I}) where {S,D<:Ab
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
 """
-    findneighbor(scene::Frame, roadway::Roawday, ego::Entity; kwargs...)
+    find_neighbor(scene::Frame, roadway::Roawday, ego::Entity; kwargs...)
 
 Search through lanes and road segments to find a neighbor of `ego` in the `scene`. 
 
@@ -72,7 +72,7 @@ Search through lanes and road segments to find a neighbor of `ego` in the `scene
 - `targetpoint_neighbor::VehicleTargetPoint` the point on the neighbor vehicle used for distance calculation, see `VehicleTargetPoint` for more info
 - `ids_to_ignore::Union{Nothing, Set{I}} = nothing` a list of entity ids to ignore for the search, ego is always ignored.
 """
-function findneighbor(scene::Frame, roadway::Roadway, ego::Entity{S,D,I};
+function find_neighbor(scene::Frame, roadway::Roadway, ego::Entity{S,D,I};
                        lane::Union{Nothing, Lane} = get_lane(roadway, ego),
                        rear::Bool=false, 
                        max_distance::Float64=250.0, 

@@ -58,7 +58,7 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
         @assert(lane_change_action.dir == DIR_RIGHT)
         target_lane = rightlane(roadway, ego)
     end
-    fore = findneighbor(scene, roadway, ego, 
+    fore = find_neighbor(scene, roadway, ego, 
                         lane=target_lane, 
                         targetpoint_ego=VehicleTargetPointFront(), 
                         targetpoint_neighbor=VehicleTargetPointRear())

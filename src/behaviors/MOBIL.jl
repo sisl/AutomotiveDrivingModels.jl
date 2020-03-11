@@ -51,8 +51,8 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     ego_lane = get_lane(roadway, veh_ego)
 
-    fore_M = findneighbor(scene, roadway, veh_ego, targetpoint_ego=VehicleTargetPointFront(), targetpoint_neighbor=VehicleTargetPointRear())
-    rear_M = findneighbor(scene, roadway, veh_ego, rear=true, targetpoint_ego=VehicleTargetPointRear(), targetpoint_neighbor=VehicleTargetPointFront())
+    fore_M = find_neighbor(scene, roadway, veh_ego, targetpoint_ego=VehicleTargetPointFront(), targetpoint_neighbor=VehicleTargetPointRear())
+    rear_M = find_neighbor(scene, roadway, veh_ego, rear=true, targetpoint_ego=VehicleTargetPointRear(), targetpoint_neighbor=VehicleTargetPointFront())
 
     # accel if we do not make a lane change
     accel_M_orig = rand(observe!(reset_hidden_state!(model.mlon), scene, roadway, egoid)).a
@@ -62,7 +62,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     if n_lanes_left(roadway, ego_lane) > 0
 
-        rear_L = findneighbor(scene, roadway, veh_ego, 
+        rear_L = find_neighbor(scene, roadway, veh_ego, 
                               lane=leftlane(roadway, veh_ego), 
                               rear=true,
                               targetpoint_ego=VehicleTargetPointRear(), 
@@ -130,7 +130,7 @@ function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway,
 
     if n_lanes_right(roadway, ego_lane) > 0
 
-        rear_R = findneighbor(scene, roadway, veh_ego, lane=rightlane(roadway, veh_ego), targetpoint_ego=VehicleTargetPointRear(), targetpoint_neighbor=VehicleTargetPointFront())
+        rear_R = find_neighbor(scene, roadway, veh_ego, lane=rightlane(roadway, veh_ego), targetpoint_ego=VehicleTargetPointRear(), targetpoint_neighbor=VehicleTargetPointFront())
         # candidate position after lane change is over
         footpoint = get_footpoint(veh_ego)
         lane = roadway[veh_ego.state.posF.roadind.tag]

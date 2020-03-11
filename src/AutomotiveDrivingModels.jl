@@ -165,7 +165,7 @@ export
     VehicleTargetPointCenter,
     VehicleTargetPointRear,
     targetpoint_delta,
-    findneighbor,
+    find_neighbor,
     NeighborLongitudinalResult,
     get_neighbor_fore,
     get_neighbor_rear,

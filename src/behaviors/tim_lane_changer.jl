@@ -63,24 +63,24 @@ function observe!(model::TimLaneChanger, scene::Frame{Entity{S, D, I}}, roadway:
 
     left_lane_exists = convert(Float64, get(N_LANE_LEFT, rec, roadway, vehicle_index)) > 0
     right_lane_exists = convert(Float64, get(N_LANE_RIGHT, rec, roadway, vehicle_index)) > 0
-    fore_M = findneighbor(scene, roadway, veh_ego,
+    fore_M = find_neighbor(scene, roadway, veh_ego,
                           targetpoint_ego = VehicleTargetPointFront(), 
                           targetpoint_neighbor = VehicleTargetPointRear(),
                           max_distance = model.threshold_fore)
-    fore_L = findneighbor(scene, roadway, veh_ego,
+    fore_L = find_neighbor(scene, roadway, veh_ego,
                           targetpoint_ego = VehicleTargetPointFront(), 
                           targetpoint_neighbor = VehicleTargetPointRear(),
                           lane = leftlane(roadway, veh_ego)
                           )
-    fore_R = findneighbor(scene, roadway, veh_ego,
+    fore_R = find_neighbor(scene, roadway, veh_ego,
                           targetpoint_ego = VehicleTargetPointFront(), 
                           targetpoint_neighbor = VehicleTargetPointRear(),
                           lane = rightlane(roadway, veh_ego))
-    rear_L = findneighbor(scene, roadway, veh_ego,
+    rear_L = find_neighbor(scene, roadway, veh_ego,
                           targetpoint_ego = VehicleTargetPointFront(), 
                           targetpoint_neighbor = VehicleTargetPointRear(),
                           lane = leftlane(roadway, veh_ego), rear=true)
-    rear_R = findneighbor(scene, roadway, veh_ego,
+    rear_R = find_neighbor(scene, roadway, veh_ego,
                           targetpoint_ego = VehicleTargetPointFront(), 
                           targetpoint_neighbor = VehicleTargetPointRear(),
                           lane = rightlane(roadway, veh_ego), rear=true)

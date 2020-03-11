@@ -15,22 +15,22 @@
         BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),6))
     push!(scene,Entity(VehicleState(VecSE2(40.0,6.0,0.0), roadway, 0.0), 
         BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),7))
-    @test findneighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(3,10.0)
-    @test findneighbor(scene, roadway, scene[1], rear=true) == NeighborLongitudinalResult(2,10.0)
-    @test findneighbor(scene, roadway, scene[1], lane=leftlane(roadway, scene[1])) == NeighborLongitudinalResult(7,10.0)
-    @test findneighbor(scene, roadway, scene[1], lane=leftlane(roadway, scene[1]), rear=true) == NeighborLongitudinalResult(6,10.0)
-    @test findneighbor(scene, roadway, scene[1], lane=rightlane(roadway, scene[1])) == NeighborLongitudinalResult(5,10.0)
-    @test findneighbor(scene, roadway, scene[1], lane=rightlane(roadway, scene[1]), rear=true) == NeighborLongitudinalResult(4,10.0)
+    @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(3,10.0)
+    @test find_neighbor(scene, roadway, scene[1], rear=true) == NeighborLongitudinalResult(2,10.0)
+    @test find_neighbor(scene, roadway, scene[1], lane=leftlane(roadway, scene[1])) == NeighborLongitudinalResult(7,10.0)
+    @test find_neighbor(scene, roadway, scene[1], lane=leftlane(roadway, scene[1]), rear=true) == NeighborLongitudinalResult(6,10.0)
+    @test find_neighbor(scene, roadway, scene[1], lane=rightlane(roadway, scene[1])) == NeighborLongitudinalResult(5,10.0)
+    @test find_neighbor(scene, roadway, scene[1], lane=rightlane(roadway, scene[1]), rear=true) == NeighborLongitudinalResult(4,10.0)
 
     trajdata = get_test_trajdata(roadway)
     scene = get!(Scene(), trajdata, 1)
-    @test findneighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 3.0)
+    @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 3.0)
     scene = get!(Scene(), trajdata, 1)
-    @test findneighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
+    @test find_neighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
     scene = get!(Scene(), trajdata, 2)
-    @test findneighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 4.0)
+    @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 4.0)
     scene = get!(Scene(), trajdata, 2)
-    @test findneighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
+    @test find_neighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
 
     roadway = gen_stadium_roadway(1)
     scene = Scene(2)
@@ -48,30 +48,30 @@
 
     place_at!(1, 0.0)
     place_at!(2, 0.0)
-    foreinfo = findneighbor(scene, roadway, scene[1], max_distance=Inf)
+    foreinfo = find_neighbor(scene, roadway, scene[1], max_distance=Inf)
     @test isapprox(foreinfo.Δs, 0.0)
 
     place_at!(2, 100.0)
-    foreinfo = findneighbor(scene, roadway, scene[1], max_distance=Inf)
+    foreinfo = find_neighbor(scene, roadway, scene[1], max_distance=Inf)
     @test foreinfo.ind == 2
     @test isapprox(foreinfo.Δs, 100.0)
 
-    foreinfo = findneighbor(scene, roadway, scene[2], max_distance=Inf)
+    foreinfo = find_neighbor(scene, roadway, scene[2], max_distance=Inf)
     @test foreinfo.ind == 1
     @test isapprox(foreinfo.Δs, 277.07, atol=1e-2)
 
     place_at!(2, 145.0)
-    foreinfo = findneighbor(scene, roadway, scene[1], max_distance=Inf)
+    foreinfo = find_neighbor(scene, roadway, scene[1], max_distance=Inf)
     @test foreinfo.ind == 2
     @test isapprox(foreinfo.Δs, 145.0, atol=1e-5)
 
     place_at!(2, 240.0)
-    foreinfo = findneighbor(scene, roadway, scene[1], max_distance=Inf)
+    foreinfo = find_neighbor(scene, roadway, scene[1], max_distance=Inf)
     @test foreinfo.ind == 2
     @test isapprox(foreinfo.Δs, 240.0, atol=1e-5)
 
     place_at!(1, 240.0)
-    foreinfo = findneighbor(scene, roadway, scene[1], max_distance=Inf)
+    foreinfo = find_neighbor(scene, roadway, scene[1], max_distance=Inf)
     @test foreinfo.ind == 2
     @test isapprox(foreinfo.Δs, 0.0, atol=1e-5)
 

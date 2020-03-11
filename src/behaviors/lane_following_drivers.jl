@@ -5,9 +5,9 @@ function observe!(model::LaneFollowingDriver, scene::Frame{Entity{S, D, I}}, roa
 
     ego = get_by_id(scene, egoid)
 
-    fore = findneighbor(scene, roadway, ego, targetpoint_ego=VehicleTargetPointFront(), targetpoint_neighbor=VehicleTargetPointRear())
+    fore = find_neighbor(scene, roadway, ego, targetpoint_ego=VehicleTargetPointFront(), targetpoint_neighbor=VehicleTargetPointRear())
 
-    v_ego = vel(ego.state)
+    v_ego = vel(ego)
     v_oth = NaN
     headway = NaN
 
