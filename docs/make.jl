@@ -4,7 +4,6 @@ makedocs(
 	 modules = [AutomotiveDrivingModels],
 	 format = Documenter.HTML(),
 	 sitename="AutomotiveDrivingModels.jl",
-	 strict = true,
 	 pages=[
 		 "Home" => "index.md",
 		 "Examples" => [

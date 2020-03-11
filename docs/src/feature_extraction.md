@@ -25,6 +25,16 @@ The `findneighbor` function accepts different keyword argument to search front o
     findneighbor
 ```
 
+When computing the distance to a neighbor, one might want to choose different reference points on the vehicle (center to center, bumper to bumper, etc...). AutomotiveDrivingModels provides the `VehicleTargetPoint` types to do so. 
+One can choose among three possible instances to use the front, center, or rear point of a vehicle to compute the distance to the neighbor.
+
+```@docs 
+    VehicleTargetPoint,
+    VehicleTargetPointCenter,
+    VehicleTargetPointFront,
+    VehicleTargetPointRear
+```
+
 To get the relative position of two vehicles in the Frenet frame, the `get_frenet_relative_position` can be used. 
 It stores the result in a `FrenetRelativePosition` object.
 
