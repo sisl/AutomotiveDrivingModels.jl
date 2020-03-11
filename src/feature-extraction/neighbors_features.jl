@@ -199,6 +199,11 @@ struct FrenetRelativePosition
 end
 
 """
+    get_frenet_relative_position(veh_fore::Entity, veh_rear::Entity, roadway::Roadway)
+return the Frenet relative position between the two vehicles. It projects the position of the first vehicle onto the lane of the second vehicle.
+The result is stored as a `FrenetRelativePosition`.
+
+Lower level:
     get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex, roadway::Roadway;
         max_distance_fore::Float64 = 250.0, # max distance to search forward [m]
         max_distance_rear::Float64 = 250.0, # max distance to search backward [m]
