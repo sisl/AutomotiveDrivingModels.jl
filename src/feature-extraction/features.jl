@@ -7,35 +7,35 @@ abstract type AbstractFeature end
 struct EntityFeature <: AbstractFeature end
 # feature(roadway, scene, veh)
 struct FrameFeature <: AbstractFeature end
-
 # feature(roadway, scenes, veh)
 struct TemporalFeature <: AbstractFeature end
 # feature(actions, veh)
-struct TemporalActionFeature <: AbstractFeature end 
+# struct TemporalActionFeature <: AbstractFeature end 
 # feature(action, veh)
-struct ActionFeature <: AbstractFeature end
+# struct ActionFeature <: AbstractFeature end
 
 # macro for automatic association of methods to traits
 macro feature(fun)
-    f = Main.eval(fun)
-    T = typeof(f)
+    f = eval(fun) # evaluate in the scope of this module
+    T = fun.args[1].args[1] # hacky ? get function name
     if hasmethod(f, Tuple{Roadway, Entity})
-        return :(featuretype(::$T) = EntityFeature())
+        @eval featuretype(::typeof($T)) = EntityFeature()
     elseif hasmethod(f, Tuple{Roadway, Frame, Entity})
-        return :(featuretype(::$T) = FrameFeature())
+        @eval featuretype(::typeof($T)) = FrameFeature()
     elseif hasmethod(f, Tuple{Roadway, Vector{<:Frame}, Entity})
-        return :(featuretype(::$T) = TemporalFeature())
+        @eval featuretype(::typeof($T)) = TemporalFeature()
     else
-        throw(ErrorException("unsupported feature type"))
+        error(""""
+              unsupported feature type
+              try adding a new feature trait or implement one of the existing feature type supported
+              """)
     end
+    return fun
 end
 
-# abstract type TemporalFeature <: AbstractFeature end
-
-
 # Top level extract several features 
-function extract_features(features, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
-    dfs_list = extract_feature.(features, Ref(scenes), Ref(ids))
+function extract_features(features, roadway::Roadway, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+    dfs_list = extract_feature.(features, Ref(roadway), Ref(scenes), Ref(ids))
     # join all the dataframes 
     dfs = Dict{I, DataFrame}()
     for id in ids 
@@ -47,9 +47,9 @@ end
 
 
 # extract one feature from a list of scene
-function extract_feature(feature::Function, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+function extract_feature(feature::Function, roadway::Roadway, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
     # feature_type = FEATURE_MAP[feature]
-    feature_dicts = extract_feature.(Ref(feature), scenes, Ref(ids))
+    feature_dicts = extract_feature.(Ref(feature), Ref(roadway), scenes, Ref(ids))
 
     # convert the list of dictionary into a dictionary of dataframes
     dfs = Dict{I, DataFrame}()
@@ -60,33 +60,33 @@ function extract_feature(feature::Function, scenes::Vector{<:Frame}, ids::Vector
 end
 
 # feature is a general (temporal) feature, broadcast on id only
-function extract_feature(feature::AbstractFeature, scenes::Vector{<:Frame}, ids)
-    values = feature.(Ref(scenes), ids)  # vector of vectors
+function extract_feature(feature::AbstractFeature, roadway::Roadway, scenes::Vector{<:Frame}, ids)
+    values = feature.(Ref(roadway), Ref(scenes), ids)  # vector of vectors
     return Dict(zip(ids, values))
 end
 
 # feature is a frame feature, broadcast on ids and scenes
-function extract_feature(feature::FrameFeature, scenes::Vector{<:Frame}, ids)
-    values = broadcast(id -> feature.(scenes, id), ids)
+function extract_feature(feature::FrameFeature, roadway::Roadway, scenes::Vector{<:Frame}, ids)
+    values = broadcast(id -> feature.(roadway, scenes, id), ids)
     return Dict(zip(ids, values))
 end
 
 # feature is an entity feature, broadcast on ids and scenes 
-function extract_feature(feature::EntityFeature, scenes::Vector{<:Frame}, ids)
+function extract_feature(feature::EntityFeature, roadway::Roadway, scenes::Vector{<:Frame}, ids)
     values = broadcast(ids) do id
         veh_hist= get_by_id.(scenes, Ref(id))
-        feature.(veh_hist)
+        feature.(roadway, veh_hist)
     end
     return Dict(zip(ids, values))
 end
 
 # extract one feature from one scene with different vehicle
-function AutomotiveDrivingModels.extract_feature(feature::Function, scene::EntityFrame{S,D,I}, ids::Vector{I}) where {S,D,I}
-    vehicles = get_by_id.(Ref(scene), ids)
-    # features = extract_feature.(Ref(feature), Ref(scene), vehicles)
-    features = feature.(Ref(scene), vehicles)
-    return Dict(zip(ids, features))
-end
+# function AutomotiveDrivingModels.extract_feature(feature::Function, roadway::Roadway, scene::EntityFrame{S,D,I}, ids::Vector{I}) where {S,D,I}
+#     vehicles = get_by_id.(Ref(scene), ids)
+#     # features = extract_feature.(Ref(feature), Ref(scene), vehicles)
+#     features = feature.(Ref(roadway), Ref(scene), vehicles)
+#     return Dict(zip(ids, features))
+# end
 
 # feature functions 
 
@@ -102,6 +102,7 @@ end
 
 posgx(veh::Entity) = posg(veh).x
 featuretype(::Type{posgx}) = EntityFeature()
+
 posgy(veh::Entity) = posg(veh).y
 featuretype(::Type{posgy}) = EntityFeature()
 

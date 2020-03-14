@@ -23,6 +23,6 @@ df1 = DataFrame(posg = [f[1] for f in feature_dict])
 
 dfs = extract_features((posgx, posgy, distance_to(1)), [scene, scene], [1,2])
 
-
+AutomotiveDrivingModels.@feature posft
 
 using DataFrames
