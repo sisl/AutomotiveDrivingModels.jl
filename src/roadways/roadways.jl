@@ -723,6 +723,19 @@ function n_lanes_left(roadway::Roadway, lane::Lane)
 end
 
 """
+    leftlane(roadway::Roadway, lane::Lane)
+returns the lane to the left of lane if it exists, returns nothing otherwise
+""" 
+function leftlane(roadway::Roadway, lane::Lane)
+    if n_lanes_left(roadway, lane) > 0.0
+        return roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+    else
+        return nothing
+    end
+end 
+
+
+"""
     lanes(roadway::Roadway{T}) where T
 return a list of all the lanes present in roadway. 
 """
