@@ -158,6 +158,44 @@ include("collision-checkers/parallel_axis.jl")
 
 ## Feature Extraction
 
+export AbstractFeature,
+       EntityFeature,
+       FrameFeature,
+       TemporalFeature,
+       extract_features,
+       extract_feature,
+       featuretype,
+
+       # provided feature functions 
+       posgx,
+       posgy,
+       posgθ,
+       posfs,
+       posft,
+       posfϕ,
+       vel,
+       velfs,
+       velft,
+       velgx,
+       velgy,
+       time_to_crossing_right,
+       time_to_crossing_left,
+       estimated_time_to_lane_crossing,
+       iswaiting,
+       iscolliding,
+       distance_to,
+       acc,
+       accfs,
+       accft,
+       jerk,
+       jerkft,
+       turn_rate_g,
+       turn_rate_f,
+       isbraking,
+       isaccelerating
+
+include("feature-extraction/features.jl")
+
 export
     VehicleTargetPoint,
     VehicleTargetPointFront,
@@ -176,13 +214,15 @@ export
     get_neighbor_rear_along_right_lane,
     FrenetRelativePosition,
     get_frenet_relative_position,
-    get_lane_width,
-    get_markerdist_left,
-    get_markerdist_right
+    lane_width,
+    markerdist_left,
+    markerdist_right
 
 include("feature-extraction/neighbors_features.jl")
 include("feature-extraction/lane_features.jl")
 
+
+       
 # export 
 #     AbstractFeature,
 #     FeatureValue,
@@ -201,12 +241,6 @@ include("feature-extraction/lane_features.jl")
 # include("feature-extraction/interface.jl")
 # include("feature-extraction/features.jl")
 # include("feature-extraction/features_extractors.jl")
-
-export AbstractFeature,
-       extract_feature,
-       extract_features
-
-include("feature-extraction/features.jl")
 
 export
     LidarSensor,

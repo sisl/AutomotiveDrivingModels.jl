@@ -708,16 +708,16 @@ function move_along(roadind::RoadIndex{I, T},
 end
 
 """
-    n_lanes_right(lane::Lane, roadway::Roadway)
+    n_lanes_right(roadway::Roadway, lane::Lane)
 returns the number of lanes to the right of `lane`
 """
-n_lanes_right(lane::Lane, roadway::Roadway) = lane.tag.lane - 1
+n_lanes_right(roadway::Roadway, lane::Lane) = lane.tag.lane - 1
 
 """
-    n_lanes_left(lane::Lane, roadway::Roadway)
+    n_lanes_left(roadway::Roadway, lane::Lane)
 returns the number of lanes to the left of `lane`
 """
-function n_lanes_left(lane::Lane, roadway::Roadway)
+function n_lanes_left(roadway::Roadway, lane::Lane)
     seg = roadway[lane.tag.segment]
     length(seg.lanes) - lane.tag.lane
 end

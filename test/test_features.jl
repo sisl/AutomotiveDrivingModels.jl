@@ -114,126 +114,196 @@
     @test isapprox(frp.ϕ, 0.0, atol=1e-7)
 end
 
-@testset begin "extract features"
+@testset "feature extraction" begin 
     roadway = gen_straight_roadway(4, 100.0)
 
     scene = Scene([Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-       Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
-        ])
+        Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+            ])
 
-    pos1 = extract_feature(PosGFeature(), scene, scene[1])
-    pos2 = extract_feature(PosGFeature(), scene, scene[2])
-    poss = extract_feature(PosGFeature(), scene, [1,2])
-    @test poss[1] == pos1
-    @test poss[2] == pos2
+    # test each feature individually 
+    pos1 = extract_feature(featuretype(posgx), posgx, roadway, [scene], 1)
+    pos2 = extract_feature(featuretype(posgx), posgx, roadway, [scene], 2)
+    poss = extract_feature(featuretype(posgx), posgx, roadway, [scene], [1,2])
+    @test poss[1][1] == pos1[1]
+    @test poss[2][1] == pos2[2]
+    @test pos1[1] == 0.0
+    @test pos2[2] == 10.0
 
-    dfs1 = extract_feature("posg", [scene, scene], [1,2]) # dataframes
-    dfs2 = extract_feature("posf", [scene, scene], [1,2]) # dataframes
+    scene = Scene([Vehicle(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1)])
+    posy = extract_feature(featuretype(posgy), posgy, roadway, [scene], 1)
+    @test posy[1] == 1.2
+    posθ = extract_feature(featuretype(posgθ), posgθ, roadway, [scene], 1)
+    @test posθ[1] == 0.0
+    poss = extract_feature(featuretype(posfs), posfs, roadway, [scene], 1)
+    @test poss[1] == 1.1
+    post = extract_feature(featuretype(posft), posft, roadway, [scene], 1)
+    @test post[1] == 1.2
+    posϕ = extract_feature(featuretype(posfϕ), posfϕ, roadway, [scene], 1)
+    @test posϕ[1] == 0.0
 
-    dfs = AutomotiveDrivingModels.extract_features(["posg", "posf"], [scene, scene], [1,2])
 
-    @test dfs1[:posg, :] == dfs[1][:posg, :]
-    @test dfs2[:posf, :] == dfs[2][:posf, :]
+    scene = Scene([Vehicle(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+                Vehicle(VehicleState(VecSE2(1.5,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2)])
+    coll = extract_feature(featuretype(iscolliding), iscolliding, roadway, [scene], 1)
+    @test coll[1]
 
-end
+    d = extract_feature(featuretype(distance_to(1)), distance_to(1), roadway, [scene], 1)
+    @test d[1] == 0.0
+    d = extract_feature(featuretype(distance_to(2)), distance_to(2), roadway, [scene], 1)
+    @test d[1] ≈ 0.4
 
-@testset begin "features interface" 
+    df = extract_feature(featuretype(turn_rate_g), turn_rate_g, roadway, [scene, scene], [1])
+    @test df[1][1] === missing
+    @test df[1][2] == 0.0
+
+    # TODO add neigh_dist_front, dist_front
+
+    # extract multiple features 
     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
-    rec = SceneRecord(1, 0.1, 5)
-    update!(rec, Scene([
-            Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
-        ]))
+    scene = Scene([
+                Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+                Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+            ])
 
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 0.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
+    dfs = extract_features((iscolliding, markerdist_left, markerdist_right), roadway, [scene], [1,2])
+    @test isapprox(dfs[1].markerdist_right[1], 0.5)
+    @test isapprox(dfs[2].markerdist_right[1], 0.5)
+    @test isapprox(dfs[1].markerdist_left[1], 0.5)
+    @test isapprox(dfs[2].markerdist_left[1], 0.5)
 
-    @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 1)), 0.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 2)), 0.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 1)), 0.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 2)), 0.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 1)), 1.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 2)), 1.5)
-    @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 1)))
-    @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 2)))
-
-    @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 10.0 - 5.0)
-    @test convert(Float64, get(DIST_FRONT, rec, roadway, 2, censor_hi=100.0)) == 100.0
-
-    update!(rec, Scene([
-            Vehicle(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
-            Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
-            Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
-        ]))
-
-    @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 3)), 0.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 3)), 0.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 3)), 1.5)
-    @test isapprox(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 3)), 1.5)
-
-    @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 9.0 - 5.0)
-    @test isapprox(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 1)), 11.0 - 5.0)
-    @test convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 1)) == 100.0
-    @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 4)), 12.0 - 5.0)
-    @test convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 4)) == 100.0
-    @test isapprox(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 4)), 1.0 - 5.0)
-
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 1.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 4)) == 1.0
-
-    update!(rec, Scene([
-            Vehicle(VehicleState(VecSE2(  0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(-10.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
-            Vehicle(VehicleState(VecSE2(  0.0,1.0,0.5), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
-        ]))
-
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
-    @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
-
-    @test get(LatLonAccel, rec, roadway, 1) == LatLonAccel(0.0, 0.0)
-    @test get(AccelTurnrate, rec, roadway, 1) == AccelTurnrate(0.0, 0.0)
-    # super-simple test
-    for f in allfeatures()
-        get(f, rec, roadway, 3)
+    # integration testing, all the features 
+    feature_list = (posgx, posgy, posgθ, posfs, posft, posfϕ, vel, velfs, velft, velgx, velgy, 
+                    time_to_crossing_right, time_to_crossing_left, 
+                    estimated_time_to_lane_crossing, iswaiting, acc, accfs, accft, jerk, 
+                    jerkft, turn_rate_g, turn_rate_f, isbraking, isaccelerating)
+    dfs = extract_features(feature_list, roadway, [scene, scene], [1,2])
+    for id=[1,2]
+        @test ncol(dfs[id]) == length(feature_list)
+        @test nrow(dfs[id]) == 2
     end
-end
+end # features
 
-struct DumbFeatureExtractor <: AbstractFeatureExtractor end
-@testset begin "features extractor"
-    roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
-    rec = SceneRecord(1, 0.1, 5)
-    update!(rec, Scene([
-            Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
-        ]))
+# @testset begin "extract features"
+#     roadway = gen_straight_roadway(4, 100.0)
 
-    ext = DumbFeatureExtractor()
-    @test rec_length(ext) == 1
-    @test_throws Exception length(ext)
-    @test_throws Exception pull_features!(ext, Array{Float64}(undef, 0), rec, roadway, 1)
+#     scene = Scene([Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+#        Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+#         ])
 
-    ext = FeatureExtractor(AbstractFeature[SPEED, POSFT], 2)
-    @test rec_length(ext) == 2
-    @test length(ext) == 2
-    @test pull_features!(ext, [NaN,NaN], rec, roadway, 1) == [10.0, 0.0]
+#     pos1 = extract_feature(PosGFeature(), scene, scene[1])
+#     pos2 = extract_feature(PosGFeature(), scene, scene[2])
+#     poss = extract_feature(PosGFeature(), scene, [1,2])
+#     @test poss[1] == pos1
+#     @test poss[2] == pos2
 
-    subset_ext = SubsetExtractor(ext, [1])
-    @test rec_length(subset_ext) == 2
-    @test length(subset_ext) == 1
-    @test pull_features!(subset_ext, [NaN], rec, roadway, 1) == [10.0]
+#     dfs1 = extract_feature("posg", [scene, scene], [1,2]) # dataframes
+#     dfs2 = extract_feature("posf", [scene, scene], [1,2]) # dataframes
 
-    subset_ext.subset[1] = 2
-    @test pull_features!(subset_ext, [NaN], rec, roadway, 1) == [0.0]
+#     dfs = AutomotiveDrivingModels.extract_features(["posg", "posf"], [scene, scene], [1,2])
 
-    stan_ext = StandardizingExtractor(ext, [1.0, 2.0], [1.0, 4.0])
-    @test rec_length(stan_ext) == 2
-    @test length(stan_ext) == 2
-    @test pull_features!(stan_ext, [NaN,NaN], rec, roadway, 1) == [(10.0-1.0)/1.0, (0.0-2.0)/4.0]
-end
+#     @test dfs1[:posg, :] == dfs[1][:posg, :]
+#     @test dfs2[:posf, :] == dfs[2][:posf, :]
+
+# end
+
+# @testset begin "features interface" 
+#     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
+#     rec = SceneRecord(1, 0.1, 5)
+#     update!(rec, Scene([
+#             Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+#             Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+#         ]))
+
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 0.0
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
+
+#     @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 1)), 0.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 2)), 0.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 1)), 0.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 2)), 0.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 1)), 1.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 2)), 1.5)
+#     @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 1)))
+#     @test isnan(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 2)))
+
+#     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 10.0 - 5.0)
+#     @test convert(Float64, get(DIST_FRONT, rec, roadway, 2, censor_hi=100.0)) == 100.0
+
+#     update!(rec, Scene([
+#             Vehicle(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+#             Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+#             Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
+#             Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
+#         ]))
+
+#     @test isapprox(convert(Float64, get(MARKERDIST_LEFT, rec, roadway, 3)), 0.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_RIGHT, rec, roadway, 3)), 0.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_LEFT_LEFT, rec, roadway, 3)), 1.5)
+#     @test isapprox(convert(Float64, get(MARKERDIST_RIGHT_RIGHT, rec, roadway, 3)), 1.5)
+
+#     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 1)), 9.0 - 5.0)
+#     @test isapprox(convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 1)), 11.0 - 5.0)
+#     @test convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 1)) == 100.0
+#     @test isapprox(convert(Float64, get(DIST_FRONT, rec, roadway, 4)), 12.0 - 5.0)
+#     @test convert(Float64, get(DIST_FRONT_LEFT, rec, roadway, 4)) == 100.0
+#     @test isapprox(convert(Float64, get(DIST_FRONT_RIGHT, rec, roadway, 4)), 1.0 - 5.0)
+
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 1.0
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 4)) == 1.0
+
+#     update!(rec, Scene([
+#             Vehicle(VehicleState(VecSE2(  0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+#             Vehicle(VehicleState(VecSE2(-10.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+#             Vehicle(VehicleState(VecSE2(  0.0,1.0,0.5), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
+#         ]))
+
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 1)) == 1.0
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 2)) == 0.0
+#     @test convert(Float64, get(IS_COLLIDING, rec, roadway, 3)) == 1.0
+
+#     @test get(LatLonAccel, rec, roadway, 1) == LatLonAccel(0.0, 0.0)
+#     @test get(AccelTurnrate, rec, roadway, 1) == AccelTurnrate(0.0, 0.0)
+#     # super-simple test
+#     for f in allfeatures()
+#         get(f, rec, roadway, 3)
+#     end
+# end
+
+# struct DumbFeatureExtractor <: AbstractFeatureExtractor end
+# @testset begin "features extractor"
+#     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
+#     rec = SceneRecord(1, 0.1, 5)
+#     update!(rec, Scene([
+#             Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+#             Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+#         ]))
+
+#     ext = DumbFeatureExtractor()
+#     @test rec_length(ext) == 1
+#     @test_throws Exception length(ext)
+#     @test_throws Exception pull_features!(ext, Array{Float64}(undef, 0), rec, roadway, 1)
+
+#     ext = FeatureExtractor(AbstractFeature[SPEED, POSFT], 2)
+#     @test rec_length(ext) == 2
+#     @test length(ext) == 2
+#     @test pull_features!(ext, [NaN,NaN], rec, roadway, 1) == [10.0, 0.0]
+
+#     subset_ext = SubsetExtractor(ext, [1])
+#     @test rec_length(subset_ext) == 2
+#     @test length(subset_ext) == 1
+#     @test pull_features!(subset_ext, [NaN], rec, roadway, 1) == [10.0]
+
+#     subset_ext.subset[1] = 2
+#     @test pull_features!(subset_ext, [NaN], rec, roadway, 1) == [0.0]
+
+#     stan_ext = StandardizingExtractor(ext, [1.0, 2.0], [1.0, 4.0])
+#     @test rec_length(stan_ext) == 2
+#     @test length(stan_ext) == 2
+#     @test pull_features!(stan_ext, [NaN,NaN], rec, roadway, 1) == [(10.0-1.0)/1.0, (0.0-2.0)/4.0]
+# end
 
 ## Lidar sensor tests
 #=

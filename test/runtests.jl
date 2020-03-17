@@ -1,5 +1,6 @@
 using Test
 using AutomotiveDrivingModels
+using DataFrames
 using Distributions
 
 include("test_roadways.jl")
