@@ -122,11 +122,7 @@ export
 include("states/interface.jl")
 include("states/vehicle_state.jl")
 
-export
-    TrajdataFrame,
-    TrajdataState,
-    Trajdata,
-    TrajdataVehicleIterator
+export Trajdata
 
 include("states/trajdatas.jl")
 
@@ -286,7 +282,6 @@ export
     ProportionalLaneTracker,
     LatLonSeparableDriver,
     Tim2DDriver,
-    track_lane!,
     SidewalkPedestrianModel,
     LaneChangeChoice,
     LaneChangeModel,
