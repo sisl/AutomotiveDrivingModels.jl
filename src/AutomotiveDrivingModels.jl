@@ -198,6 +198,19 @@ export AbstractFeature,
 
 include("feature-extraction/features.jl")
 
+export lane_width,
+       markerdist_left,
+       markerdist_right,
+       road_edge_dist_left,
+       road_edge_dist_right,
+       lane_offset_left,
+       lane_offset_right,
+       has_lane_left,
+       has_lane_right,
+       lane_curvature
+
+include("feature-extraction/lane_features.jl")
+
 export
     VehicleTargetPoint,
     VehicleTargetPointFront,
@@ -209,20 +222,14 @@ export
     get_neighbor_fore,
     get_neighbor_rear,
     get_headway,
-    # get_neighbor_fore_along_lane,
-    # get_neighbor_fore_along_left_lane,
-    # get_neighbor_fore_along_right_lane,
-    # get_neighbor_rear_along_lane,
-    # get_neighbor_rear_along_left_lane,
-    # get_neighbor_rear_along_right_lane,
     FrenetRelativePosition,
     get_frenet_relative_position,
-    lane_width,
-    markerdist_left,
-    markerdist_right
+    dist_to_front_neighbor,
+    front_neighbor_speed,
+    time_gap,
+    time_to_collision
 
 include("feature-extraction/neighbors_features.jl")
-include("feature-extraction/lane_features.jl")
 
 
        

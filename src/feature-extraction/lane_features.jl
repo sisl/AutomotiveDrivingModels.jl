@@ -1,3 +1,20 @@
+
+"""
+    leftlane(roadway::Roadway, veh::Entity)
+returns the lane to the left of the lane veh is currently in, returns nothing if it does not exists
+"""
+function leftlane(roadway::Roadway, veh::Entity)
+    return leftlane(roadway, get_lane(roadway, veh))
+end
+
+"""
+    rightlane(roadway::Roadway, veh::Entity)
+returns the lane to the right of the lane veh is currently in, returns nothing if it does not exists
+"""
+function rightlane(roadway::Roadway, veh::Entity)
+    return rightlane(roadway, get_lane(roadway, veh))
+end
+
 featuretype(::typeof(get_lane)) = EntityFeature()
 n_lanes_left(roadway::Roadway, veh::Entity) = n_lanes_left(roadway, get_lane(roadway, veh))
 featuretype(::typeof(n_lanes_left)) = EntityFeature()
@@ -75,8 +92,7 @@ function lane_offset_left(roadway::Roadway, veh::Entity)
     t = posf(veh).t
     lane = get_lane(roadway, veh)
     if n_lanes_left(roadway, lane) > 0
-        lane_left = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        lane_offset = t - lane.width/2 - lane_left.width/2
+        lane_offset = t - lane.width/2 - leftlane(roadway, veh).width/2
         return lane_offset
     else
         missing
@@ -89,8 +105,7 @@ function lane_offset_right(roadway::Roadway, veh::Entity)
     t = posf(veh).t
     lane = get_lane(roadway, veh)
     if n_lanes_right(roadway, lane) > 0
-        lane_right = roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
-        lane_offset = t - lane.width/2 - lane_right.width/2
+        lane_offset = t + lane.width/2 + rightlane(roadway, veh).width/2
         return lane_offset
     else
         missing

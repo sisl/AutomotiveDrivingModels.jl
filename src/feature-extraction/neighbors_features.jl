@@ -307,3 +307,50 @@ function get_frenet_relative_position(posG::VecSE2{Float64}, roadind::RoadIndex,
     retval
 end
 get_frenet_relative_position(veh_fore::Entity{S, D, I}, veh_rear::Entity{S, D, I}, roadway::Roadway) where {S,D, I} = get_frenet_relative_position(posg(veh_fore.state), posf(veh_rear.state).roadind, roadway)
+
+
+# TODO add front neighbor, speed_front, time gap, inv_TTC, TTC, left_neigh, right_neigh, rear_neigh
+
+@feature function dist_to_front_neighbor(roadway::Roadway, scene::Frame, veh::Entity)
+    neighbor = find_neighbor(scene, roadway, veh)
+    if neighbor.ind === nothing 
+        return missing 
+    else
+        return neighbor.Δs
+    end
+end
+
+@feature function front_neighbor_speed(roadway::Roadway, scene::Frame, veh::Entity)
+    neighbor = find_neighbor(scene, roadway, veh)
+    if neighbor.ind === nothing 
+        return missing 
+    else
+        return vel(scene[neighbor.ind])
+    end
+end
+
+@feature function time_gap(roadway::Roadway, scene::Frame, veh::Entity)
+    neighbor = find_neighbor(scene, roadway, veh)
+    if neighbor.ind === nothing 
+        return missing
+    else
+        v = vel(veh)
+        len_ego = length(veh.def)
+        len_oth = length(scene[neighbor.ind].def)
+        Δs = neighbor.Δs - len_ego/2 - len_oth/2
+        return Δs
+    end
+end
+
+@feature function time_to_collision(roadway::Roadway, scene::Frame, veh::Entity)
+    neighbor = find_neighbor(scene, roadway, veh)
+    if neighbor.ind === nothing 
+        return missing
+    else
+        len_ego = length(veh.def)
+        len_oth = length(scene[neighbor.ind].def)
+        Δs = neighbor.Δs - len_ego/2 - len_oth/2
+        Δv = vel(scene[neighbor.ind]) - vel(veh)
+        return -Δs / Δv
+    end
+end

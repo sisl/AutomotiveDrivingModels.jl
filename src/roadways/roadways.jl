@@ -714,6 +714,18 @@ returns the number of lanes to the right of `lane`
 n_lanes_right(roadway::Roadway, lane::Lane) = lane.tag.lane - 1
 
 """
+    rightlane(roadway::Roadway, lane::Lane)
+returns the lane to the right of lane if it exists, returns nothing otherwise
+""" 
+function rightlane(roadway::Roadway, lane::Lane)
+    if n_lanes_right(roadway, lane) > 0.0
+        return roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+    else
+        return nothing
+    end
+end 
+
+"""
     n_lanes_left(roadway::Roadway, lane::Lane)
 returns the number of lanes to the left of `lane`
 """

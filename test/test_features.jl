@@ -161,8 +161,6 @@ end
     @test df[1][1] === missing
     @test df[1][2] == 0.0
 
-    # TODO add neigh_dist_front, dist_front
-
     # extract multiple features 
     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
     scene = Scene([
@@ -180,12 +178,24 @@ end
     feature_list = (posgx, posgy, posgθ, posfs, posft, posfϕ, vel, velfs, velft, velgx, velgy, 
                     time_to_crossing_right, time_to_crossing_left, 
                     estimated_time_to_lane_crossing, iswaiting, acc, accfs, accft, jerk, 
-                    jerkft, turn_rate_g, turn_rate_f, isbraking, isaccelerating)
+                    jerkft, turn_rate_g, turn_rate_f, isbraking, isaccelerating,
+                    lane_width, lane_offset_left, lane_offset_right, has_lane_left, 
+                    has_lane_right, lane_curvature)
     dfs = extract_features(feature_list, roadway, [scene, scene], [1,2])
     for id=[1,2]
         @test ncol(dfs[id]) == length(feature_list)
         @test nrow(dfs[id]) == 2
     end
+
+    scene = Scene([
+            Vehicle(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+            Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
+            Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
+        ])
+    dfs= extract_features((dist_to_front_neighbor, front_neighbor_speed, time_gap, time_to_collision), roadway, [scene], [1,2,3,4])
+    @test isapprox(dfs[1].dist_to_front_neighbor[1], 9.0)
+
 end # features
 
 # @testset begin "extract features"

@@ -61,8 +61,8 @@ function observe!(model::TimLaneChanger, scene::Frame{Entity{S, D, I}}, roadway:
     veh_ego = scene[vehicle_index]
     v = vel(veh_ego.state)
 
-    left_lane_exists = convert(Float64, get(N_LANE_LEFT, rec, roadway, vehicle_index)) > 0
-    right_lane_exists = convert(Float64, get(N_LANE_RIGHT, rec, roadway, vehicle_index)) > 0
+    left_lane_exists = has_lane_left(roadway, veh_ego)
+    right_lane_exists = has_lane_right(roadway, veh_ego)
     fore_M = find_neighbor(scene, roadway, veh_ego,
                           targetpoint_ego = VehicleTargetPointFront(), 
                           targetpoint_neighbor = VehicleTargetPointRear(),
