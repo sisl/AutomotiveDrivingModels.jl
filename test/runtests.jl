@@ -10,3 +10,21 @@ include("test_actions.jl")
 include("test_features.jl")
 include("test_behaviors.jl")
 include("test_simulation.jl")
+
+@testset "doc tutorials" begin
+    @testset "basics" begin
+        include("../docs/lit/tutorials/straight_roadway.jl")
+    end
+    @testset "cameras" begin
+        include("../docs/lit/tutorials/stadium.jl")
+    end
+    @testset "overlays" begin
+        include("../docs/lit/tutorials/intersection.jl")
+    end
+    @testset "basics" begin
+        include("../docs/lit/tutorials/crosswalk.jl")
+    end
+    @testset "basics" begin
+        include("../docs/lit/tutorials/sidewalk.jl")
+    end
+end

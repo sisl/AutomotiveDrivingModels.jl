@@ -28,7 +28,7 @@ the agents.
 
 Each section of the documentation contains an interface, which is a list of functions that a user must implement to use its own types.
 
-## Examples
+## Tutorials
 
 The following examples will showcase some of the simulation functionality of `AutomotiveDrivingModels`
 
@@ -38,3 +38,7 @@ The following examples will showcase some of the simulation functionality of `Au
 - [Crosswalk](@ref)
 - [Sidewalk](@ref)
 
+# !!! note
+#     All AutomotiveDrivingModels tutorials are available as
+#     [Jupyter notebooks](https://nbviewer.jupyter.org/)
+#     by clicking on the badge at the beginning of the tutorial!

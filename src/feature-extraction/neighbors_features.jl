@@ -166,7 +166,7 @@ function find_neighbor(scene::Frame, roadway::Roadway, ego::Entity{S,D,I};
         # go to the connected lane.
         if rear
             dist_searched += s_base
-            s_base = curr_lane.curve[end].s + norm(VecE2(lane.cure[end].pos - prev_lane_point(curr_lane, roadway).pos))
+            s_base = curr_lane.curve[end].s + norm(VecE2(lane.curve[end].pos - prev_lane_point(curr_lane, roadway).pos))
             tag_target = prev_lane(lane, roadway).tag
         else
             dist_searched += (curr_lane.curve[end].s - s_base)
