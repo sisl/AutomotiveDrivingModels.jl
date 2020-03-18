@@ -169,10 +169,10 @@ end
             ])
 
     dfs = extract_features((iscolliding, markerdist_left, markerdist_right), roadway, [scene], [1,2])
-    @test isapprox(dfs[1].markerdist_right[1], 0.5)
-    @test isapprox(dfs[2].markerdist_right[1], 0.5)
-    @test isapprox(dfs[1].markerdist_left[1], 0.5)
-    @test isapprox(dfs[2].markerdist_left[1], 0.5)
+    @test isapprox(dfs[1][1,3], 0.5)
+    @test isapprox(dfs[2][1,3], 0.5)
+    @test isapprox(dfs[1][1,2], 0.5)
+    @test isapprox(dfs[2][1,2], 0.5)
 
     # integration testing, all the features 
     feature_list = (posgx, posgy, posgθ, posfs, posft, posfϕ, vel, velfs, velft, velgx, velgy, 
@@ -194,7 +194,7 @@ end
             Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
         ])
     dfs= extract_features((dist_to_front_neighbor, front_neighbor_speed, time_gap, time_to_collision), roadway, [scene], [1,2,3,4])
-    @test isapprox(dfs[1].dist_to_front_neighbor[1], 9.0)
+    @test isapprox(dfs[1][1,1], 9.0)
 
 end # features
 
