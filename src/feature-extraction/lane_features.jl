@@ -15,11 +15,10 @@ function rightlane(roadway::Roadway, veh::Entity)
     return rightlane(roadway, get_lane(roadway, veh))
 end
 
-featuretype(::typeof(get_lane)) = EntityFeature()
 n_lanes_left(roadway::Roadway, veh::Entity) = n_lanes_left(roadway, get_lane(roadway, veh))
-featuretype(::typeof(n_lanes_left)) = EntityFeature()
+
 n_lanes_right(roadway::Roadway, veh::Entity) = n_lanes_right(roadway, get_lane(roadway, veh))
-featuretype(::typeof(n_lanes_right)) = EntityFeature()
+
 
 """
     lane_width(roadway::Roadway, veh::Entity)
@@ -38,8 +37,6 @@ function lane_width(roadway::Roadway, veh::Entity)
     end
 end
 
-featuretype(::typeof(lane_width)) = EntityFeature()
-
 """
     markerdist_left(roadway::Roadway, veh::Entity)
 distance of `veh` to the left marker of the lane
@@ -49,8 +46,6 @@ function markerdist_left(roadway::Roadway, veh::Entity)
     lw = lane_width(roadway, veh)
     return lw/2 - t
 end
-
-featuretype(::typeof(markerdist_left)) = EntityFeature()
 
 """
     markerdist_left(roadway::Roadway, veh::Entity)
@@ -62,8 +57,10 @@ function markerdist_right(roadway::Roadway, veh::Entity)
     return lw/2 + t
 end
 
-featuretype(::typeof(markerdist_right)) = EntityFeature()
-
+"""
+    road_edge_dist_left(roadway::Roadway, veh::Entity)
+feature function, extract the lateral distance to the left edge of the road
+"""
 function road_edge_dist_left(roadway::Roadway, veh::Entity)
     offset = posf(veh).t
     footpoint = get_footpoint(veh)
@@ -74,8 +71,10 @@ function road_edge_dist_left(roadway::Roadway, veh::Entity)
     return lane.width/2 + norm(VecE2(curvept.pos - footpoint)) - offset
 end
 
-featuretype(::typeof(road_edge_dist_left)) = EntityFeature()
-
+"""
+    road_edge_dist_right(roadway::Roadway, veh::Entity)
+feature function, extract the lateral distance to the right edge of the road
+"""
 function road_edge_dist_right(roadway::Roadway, veh::Entity)
     offset = posf(veh).t
     footpoint = get_footpoint(veh)
@@ -85,8 +84,6 @@ function road_edge_dist_right(roadway::Roadway, veh::Entity)
     lane = roadway[roadproj.tag]
     return lane.width/2 + norm(VecE2(curvept.pos - footpoint)) + offset
 end
-
-featuretype(::typeof(road_edge_dist_right)) = EntityFeature()
 
 function lane_offset_left(roadway::Roadway, veh::Entity)
     t = posf(veh).t
@@ -99,8 +96,6 @@ function lane_offset_left(roadway::Roadway, veh::Entity)
     end
 end
 
-featuretype(::typeof(lane_offset_left)) = EntityFeature()
-
 function lane_offset_right(roadway::Roadway, veh::Entity)
     t = posf(veh).t
     lane = get_lane(roadway, veh)
@@ -112,20 +107,27 @@ function lane_offset_right(roadway::Roadway, veh::Entity)
     end
 end
 
-featuretype(::typeof(lane_offset_right)) = EntityFeature()
-
+"""
+    has_lane_right(roadway::Roadway, veh::Entity)
+Return true if `veh` has a lane on its right.
+"""
 function has_lane_right(roadway::Roadway, veh::Entity)
     return n_lanes_right(roadway, veh) > 0
 end
 
-featuretype(::typeof(has_lane_right)) = EntityFeature()
-
+"""
+    has_lane_left(roadway::Roadway, veh::Entity)
+Return true if `veh` has a lane on its left.
+"""
 function has_lane_left(roadway::Roadway, veh::Entity)
     return n_lanes_left(roadway, veh) > 0
 end
 
-featuretype(::typeof(has_lane_left)) = EntityFeature()
-
+"""
+    lane_curvature(roadway::Roadway, veh::Entity)
+Return the curvature of the lane at `veh`'s position.
+Return missing if the curvature is `NaN`
+"""
 function lane_curvature(roadway::Roadway, veh::Entity)
     curvept = roadway[posf(veh.state).roadind]
     val = curvept.k
@@ -134,5 +136,3 @@ function lane_curvature(roadway::Roadway, veh::Entity)
     end
     return val
 end
-
-featuretype(::typeof(lane_curvature)) = EntityFeature()

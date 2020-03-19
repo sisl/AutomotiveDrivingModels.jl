@@ -8,6 +8,7 @@ using Distributions
 using Reexport
 using Random
 using DataFrames
+using Tricks: static_hasmethod
 @reexport using Vec 
 @reexport using Records
 
@@ -222,7 +223,6 @@ export
     get_frenet_relative_position,
     dist_to_front_neighbor,
     front_neighbor_speed,
-    time_gap,
     time_to_collision
 
 include("feature-extraction/neighbors_features.jl")

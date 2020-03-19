@@ -193,7 +193,7 @@ end
             Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
             Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
         ])
-    dfs= extract_features((dist_to_front_neighbor, front_neighbor_speed, time_gap, time_to_collision), roadway, [scene], [1,2,3,4])
+    dfs= extract_features((dist_to_front_neighbor, front_neighbor_speed, time_to_collision), roadway, [scene], [1,2,3,4])
     @test isapprox(dfs[1][1,1], 9.0)
 
 end # features
