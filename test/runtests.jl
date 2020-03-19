@@ -2,6 +2,9 @@ using Test
 using AutomotiveDrivingModels
 using Distributions
 
+@testset "Data structures" begin 
+    include("test_records.jl")
+end
 include("test_roadways.jl")
 include("test_agent_definitions.jl")
 include("test_states.jl")

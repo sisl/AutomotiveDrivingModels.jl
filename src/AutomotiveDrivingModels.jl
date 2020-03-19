@@ -7,6 +7,7 @@ using StaticArrays
 using Distributions
 using Reexport
 using Random
+using SparseArrays
 @reexport using Vec
 
 # Records
