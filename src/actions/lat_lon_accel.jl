@@ -50,8 +50,4 @@ function propagate(veh::Entity{VehicleState, D, I}, action::LatLonAccel, roadway
     veh = VehicleState(posG, roadway, v₂)
     return veh
 end
-function Base.get(::Type{LatLonAccel}, rec::SceneRecord, roadway::Roadway, vehicle_index::Int, pastframe::Int=0)
-    accel_lat = get(ACCFT, rec, roadway, vehicle_index, pastframe)
-    accel_lon = get(ACCFS, rec, roadway, vehicle_index, pastframe)
-    LatLonAccel(accel_lat, accel_lon)
-end
+

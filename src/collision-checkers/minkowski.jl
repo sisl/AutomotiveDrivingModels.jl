@@ -4,7 +4,7 @@
 
 ######################################
 
-function cyclic_shift_left!(arr::AbstractVector, d::Int, n::Int=length(a))
+function cyclic_shift_left!(arr::AbstractVector, d::Int, n::Int)
     #=
     Perform a cyclic rotation of the elements in the array, in place
         d = amount to shift
