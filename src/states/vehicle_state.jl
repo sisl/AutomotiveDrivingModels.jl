@@ -99,13 +99,6 @@ function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
     VehicleState(posG, roadway, v₂)
 end
 
-"""
-    Vehicle
-A specific instance of the Entity type defined in Records to represent Vehicles with 
-state `VehicleState` , definition `VehicleDef` and id `Int64`
-"""
-const Vehicle = Entity{VehicleState,VehicleDef,Int64}
-
 # XXX Should this go in features
 """
     get_center(veh::Entity{VehicleState, D, I})

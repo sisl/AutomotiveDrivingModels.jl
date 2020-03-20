@@ -12,9 +12,9 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     models[2] = IntelligentDriverModel(k_spd = 1.0, v_des = 5.0)
 
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     scene = Scene()
     push!(scene, veh1)
@@ -31,9 +31,9 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
 
     # initializing vehicles too close
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 5.0), roadway, 5.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     scene = Scene()
     push!(scene, veh1)
@@ -52,9 +52,9 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
 
     # collision right from start
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 10.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 1.0), roadway, 5.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     scene = Scene()
     push!(scene, veh1)
@@ -72,7 +72,7 @@ end
   trajdata = get_test_trajdata(roadway)
 
   veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 6.0), roadway, 10.)
-  ego = Vehicle(veh_state, VehicleDef(), 2)
+  ego = Entity(veh_state, VehicleDef(), 2)
   model = ProportionalSpeedTracker()
   dt = get_timestep(trajdata)
   rec = SceneRecord(3, dt)

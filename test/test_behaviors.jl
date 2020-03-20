@@ -27,9 +27,9 @@ end
     set_desired_speed!(models[2], 5.0)
     @test models[2].v_des == 5.0
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     scene = Scene()
     push!(scene, veh1)
@@ -61,9 +61,9 @@ end
 
     # initializing vehicles too close
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 3.0), roadway, 5.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     scene = Scene()
     push!(scene, veh1)
@@ -101,9 +101,9 @@ end
 
     roadway = gen_straight_roadway(3, 1000.0)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 0.0), roadway, 10.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 20.0), roadway, 2.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     dt = 0.5
     n_steps = 10
@@ -131,9 +131,9 @@ end
 
     roadway = gen_straight_roadway(3, 1000.0)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 0.0), roadway, 10.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,2)], 10.0), roadway, 2.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
 
     dt = 0.5
     n_steps = 10
@@ -172,11 +172,11 @@ end
     @test models[3].v_des == 5.0
 
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
-    veh1 = Vehicle(veh_state, VehicleDef(), 1)
+    veh1 = Entity(veh_state, VehicleDef(), 1)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
-    veh2 = Vehicle(veh_state, VehicleDef(), 2)
+    veh2 = Entity(veh_state, VehicleDef(), 2)
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 130.0), roadway, 5.)
-    veh3 = Vehicle(veh_state, VehicleDef(), 3)
+    veh3 = Entity(veh_state, VehicleDef(), 3)
 
     scene = Scene()
     push!(scene, veh1)
@@ -265,11 +265,11 @@ end
 
     # Crossing pedestrian definition
     ped_init_state = VehicleState(VecSE2(49.0,-3.0,0.), sidewalk[2], roadway, 1.3)
-    ped = Vehicle(ped_init_state, VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0), 1)
+    ped = Entity(ped_init_state, VehicleDef(AgentClass.PEDESTRIAN, 1.0, 1.0), 1)
 
     # Car definition
     car_initial_state = VehicleState(VecSE2(0.0, 0., 0.), roadway.segments[1].lanes[1],roadway, 8.0)
-    car = Vehicle(car_initial_state, VehicleDef(), 2)
+    car = Entity(car_initial_state, VehicleDef(), 2)
 
     scene = Scene()
     push!(scene, ped)

@@ -56,7 +56,7 @@ end
     @test isapprox(vel(s), 10.0)
     
     vehdef = VehicleDef(AgentClass.CAR, 5.0, 3.0)
-    veh = Vehicle(s, vehdef, 1)
+    veh = Entity(s, vehdef, 1)
     @test isapprox(get_footpoint(veh), VecSE2(0.0,0.0,0.0))
     show(IOBuffer(), vehdef)
     show(IOBuffer(), veh)
@@ -70,7 +70,7 @@ end
 
     roadway = gen_straight_roadway(3, 100.0)
     veh = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 0.0)
-    veh = Vehicle(veh, VehicleDef(), 1)
+    veh = Entity(veh, VehicleDef(), 1)
     @test get_lane(roadway, veh).tag == LaneTag(1,1)
     @test get_lane(roadway, veh).tag == get_lane(roadway, veh.state).tag
     veh = VehicleState(VecSE2(0.0, 3.0, 0.0), roadway, 0.0)
@@ -92,7 +92,7 @@ end
     vehstate = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 0.0)
     vehstate1 = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway[LaneTag(1,1)], roadway, 0.0)
     @test vehstate1 == vehstate
-    veh = Vehicle(vehstate, VehicleDef(), 1)
+    veh = Entity(vehstate, VehicleDef(), 1)
     scene1 = Scene()
     push!(scene1, veh)
     scene2 = Scene([veh])
@@ -104,7 +104,7 @@ end
     close(io)
 
     veh2 = Entity(vehstate, BicycleModel(VehicleDef()), 1)
-    veh3 = convert(Vehicle, veh2)
+    veh3 = convert(Entity{VehicleState, VehicleDef, Int64}, veh2)
     @test veh3 == veh
 
     rec = SceneRecord(1, 0.5)
@@ -367,7 +367,7 @@ end
 
     test_veh_state = VehicleState(VecSE2(7.0,7.0,2.0), roadway, 10.0)
     test_veh_def = VehicleDef(AgentClass.CAR, 5.0, 3.0)
-    test_veh = Vehicle(test_veh_state, test_veh_def, 999)
+    test_veh = Entity(test_veh_state, test_veh_def, 999)
     rec[-1][1] = test_veh
     @test rec[-1][1].state == test_veh_state
 end

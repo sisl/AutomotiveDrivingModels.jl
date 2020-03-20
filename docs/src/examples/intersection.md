@@ -155,7 +155,7 @@ Let's populate the intersection
 
 ```@example intersection
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0) # initial state of the vehicle
-scene = Scene([Vehicle(vs0, VehicleDef(), 1)])
+scene = Scene([Entity(vs0, VehicleDef(), 1)])
 
 snapshot = render([roadway, scene])
 write("intersection_populated.svg", snapshot) # hide
@@ -213,7 +213,7 @@ timestep = 0.1
 nticks = 100
 
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0)
-scene = Scene([Vehicle(vs0, VehicleDef(), 1)])
+scene = Scene([Entity(vs0, VehicleDef(), 1)])
 models = Dict(1 => InterDriver(LaneSpecificAccelLatLon(0.0,0.0)))
 scenes = simulate!(scene, roadway, models, nticks, timestep)
 

@@ -2,7 +2,7 @@ const ROADWAY = gen_straight_roadway(1, 20.0)
 
 function create_vehicle(x::Float64, y::Float64, θ::Float64 = 0.0; id::Int64=1)
     s = VehicleState(VecSE2(x, y, θ), ROADWAY, 0.0)
-    return Vehicle(s, VehicleDef(), id)
+    return Entity(s, VehicleDef(), id)
 end
 
 const VEH_REF = create_vehicle(0.0, 0.0, 0.0, id=1)
@@ -48,8 +48,8 @@ end
     get_distance(scene[1], scene[2])
     
     roadway = gen_straight_roadway(2, 100.0)
-    veh1 = Vehicle(VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 10.0), VehicleDef(), 1)
-    veh2 = Vehicle(VehicleState(VecSE2(10.0, 0.0, 0.0), roadway, 5.0), VehicleDef(), 2)
+    veh1 = Entity(VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 10.0), VehicleDef(), 1)
+    veh2 = Entity(VehicleState(VecSE2(10.0, 0.0, 0.0), roadway, 5.0), VehicleDef(), 2)
     scene = Scene([veh1, veh2])
     @test is_collision_free(scene)
     @test get_distance(veh1, veh2) ≈ 6.0

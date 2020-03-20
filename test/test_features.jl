@@ -43,7 +43,7 @@
         roadind = move_along(roadind, roadway, s)
         frenet = Frenet(roadind, roadway[roadind].s, 0.0, 0.0)
         state = VehicleState(frenet, roadway, 0.0)
-        scene[i] = Vehicle(state, def, i)
+        scene[i] = Entity(state, def, i)
     end
 
     place_at!(1, 0.0)
@@ -121,8 +121,8 @@ end
 @testset "feature extraction" begin 
     roadway = gen_straight_roadway(4, 100.0)
 
-    scene = Scene([Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-        Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+    scene = Scene([Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+        Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
             ])
 
     # test each feature individually 
@@ -134,7 +134,7 @@ end
     @test pos1[1] == 0.0
     @test pos2[2] == 10.0
 
-    scene = Scene([Vehicle(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1)])
+    scene = Scene([Entity(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1)])
     posy = extract_feature(featuretype(posgy), posgy, roadway, [scene], 1)
     @test posy[1] == 1.2
     posθ = extract_feature(featuretype(posgθ), posgθ, roadway, [scene], 1)
@@ -147,8 +147,8 @@ end
     @test posϕ[1] == 0.0
 
 
-    scene = Scene([Vehicle(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-                Vehicle(VehicleState(VecSE2(1.5,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2)])
+    scene = Scene([Entity(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+                Entity(VehicleState(VecSE2(1.5,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2)])
     coll = extract_feature(featuretype(iscolliding), iscolliding, roadway, [scene], 1)
     @test coll[1]
 
@@ -164,8 +164,8 @@ end
     # extract multiple features 
     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
     scene = Scene([
-                Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-                Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+                Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+                Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
             ])
 
     dfs = extract_features((iscolliding, markerdist_left, markerdist_right), roadway, [scene], [1,2])
@@ -188,10 +188,10 @@ end
     end
 
     scene = Scene([
-            Vehicle(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
-            Vehicle(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
-            Vehicle(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
+            Entity(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+            Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+            Entity(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
+            Entity(VehicleState(VecSE2( 0.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 4),
         ])
     dfs= extract_features((dist_to_front_neighbor, front_neighbor_speed, time_to_collision), roadway, [scene], [1,2,3,4])
     @test isapprox(dfs[1][1,1], 9.0)
@@ -223,7 +223,7 @@ end # features
         veh_state = VehicleState(Frenet(road_idx, roadway), roadway, speeds[i])
         veh_state = move_along(veh_state, roadway, positions[i])
         veh_def = VehicleDef(AgentClass.CAR, 2., 2.)
-        push!(scene, Vehicle(veh_state, veh_def, i))
+        push!(scene, Entity(veh_state, veh_def, i))
     end
 
     # basic lidar with sufficient range for all vehicles

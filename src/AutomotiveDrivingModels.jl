@@ -164,7 +164,6 @@ export
     velf,
     velg,
     VehicleState,
-    Vehicle,
     get_vel_s,
     get_vel_t,
     get_center,
