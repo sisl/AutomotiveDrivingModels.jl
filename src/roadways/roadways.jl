@@ -515,7 +515,7 @@ function get_closest_perpendicular_point_between_points(A::VecSE2{T}, B::VecSE2{
     elseif b == 1.0
         return (b, B)
     else
-        warn("get_closest_perpendicular_point_between_points - should not happen")
+        @warn("get_closest_perpendicular_point_between_points - should not happen")
         c = (a+b)/2 # should not happen
         return (c, lerp(A,B,c))
     end
@@ -708,19 +708,44 @@ function move_along(roadind::RoadIndex{I, T},
 end
 
 """
-    n_lanes_right(lane::Lane, roadway::Roadway)
+    n_lanes_right(roadway::Roadway, lane::Lane)
 returns the number of lanes to the right of `lane`
 """
-n_lanes_right(lane::Lane, roadway::Roadway) = lane.tag.lane - 1
+n_lanes_right(roadway::Roadway, lane::Lane) = lane.tag.lane - 1
 
 """
-    n_lanes_left(lane::Lane, roadway::Roadway)
+    rightlane(roadway::Roadway, lane::Lane)
+returns the lane to the right of lane if it exists, returns nothing otherwise
+""" 
+function rightlane(roadway::Roadway, lane::Lane)
+    if n_lanes_right(roadway, lane) > 0.0
+        return roadway[LaneTag(lane.tag.segment, lane.tag.lane - 1)]
+    else
+        return nothing
+    end
+end 
+
+"""
+    n_lanes_left(roadway::Roadway, lane::Lane)
 returns the number of lanes to the left of `lane`
 """
-function n_lanes_left(lane::Lane, roadway::Roadway)
+function n_lanes_left(roadway::Roadway, lane::Lane)
     seg = roadway[lane.tag.segment]
     length(seg.lanes) - lane.tag.lane
 end
+
+"""
+    leftlane(roadway::Roadway, lane::Lane)
+returns the lane to the left of lane if it exists, returns nothing otherwise
+""" 
+function leftlane(roadway::Roadway, lane::Lane)
+    if n_lanes_left(roadway, lane) > 0.0
+        return roadway[LaneTag(lane.tag.segment, lane.tag.lane + 1)]
+    else
+        return nothing
+    end
+end 
+
 
 """
     lanes(roadway::Roadway{T}) where T

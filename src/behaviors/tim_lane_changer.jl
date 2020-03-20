@@ -61,13 +61,29 @@ function observe!(model::TimLaneChanger, scene::Frame{Entity{S, D, I}}, roadway:
     veh_ego = scene[vehicle_index]
     v = vel(veh_ego.state)
 
-    left_lane_exists = convert(Float64, get(N_LANE_LEFT, rec, roadway, vehicle_index)) > 0
-    right_lane_exists = convert(Float64, get(N_LANE_RIGHT, rec, roadway, vehicle_index)) > 0
-    fore_M = get_neighbor_fore_along_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront(), max_distance_fore=model.threshold_fore)
-    fore_L = get_neighbor_fore_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront())
-    fore_R = get_neighbor_fore_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront())
-    rear_L = get_neighbor_rear_along_left_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
-    rear_R = get_neighbor_rear_along_right_lane(scene, vehicle_index, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear())
+    left_lane_exists = has_lane_left(roadway, veh_ego)
+    right_lane_exists = has_lane_right(roadway, veh_ego)
+    fore_M = find_neighbor(scene, roadway, veh_ego,
+                          targetpoint_ego = VehicleTargetPointFront(), 
+                          targetpoint_neighbor = VehicleTargetPointRear(),
+                          max_distance = model.threshold_fore)
+    fore_L = find_neighbor(scene, roadway, veh_ego,
+                          targetpoint_ego = VehicleTargetPointFront(), 
+                          targetpoint_neighbor = VehicleTargetPointRear(),
+                          lane = leftlane(roadway, veh_ego)
+                          )
+    fore_R = find_neighbor(scene, roadway, veh_ego,
+                          targetpoint_ego = VehicleTargetPointFront(), 
+                          targetpoint_neighbor = VehicleTargetPointRear(),
+                          lane = rightlane(roadway, veh_ego))
+    rear_L = find_neighbor(scene, roadway, veh_ego,
+                          targetpoint_ego = VehicleTargetPointFront(), 
+                          targetpoint_neighbor = VehicleTargetPointRear(),
+                          lane = leftlane(roadway, veh_ego), rear=true)
+    rear_R = find_neighbor(scene, roadway, veh_ego,
+                          targetpoint_ego = VehicleTargetPointFront(), 
+                          targetpoint_neighbor = VehicleTargetPointRear(),
+                          lane = rightlane(roadway, veh_ego), rear=true)
 
     model.dir = DIR_MIDDLE
     if fore_M.Δs < model.threshold_fore # there is a lead vehicle

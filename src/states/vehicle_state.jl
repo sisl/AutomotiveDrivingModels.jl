@@ -132,11 +132,11 @@ get_rear(veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} 
 
 
 """
-    get_lane(roadway::Roadway, vehicle::Entity{S, D, I})
+    get_lane(roadway::Roadway, vehicle::Entity)
     get_lane(roadway::Roadway, vehicle::VehicleState)
 return the lane where `vehicle` is in.
 """
-function get_lane(roadway::Roadway, vehicle::Entity{S, D, I}) where {S, D, I}
+function get_lane(roadway::Roadway, vehicle::Entity)
     get_lane(roadway, vehicle.state)
 end
 function get_lane(roadway::Roadway, vehicle::VehicleState)

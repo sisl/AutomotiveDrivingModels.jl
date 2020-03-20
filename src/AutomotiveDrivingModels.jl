@@ -8,7 +8,11 @@ using Distributions
 using Reexport
 using Random
 using SparseArrays
-@reexport using Vec
+using DataFrames
+using Tricks: static_hasmethod
+
+include("vec/Vec.jl")
+@reexport using .Vec
 
 # Records
 export
@@ -116,7 +120,9 @@ export
     connect!,
     move_along,
     n_lanes_left,
+    leftlane,
     n_lanes_right,
+    rightlane,
     lanes,
     lanetags,
     read
@@ -170,11 +176,7 @@ export
 include("states/interface.jl")
 include("states/vehicle_state.jl")
 
-export
-    TrajdataFrame,
-    TrajdataState,
-    Trajdata,
-    TrajdataVehicleIterator
+export Trajdata
 
 include("states/trajdatas.jl")
 
@@ -208,49 +210,75 @@ include("collision-checkers/parallel_axis.jl")
 
 ## Feature Extraction
 
+export AbstractFeature,
+       EntityFeature,
+       FrameFeature,
+       TemporalFeature,
+       extract_features,
+       extract_feature,
+       featuretype,
+
+       # provided feature functions 
+       posgx,
+       posgy,
+       posgθ,
+       posfs,
+       posft,
+       posfϕ,
+       vel,
+       velfs,
+       velft,
+       velgx,
+       velgy,
+       time_to_crossing_right,
+       time_to_crossing_left,
+       estimated_time_to_lane_crossing,
+       iswaiting,
+       iscolliding,
+       distance_to,
+       acc,
+       accfs,
+       accft,
+       jerk,
+       jerkft,
+       turn_rate_g,
+       turn_rate_f,
+       isbraking,
+       isaccelerating
+
+include("feature-extraction/features.jl")
+
+export lane_width,
+       markerdist_left,
+       markerdist_right,
+       road_edge_dist_left,
+       road_edge_dist_right,
+       lane_offset_left,
+       lane_offset_right,
+       has_lane_left,
+       has_lane_right,
+       lane_curvature
+
+include("feature-extraction/lane_features.jl")
+
 export
     VehicleTargetPoint,
     VehicleTargetPointFront,
     VehicleTargetPointCenter,
     VehicleTargetPointRear,
-    get_targetpoint_delta,
+    targetpoint_delta,
+    find_neighbor,
     NeighborLongitudinalResult,
     get_neighbor_fore,
     get_neighbor_rear,
     get_headway,
-    get_neighbor_fore_along_lane,
-    get_neighbor_fore_along_left_lane,
-    get_neighbor_fore_along_right_lane,
-    get_neighbor_rear_along_lane,
-    get_neighbor_rear_along_left_lane,
-    get_neighbor_rear_along_right_lane,
     FrenetRelativePosition,
     get_frenet_relative_position,
-    get_lane_width,
-    get_markerdist_left,
-    get_markerdist_right
+    dist_to_front_neighbor,
+    front_neighbor_speed,
+    time_to_collision
 
 include("feature-extraction/neighbors_features.jl")
-include("feature-extraction/lane_features.jl")
-
-export 
-    AbstractFeature,
-    FeatureValue,
-    FeatureState,
-    is_feature_valid,
-    is_symbol_a_feature,
-    allfeatures,
-    symbol2feature,
-    AbstractFeatureExtractor,
-    FeatureExtractor,
-    SubsetExtractor,
-    StandardizingExtractor,
-    pull_features!,
-    rec_length
-
-include("feature-extraction/interface.jl")
-include("feature-extraction/features.jl")
-include("feature-extraction/features_extractors.jl")
 
 export
     LidarSensor,
@@ -307,7 +335,6 @@ export
     ProportionalLaneTracker,
     LatLonSeparableDriver,
     Tim2DDriver,
-    track_lane!,
     SidewalkPedestrianModel,
     LaneChangeChoice,
     LaneChangeModel,
