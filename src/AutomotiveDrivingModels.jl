@@ -15,12 +15,6 @@ include("vec/Vec.jl")
 
 # Roadways
 
-export StraightRoadway,
-       mod_position_to_roadway,
-       get_headway
-       
-include("roadways/straight_1d_roadways.jl")
-
 export CurvePt,
        Curve,
        CurveIndex,
