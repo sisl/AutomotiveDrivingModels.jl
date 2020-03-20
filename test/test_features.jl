@@ -196,6 +196,11 @@ end
     dfs= extract_features((dist_to_front_neighbor, front_neighbor_speed, time_to_collision), roadway, [scene], [1,2,3,4])
     @test isapprox(dfs[1][1,1], 9.0)
 
+    # type inferrence 
+    for fun in feature_list
+        @inferred featuretype(fun)
+    end
+
 end # features
 
 @testset "lidar sensor" begin
