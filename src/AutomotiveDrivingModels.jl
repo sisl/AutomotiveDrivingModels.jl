@@ -7,8 +7,11 @@ using StaticArrays
 using Distributions
 using Reexport
 using Random
-@reexport using Vec 
+
 @reexport using Records
+
+include("vec/Vec.jl")
+@reexport using .Vec
 
 # Roadways
 
