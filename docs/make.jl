@@ -22,6 +22,9 @@ makedocs(
 				"simulation.md",
 				"collision_checkers.md",
 				"feature_extraction.md"
+		 ],
+		 "Internals" =>[
+			 "Vec.md"
 		 ]
 	 ]
 	 )

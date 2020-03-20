@@ -14,13 +14,14 @@ Records = "5984c134-fa48-5ed5-a57f-fc2f6936871f"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Tricks = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
-Vec = "44eeaf0b-fee4-471f-9310-ed6585cb3142"
+
 
 [compat]
 julia = "1.3"
 
 [extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["ForwardDiff", "Test"]

@@ -9,8 +9,11 @@ using Reexport
 using Random
 using DataFrames
 using Tricks: static_hasmethod
-@reexport using Vec 
+
 @reexport using Records
+
+include("vec/Vec.jl")
+@reexport using .Vec
 
 # Roadways
 

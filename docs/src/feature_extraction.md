@@ -13,7 +13,7 @@ The function `extract_features` can be used to extract information from a list o
 
 ## Finding neighbors
 
-Finding neighbors of an entity is a common query and can be done using the `findneighbor` function. 
+Finding neighbors of an entity is a common query and can be done using the `find_neighbor` function. 
 This function allows to find the neighbor of an entity within a scene using a forward search method. 
 The search algorithm moves longitudinally along a given lane and its successors (according to the given road topology). 
 Once it finds a car it stops searching and return the results as a `NeighborLongitudinalResult`
@@ -22,10 +22,10 @@ Once it finds a car it stops searching and return the results as a `NeighborLong
     NeighborLongitudinalResult
 ```
 
-The `findneighbor` function accepts different keyword argument to search front or rear neighbors, or neighbors on different lanes.
+The `find_neighbor` function accepts different keyword argument to search front or rear neighbors, or neighbors on different lanes.
 
 ```@docs 
-    findneighbor
+    find_neighbor
 ```
 
 When computing the distance to a neighbor, one might want to choose different reference points on the vehicle (center to center, bumper to bumper, etc...). AutomotiveDrivingModels provides the `VehicleTargetPoint` types to do so. 
