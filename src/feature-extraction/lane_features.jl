@@ -15,8 +15,16 @@ function rightlane(roadway::Roadway, veh::Entity)
     return rightlane(roadway, get_lane(roadway, veh))
 end
 
+"""
+    n_lanes_left(roadway::Roadway, veh::Entity)
+return the numbers of lanes to the left of `veh`
+"""
 n_lanes_left(roadway::Roadway, veh::Entity) = n_lanes_left(roadway, get_lane(roadway, veh))
 
+"""
+    n_lanes_right(roadway::Roadway, veh::Entity)
+return the numbers of lanes to the right of `veh`
+"""
 n_lanes_right(roadway::Roadway, veh::Entity) = n_lanes_right(roadway, get_lane(roadway, veh))
 
 
@@ -85,6 +93,10 @@ function road_edge_dist_right(roadway::Roadway, veh::Entity)
     return lane.width/2 + norm(VecE2(curvept.pos - footpoint)) + offset
 end
 
+"""
+    lane_offset_left(roadway::Roadway, veh::Entity)
+returns the distance to the left lane border, if there are no left lane returns `missing`
+"""
 function lane_offset_left(roadway::Roadway, veh::Entity)
     t = posf(veh).t
     lane = get_lane(roadway, veh)
@@ -96,6 +108,10 @@ function lane_offset_left(roadway::Roadway, veh::Entity)
     end
 end
 
+"""
+    lane_offset_right(roadway::Roadway, veh::Entity)
+returns the distance to the right lane border, if there are no right lane returns `missing`
+"""
 function lane_offset_right(roadway::Roadway, veh::Entity)
     t = posf(veh).t
     lane = get_lane(roadway, veh)

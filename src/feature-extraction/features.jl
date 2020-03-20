@@ -178,7 +178,10 @@ returns the velocity in the y direction of the global frame
 """
 velgy(roadway::Roadway, veh::Entity) = velg(veh).y
 
-
+"""
+    time_to_crossing_right(roadway::Roadway, veh::Entity)
+time before crossing the right lane marker assuming constant lateral speed.
+"""
 function time_to_crossing_right(roadway::Roadway, veh::Entity)
     d_mr = markerdist_right(roadway, veh)
     velf_t = velf(veh).t
@@ -189,6 +192,10 @@ function time_to_crossing_right(roadway::Roadway, veh::Entity)
     end
 end
 
+"""
+    time_to_crossing_left(roadway::Roadway, veh::Entity)
+time before crossing the left lane marker assuming constant lateral speed.
+"""
 function time_to_crossing_left(roadway::Roadway, veh::Entity)
     d_mr = markerdist_left(roadway, veh)
     velf_t = velf(veh).t
@@ -199,6 +206,10 @@ function time_to_crossing_left(roadway::Roadway, veh::Entity)
     end
 end
 
+"""
+    estimated_time_to_lane_crossing(roadway::Roadway, veh::Entity)
+minimum of the time to crossing left and time to crossing right.
+"""
 function estimated_time_to_lane_crossing(roadway::Roadway, veh::Entity)
     ttcr_left = time_to_crossing_left(roadway, veh)
     ttcr_right = time_to_crossing_right(roadway, veh)

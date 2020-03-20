@@ -58,8 +58,8 @@ The `Lane` data structure represent a driving lane in the roadway. The default l
       has_prev
       next_lane_point
       prev_lane_point
-      n_lanes_left
-      n_lanes_right
+      n_lanes_left(roadway::Roadway, lane::Lane)
+      n_lanes_right(roadway::Roadway, lane::Lane)
       leftlane(::Roadway, ::Lane)
       rightlane(::Roadway, ::Lane)
 ```

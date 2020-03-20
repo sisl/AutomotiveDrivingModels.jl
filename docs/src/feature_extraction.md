@@ -32,9 +32,9 @@ When computing the distance to a neighbor, one might want to choose different re
 One can choose among three possible instances to use the front, center, or rear point of a vehicle to compute the distance to the neighbor.
 
 ```@docs 
-    VehicleTargetPoint,
-    VehicleTargetPointCenter,
-    VehicleTargetPointFront,
+    VehicleTargetPoint
+    VehicleTargetPointCenter
+    VehicleTargetPointFront
     VehicleTargetPointRear
 ```
 
@@ -82,43 +82,45 @@ Now you can use your feature function in extract features, the name of the funct
 ## List of Available Features 
 
 ```@docs
-  posgx,
-  posgy,
-  posgθ,
-  posfs,
-  posft,
-  posfϕ,
-  vel,
-  velfs,
-  velft,
-  velgx,
-  velgy,
-  time_to_crossing_right,
-  time_to_crossing_left,
-  estimated_time_to_lane_crossing,
-  iswaiting,
-  iscolliding,
-  distance_to,
-  acc,
-  accfs,
-  accft,
-  jerk,
-  jerkft,
-  turn_rate_g,
-  turn_rate_f,
-  isbraking,
-  isaccelerating,
-  lane_width,
-  markerdist_left,
-  markerdist_right,
-  road_edge_dist_left,
-  road_edge_dist_right,
-  lane_offset_left,
-  lane_offset_right,
-  has_lane_left,
-  has_lane_right,
-  lane_curvature,
-  dist_to_front_neighbor,
-  front_neighbor_speed,
+  posgx
+  posgy
+  posgθ
+  posfs
+  posft
+  posfϕ
+  vel(roadway::Roadway, veh::Entity)
+  velfs
+  velft
+  velgx
+  velgy
+  time_to_crossing_right
+  time_to_crossing_left
+  estimated_time_to_lane_crossing
+  iswaiting
+  iscolliding
+  distance_to
+  acc
+  accfs
+  accft
+  jerk
+  jerkft
+  turn_rate_g
+  turn_rate_f
+  isbraking
+  isaccelerating
+  lane_width
+  markerdist_left
+  markerdist_right
+  road_edge_dist_left
+  road_edge_dist_right
+  lane_offset_left
+  lane_offset_right
+  n_lanes_left(roadway::Roadway, veh::Entity)
+  n_lanes_right(roadway::Roadway, veh::Entity)
+  has_lane_left
+  has_lane_right
+  lane_curvature
+  dist_to_front_neighbor
+  front_neighbor_speed
   time_to_collision
 ```
