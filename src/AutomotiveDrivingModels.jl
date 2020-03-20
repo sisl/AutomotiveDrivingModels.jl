@@ -58,12 +58,12 @@ export
     allocate_frame,
     get_sparse_lookup
 
-include("records/common.jl")
-include("records/entities.jl")
-include("records/frames.jl")
-include("records/listrecords.jl")
-include("records/queuerecords.jl")
-include("records/conversions.jl")
+include("containers/common.jl")
+include("containers/entities.jl")
+include("containers/frames.jl")
+include("containers/listrecords.jl")
+include("containers/queuerecords.jl")
+include("containers/conversions.jl")
 
 # Roadways
 
