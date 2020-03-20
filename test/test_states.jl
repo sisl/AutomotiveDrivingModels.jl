@@ -14,30 +14,6 @@ function get_test_trajdata(roadway::Roadway)
     return trajdata
 end
 
-@testset "1d state" begin 
-    s = State1D(0.0, 0.0)
-    path, io = mktemp()
-    write(io, MIME"text/plain"(), s)
-    close(io)
-    io = open(path)
-    s2 = read(io, MIME"text/plain"(), State1D)
-    close(io)
-    @test s == s2 
-
-    veh = Vehicle1D(s, VehicleDef(), 1)
-    scene = Scene1D()
-    push!(scene, veh)
-    scene2 = Scene1D([veh])
-    @test scene[1].state.s == 0.0
-    @test first(scene2.entities) == first(scene.entities)
-    @test scene2.n == scene.n == 1
-    @test get_center(veh) == 0.0
-    @test get_footpoint(veh) == 0.0
-    @test get_front(veh) == veh.def.length/2
-    @test get_rear(veh) == - veh.def.length/2
-
-end
-
 @testset "VehicleState" begin 
     s = VehicleState(VecSE2(0.0,0.0,0.0), Frenet(NULL_ROADINDEX, 0.0, 0.0, 0.0), 10.0)
     @test isapprox(velf(s).s, 10.0)
@@ -46,8 +22,6 @@ end
     show(IOBuffer(), s)
 
     s = VehicleState(VecSE2(0.0,0.0,0.0), Frenet(NULL_ROADINDEX, 0.0, 0.0, 0.1), 10.0)
-    @test isapprox(get_vel_s(s), 10.0*cos(0.1))
-    @test isapprox(get_vel_t(s), 10.0*sin(0.1))
     @test isapprox(velf(s).s, 10.0*cos(0.1))
     @test isapprox(velf(s).t, 10.0*sin(0.1))
     @test isapprox(velg(s).x, 10.0)

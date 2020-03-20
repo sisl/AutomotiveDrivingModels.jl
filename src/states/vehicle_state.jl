@@ -67,17 +67,6 @@ function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway
 end
 
 """
-    get_vel_s(s::VehicleState) 
-returns the longitudinal velocity (along the lane)
-"""
-get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
-"""
-    get_vel_t(s::VehicleState) 
-returns the lateral velocity (⟂ to lane)
-"""
-get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
-
-"""
     move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
     ϕ₂::Float64=vehstate.posF.ϕ, t₂::Float64=vehstate.posF.t, v₂::Float64=vehstate.v)
 

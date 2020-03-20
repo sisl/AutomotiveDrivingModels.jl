@@ -5,7 +5,6 @@ end
 
 LatLonSeparableDriver(mlat::LateralDriverModel, mlon::LaneFollowingDriver) = LatLonSeparableDriver{LatLonAccel}(mlat, mlon)
 
-get_name(model::LatLonSeparableDriver) = @sprintf("%s + %s", get_name(model.mlat), get_name(model.mlon))
 function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model

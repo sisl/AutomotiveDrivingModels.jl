@@ -34,7 +34,7 @@ around the non-errorable IDM output.
     d_cmf::Float64 = 2.0 # comfortable deceleration [m/s²] (positive)
     d_max::Float64 = 9.0 # maximum deceleration [m/s²] (positive)
 end
-get_name(::IntelligentDriverModel) = "IDM"
+
 function set_desired_speed!(model::IntelligentDriverModel, v_des::Float64)
     model.v_des = v_des
     model

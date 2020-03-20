@@ -36,7 +36,6 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     @test length(scenes) < 10
 
     # make sure warnings, errors and deprecations in run_callback work as expected
-    @test_deprecated simulate(scene, roadway, models, 10, .1, callbacks=(NoActionCallback(),))
     @test_nowarn simulate(scene, roadway, models, 10, .1, callbacks=(WithActionCallback(),))
 
     # collision right from start

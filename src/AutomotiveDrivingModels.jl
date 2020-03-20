@@ -119,8 +119,6 @@ export
     velf,
     velg,
     VehicleState,
-    get_vel_s,
-    get_vel_t,
     get_center,
     get_footpoint,
     get_front,
@@ -261,7 +259,6 @@ include("actions/pedestrian_lat_lon_accel.jl")
 export
     DriverModel,
     StaticDriver,
-    get_name,
     action_type,
     set_desired_speed!,
     observe!,
@@ -315,13 +312,5 @@ export
 include("simulation/simulation.jl")
 include("simulation/callbacks.jl")
 include("simulation/simulation_from_history.jl")
-
-
-export
-    State1D,
-    Vehicle1D,
-    Scene1D
-
-include("deprecated.jl")
 
 end # AutomotiveDrivingModels

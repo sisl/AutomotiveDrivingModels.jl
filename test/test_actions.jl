@@ -74,11 +74,11 @@ end
 
 @testset "LaneFollowingAccel" begin 
     a = LaneFollowingAccel(1.0)
-    roadway1d = StraightRoadway(20.0)
-    s1d = State1D(10.0, 10.0)
-    veh = Vehicle1D(s1d, VehicleDef(), 1)
-    vehp = propagate(veh, a, roadway1d, 1.0)
-    @test vehp.s == 0.5
+    roadway = gen_straight_roadway(3, 100.0)
+    s = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 0.0)
+    veh = Entity(s, VehicleDef(), 1)
+    vehp = propagate(veh, a, roadway, 1.0)
+    @test posf(vehp).s == 0.5
 end
 
 @testset "LatLonAccel" begin

@@ -25,8 +25,6 @@ See MOBIL if you want a lane changer you can cite.
     threshold_lane_change_gap_rear::Float64 = 10.0
 end
 
-get_name(::TimLaneChanger) = "TimLaneChanger"
-
 function set_desired_speed!(model::TimLaneChanger, v_des::Float64)
     model.v_des = v_des
     model

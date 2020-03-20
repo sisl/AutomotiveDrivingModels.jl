@@ -10,12 +10,6 @@ The DriverModel type is an abstract type! Custom driver models should inherit fr
 abstract type DriverModel{DriveAction} end
 
 """
-    get_name(::DriverModel)
-returns the name of the driver model
-"""
-function get_name end
-
-"""
     action_type(::DriverModel{A}) where {A}
 returns the type of the actions that are sampled from the model
 """
@@ -74,7 +68,6 @@ struct StaticDriver{A,P<:ContinuousMultivariateDistribution} <: DriverModel{A}
     distribution::P
 end
 
-get_name(::StaticDriver) = "StaticDriver"
 function Base.rand(rng::AbstractRNG, model::StaticDriver{A,P}) where {A,P}
     a = rand(rng, model.distribution)
     return convert(A, a)

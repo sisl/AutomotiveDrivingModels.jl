@@ -16,8 +16,6 @@ Driver that combines longitudinal driver and lateral driver into one model.
     mlane::LaneChangeModel = TimLaneChanger()
 end
 
-get_name(::Tim2DDriver) = "Tim2DDriver"
-
 function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     set_desired_speed!(model.mlane, v_des)
