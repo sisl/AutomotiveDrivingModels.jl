@@ -1,4 +1,4 @@
-# About
+# AutomotiveDrivingModels
 
 This is the documentation for AutomotiveDrivingModels.jl. 
 

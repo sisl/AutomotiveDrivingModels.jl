@@ -1,5 +1,6 @@
 using Test
 using AutomotiveDrivingModels
+using DataFrames
 using Distributions
 
 @testset "Vec" begin 

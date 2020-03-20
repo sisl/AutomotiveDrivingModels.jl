@@ -515,7 +515,7 @@ function get_closest_perpendicular_point_between_points(A::VecSE2{T}, B::VecSE2{
     elseif b == 1.0
         return (b, B)
     else
-        warn("get_closest_perpendicular_point_between_points - should not happen")
+        @warn("get_closest_perpendicular_point_between_points - should not happen")
         c = (a+b)/2 # should not happen
         return (c, lerp(A,B,c))
     end

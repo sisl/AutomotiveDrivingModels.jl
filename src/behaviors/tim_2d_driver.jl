@@ -48,7 +48,7 @@ function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::R
     lane_change_action = rand(driver.mlane)
 
     laneoffset = get_lane_offset(lane_change_action, scene, roadway, vehicle_index)
-    lateral_speed = convert(Float64, get(VELFT, scene, roadway, vehicle_index))
+    lateral_speed = velf(scene[vehicle_index]).t
 
     if lane_change_action.dir == DIR_MIDDLE
         target_lane = get_lane(roadway, ego)
