@@ -33,18 +33,18 @@ end
     trajdata = get_test_trajdata(roadway)
     scene = Frame(Entity{VehicleState, VehicleDef, Int64})
 
-    col = get_first_collision(get!(scene, trajdata, 1))
+    col = get_first_collision(trajdata[1])
     @test col.is_colliding
     @test col.A == 1
     @test col.B == 2
 
-    @test get_first_collision(get!(scene, trajdata, 2), CPAMemory()).is_colliding == true
-    scene = Frame(Entity{VehicleState, VehicleDef, Int64})
-    @test is_collision_free(get!(scene, trajdata, 1)) == false
-    @test is_collision_free(get!(scene, trajdata, 1), [1]) == false
+    @test get_first_collision(trajdata[1], CPAMemory()).is_colliding == true
+    scene = trajdata[1]
+    @test is_collision_free(scene) == false
+    @test is_collision_free(scene, [1]) == false
     @test is_colliding(scene[1], scene[2])
     @test get_distance(scene[1], scene[2]) == 0
-    @test is_collision_free(get!(scene, trajdata, 3)) 
+    @test is_collision_free(trajdata[2]) 
     get_distance(scene[1], scene[2])
     
     roadway = gen_straight_roadway(2, 100.0)
@@ -77,7 +77,6 @@ end
 
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    scene = Frame(Entity{VehicleState, VehicleDef, Int64})
-    get!(scene, trajdata, 1)
+    scene = trajdata[1]
     @test collision_checker(scene, 1)
 end

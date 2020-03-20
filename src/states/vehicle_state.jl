@@ -123,7 +123,6 @@ returns the position of the rear of the vehicle
 """
 get_rear(veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = veh.state.posG - polar(length(veh.def)/2, veh.state.posG.θ)
 
-
 """
     get_lane(roadway::Roadway, vehicle::Entity)
     get_lane(roadway::Roadway, vehicle::VehicleState)
@@ -135,4 +134,14 @@ end
 function get_lane(roadway::Roadway, vehicle::VehicleState)
     lane_tag = vehicle.posF.roadind.tag
     return roadway[lane_tag]
+end
+
+"""
+    Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
+
+Converts the definition of an entity
+"""
+function Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
+    vehdef = VehicleDef(class(veh.def), length(veh.def), width(veh.def))
+    return Entity{S, VehicleDef, I}(veh.state, vehdef, veh.id)
 end

@@ -1,7 +1,7 @@
 @testset "action interface" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    veh = get(trajdata, 1, 1)
+    veh = trajdata[1][1]
     s = VehicleState()
     @test VehicleState() == propagate(veh, s, roadway, NaN)
 end
@@ -9,7 +9,7 @@ end
 @testset "AccelTurnrate" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    veh = get(trajdata, 1, 1)
+    veh = trajdata[1][1]
     a = AccelTurnrate(0.1,0.2)
     io = IOBuffer()
     show(io, a)
@@ -29,7 +29,7 @@ end
 @testset "AccelDesang" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    veh = get(trajdata, 1, 1)
+    veh = trajdata[1][1]
     a = AccelDesang(0.1,0.2)
     @test a == convert(AccelDesang, [0.1,0.2])
     @test copyto!([NaN, NaN], AccelDesang(0.1,0.2)) == [0.1,0.2]
@@ -48,7 +48,7 @@ end
 @testset "AccelSteeringAngle" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    veh = get(trajdata, 1, 1)
+    veh = trajdata[1][1]
     a = AccelSteeringAngle(0.1,0.2)
     io = IOBuffer()
     show(io, a)
@@ -84,7 +84,7 @@ end
 @testset "LatLonAccel" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    veh = get(trajdata, 1, 1)
+    veh = trajdata[1][1]
     a = LatLonAccel(0.1,0.2)
     io = IOBuffer()
     show(io, a)
@@ -104,7 +104,7 @@ end
 @testset "Pedestrian LatLon" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    veh = get(trajdata, 1, 1)
+    veh = trajdata[1][1]
     a = PedestrianLatLonAccel(0.5,1.0, roadway[LaneTag(2,1)])
     Δt = 1.0
     s = propagate(veh, a, roadway, Δt)

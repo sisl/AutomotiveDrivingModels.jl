@@ -35,6 +35,17 @@ Resets the hidden states of the model.
 function reset_hidden_state! end
 
 """
+    reset_hidden_states!(models::Dict{I,M}) where {M<:DriverModel}
+reset hidden states of all driver models in `models`
+"""
+function reset_hidden_states!(models::Dict{I,M}) where {I, M<:DriverModel}
+    for model in values(models)
+        reset_hidden_state!(model)
+    end
+    return models
+end
+
+"""
     observe!(model::DriverModel, scene, roadway, egoid)
 Observes the scene and updates the model states accordingly. 
 """
@@ -47,40 +58,6 @@ Samples an action from the model.
 """
 Base.rand(model::DriverModel) = rand(Random.GLOBAL_RNG, model)
 Base.rand(rng::AbstractRNG, model::DriverModel) = error("AutomotiveDrivingModelsError: Base.rand(::AbstractRNG, ::$(typeof(model))) not implemented")
-
-function prime_with_history!(
-    model::DriverModel,
-    trajdata::ListRecord{S,D,I},
-    roadway::R,
-    frame_start::Int,
-    frame_end::Int,
-    egoid::I,
-    scene::EntityFrame{S,D,I} = allocate_frame(trajdata),
-    ) where {S,D,I,R}
-
-    reset_hidden_state!(model)
-
-    for frame in frame_start : frame_end
-        get!(scene, trajdata, frame)
-        observe!(model, scene, roadway, egoid)
-    end
-
-    return model
-end
-function prime_with_history!(model::DriverModel, rec::EntityQueueRecord{S,D,I}, roadway::R, egoid::I;
-    pastframe_start::Int=1-nframes(rec),
-    pastframe_end::Int=0,
-    ) where {S,D,I,R}
-
-    reset_hidden_state!(model)
-
-    for pastframe in pastframe_start : pastframe_end
-        scene = rec[pastframe]
-        observe!(model, scene, roadway, egoid)
-    end
-
-    model
-end
 
 ####
 

@@ -8,8 +8,8 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
 
     model = FakeDriverModel()
     @test_throws MethodError reset_hidden_state!(model)
-    @test_throws MethodError observe!(model, Frame(), roadway, 1)
-    @test_throws MethodError prime_with_history!(model, trajdata, roadway, 1, 2, 1)
+    @test_throws MethodError observe!(model, Frame(Entity{VehicleState, VehicleDef, Int64}), roadway, 1)
+    @test_throws MethodError observe_from_history!(model, roadway, trajdata, 1, 2, 1)
 
     @test action_type(model) <: FakeDriveAction
     @test_throws MethodError set_desired_speed!(model, 0.0)
@@ -35,8 +35,6 @@ end
 
     n_steps = 40
     dt = 0.1
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     simulate(scene, roadway, models, n_steps, dt)
 
     @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des)
@@ -49,11 +47,10 @@ end
     @test logpdf(models[1], LaneFollowingAccel(0.0)) < 0.0
     n_steps = 40
     dt = 0.1
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
-    simulate(scene, roadway, models, n_steps, dt)
 
-    prime_with_history!(IntelligentDriverModel(), rec, roadway, 2)
+    scenes = simulate(scene, roadway, models, n_steps, dt)
+
+    observe_from_history!(IntelligentDriverModel(), roadway, scenes, 2)
 
     println("There should be a warning here: ")
 
@@ -65,8 +62,6 @@ end
 
     scene = Frame([veh1, veh2])
 
-    rec = QueueRecord(eltype(scene), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, 1)
     simulate(scene, roadway, models, 1, dt)
 end
 
@@ -141,12 +136,10 @@ end
 
     scene = Frame([veh1, veh2])
 
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
-    simulate(scene, roadway, models, n_steps, dt)
+    scenes = simulate(scene, roadway, models, n_steps, dt)
 
-    @test scene[1].state.posF.roadind.tag == LaneTag(1, 3)
-    @test scene[2].state.posF.roadind.tag == LaneTag(1, 2)
+    @test scenes[end][1].state.posF.roadind.tag == LaneTag(1, 3)
+    @test scenes[end][2].state.posF.roadind.tag == LaneTag(1, 2)
 end
 
 @testset "lane following" begin 
@@ -178,12 +171,11 @@ end
 
     n_steps = 40
     dt = 0.1
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
-    simulate(scene, roadway, models, n_steps, dt)
 
-    @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1e-3)
-    @test isapprox(get_by_id(scene, 3).state.v, models[3].v_des)
+    scenes = simulate(scene, roadway, models, n_steps, dt)
+
+    @test isapprox(get_by_id(scenes[end], 2).state.v, models[2].v_des, atol=1e-3)
+    @test isapprox(get_by_id(scenes[end], 3).state.v, models[3].v_des)
 
     # same wth noise 
     models = Dict{Int, DriverModel}()
@@ -199,13 +191,11 @@ end
 
     n_steps = 40
     dt = 0.1
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
-    simulate(scene, roadway, models, n_steps, dt)
+    scenes = simulate(scene, roadway, models, n_steps, dt)
 
     
-    @test isapprox(get_by_id(scene, 2).state.v, models[2].v_des, atol=1.0)
-    @test isapprox(get_by_id(scene, 3).state.v, models[3].v_des, atol=1.0)
+    @test isapprox(get_by_id(scenes[end], 2).state.v, models[2].v_des, atol=1.0)
+    @test isapprox(get_by_id(scenes[end], 3).state.v, models[3].v_des, atol=1.0)
 end
 
 function generate_sidewalk_env()
@@ -285,10 +275,7 @@ end
     )
 
     nticks = 300
-    rec = QueueRecord(typeof(car), nticks+1, timestep)
-    # Execute the simulation
-    @test_deprecated simulate!(rec, scene, roadway, models, nticks)
-    simulate(scene, roadway, models, nticks, timestep)
+    scenes = simulate(scene, roadway, models, nticks, timestep)
 
-    ped = get_by_id(rec[0], ped_id)
+    ped = get_by_id(scenes[end], ped_id)
 end

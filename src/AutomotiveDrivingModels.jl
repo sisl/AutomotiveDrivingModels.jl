@@ -7,63 +7,11 @@ using StaticArrays
 using Distributions
 using Reexport
 using Random
-using SparseArrays
 using DataFrames
 using Tricks: static_hasmethod
 
 include("vec/Vec.jl")
 @reexport using .Vec
-
-# Records
-export
-    Entity,
-    Frame,
-    EntityFrame,
-    RecordFrame,
-    RecordState,
-    ListRecord,
-    QueueRecord,
-    EntityQueueRecord,
-
-    ListRecordFrameIterator,
-    ListRecordStateByIdIterator,
-
-    get_statetype,
-    get_deftype,
-    get_idtype,
-
-    capacity,
-    nframes,
-    nstates,
-    nids,
-    frame_inbounds,
-    pastframe_inbounds,
-    n_objects_in_frame,
-    id2index,
-    get_ids,
-    nth_id,
-    get_state,
-    get_def,
-    get_time,
-    get_timestep,
-    get_elapsed_time,
-    get_subinterval,
-    get_by_id,
-    findfirst_stateindex_with_id,
-    findfirst_frame_with_id,
-    findlast_frame_with_id,
-    get_first_available_id,
-    push_back_records!,
-    update!,
-    allocate_frame,
-    get_sparse_lookup
-
-include("containers/common.jl")
-include("containers/entities.jl")
-include("containers/frames.jl")
-include("containers/listrecords.jl")
-include("containers/queuerecords.jl")
-include("containers/conversions.jl")
 
 # Roadways
 
@@ -158,6 +106,13 @@ export
 include("agent-definitions/agent_definitions.jl")
 
 export
+    Entity,
+    Frame,
+    EntityFrame,
+    capacity,
+    id2index,
+    get_by_id,
+    get_first_available_id,    
     posf,
     posg,
     vel,
@@ -172,6 +127,8 @@ export
     get_rear,
     get_lane
 
+include("states/entities.jl")
+include("states/frames.jl")
 include("states/interface.jl")
 include("states/vehicle_state.jl")
 
@@ -285,6 +242,7 @@ include("feature-extraction/lidar_sensor.jl")
 
 export
     propagate,
+    EntityAction,
     LaneFollowingAccel,
     AccelTurnrate,
     AccelDesang,
@@ -308,7 +266,7 @@ export
     set_desired_speed!,
     observe!,
     reset_hidden_state!,
-    prime_with_history!
+    reset_hidden_states!
 
 include("behaviors/interface.jl")
 
@@ -346,17 +304,17 @@ include("behaviors/tim_2d_driver.jl")
 include("behaviors/sidewalk_pedestrian_model.jl")
 
 export 
-    get_actions!,
-    tick!,
-    reset_hidden_states!,
     simulate,
     simulate!,
-    EntityAction,
     run_callback,
-    CollisionCallback
+    CollisionCallback,
+    observe_from_history!,
+    simulate_from_history!,
+    simulate_from_history
 
 include("simulation/simulation.jl")
 include("simulation/callbacks.jl")
+include("simulation/simulation_from_history.jl")
 
 
 export

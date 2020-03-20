@@ -1,18 +1,17 @@
 function get_test_trajdata(roadway::Roadway)
-    trajdata = ListRecord(0.1, VehicleState, VehicleDef, Int64)
+    scene1 = Frame([
+        Entity(VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0), VehicleDef(), 1),
+        Entity(VehicleState(VecSE2(3.0,0.0,0.0), roadway, 20.0), VehicleDef(), 2)
+    ]
+    )
+    scene2 = Frame([
+        Entity(VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0), VehicleDef(), 1),
+        Entity(VehicleState(VecSE2(5.0,0.0,0.0), roadway, 20.0), VehicleDef(), 2)
+    ]
+    )
 
-    trajdata.defs[1] = VehicleDef(AgentClass.CAR, 5.0, 3.0)
-    trajdata.defs[2] = VehicleDef(AgentClass.CAR, 5.0, 3.0)
-
-    push!(trajdata.states, RecordState{VehicleState, Int64}(VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0), 1)) # car 1, frame 1
-    push!(trajdata.states, RecordState{VehicleState, Int64}(VehicleState(VecSE2(3.0,0.0,0.0), roadway, 20.0), 2)) # car 2, frame 1
-    push!(trajdata.states, RecordState{VehicleState, Int64}(VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0), 1)) # car 1, frame 2
-    push!(trajdata.states, RecordState{VehicleState, Int64}(VehicleState(VecSE2(5.0,0.0,0.0), roadway, 20.0), 2)) # car 2, frame 2
-
-    push!(trajdata.frames, RecordFrame(1,2))
-    push!(trajdata.frames, RecordFrame(3,4))
-
-    trajdata
+    trajdata = [scene1, scene2]
+    return trajdata
 end
 
 @testset "1d state" begin 
@@ -106,25 +105,24 @@ end
     veh3 = convert(Entity{VehicleState, VehicleDef, Int64}, veh2)
     @test veh3 == veh
 
-    rec = QueueRecord(typeof(veh), 1, 0.5)
-    rec = QueueRecord(typeof(veh), 1, 0.5, 10)
+    scene = Frame([veh, veh2, veh3])
 
     io = IOBuffer()
-    show(io, rec)
+    show(io, scene)
     close(io)
     scene = Frame(typeof(veh))
-    get!(scene, trajdata, 1)
+    copyto!(scene, trajdata[1])
     @test length(scene) == 2
     for (i,veh) in enumerate(scene)
-        @test scene[i].state == get_state(trajdata, i, 1)
-        @test scene[i].def == get_def(trajdata, i)
+        @test scene[i].state == trajdata[1][i].state
+        @test scene[i].def == trajdata[1][i].def
     end
 
     scene2 = Frame(deepcopy(scene.entities), 2)
     @test length(scene2) == 2
     for (i,veh) in enumerate(scene2)
-        @test scene2[i].state == get_state(trajdata, i, 1)
-        @test scene2[i].def == get_def(trajdata, i)
+        @test scene2[i].state == trajdata[1][i].state
+        @test scene2[i].def == trajdata[1][i].def
     end
 
     @test get_by_id(scene, 1) == scene[1]
@@ -135,17 +133,17 @@ end
     copyto!(scene2, scene)
     @test length(scene2) == 2
     for (i,veh) in enumerate(scene2)
-        @test scene2[i].state == get_state(trajdata, i, 1)
-        @test scene2[i].def == get_def(trajdata, i)
+        @test scene2[i].state == trajdata[1][i].state
+        @test scene2[i].def == trajdata[1][i].def
     end
 
     delete!(scene2, scene2[1])
     @test length(scene2) == 1
-    @test scene2[1].state == get_state(trajdata, 2, 1)
-    @test scene2[1].def == get_def(trajdata, 2)
+    @test scene2[1].state == trajdata[1][2].state
+    @test scene2[1].def == trajdata[1][2].def
     scene2[1] = deepcopy(scene[1])
-    @test scene2[1].state == get_state(trajdata, 1, 1)
-    @test scene2[1].def == get_def(trajdata, 1)
+    @test scene2[1].state == trajdata[1][1].state
+    @test scene2[1].def == trajdata[1][1].def
 
     @test findfirst(1, scene) == 1
     @test findfirst(2, scene) == 2
@@ -156,217 +154,8 @@ end
     @test !in(3, scene)
 
     veh = scene[2]
-    @test veh.state == get_state(trajdata, 2, 1)
-    @test veh.def == get_def(trajdata, 2)
+    @test veh.state == trajdata[1][2].state
+    @test veh.def == trajdata[1][2].def
 
-    push!(scene, get_state(trajdata, 1, 1))
-end
-
-@testset "trajdata" begin
-    roadway = get_test_roadway()
-    trajdata = get_test_trajdata(roadway)
-
-    @test nframes(trajdata) == 2
-    @test !frame_inbounds(trajdata, 0)
-    @test frame_inbounds(trajdata, 1)
-    @test frame_inbounds(trajdata, 2)
-    @test !frame_inbounds(trajdata, 3)
-
-    @test n_objects_in_frame(trajdata, 1) == 2
-    @test n_objects_in_frame(trajdata, 2) == 2
-
-    @test nth_id(trajdata, 1) == 1
-    @test nth_id(trajdata, 1, 2) == 2
-    @test nth_id(trajdata, 2, 1) == 1
-    @test nth_id(trajdata, 2, 2) == 2
-
-    @test findfirst_frame_with_id(trajdata, 1) == 1
-    @test findfirst_frame_with_id(trajdata, 2) == 1
-    @test findfirst_frame_with_id(trajdata, -1) == nothing
-    @test findlast_frame_with_id(trajdata, 1) == 2
-    @test findlast_frame_with_id(trajdata, 2) == 2
-    @test findlast_frame_with_id(trajdata, -1) == nothing
-
-    @test sort!(get_ids(trajdata)) == [1,2]
-
-    @test in(1, trajdata, 1)
-    @test in(1, trajdata, 2)
-    @test in(2, trajdata, 1)
-    @test in(2, trajdata, 2)
-    @test !in(3, trajdata, 1)
-
-    @test isapprox(get_time(trajdata, 1), 0.0)
-    @test isapprox(get_time(trajdata, 2), 0.1)
-
-    @test isapprox(get_elapsed_time(trajdata, 1, 2),  0.1)
-    @test isapprox(get_elapsed_time(trajdata, 2, 1), -0.1)
-
-    @test get_timestep(trajdata) == 0.1
-
-    veh = get(trajdata, 1, 1)
-    @test veh.state == VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0)
-    @test_throws ArgumentError get(trajdata, 10, 1)
-    @test_throws BoundsError get(trajdata, 1, 10)
-
-    let
-        iter = ListRecordStateByIdIterator(trajdata, 1)
-        items = collect(iter) # list of (frame_index, state)
-        @test length(items) == 2
-        @test items[1][1] == 1
-        @test items[1][2] == get_state(trajdata, 1, 1)
-        @test items[2][1] == 2
-        @test items[2][2] == get_state(trajdata, 1, 2)
-
-        iter = ListRecordStateByIdIterator(trajdata, 2)
-        items = collect(iter)
-        @test length(items) == 2
-        @test items[1][1] == 1
-        @test items[1][2] == get_state(trajdata, 2, 1)
-        @test items[2][1] == 2
-        @test items[2][2] == get_state(trajdata, 2, 2)
-    end
-
-    path, io = mktemp()
-    write(io, MIME"text/plain"(), trajdata)
-    close(io)
-
-    io = open(path)
-    trajdata2 = read(io, MIME"text/plain"(), ListRecord{VehicleState, VehicleDef, Int64})
-    close(io)
-    rm(path)
-
-    @test nframes(trajdata2) == nframes(trajdata)
-    for i in 1 : nframes(trajdata2)
-        @test n_objects_in_frame(trajdata2, i) == n_objects_in_frame(trajdata, i)
-        for j in 1 : n_objects_in_frame(trajdata, i)
-            veh1 = get(trajdata, j, i)
-            veh2 = get(trajdata2, j, i)
-            @test veh1.id == veh2.id
-            @test veh1.def.class == veh2.def.class
-            @test isapprox(veh1.def.length, veh2.def.length)
-            @test isapprox(veh1.def.width, veh2.def.width)
-
-            @test isapprox(veh1.state.v, veh2.state.v)
-            @test isapprox(veh1.state.posG, veh2.state.posG, atol=1e-3)
-            @test isapprox(veh1.state.posF.s, veh2.state.posF.s, atol=1e-3)
-            @test isapprox(veh1.state.posF.t, veh2.state.posF.t, atol=1e-3)
-            @test isapprox(veh1.state.posF.ϕ, veh2.state.posF.ϕ, atol=1e-6)
-            @test veh1.state.posF.roadind.tag == veh2.state.posF.roadind.tag
-            @test veh1.state.posF.roadind.ind.i == veh2.state.posF.roadind.ind.i
-            @test isapprox(veh1.state.posF.roadind.ind.t, veh2.state.posF.roadind.ind.t, atol=1e-3)
-        end
-    end
-
-    trajdata3 = get_subinterval(trajdata2, 1, nframes(trajdata2))
-    @test nframes(trajdata3) == nframes(trajdata2)
-    for i in 1 : nframes(trajdata3)
-        @test n_objects_in_frame(trajdata3, i) == n_objects_in_frame(trajdata2, i)
-        for j in 1 : n_objects_in_frame(trajdata2, i)
-            veh1 = get(trajdata2, j, i)
-            veh2 = get(trajdata3, j, i)
-            @test veh1.id == veh2.id
-            @test veh1.def.class == veh2.def.class
-            @test isapprox(veh1.def.length, veh2.def.length)
-            @test isapprox(veh1.def.width, veh2.def.width)
-
-            @test isapprox(veh1.state.v, veh2.state.v)
-            @test isapprox(veh1.state.posG, veh2.state.posG, atol=1e-3)
-            @test isapprox(veh1.state.posF.s, veh2.state.posF.s, atol=1e-3)
-            @test isapprox(veh1.state.posF.t, veh2.state.posF.t, atol=1e-3)
-            @test isapprox(veh1.state.posF.ϕ, veh2.state.posF.ϕ, atol=1e-6)
-            @test veh1.state.posF.roadind.tag == veh2.state.posF.roadind.tag
-            @test veh1.state.posF.roadind.ind.i == veh2.state.posF.roadind.ind.i
-            @test isapprox(veh1.state.posF.roadind.ind.t, veh2.state.posF.roadind.ind.t, atol=1e-3)
-        end
-    end
-
-    trajdata3 = get_subinterval(trajdata2, 1, 1)
-    @test nframes(trajdata3) == 1
-    let
-        i = 1
-        @test n_objects_in_frame(trajdata3, i) == n_objects_in_frame(trajdata2, i)
-        for j in 1 : n_objects_in_frame(trajdata2, i)
-            veh1 = get(trajdata2, j, i)
-            veh2 = get(trajdata3, j, i)
-            @test veh1.id == veh2.id
-            @test veh1.def.class == veh2.def.class
-            @test isapprox(veh1.def.length, veh2.def.length)
-            @test isapprox(veh1.def.width, veh2.def.width)
-
-            @test isapprox(veh1.state.v, veh2.state.v)
-            @test isapprox(veh1.state.posG, veh2.state.posG, atol=1e-3)
-            @test isapprox(veh1.state.posF.s, veh2.state.posF.s, atol=1e-3)
-            @test isapprox(veh1.state.posF.t, veh2.state.posF.t, atol=1e-3)
-            @test isapprox(veh1.state.posF.ϕ, veh2.state.posF.ϕ, atol=1e-6)
-            @test veh1.state.posF.roadind.tag == veh2.state.posF.roadind.tag
-            @test veh1.state.posF.roadind.ind.i == veh2.state.posF.roadind.ind.i
-            @test isapprox(veh1.state.posF.roadind.ind.t, veh2.state.posF.roadind.ind.t, atol=1e-3)
-        end
-    end
-end
-
-@testset "QueueRecord" begin
-    roadway = get_test_roadway()
-    trajdata = get_test_trajdata(roadway)
-
-    Δt = 0.1
-    rec = QueueRecord(Entity{VehicleState, VehicleDef, Int64}, 5, Δt)
-    @test capacity(rec) == 5
-    @test nframes(rec) == 0
-    @test !pastframe_inbounds(rec, 0)
-    @test !pastframe_inbounds(rec, -1)
-    @test !pastframe_inbounds(rec, 1)
-
-    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 1)
-    update!(rec, scene)
-    @test nframes(rec) == 1
-    @test pastframe_inbounds(rec, 0)
-    @test !pastframe_inbounds(rec, -1)
-    @test !pastframe_inbounds(rec, 1)
-    @test isapprox(get_elapsed_time(rec, 0), 0)
-    @test rec[0][1].state == get_state(trajdata, 1, 1)
-    @test rec[0][1].def == get_def(trajdata, 1)
-    @test rec[0][2].state == get_state(trajdata, 2, 1)
-    @test rec[0][2].def == get_def(trajdata, 2)
-    show(IOBuffer(), rec)
-
-
-    get!(scene, trajdata, 2)
-    update!(rec, scene)
-    @test nframes(rec) == 2
-    @test pastframe_inbounds(rec, 0)
-    @test pastframe_inbounds(rec, -1)
-    @test !pastframe_inbounds(rec, 1)
-    @test isapprox(get_elapsed_time(rec,  0),  0)
-    @test isapprox(get_elapsed_time(rec, -1), Δt)
-    @test isapprox(get_elapsed_time(rec, -1, 0), Δt)
-    @test rec[0][1].state == get_state(trajdata, 1, 2)
-    @test rec[0][1].def == get_def(trajdata, 1)
-    @test rec[0][2].state == get_state(trajdata, 2, 2)
-    @test rec[0][2].def == get_def(trajdata, 2)
-    @test rec[-1][1].state == get_state(trajdata, 1, 1)
-    @test rec[-1][1].def == get_def(trajdata, 1)
-    @test rec[-1][2].state == get_state(trajdata, 2, 1)
-    @test rec[-1][2].def == get_def(trajdata, 2)
-
-    scene2 = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), rec)
-    @test scene2[1].state == get_state(trajdata, 1, 2)
-    @test scene2[1].def == get_def(trajdata, 1)
-    @test scene2[2].state == get_state(trajdata, 2, 2)
-    @test scene2[2].def == get_def(trajdata, 2)
-
-    get!(scene2, rec, -1)
-    @test scene2[1].state == get_state(trajdata, 1, 1)
-    @test scene2[1].def == get_def(trajdata, 1)
-    @test scene2[2].state == get_state(trajdata, 2, 1)
-    @test scene2[2].def == get_def(trajdata, 2)
-
-    empty!(rec)
-    @test nframes(rec) == 0
-
-    test_veh_state = VehicleState(VecSE2(7.0,7.0,2.0), roadway, 10.0)
-    test_veh_def = VehicleDef(AgentClass.CAR, 5.0, 3.0)
-    test_veh = Entity(test_veh_state, test_veh_def, 999)
-    rec[-1][1] = test_veh
-    @test rec[-1][1].state == test_veh_state
+    push!(scene, trajdata[1][1].state)
 end
