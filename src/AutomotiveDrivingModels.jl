@@ -175,17 +175,6 @@ export
 include("states/interface.jl")
 include("states/vehicle_state.jl")
 
-export Trajdata
-
-include("states/trajdatas.jl")
-
-export
-    Scene,
-    SceneRecord
-
-include("states/scenes.jl")
-
-
 ## Collision Checkers
 
 export

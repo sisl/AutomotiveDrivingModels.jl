@@ -1,5 +1,5 @@
 function get_test_trajdata(roadway::Roadway)
-    trajdata = Trajdata(0.1)
+    trajdata = ListRecord(0.1, VehicleState, VehicleDef, Int64)
 
     trajdata.defs[1] = VehicleDef(AgentClass.CAR, 5.0, 3.0)
     trajdata.defs[2] = VehicleDef(AgentClass.CAR, 5.0, 3.0)
@@ -93,9 +93,8 @@ end
     vehstate1 = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway[LaneTag(1,1)], roadway, 0.0)
     @test vehstate1 == vehstate
     veh = Entity(vehstate, VehicleDef(), 1)
-    scene1 = Scene()
-    push!(scene1, veh)
-    scene2 = Scene([veh])
+    scene1 = Frame([veh])
+    scene2 = Frame([veh])
     @test first(scene1.entities) == first(scene2.entities)
     @test scene1.n == scene2.n
 
@@ -107,13 +106,13 @@ end
     veh3 = convert(Entity{VehicleState, VehicleDef, Int64}, veh2)
     @test veh3 == veh
 
-    rec = SceneRecord(1, 0.5)
-    rec = SceneRecord(1, 0.5, 10)
+    rec = QueueRecord(typeof(veh), 1, 0.5)
+    rec = QueueRecord(typeof(veh), 1, 0.5, 10)
 
     io = IOBuffer()
     show(io, rec)
     close(io)
-    scene = Scene()
+    scene = Frame(typeof(veh))
     get!(scene, trajdata, 1)
     @test length(scene) == 2
     for (i,veh) in enumerate(scene)
@@ -121,7 +120,7 @@ end
         @test scene[i].def == get_def(trajdata, i)
     end
 
-    scene2 = Scene(deepcopy(scene.entities), 2)
+    scene2 = Frame(deepcopy(scene.entities), 2)
     @test length(scene2) == 2
     for (i,veh) in enumerate(scene2)
         @test scene2[i].state == get_state(trajdata, i, 1)
@@ -232,7 +231,7 @@ end
     close(io)
 
     io = open(path)
-    trajdata2 = read(io, MIME"text/plain"(), Trajdata)
+    trajdata2 = read(io, MIME"text/plain"(), ListRecord{VehicleState, VehicleDef, Int64})
     close(io)
     rm(path)
 
@@ -306,19 +305,19 @@ end
     end
 end
 
-@testset "SceneRecord" begin
+@testset "QueueRecord" begin
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
 
     Δt = 0.1
-    rec = SceneRecord(5, Δt)
+    rec = QueueRecord(Entity{VehicleState, VehicleDef, Int64}, 5, Δt)
     @test capacity(rec) == 5
     @test nframes(rec) == 0
     @test !pastframe_inbounds(rec, 0)
     @test !pastframe_inbounds(rec, -1)
     @test !pastframe_inbounds(rec, 1)
 
-    scene = get!(Scene(), trajdata, 1)
+    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 1)
     update!(rec, scene)
     @test nframes(rec) == 1
     @test pastframe_inbounds(rec, 0)
@@ -350,7 +349,7 @@ end
     @test rec[-1][2].state == get_state(trajdata, 2, 1)
     @test rec[-1][2].def == get_def(trajdata, 2)
 
-    scene2 = get!(Scene(), rec)
+    scene2 = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), rec)
     @test scene2[1].state == get_state(trajdata, 1, 2)
     @test scene2[1].def == get_def(trajdata, 1)
     @test scene2[2].state == get_state(trajdata, 2, 2)

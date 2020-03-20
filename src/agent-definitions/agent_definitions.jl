@@ -77,6 +77,16 @@ function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleDef})
 end
 
 """
+    Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
+
+Converts the definition of an entity
+"""
+function Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
+    vehdef = VehicleDef(class(veh.def), length(veh.def), width(veh.def))
+    return Entity{S, VehicleDef, I}(veh.state, vehdef, veh.id)
+end
+
+"""
     BicycleModel
     BicycleModel(def::VehicleDef; a::Float64 = 1.5, b::Float64 = 1.5)
 Vehicle definition representing the bicycle model

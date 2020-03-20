@@ -8,7 +8,7 @@ struct FakeDriverModel <: DriverModel{FakeDriveAction} end
 
     model = FakeDriverModel()
     @test_throws MethodError reset_hidden_state!(model)
-    @test_throws MethodError observe!(model, Scene(), roadway, 1)
+    @test_throws MethodError observe!(model, Frame(), roadway, 1)
     @test_throws MethodError prime_with_history!(model, trajdata, roadway, 1, 2, 1)
 
     @test action_type(model) <: FakeDriveAction
@@ -31,13 +31,11 @@ end
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Scene()
-    push!(scene, veh1)
-    push!(scene, veh2)
+    scene = Frame([veh1, veh2])
 
     n_steps = 40
     dt = 0.1
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     simulate(scene, roadway, models, n_steps, dt)
 
@@ -51,7 +49,7 @@ end
     @test logpdf(models[1], LaneFollowingAccel(0.0)) < 0.0
     n_steps = 40
     dt = 0.1
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     simulate(scene, roadway, models, n_steps, dt)
 
@@ -65,11 +63,9 @@ end
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 3.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Scene()
-    push!(scene, veh1)
-    push!(scene, veh2)
+    scene = Frame([veh1, veh2])
 
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(eltype(scene), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, 1)
     simulate(scene, roadway, models, 1, dt)
 end
@@ -86,7 +82,7 @@ struct FakeLaneChanger <: LaneChangeModel{LaneChangeChoice} end
 
     model = FakeLaneChanger()
     @test_throws MethodError reset_hidden_state!(model)
-    @test_throws MethodError observe!(model, Scene(), roadway, 1)
+    @test_throws MethodError observe!(model, Frame(), roadway, 1)
 
     @test_throws MethodError set_desired_speed!(model, 0.0)
     @test_throws ErrorException rand(model)
@@ -108,12 +104,12 @@ end
     dt = 0.5
     n_steps = 10
     models = Dict{Int, DriverModel}()
-    models[1] = Tim2DDriver(dt, mlane=MOBIL(dt))
+    models[1] = Tim2DDriver(mlane=MOBIL(dt))
     set_desired_speed!(models[1], 10.0)
-    models[2] = Tim2DDriver(dt, mlane=MOBIL(dt))
+    models[2] = Tim2DDriver(mlane=MOBIL(dt))
     set_desired_speed!(models[2], 2.0)
 
-    scene = Scene([veh1, veh2])
+    scene = Frame([veh1, veh2])
     scenes = simulate(scene, roadway, models, n_steps, dt)
 
     @test posf(last(scenes)[1]).roadind.tag == LaneTag(1, 3)
@@ -123,7 +119,7 @@ end
 
 @testset "Tim2DDriver" begin
     timestep = 0.1
-    drivermodel = Tim2DDriver(timestep)
+    drivermodel = Tim2DDriver()
 
     set_desired_speed!(drivermodel,20.0)
     @test drivermodel.mlon.v_des == 20.0
@@ -138,14 +134,14 @@ end
     dt = 0.5
     n_steps = 10
     models = Dict{Int, DriverModel}()
-    models[1] = Tim2DDriver(dt)
+    models[1] = Tim2DDriver()
     set_desired_speed!(models[1], 10.0)
-    models[2] = Tim2DDriver(dt)
+    models[2] = Tim2DDriver()
     set_desired_speed!(models[2], 2.0)
 
-    scene = Scene([veh1, veh2])
+    scene = Frame([veh1, veh2])
 
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     simulate(scene, roadway, models, n_steps, dt)
 
@@ -178,14 +174,11 @@ end
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 130.0), roadway, 5.)
     veh3 = Entity(veh_state, VehicleDef(), 3)
 
-    scene = Scene()
-    push!(scene, veh1)
-    push!(scene, veh2)
-    push!(scene, veh3)
+    scene = Frame([veh1, veh2, veh3])
 
     n_steps = 40
     dt = 0.1
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     simulate(scene, roadway, models, n_steps, dt)
 
@@ -206,7 +199,7 @@ end
 
     n_steps = 40
     dt = 0.1
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     simulate(scene, roadway, models, n_steps, dt)
 
@@ -271,9 +264,7 @@ end
     car_initial_state = VehicleState(VecSE2(0.0, 0., 0.), roadway.segments[1].lanes[1],roadway, 8.0)
     car = Entity(car_initial_state, VehicleDef(), 2)
 
-    scene = Scene()
-    push!(scene, ped)
-    push!(scene, car)
+    scene = Frame([ped, car])
 
     # Define a model for each entity present in the scene
     models = Dict{Int, DriverModel}()
@@ -294,7 +285,7 @@ end
     )
 
     nticks = 300
-    rec = SceneRecord(nticks+1, timestep)
+    rec = QueueRecord(typeof(car), nticks+1, timestep)
     # Execute the simulation
     @test_deprecated simulate!(rec, scene, roadway, models, nticks)
     simulate(scene, roadway, models, nticks, timestep)

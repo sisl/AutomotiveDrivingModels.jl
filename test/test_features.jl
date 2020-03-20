@@ -1,5 +1,5 @@
 @testset "neighbor features" begin 
-    scene=Frame(Entity{VehicleState, BicycleModel, Int},100)
+    scene=Frame(Entity{VehicleState, BicycleModel, Int}, 100)
     roadway=gen_straight_roadway(3, 200.0, lane_width=3.0)
     push!(scene,Entity(VehicleState(VecSE2(30.0,3.0,0.0), roadway, 0.0), 
         BicycleModel(VehicleDef(AgentClass.CAR, 4.826, 1.81)),1))
@@ -23,17 +23,17 @@
     @test find_neighbor(scene, roadway, scene[1], lane=rightlane(roadway, scene[1]), rear=true) == NeighborLongitudinalResult(4,10.0)
 
     trajdata = get_test_trajdata(roadway)
-    scene = get!(Scene(), trajdata, 1)
+    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 1)
     @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 3.0)
-    scene = get!(Scene(), trajdata, 1)
+    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 1)
     @test find_neighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
-    scene = get!(Scene(), trajdata, 2)
+    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 2)
     @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 4.0)
-    scene = get!(Scene(), trajdata, 2)
+    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 2)
     @test find_neighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
 
     roadway = gen_stadium_roadway(1)
-    scene = Scene(2)
+    scene = Frame(Entity{VehicleState, VehicleDef, Int64}, 2)
     scene.n = 2
     def = VehicleDef(AgentClass.CAR, 2.0, 1.0)
 
@@ -121,7 +121,7 @@ end
 @testset "feature extraction" begin 
     roadway = gen_straight_roadway(4, 100.0)
 
-    scene = Scene([Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+    scene = Frame([Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
         Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
             ])
 
@@ -134,7 +134,7 @@ end
     @test pos1[1] == 0.0
     @test pos2[2] == 10.0
 
-    scene = Scene([Entity(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1)])
+    scene = Frame([Entity(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1)])
     posy = extract_feature(featuretype(posgy), posgy, roadway, [scene], 1)
     @test posy[1] == 1.2
     posθ = extract_feature(featuretype(posgθ), posgθ, roadway, [scene], 1)
@@ -147,7 +147,7 @@ end
     @test posϕ[1] == 0.0
 
 
-    scene = Scene([Entity(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+    scene = Frame([Entity(VehicleState(VecSE2(1.1,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
                 Entity(VehicleState(VecSE2(1.5,1.2,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2)])
     coll = extract_feature(featuretype(iscolliding), iscolliding, roadway, [scene], 1)
     @test coll[1]
@@ -163,7 +163,7 @@ end
 
     # extract multiple features 
     roadway = gen_straight_roadway(3, 1000.0, lane_width=1.0)
-    scene = Scene([
+    scene = Frame([
                 Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
                 Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
             ])
@@ -187,7 +187,7 @@ end
         @test nrow(dfs[id]) == 2
     end
 
-    scene = Scene([
+    scene = Frame([
             Entity(VehicleState(VecSE2( 1.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
             Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
             Entity(VehicleState(VecSE2(12.0,1.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 3),
@@ -212,7 +212,7 @@ end # features
     num_veh = 7
     ego_index = 1
     roadway = gen_straight_roadway(4, 400.)
-    scene = Scene(num_veh)
+    scene = Frame(Entity{VehicleState,VehicleDef,Int64}, num_veh)
     # order: ego, fore, rear, left, right, fore_fore, fore_fore_fore
     speeds = [10., 15., 15., 0., -5, 20., 20.]
     positions = [200., 220., 150., 200., 200., 240., 350.]

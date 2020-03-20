@@ -16,13 +16,11 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Scene()
-    push!(scene, veh1)
-    push!(scene, veh2)
+    scene = Frame([veh1, veh2])
 
     n_steps = 40
     dt = 0.1
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
     @test_deprecated simulate!(scene, roadway, models, n_steps, dt)
     @inferred simulate(scene, roadway, models, n_steps, dt)
@@ -35,11 +33,9 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 5.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Scene()
-    push!(scene, veh1)
-    push!(scene, veh2)
+    scene = Frame([veh1, veh2])
 
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(typeof(veh1), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
@@ -56,11 +52,9 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 1.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Scene()
-    push!(scene, veh1)
-    push!(scene, veh2)
+    scene = Frame([veh1, veh2])
 
-    rec = SceneRecord(n_steps, dt)
+    rec = QueueRecord(eltype(scene), n_steps, dt)
     @test_deprecated simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
@@ -75,7 +69,7 @@ end
   ego = Entity(veh_state, VehicleDef(), 2)
   model = ProportionalSpeedTracker()
   dt = get_timestep(trajdata)
-  rec = SceneRecord(3, dt)
+  rec = QueueRecord(typeof(ego), 3, dt)
   simulate!(rec, model, ego.id, trajdata, roadway, 1, 2)
   @test findfirst(ego.id, rec[0]) != nothing 
 end

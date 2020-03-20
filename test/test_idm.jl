@@ -6,7 +6,7 @@ using Random
 roadway = gen_straight_roadway(1, 500.0)
 
 num_veh = 2
-scene = Scene(num_veh)
+scene = Frame(num_veh)
 
 models = Dict{Int, DriverModel}()
 
@@ -33,7 +33,7 @@ veh_state = move_along(veh_state, roadway, road_pos)
 veh_def = VehicleDef(AgentClass.CAR, 5., 2.)
 push!(scene, Entity(veh_state, veh_def, 2))
 
-rec = SceneRecord(500, 0.1, num_veh)
+rec = QueueRecord(500, 0.1, num_veh)
 prime_time = .2
 rng = MersenneTwister(1)
 
