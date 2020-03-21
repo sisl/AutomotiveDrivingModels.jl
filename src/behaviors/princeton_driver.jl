@@ -14,7 +14,7 @@ A lane following driver model that controls longitudinal speed by following a fr
     k::Float64 = 1.0 # proportional constant for speed tracking [s⁻¹]
     v_des::Float64 = 29.0 # desired speed [m/s]
 end
-get_name(::PrincetonDriver) = "PrincetonDriver"
+
 function set_desired_speed!(model::PrincetonDriver, v_des::Float64)
     model.v_des = v_des
     model

@@ -59,14 +59,14 @@ The row correspond to the feature value for each scene (time history).
 ```julia
 roadway = gen_straight_roadway(4, 100.0) 
 
-scene_0 = Scene([
-            Vehicle(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+scene_0 = Frame([
+            Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+            Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
         ])
 
-scene_1 = Scene([
-            Vehicle(VehicleState(VecSE2( 10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
-            Vehicle(VehicleState(VecSE2(20.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
+scene_1 = Frame([
+            Entity(VehicleState(VecSE2( 10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
+            Entity(VehicleState(VecSE2(20.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
         ])
 
 dfs = extract_features((posgx, iscolliding), roadway, [scene_0, scene_1], [1,2])
