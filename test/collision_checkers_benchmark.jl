@@ -13,7 +13,7 @@ const ROADWAY = gen_straight_roadway(1, 20.0)
 
 function create_vehicle(x::Float64, y::Float64, θ::Float64 = 0.0; id::Int64=1)
     s = VehicleState(VecSE2(x, y, θ), ROADWAY, 0.0)
-    return Vehicle(s, VehicleDef(), id)
+    return Entity(s, VehicleDef(), id)
 end
 
 const VEH_REF = create_vehicle(0.0, 0.0, 0.0, id=1)

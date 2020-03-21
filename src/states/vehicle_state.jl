@@ -39,13 +39,13 @@ velg(veh::Entity) = velg(veh.state)
 
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 
-function Base.write(io::IO, ::MIME"text/plain", s::VehicleState)
+function Base.write(io::IO, s::VehicleState)
     @printf(io, "%.16e %.16e %.16e", s.posG.x, s.posG.y, s.posG.θ)
     @printf(io, " %d %.16e %d %d", s.posF.roadind.ind.i, s.posF.roadind.ind.t, s.posF.roadind.tag.segment, s.posF.roadind.tag.lane)
     @printf(io, " %.16e %.16e %.16e", s.posF.s, s.posF.t, s.posF.ϕ)
     @printf(io, " %.16e", s.v)
 end
-function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleState})
+function Base.read(io::IO, ::Type{VehicleState})
     tokens = split(strip(readline(io)), ' ')
     i = 0
     posG = VecSE2(parse(Float64, tokens[i+=1]), parse(Float64, tokens[i+=1]), parse(Float64, tokens[i+=1]))
@@ -65,17 +65,6 @@ function Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway
     v = lerp(a.v, b.v, t)
     VehicleState(posG, roadway, v)
 end
-
-"""
-    get_vel_s(s::VehicleState) 
-returns the longitudinal velocity (along the lane)
-"""
-get_vel_s(s::VehicleState) = s.v * cos(s.posF.ϕ) # velocity along the lane
-"""
-    get_vel_t(s::VehicleState) 
-returns the lateral velocity (⟂ to lane)
-"""
-get_vel_t(s::VehicleState) = s.v * sin(s.posF.ϕ) # velocity ⟂ to lane
 
 """
     move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
@@ -98,13 +87,6 @@ function move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64;
     posG = VecSE2(posG.x, posG.y, footpoint.pos.θ + ϕ₂)
     VehicleState(posG, roadway, v₂)
 end
-
-"""
-    Vehicle
-A specific instance of the Entity type defined in Records to represent Vehicles with 
-state `VehicleState` , definition `VehicleDef` and id `Int64`
-"""
-const Vehicle = Entity{VehicleState,VehicleDef,Int64}
 
 # XXX Should this go in features
 """
@@ -130,7 +112,6 @@ returns the position of the rear of the vehicle
 """
 get_rear(veh::Entity{VehicleState, D, I}) where {D<:AbstractAgentDefinition, I} = veh.state.posG - polar(length(veh.def)/2, veh.state.posG.θ)
 
-
 """
     get_lane(roadway::Roadway, vehicle::Entity)
     get_lane(roadway::Roadway, vehicle::VehicleState)
@@ -142,4 +123,14 @@ end
 function get_lane(roadway::Roadway, vehicle::VehicleState)
     lane_tag = vehicle.posF.roadind.tag
     return roadway[lane_tag]
+end
+
+"""
+    Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
+
+Converts the definition of an entity
+"""
+function Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
+    vehdef = VehicleDef(class(veh.def), length(veh.def), width(veh.def))
+    return Entity{S, VehicleDef, I}(veh.state, vehdef, veh.id)
 end
