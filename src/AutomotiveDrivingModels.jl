@@ -10,7 +10,7 @@ using Random
 using DataFrames
 using Tricks: static_hasmethod
 
-include("Vec/Vec.jl")
+include(joinpath(@__DIR__, "Vec", "Vec.jl"))
 @reexport using .Vec
 
 # Roadways
