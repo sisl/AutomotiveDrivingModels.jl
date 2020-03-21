@@ -19,6 +19,7 @@
         frame = Frame(Int)
         @test length(frame) == 0
         @test capacity(frame) > 0
+        @test lastindex(frame) == frame.n
 
         frame = Frame(Int, 2)
         @test length(frame) == 0
@@ -64,7 +65,9 @@
 
     @testset begin 
         frame = EntityFrame(Int, Float64, String)
+        frame = EntityFrame(Int, Float64, String, 10)
         @test eltype(frame) == Entity{Int,Float64,String}
+        @test capacity(frame) == 10
 
         frame = Frame([Entity(1,1,"A"),Entity(2,2,"B"),Entity(3,3,"C")])
         @test  in("A", frame)
@@ -96,5 +99,6 @@
 
         frame = Frame([Entity(1,1,1),Entity(2,2,2)], capacity=3)
         @test get_first_available_id(frame) == 3
+
     end
 end

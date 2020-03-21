@@ -52,8 +52,6 @@ end
 
     observe_from_history!(IntelligentDriverModel(), roadway, scenes, 2)
 
-    println("There should be a warning here: ")
-
     # initializing vehicles too close
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 0.0), roadway, 5.)
     veh1 = Entity(veh_state, VehicleDef(), 1)

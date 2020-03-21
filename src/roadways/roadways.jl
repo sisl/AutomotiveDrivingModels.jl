@@ -235,10 +235,10 @@ Roadway() = Roadway{Float64}()
 
 Base.show(io::IO, roadway::Roadway) = @printf(io, "Roadway")
 """
-    Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
+    Base.write(io::IO, roadway::Roadway)
 write all the roadway information to a text file
 """
-function Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
+function Base.write(io::IO, roadway::Roadway)
     # writes to a text file
 
     println(io, "ROADWAY")
@@ -269,10 +269,10 @@ function Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
 end
 
 """
-    Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
+    Base.read(io::IO, ::Type{Roadway})
 extract roadway information from a text file and returns a roadway object.
 """
-function Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
+function Base.read(io::IO, ::Type{Roadway})
     lines = readlines(io)
     line_index = 1
     if occursin("ROADWAY", lines[line_index])

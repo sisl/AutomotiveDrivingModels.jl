@@ -478,7 +478,7 @@ end # roadway test
     ############
 
     path, io = mktemp()
-    write(io, MIME"text/plain"(), roadway)
+    write(io, roadway)
     close(io)
 
     lines = open(readlines, path)
@@ -535,7 +535,7 @@ end # roadway test
     end
 
     io = open(path)
-    roadway2 = read(io, MIME"text/plain"(), Roadway)
+    roadway2 = read(io, Roadway)
     close(io)
     rm(path)
 

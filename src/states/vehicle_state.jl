@@ -39,13 +39,13 @@ velg(veh::Entity) = velg(veh.state)
 
 Base.show(io::IO, s::VehicleState) = print(io, "VehicleState(", s.posG, ", ", s.posF, ", ", @sprintf("%.3f", s.v), ")")
 
-function Base.write(io::IO, ::MIME"text/plain", s::VehicleState)
+function Base.write(io::IO, s::VehicleState)
     @printf(io, "%.16e %.16e %.16e", s.posG.x, s.posG.y, s.posG.θ)
     @printf(io, " %d %.16e %d %d", s.posF.roadind.ind.i, s.posF.roadind.ind.t, s.posF.roadind.tag.segment, s.posF.roadind.tag.lane)
     @printf(io, " %.16e %.16e %.16e", s.posF.s, s.posF.t, s.posF.ϕ)
     @printf(io, " %.16e", s.v)
 end
-function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleState})
+function Base.read(io::IO, ::Type{VehicleState})
     tokens = split(strip(readline(io)), ' ')
     i = 0
     posG = VecSE2(parse(Float64, tokens[i+=1]), parse(Float64, tokens[i+=1]), parse(Float64, tokens[i+=1]))

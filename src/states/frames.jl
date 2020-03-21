@@ -152,21 +152,21 @@ end
 
 ###
 
-function Base.write(io::IO, mime::MIME"text/plain", frames::Vector{EntityFrame{S,D,I}}) where {S,D,I}
+function Base.write(io::IO, frames::Vector{EntityFrame{S,D,I}}) where {S,D,I}
     println(io, length(frames))
     for frame in frames
         println(io, length(frame))
         for entity in frame
-            write(io, mime, entity.state)
+            write(io, entity.state)
             print(io, "\n")
-            write(io, mime, entity.def)
+            write(io, entity.def)
             print(io, "\n")
-            write(io, mime, entity.id)
+            write(io, string(entity.id))
             print(io, "\n")
         end
     end
 end
-function Base.read(io::IO, mime::MIME"text/plain", ::Type{Vector{EntityFrame{S,D,I}}}) where {S,D,I}
+function Base.read(io::IO, ::Type{Vector{EntityFrame{S,D,I}}}) where {S,D,I}
 
     n = parse(Int, readline(io))
     frames = Array{EntityFrame{S,D,I}}(undef, n)
@@ -175,9 +175,9 @@ function Base.read(io::IO, mime::MIME"text/plain", ::Type{Vector{EntityFrame{S,D
         m = parse(Int, readline(io))
         frame = Frame(Entity{S,D,I}, m)
         for j in 1 : m
-            state = read(io, mime, S)
-            def = read(io, mime, D)
-            id = read(io, mime, I)
+            state = read(io, S)
+            def = read(io, D)
+            id = parse(I, readline(io))
             push!(frame, Entity(state,def,id))
         end
         frames[i] = frame

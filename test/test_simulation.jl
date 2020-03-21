@@ -35,6 +35,19 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) < 10
 
+    open("test.txt", "w+") do io
+        write(io, scenes)
+    end
+    r = open("test.txt", "r") do io
+        read(io, typeof(scenes))
+    end
+    @test length(r) == length(scenes)
+    for (i, s) in enumerate(r)
+      for (j, veh) in enumerate(r[i])
+        @test posg(veh) ≈ posg(scenes[i][j])
+      end
+    end
+
     # make sure warnings, errors and deprecations in run_callback work as expected
     @test_nowarn simulate(scene, roadway, models, 10, .1, callbacks=(WithActionCallback(),))
 
