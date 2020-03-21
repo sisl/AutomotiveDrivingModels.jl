@@ -20,9 +20,6 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
 
     n_steps = 40
     dt = 0.1
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, n_steps)
-    @test_deprecated simulate!(scene, roadway, models, n_steps, dt)
     @inferred simulate(scene, roadway, models, n_steps, dt)
 
     reset_hidden_states!(models)
@@ -35,15 +32,23 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
 
     scene = Frame([veh1, veh2])
 
-    rec = QueueRecord(typeof(veh1), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
-
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) < 10
 
+    open("test.txt", "w+") do io
+        write(io, scenes)
+    end
+    r = open("test.txt", "r") do io
+        read(io, typeof(scenes))
+    end
+    @test length(r) == length(scenes)
+    for (i, s) in enumerate(r)
+      for (j, veh) in enumerate(r[i])
+        @test posg(veh) ≈ posg(scenes[i][j])
+      end
+    end
+
     # make sure warnings, errors and deprecations in run_callback work as expected
-    @test_deprecated @test_throws MethodError simulate!(rec, scene, roadway, models, 10, (NoCallback(),))
-    @test_deprecated simulate(scene, roadway, models, 10, .1, callbacks=(NoActionCallback(),))
     @test_nowarn simulate(scene, roadway, models, 10, .1, callbacks=(WithActionCallback(),))
 
     # collision right from start
@@ -53,9 +58,6 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
     scene = Frame([veh1, veh2])
-
-    rec = QueueRecord(eltype(scene), n_steps, dt)
-    @test_deprecated simulate!(rec, scene, roadway, models, 10, (CollisionCallback(),))
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) == 1
@@ -68,8 +70,8 @@ end
   veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 6.0), roadway, 10.)
   ego = Entity(veh_state, VehicleDef(), 2)
   model = ProportionalSpeedTracker()
-  dt = get_timestep(trajdata)
-  rec = QueueRecord(typeof(ego), 3, dt)
-  simulate!(rec, model, ego.id, trajdata, roadway, 1, 2)
-  @test findfirst(ego.id, rec[0]) != nothing 
+
+  scenes = simulate_from_history(model, roadway, trajdata, ego.id, 0.1)
+
+  @test findfirst(ego.id, scenes[end]) != nothing 
 end

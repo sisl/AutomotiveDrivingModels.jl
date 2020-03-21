@@ -1,3 +1,23 @@
+"""
+    Frame{E}
+
+Container to store a list of entities. 
+The main difference from a regular array is that its size is defined at construction and is fixed.
+(`push!` is O(1))
+
+# Constructors 
+
+- `Frame(arr::AbstractVector; capacity::Int=length(arr))`
+- `Frame(::Type{E}, capacity::Int=100) where {E}`
+
+
+# Fields 
+
+To interact with `Frame` object it is preferable to use functions rather than accessing the fields directly.
+
+- `entities::Vector{E}`
+- `n::Int` current number of entities in the scene
+"""
 mutable struct Frame{E}
     entities::Vector{E} # NOTE: I tried StaticArrays; was not faster
     n::Int
@@ -15,7 +35,13 @@ end
 
 Base.show(io::IO, frame::Frame{E}) where {E}= @printf(io, "Frame{%s}(%d entities)", string(E), length(frame))
 
+"""
+    capacity(frame::Frame)
+returns the maximum number of entities that can be put in the frame. 
+To get the current number of entities use `length` instead.
+"""
 capacity(frame::Frame) = length(frame.entities)
+
 Base.length(frame::Frame) = frame.n
 Base.getindex(frame::Frame, i::Int) = frame.entities[i]
 Base.eltype(frame::Frame{E}) where {E} = E
@@ -61,12 +87,21 @@ end
 
 
 ####
+"""
+    EntityFrame{S,D,I} = Frame{Entity{S,D,I}}
+Alias for `Frame` when the entities in the frame are of type `Entity`
 
+# Constructors
+- `EntityFrame(::Type{S},::Type{D},::Type{I}) where {S,D,I}`
+- `EntityFrame(::Type{S},::Type{D},::Type{I},capacity::Int)` 
+
+"""
 const EntityFrame{S,D,I} = Frame{Entity{S,D,I}}
 EntityFrame(::Type{S},::Type{D},::Type{I}) where {S,D,I} = Frame(Entity{S,D,I})
-EntityFrame(::Type{S},::Type{D},::Type{I},N::Int) where {S,D,I} = Frame(Entity{S,D,I}, N)
+EntityFrame(::Type{S},::Type{D},::Type{I},capacity::Int) where {S,D,I} = Frame(Entity{S,D,I}, capacity)
 
-Base.in(id::I, frame::EntityFrame{S,D,I}) where {S,D,I} = findfirst(id, frame) != nothing
+Base.in(id::I, frame::EntityFrame{S,D,I}) where {S,D,I} = findfirst(id, frame) !== nothing
+
 function Base.findfirst(id::I, frame::EntityFrame{S,D,I}) where {S,D,I}
     for entity_index in 1 : frame.n
         entity = frame.entities[entity_index]
@@ -76,6 +111,7 @@ function Base.findfirst(id::I, frame::EntityFrame{S,D,I}) where {S,D,I}
     end
     return nothing
 end
+
 function id2index(frame::EntityFrame{S,D,I}, id::I) where {S,D,I}
     entity_index = findfirst(id, frame)
     if entity_index === nothing
@@ -83,7 +119,13 @@ function id2index(frame::EntityFrame{S,D,I}, id::I) where {S,D,I}
     end
     return entity_index
 end
+
+"""
+    get_by_id(frame::EntityFrame{S,D,I}, id::I) where {S,D,I}
+Retrieve the entity by its `id`. This function uses `findfirst` which is O(n).
+"""
 get_by_id(frame::EntityFrame{S,D,I}, id::I) where {S,D,I} = frame[id2index(frame, id)] 
+
 function get_first_available_id(frame::EntityFrame{S,D,I}) where {S,D,I}
     ids = Set{I}(entity.id for entity in frame)
     id_one = one(I)
@@ -110,21 +152,21 @@ end
 
 ###
 
-function Base.write(io::IO, mime::MIME"text/plain", frames::Vector{EntityFrame{S,D,I}}) where {S,D,I}
+function Base.write(io::IO, frames::Vector{EntityFrame{S,D,I}}) where {S,D,I}
     println(io, length(frames))
     for frame in frames
         println(io, length(frame))
         for entity in frame
-            write(io, mime, entity.state)
+            write(io, entity.state)
             print(io, "\n")
-            write(io, mime, entity.def)
+            write(io, entity.def)
             print(io, "\n")
-            write(io, mime, entity.id)
+            write(io, string(entity.id))
             print(io, "\n")
         end
     end
 end
-function Base.read(io::IO, mime::MIME"text/plain", ::Type{Vector{EntityFrame{S,D,I}}}) where {S,D,I}
+function Base.read(io::IO, ::Type{Vector{EntityFrame{S,D,I}}}) where {S,D,I}
 
     n = parse(Int, readline(io))
     frames = Array{EntityFrame{S,D,I}}(undef, n)
@@ -133,9 +175,9 @@ function Base.read(io::IO, mime::MIME"text/plain", ::Type{Vector{EntityFrame{S,D
         m = parse(Int, readline(io))
         frame = Frame(Entity{S,D,I}, m)
         for j in 1 : m
-            state = read(io, mime, S)
-            def = read(io, mime, D)
-            id = read(io, mime, I)
+            state = read(io, S)
+            def = read(io, D)
+            id = parse(I, readline(io))
             push!(frame, Entity(state,def,id))
         end
         frames[i] = frame

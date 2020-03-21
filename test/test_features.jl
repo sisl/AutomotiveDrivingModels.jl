@@ -23,13 +23,11 @@
     @test find_neighbor(scene, roadway, scene[1], lane=rightlane(roadway, scene[1]), rear=true) == NeighborLongitudinalResult(4,10.0)
 
     trajdata = get_test_trajdata(roadway)
-    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 1)
+    scene = trajdata[1]
     @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 3.0)
-    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 1)
     @test find_neighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
-    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 2)
+    scene = trajdata[2]
     @test find_neighbor(scene, roadway, scene[1]) == NeighborLongitudinalResult(2, 4.0)
-    scene = get!(Frame(Entity{VehicleState, VehicleDef, Int64}), trajdata, 2)
     @test find_neighbor(scene, roadway, scene[2]) == NeighborLongitudinalResult(nothing, 250.0)
 
     roadway = gen_stadium_roadway(1)

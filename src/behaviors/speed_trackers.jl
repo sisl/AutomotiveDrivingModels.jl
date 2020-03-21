@@ -14,7 +14,7 @@ Longitudinal proportional speed control.
     k::Float64 = 1.0# proportional constant for speed tracking [s⁻¹]
     v_des::Float64 = 29.0 # desired speed [m/s]
 end
-get_name(::ProportionalSpeedTracker) = "ProportionalSpeedTracker"
+
 function set_desired_speed!(model::ProportionalSpeedTracker, v_des::Float64)
     model.v_des = v_des
     model

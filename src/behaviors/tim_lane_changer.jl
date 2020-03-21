@@ -8,11 +8,10 @@ Has not been published anywhere, so first use in a paper would have to describe 
 See MOBIL if you want a lane changer you can cite.
 
 # Constructors
-	TimLaneChanger(timestep::Float64;v_des::Float64=29.0,rec::QueueRecord=QueueRecord(2,timestep),threshold_fore::Float64 = 50.0,threshold_lane_change_gap_fore::Float64 = 10.0, threshold_lane_change_gap_rear::Float64 = 10.0,dir::Int=DIR_MIDDLE)
+	TimLaneChanger(v_des::Float64=29.0, threshold_fore::Float64 = 50.0,threshold_lane_change_gap_fore::Float64 = 10.0, threshold_lane_change_gap_rear::Float64 = 10.0,dir::Int=DIR_MIDDLE)
 
 # Fields
 - `dir::Int = DIR_MIDDLE` the desired lane to go to eg: left,middle (i.e. stay in same lane) or right
-- `rec::QueueRecord` TODO
 - `v_des::Float64 = 29.0` desired velocity
 - `threshold_fore::Float64 = 50.0` Distance from lead vehicle
 - `threshold_lane_change_gap_fore::Float64 = 10.0` Space in front
@@ -25,8 +24,6 @@ See MOBIL if you want a lane changer you can cite.
     threshold_lane_change_gap_fore::Float64 = 10.0
     threshold_lane_change_gap_rear::Float64 = 10.0
 end
-
-get_name(::TimLaneChanger) = "TimLaneChanger"
 
 function set_desired_speed!(model::TimLaneChanger, v_des::Float64)
     model.v_des = v_des

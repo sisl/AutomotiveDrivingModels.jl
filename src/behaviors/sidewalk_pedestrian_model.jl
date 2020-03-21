@@ -65,7 +65,6 @@ Walks along the sidewalk until approaching the crosswalk. Waits for the cars to 
     phases = Int[]
 end
 
-AutomotiveDrivingModels.get_name(model::SidewalkPedestrianModel) = "SidewalkPedestrianModel"
 Base.rand(rng::AbstractRNG, model::SidewalkPedestrianModel) = model.a
 
 function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, egoid::I) where {D, I}

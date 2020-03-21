@@ -22,8 +22,6 @@ A controller that executes the lane change decision made by the `lane change mod
     kd::Float64 = 2.0 # derivative constant for lane tracking
 end
 
-get_name(::ProportionalLaneTracker) = "ProportionalLaneTracker"
-
 function track_lateral!(model::ProportionalLaneTracker, laneoffset::Float64, lateral_speed::Float64)
     model.a = -laneoffset*model.kp - lateral_speed*model.kd
     model

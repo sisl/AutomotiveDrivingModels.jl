@@ -67,23 +67,13 @@ function Base.show(io::IO, d::VehicleDef)
           "UNKNOWN"
     @printf(io, "VehicleDef(%s, %.3f, %.3f)", class, d.length, d.width)
 end
-Base.write(io::IO, ::MIME"text/plain", def::VehicleDef) = @printf(io, "%d %.16e %.16e", def.class, def.length, def.width)
-function Base.read(io::IO, ::MIME"text/plain", ::Type{VehicleDef})
+Base.write(io::IO, def::VehicleDef) = @printf(io, "%d %.16e %.16e", def.class, def.length, def.width)
+function Base.read(io::IO, ::Type{VehicleDef})
     tokens = split(strip(readline(io)), ' ')
     class = parse(Int, tokens[1])
     length = parse(Float64, tokens[2])
     width = parse(Float64, tokens[3])
     return VehicleDef(class, length, width)
-end
-
-"""
-    Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
-
-Converts the definition of an entity
-"""
-function Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
-    vehdef = VehicleDef(class(veh.def), length(veh.def), width(veh.def))
-    return Entity{S, VehicleDef, I}(veh.state, vehdef, veh.id)
 end
 
 """
