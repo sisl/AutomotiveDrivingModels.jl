@@ -1,8 +1,8 @@
 struct NoCallback end
 struct NoActionCallback end
-AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{Frame{E}}, roadway::R, models::Dict{I,M}, tick::Int) where {E,R,I,M<:DriverModel} = false
+AutomotiveDrivingModels.run_callback(callback::NoActionCallback, scenes::Vector{Scene{E}}, roadway::R, models::Dict{I,M}, tick::Int) where {E,R,I,M<:DriverModel} = false
 struct WithActionCallback end
-AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{Frame{E}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel} = false
+AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vector{Scene{E}}, actions::Union{Nothing, Vector{Scene{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel} = false
 
 @testset "simulation" begin
     roadway = gen_straight_roadway(1, 500.0)
@@ -16,7 +16,7 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 70.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Frame([veh1, veh2])
+    scene = Scene([veh1, veh2])
 
     n_steps = 40
     dt = 0.1
@@ -30,13 +30,19 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 5.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Frame([veh1, veh2])
+    scene = Scene([veh1, veh2])
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) < 10
 
     open("test.txt", "w+") do io
         write(io, scenes)
+    end
+    @test_throws ErrorException open("test.txt", "r") do io
+        read(io, Vector{EntityScene{VehicleState, VehicleDef,Symbol}})
+    end
+    open("test.txt", "r") do io
+        read(io, Vector{EntityScene{VehicleState, VehicleDef,String}})
     end
     r = open("test.txt", "r") do io
         read(io, typeof(scenes))
@@ -57,7 +63,7 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     veh_state = VehicleState(Frenet(roadway[LaneTag(1,1)], 1.0), roadway, 5.)
     veh2 = Entity(veh_state, VehicleDef(), 2)
 
-    scene = Frame([veh1, veh2])
+    scene = Scene([veh1, veh2])
 
     scenes = @inferred simulate(scene, roadway, models, n_steps, dt, callbacks=(CollisionCallback(),))
     @test length(scenes) == 1

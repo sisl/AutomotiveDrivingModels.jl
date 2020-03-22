@@ -14,6 +14,7 @@ We provide an interface to interact with behavior model or implement your own. T
     action_type(::DriverModel{A}) where A
     set_desired_speed!
     reset_hidden_state!
+    reset_hidden_states!
     observe!
     Base.rand(model::DriverModel)
 ```

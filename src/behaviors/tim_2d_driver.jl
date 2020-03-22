@@ -22,7 +22,7 @@ function set_desired_speed!(model::Tim2DDriver, v_des::Float64)
     model
 end
 
-function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int64, fore::NeighborLongitudinalResult) where {D, I}
+function track_longitudinal!(driver::LaneFollowingDriver, scene::Scene{Entity{VehicleState, D, I}}, roadway::Roadway, vehicle_index::Int64, fore::NeighborLongitudinalResult) where {D, I}
     v_ego = vel(scene[vehicle_index].state)
     if fore.ind != nothing
         headway, v_oth = fore.Δs, vel(scene[fore.ind].state)
@@ -32,7 +32,7 @@ function track_longitudinal!(driver::LaneFollowingDriver, scene::Frame{Entity{Ve
     return track_longitudinal!(driver, v_ego, v_oth, headway)
 end
 
-function observe!(driver::Tim2DDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+function observe!(driver::Tim2DDriver, scene::Scene{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     observe!(driver.mlane, scene, roadway, egoid)
 

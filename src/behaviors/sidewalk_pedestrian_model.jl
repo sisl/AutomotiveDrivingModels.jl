@@ -67,7 +67,7 @@ end
 
 Base.rand(rng::AbstractRNG, model::SidewalkPedestrianModel) = model.a
 
-function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Frame{Entity{VehicleState, D, I}}, roadway::Roadway, egoid::I) where {D, I}
+function AutomotiveDrivingModels.observe!(model::SidewalkPedestrianModel, scene::Scene{Entity{VehicleState, D, I}}, roadway::Roadway, egoid::I) where {D, I}
     ped = scene[findfirst(egoid, scene)]
 
     push!(model.pos_x, posg(ped.state).x)
@@ -103,7 +103,7 @@ function update_approaching(ped::Entity{S, D, I},
 end
 
 function update_appraising(ped::Entity{S, D, I},
-                           scene::Frame,
+                           scene::Scene,
                            model::SidewalkPedestrianModel,
                            roadway::Roadway,
                            crosswalk::Lane,
@@ -139,7 +139,7 @@ end
 
 
 function update_crossing(ped::Entity{S, D, I},
-                         scene::Frame,
+                         scene::Scene,
                          model::SidewalkPedestrianModel,
                          roadway::Roadway,
                          crosswalk::Lane
@@ -157,7 +157,7 @@ end
 
 
 function update_leaving(ped::Entity{S, D, I},
-                        scene::Frame,
+                        scene::Scene,
                         model::SidewalkPedestrianModel,
                         roadway::Roadway,
                         sw_dest::Lane

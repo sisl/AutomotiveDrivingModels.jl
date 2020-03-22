@@ -10,7 +10,7 @@ struct LaneChangeChoice
 end
 Base.show(io::IO, a::LaneChangeChoice) = @printf(io, "LaneChangeChoice(%d)", a.dir)
 
-function get_lane_offset(a::LaneChangeChoice, scene::Frame, roadway::Roadway, vehicle_index::Int)
+function get_lane_offset(a::LaneChangeChoice, scene::Scene, roadway::Roadway, vehicle_index::Int)
     if a.dir == DIR_MIDDLE
         return posf(scene[vehicle_index].state).t
     elseif a.dir == DIR_LEFT

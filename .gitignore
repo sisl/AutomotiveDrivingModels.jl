@@ -5,3 +5,14 @@ data/
 *.webm
 docs/build
 .ipynb_checkpoints/
+Manifest.toml
+
+test/*.txt
+
+# auto-generated files
+docs/build/
+docs/src/tutorials
+docs/src/notebooks
+docs/src/assets
+docs/Manifest.toml
+

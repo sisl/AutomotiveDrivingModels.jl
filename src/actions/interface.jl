@@ -23,9 +23,9 @@ struct EntityAction{A,I}
     id::I
 end
 
-function Base.findfirst(id, frame::Frame{A}) where {A<:EntityAction}
-    for am_index in 1 : frame.n
-        am = frame.entities[am_index]
+function Base.findfirst(id, scene::Scene{A}) where {A<:EntityAction}
+    for am_index in 1 : scene.n
+        am = scene.entities[am_index]
         if am.id == id
             return am_index
         end
@@ -33,12 +33,12 @@ function Base.findfirst(id, frame::Frame{A}) where {A<:EntityAction}
     return nothing
 end
 
-function id2index(frame::Frame{A}, id) where {A<:EntityAction}
-    entity_index = findfirst(id, frame)
+function id2index(scene::Scene{A}, id) where {A<:EntityAction}
+    entity_index = findfirst(id, scene)
     if (entity_index === nothing)
-        throw(BoundsError(frame, [id]))
+        throw(BoundsError(scene, [id]))
     end
     return entity_index
 end
 
-get_by_id(frame::Frame{A}, id) where {A<:EntityAction} = frame[id2index(frame, id)] 
+get_by_id(scene::Scene{A}, id) where {A<:EntityAction} = scene[id2index(scene, id)] 

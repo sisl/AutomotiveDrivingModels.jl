@@ -1,7 +1,7 @@
 abstract type LaneFollowingDriver <: DriverModel{LaneFollowingAccel} end
 track_longitudinal!(model::LaneFollowingDriver, v_ego::Float64, v_oth::Float64, headway::Float64) = model # do nothing by default
 
-function observe!(model::LaneFollowingDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+function observe!(model::LaneFollowingDriver, scene::Scene{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     ego = get_by_id(scene, egoid)
 

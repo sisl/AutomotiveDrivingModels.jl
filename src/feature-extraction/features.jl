@@ -6,7 +6,7 @@ abstract type AbstractFeature end
 # feature(roadway, veh)
 struct EntityFeature <: AbstractFeature end
 # feature(roadway, scene, veh)
-struct FrameFeature <: AbstractFeature end
+struct SceneFeature <: AbstractFeature end
 # feature(roadway, scenes, veh)
 struct TemporalFeature <: AbstractFeature end
 # feature(actions, veh)
@@ -21,9 +21,9 @@ function used for dispatching feature types depending on the method of the featu
 function featuretype(f::Function)
     if static_hasmethod(f, Tuple{Roadway, Entity})
         return EntityFeature()
-    elseif static_hasmethod(f, Tuple{Roadway, Frame, Entity})
-        return FrameFeature()
-    elseif static_hasmethod(f, Tuple{Roadway, Vector{<:Frame}, Entity})
+    elseif static_hasmethod(f, Tuple{Roadway, Scene, Entity})
+        return SceneFeature()
+    elseif static_hasmethod(f, Tuple{Roadway, Vector{<:Scene}, Entity})
         return TemporalFeature()
     else
         error(""""
@@ -38,15 +38,15 @@ end
 
 # Top level extract several features
 """
-    extract_features(features, roadway::Roadway, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+    extract_features(features, roadway::Roadway, scenes::Vector{<:Scene}, ids::Vector{I}) where I 
 
 Extract information from a list of scenes. It returns a dictionary of DataFrame objects. 
 
 # Inputs
 
-- `features`: a tuple of feature functions. The feature types supported are `EntityFeature`, `FrameFeature` and `TemporalFeature`. Check the documentation for the list of available feature functions, and how to implement you own feature function.
+- `features`: a tuple of feature functions. The feature types supported are `EntityFeature`, `SceneFeature` and `TemporalFeature`. Check the documentation for the list of available feature functions, and how to implement you own feature function.
 - `roadway::Roadway` : the roadway associated to the scenes.
-- `scenes::Vector{<:Frame}` : the simulation data from which we wish to extract information from. Each frame in the vector corresponds to one time step.
+- `scenes::Vector{<:Scene}` : the simulation data from which we wish to extract information from. Each scene in the vector corresponds to one time step.
 - `ids::Vector{I}`: a list of entity IDs for which we want to extract the information. 
 
 # Output
@@ -59,12 +59,12 @@ The row correspond to the feature value for each scene (time history).
 ```julia
 roadway = gen_straight_roadway(4, 100.0) 
 
-scene_0 = Frame([
+scene_0 = Scene([
             Entity(VehicleState(VecSE2( 0.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
             Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
         ])
 
-scene_1 = Frame([
+scene_1 = Scene([
             Entity(VehicleState(VecSE2( 10.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 1),
             Entity(VehicleState(VecSE2(20.0,0.0,0.0), roadway, 10.0), VehicleDef(AgentClass.CAR, 5.0, 2.0), 2),
         ])
@@ -74,7 +74,7 @@ dfs = extract_features((posgx, iscolliding), roadway, [scene_0, scene_1], [1,2])
 dfs[1].posgx # history of global x position for vehicle of ID 1
 ```
 """ 
-function extract_features(features, roadway::Roadway, scenes::Vector{<:Frame}, ids::Vector{I}) where I 
+function extract_features(features, roadway::Roadway, scenes::Vector{<:Scene}, ids::Vector{I}) where I 
     dfs_list = broadcast(f -> extract_feature(featuretype(f), f, roadway, scenes, ids), features)
     # join all the dataframes 
     dfs = Dict{I, DataFrame}()
@@ -86,13 +86,13 @@ end
 
 
 # feature is a general (temporal) feature, broadcast on id only
-function extract_feature(ft::AbstractFeature, feature, roadway::Roadway, scenes::Vector{<:Frame}, ids)
+function extract_feature(ft::AbstractFeature, feature, roadway::Roadway, scenes::Vector{<:Scene}, ids)
     values = feature.(Ref(roadway), Ref(scenes), ids)  # vector of vectors
     return Dict(zip(ids, values))
 end
 
-# feature is a frame feature, broadcast on ids and scenes
-function extract_feature(ft::FrameFeature, feature, roadway::Roadway, scenes::Vector{<:Frame}, ids)
+# feature is a scene feature, broadcast on ids and scenes
+function extract_feature(ft::SceneFeature, feature, roadway::Roadway, scenes::Vector{<:Scene}, ids)
     values = broadcast(ids) do id 
         veh_hist = get_by_id.(scenes, Ref(id))
         feature.(Ref(roadway), scenes, veh_hist)
@@ -101,7 +101,7 @@ function extract_feature(ft::FrameFeature, feature, roadway::Roadway, scenes::Ve
 end
 
 # feature is an entity feature, broadcast on ids and scenes 
-function extract_feature(ft::EntityFeature, feature, roadway::Roadway, scenes::Vector{<:Frame}, ids)
+function extract_feature(ft::EntityFeature, feature, roadway::Roadway, scenes::Vector{<:Scene}, ids)
     values = broadcast(ids) do id
         veh_hist= get_by_id.(scenes, Ref(id))
         feature.(Ref(roadway), veh_hist)
@@ -225,10 +225,10 @@ iswaiting(roadway::Roadway, veh::Entity) = vel(veh) ≈ 0.0
 ## scene features 
 
 """
-    iscolliding(roadway::Roadway, scene::Frame, veh::Entity) 
+    iscolliding(roadway::Roadway, scene::Scene, veh::Entity) 
 returns true if the vehicle is colliding with another vehicle in the scene.
 """
-function iscolliding(roadway::Roadway, scene::Frame, veh::Entity) 
+function iscolliding(roadway::Roadway, scene::Scene, veh::Entity) 
     return collision_checker(scene, veh.id)
 end
 
@@ -240,7 +240,7 @@ generate a feature function distance_to_\$egoid.
 """
 function distance_to(egoid)
     @eval begin 
-        function ($(Symbol("distance_to_$(egoid)")))(roadway::Roadway, scene::Frame, veh::Entity)
+        function ($(Symbol("distance_to_$(egoid)")))(roadway::Roadway, scene::Scene, veh::Entity)
             ego = get_by_id(scene, $egoid)
             return norm(VecE2(posg(ego) - posg(veh)))
         end
@@ -252,11 +252,11 @@ end
 # temporal features 
 
 """
-    acc(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    acc(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the history of acceleration of the entity of id vehid using finite differences on the velocity.
 The first element is `missing`.
 """
-function acc(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function acc(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     result = zeros(Union{Missing,Float64},length(scenes))
     angles = broadcast(x->vel(get_by_id(x, vehid)), scenes)
     result[1] = missing
@@ -265,11 +265,11 @@ function acc(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
 end
 
 """
-    accfs(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    accfs(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the history of longitudinal acceleration in the Frenet frame of the entity of id vehid using finite differences on the velocity.
 The first element is `missing`.
 """
-function accfs(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function accfs(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     result = zeros(Union{Missing,Float64},length(scenes))
     angles = broadcast(x->velf(get_by_id(x, vehid)).s, scenes)
     result[1] = missing
@@ -278,11 +278,11 @@ function accfs(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
 end
 
 """
-    accft(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    accft(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the history of lateral acceleration in the Frenet frame of the entity of id vehid using finite differences on the velocity.
 The first element is `missing`.
 """
-function accft(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function accft(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     result = zeros(Union{Missing,Float64},length(scenes))
     angles = broadcast(x->velf(get_by_id(x, vehid)).t, scenes)
     result[1] = missing
@@ -291,38 +291,38 @@ function accft(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
 end
 
 """
-    jerk(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    jerk(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the jerk history of the entity of id vehid using finite differences on acceleration (which uses finite differences on velocity).
 The first two elements are missing. 
 """
-function jerk(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function jerk(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     return vcat(missing, diff(acc(roadway, scenes, vehid)))
 end
 
 """
-    jerkfs(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    jerkfs(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the longitudinal jerk history in the Frenet frame of the entity of id vehid using finite differences on acceleration (which uses finite differences on velocity).
 The first two elements are missing. 
 """
-function jerkfs(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function jerkfs(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     return vcat(missing, diff(accfs(roadway, scenes, vehid)))
 end
 
 """
-    jerkft(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    jerkft(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the lateral jerk history in the Frenet frame of the entity of id vehid using finite differences on acceleration (which uses finite differences on velocity).
 The first two elements are missing. 
 """
-function jerkft(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function jerkft(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     return vcat(missing, diff(accft(roadway, scenes, vehid)))
 end
 
 """
-    turn_rate_g(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    turn_rate_g(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the turn rate history in the Frenet frame of the entity of id vehid using finite differences on global heading.
 The first element is missing. 
 """
-function turn_rate_g(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function turn_rate_g(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     result = zeros(Union{Missing,Float64},length(scenes))
     angles = broadcast(x->posg(get_by_id(x, vehid)).θ, scenes)
     result[1] = missing
@@ -331,11 +331,11 @@ function turn_rate_g(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
 end
 
 """
-    turn_rate_g(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    turn_rate_g(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 returns the turn rate history in the Frenet frame of the entity of id vehid using finite differences on heading in the Frenet frame.
 The first element is missing. 
 """
-function turn_rate_f(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function turn_rate_f(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     result = zeros(Union{Missing,Float64},length(scenes))
     angles = broadcast(x->posf(get_by_id(x, vehid)).ϕ, scenes)
     result[1] = missing
@@ -344,19 +344,19 @@ function turn_rate_f(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
 end
 
 """
-    isbraking(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    isbraking(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 history of braking events: true when the acceleration is negative.
 The first element is missing.
 """
-function isbraking(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function isbraking(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     return acc(roadway, scenes, vehid) .< 0.0
 end
 
 """
-    isaccelerating(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+    isaccelerating(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
 history of acceleration events: true when the acceleration is positive
 The first element is missing.
 """
-function isaccelerating(roadway::Roadway, scenes::Vector{<:Frame}, vehid)
+function isaccelerating(roadway::Roadway, scenes::Vector{<:Scene}, vehid)
     return acc(roadway, scenes, vehid) .> 0.0
 end

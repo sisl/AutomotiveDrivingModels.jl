@@ -31,7 +31,7 @@ end
 
     roadway = get_test_roadway()
     trajdata = get_test_trajdata(roadway)
-    scene = Frame(Entity{VehicleState, VehicleDef, Int64})
+    scene = Scene(Entity{VehicleState, VehicleDef, Int64})
 
     col = get_first_collision(trajdata[1])
     @test col.is_colliding
@@ -50,7 +50,7 @@ end
     roadway = gen_straight_roadway(2, 100.0)
     veh1 = Entity(VehicleState(VecSE2(0.0, 0.0, 0.0), roadway, 10.0), VehicleDef(), 1)
     veh2 = Entity(VehicleState(VecSE2(10.0, 0.0, 0.0), roadway, 5.0), VehicleDef(), 2)
-    scene = Frame([veh1, veh2])
+    scene = Scene([veh1, veh2])
     @test is_collision_free(scene)
     @test get_distance(veh1, veh2) ≈ 6.0
 end

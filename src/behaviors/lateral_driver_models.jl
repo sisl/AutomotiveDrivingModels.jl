@@ -27,7 +27,7 @@ function track_lateral!(model::ProportionalLaneTracker, laneoffset::Float64, lat
     model
 end
 
-function observe!(model::ProportionalLaneTracker, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+function observe!(model::ProportionalLaneTracker, scene::Scene{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     ego_index = findfirst(egoid, scene)
     veh_ego = scene[ego_index]

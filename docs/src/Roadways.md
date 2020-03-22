@@ -105,17 +105,9 @@ such as lane or curve points:
       lerp(A::VecE2{T}, B::VecE2{T}, C::VecE2{T}, t::T) where T<:Real
 ```
 
-## 1D roadway
-
-```@docs
-      StraightRoadway
-      mod_position_to_roadway
-      get_headway
-```
-
 ## Read and Write roadways
 
 ```@docs
-      Base.read(io::IO, ::MIME"text/plain", ::Type{Roadway})
-      Base.write(io::IO, ::MIME"text/plain", roadway::Roadway)
+      Base.read(io::IO, ::Type{Roadway})
+      Base.write(io::IO, roadway::Roadway)
 ```

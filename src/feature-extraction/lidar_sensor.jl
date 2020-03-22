@@ -28,7 +28,7 @@ function LidarSensor(nbeams::Int;
     LidarSensor(angles, ranges, range_rates, max_range, ConvexPolygon(4))
 end
 nbeams(lidar::LidarSensor) = length(lidar.angles)
-function observe!(lidar::LidarSensor, scene::Frame{E}, roadway::Roadway, vehicle_index::Int) where {E<:Entity}
+function observe!(lidar::LidarSensor, scene::Scene{E}, roadway::Roadway, vehicle_index::Int) where {E<:Entity}
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(vel(state_ego), posg(state_ego).θ)
@@ -168,7 +168,7 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_i
 
     lidar
 end
-function observe!(lidar::RoadlineLidarSensor, scene::Frame{E}, roadway::Roadway, vehicle_index::Int) where E<:Entity
+function observe!(lidar::RoadlineLidarSensor, scene::Scene{E}, roadway::Roadway, vehicle_index::Int) where E<:Entity
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(vel(state_ego), posg(state_ego).θ)
@@ -420,7 +420,7 @@ function _update_lidar!(lidar::RoadlineLidarSensor, ray::VecSE2{Float64}, beam_i
     end
     lidar
 end
-function observe!(lidar::RoadlineLidarSensor, scene::Frame{E}, roadway::Roadway, vehicle_index::Int, rlc::RoadwayLidarCulling) where E<:Entity
+function observe!(lidar::RoadlineLidarSensor, scene::Scene{E}, roadway::Roadway, vehicle_index::Int, rlc::RoadwayLidarCulling) where E<:Entity
     state_ego = scene[vehicle_index].state
     egoid = scene[vehicle_index].id
     ego_vel = polar(vel(state_ego), posg(state_ego).θ)
