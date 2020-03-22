@@ -52,7 +52,7 @@ models = Dict{Symbol, DriverModel}(
         IntelligentDriverModel(), # longitudinal model
     ),
     :bob => Tim2DDriver(
-        timestep, mlane = MOBIL(timestep),
+         mlane = MOBIL(),
     ),
     :charlie => StaticDriver{AccelTurnrate, MvNormal}(
         MvNormal([0.0,0.0], [1.0,0.1])
@@ -79,7 +79,7 @@ animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
     renderables = [
         roadway,
         (FancyCar(car=veh, color=car_colors[veh.id]) for veh in scenes[i])...,
-        RenderableOverlay(IDOverlay(x_off=-2, y_off=1), scenes[i], roadway),
+        IDOverlay(x_off=-2, y_off=1, scene=scenes[i]),
         TextOverlay(text=[@sprintf("time: %.1fs", t)], pos=VecE2(40,40), font_size=24)
     ]
     render(renderables, camera=camera)
@@ -100,21 +100,18 @@ end
 #md end
 #md body!(w, viz)
 
-# The simulation results can be saved to a text file. We achieve this by first converting the list of scene to a `Trajdata` type and then exporting it.
+# The simulation results can be saved to a text file. Only entities using `VehicleState` and `VehicleDef` are supported out of the box. 
+# If you wish to do IO operation with different states and definition types you have to implement `Base.write` and `Base.read` for those new types.
 
-#src TODO: fix writing of Trajdata
 open("2Dstadium_listrec.txt", "w") do io
-    @warn "TODO: need to fix bug in write(trajdata)"
-    ## write(io, MIME"text/plain"(), Trajdata(scenes, timestep))
+    write(io, scenes)
 end
 
-# The trajectory data file can be loaded in a similar way.
-#
-#src listrec = open("2Dstadium_listrec.txt", "r") do io
-#src     @warn "TODO: need to fix bug in write(trajdata)"
-#src     read(io, MIME"text/plain"(), Trajdata)
-#src end
+# The trajectory data file can be loaded in a similar way. You need to specify the output type. 
 
-#src p = plot(listrec)
-#src TODO: maybe do something useful with the loaded data, like plot the speed over time or something
-#src write(p) # hide
+loaded_scenes = open("2Dstadium_listrec.txt", "r") do io 
+    read(io, Vector{EntityFrame{VehicleState, VehicleDef, String}})
+end
+render([roadway, loaded_scenes[1]])
+#md write("stadium_with_cars_loaded.svg", snapshot) # hide
+#md # ![stadium with cars after load](stadium_with_cars_loaded.svg)

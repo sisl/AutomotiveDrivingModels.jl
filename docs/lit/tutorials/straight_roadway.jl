@@ -4,28 +4,31 @@
 
 # This example demonstrates a simple, one-dimensional driving simulation in which
 # cars drive along a straight roadway.
-# The types are:
+# The vehicles are represented using the `Entity` type with the followin attributes:
 #
-# - `S` - `State1D`, containing the vehicle position and speed
-# - `D` - `VehicleDef`, containing length, width, and class
-# - `I` - `Int`, a unique label for each vehicle`
-#
-# We use a `StraightRoadway` as our environment and `LaneFollowingDriver`s that produce `LaneFollowingAccel`s.
+# - `state` - `VehicleState`, containing the vehicle position and speed
+# - `def` - `VehicleDef`, containing length, width, and class
+# - `id` - `Int`, a unique label for each vehicle`
+# 
+# A driving situation with different vehicles at a given time is referred to as a scene or a frame. It is represented by the `Frame` object. 
+# A `Frame` can be thought of as a vector of vehicles. However, in addition to simple vectors it allows to query vehicles by ID using the `get_by_id` function.
+# We use a straight roadway with 1 lane as the environment.
 
 using AutomotiveDrivingModels
-using AutoViz
+using AutoViz # for rendering
 AutoViz.colortheme["background"] = colorant"white"; # hide
 
-roadway = StraightRoadway(200.)  # 200m long straight roadway
-scene = Scene1D([
-    Entity(State1D(10.0,  8.0), VehicleDef(), 1),
-    Entity(State1D(50.0, 12.5), VehicleDef(), 2),
-    Entity(State1D(150.0, 6.0), VehicleDef(), 3),
+roadway = gen_straight_roadway(1, 2000.0)  # 200m long straight roadway with 1 lane
+scene = Frame([
+    Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 8.0), VehicleDef(), 1),
+    Entity(VehicleState(VecSE2(50.0,0.0,0.0), roadway, 12.5), VehicleDef(), 2),
+    Entity(VehicleState(VecSE2(150.0,0.0,0.0), roadway, 6.0), VehicleDef(), 3),
 ])
 
+veh_1 = get_by_id(scene, 1) # note that the order of the vehicles in the scene does not necessarily match the id
+
 camera = StaticCamera(position=VecE2(100.0,0.0), zoom=4.75, canvas_height=100)
-renderables = [roadway, scene]::Vector{Any}
-snapshot = render(renderables, camera=camera)
+snapshot = render([roadway, scene], camera=camera)
 #md write("straight_roadway.svg", snapshot) # hide
 #md # ![three cars on road](straight_roadway.svg)
 
@@ -34,39 +37,10 @@ snapshot = render(renderables, camera=camera)
 
 # We can add an overlay that displays the car id:
 
-for veh in scene
-    push!(renderables,
-        TextOverlay(text=["$(veh.id)"], coordinate_system=:scene, pos=VecE2(veh.state.s-0.7, 3))
-    )
-end
-snapshot = render(renderables, camera=camera)
+idoverlay = IDOverlay(scene=scene, color=colorant"black", font_size=20, y_off=1.)
+snapshot = render([roadway, scene, idoverlay], camera=camera)
 #md write("straight_roadway_with_id.svg", snapshot) # hide
 #md # ![three cars with id](straight_roadway_with_id.svg)
-
-
-# Alternatively, we can create a new `SceneOverlay` object which takes care of
-# displaying information for us:
-
-using Parameters
-@with_kw struct CarIDOverlay <: SceneOverlay
-    scene::Scene1D
-    roadway::StraightRoadway
-    textparams::TextParams=TextParams()
-end
-function AutoViz.add_renderable!(rendermodel::RenderModel, overlay::CarIDOverlay)
-    for veh in overlay.scene
-        x = veh.state.s - 0.7
-        y = 3.0
-        text = string(veh.id)
-        add_instruction!(rendermodel, render_text, (text, x, y, overlay.textparams.size, overlay.textparams.color), coordinate_system=:scene)
-    end
-    return rendermodel
-end
-
-snapshot = render([roadway, scene, CarIDOverlay(scene=scene, roadway=roadway)], camera=camera)
-#md write("straight_roadway_with_overlay.svg", snapshot) # hide
-#md # ![three vehicles with custom overlay](straight_roadway_with_overlay.svg)
-
 
 # To run a simulation we need driving models that produce actions.
 # For this we will use `LaneFollowingDriver`s that produce `LaneFollowingAccel`s.
@@ -90,7 +64,8 @@ using Reel
 
 animation = roll(fps=1.0/timestep, duration=nticks*timestep) do t, dt
     i = Int(floor(t/dt)) + 1
-    renderables = [roadway, scenes[i], CarIDOverlay(scene=scenes[i], roadway=roadway)]
+    idoverlay.scene = scenes[i]
+    renderables = [roadway, scenes[i], idoverlay]
     render(renderables, camera=camera)
 end
 #md write("straight_roadway_animated.gif", animation) # hide
@@ -105,7 +80,7 @@ end
 #md
 #md w = Window()
 #md viz = @manipulate for step in 1 : length(scenes)
-#md     renderables = [roadway, scenes[step], CarIDOverlay(scene=scenes[step], roadway=roadway)]
+#md     renderables = [roadway, scenes[step], IDOverlay(scene=scenes[step], roadway=roadway)]
 #md     render(renderables, camera=camera)
 #md end
 #md body!(w, viz)

@@ -83,7 +83,7 @@ end
 
 @testset "MOBIL" begin
     timestep = 0.1
-    lanemodel = MOBIL(timestep)
+    lanemodel = MOBIL()
 
     set_desired_speed!(lanemodel,20.0)
     @test lanemodel.mlon.v_des == 20.0
@@ -97,9 +97,9 @@ end
     dt = 0.5
     n_steps = 10
     models = Dict{Int, DriverModel}()
-    models[1] = Tim2DDriver(mlane=MOBIL(dt))
+    models[1] = Tim2DDriver(mlane=MOBIL())
     set_desired_speed!(models[1], 10.0)
-    models[2] = Tim2DDriver(mlane=MOBIL(dt))
+    models[2] = Tim2DDriver(mlane=MOBIL())
     set_desired_speed!(models[2], 2.0)
 
     scene = Frame([veh1, veh2])

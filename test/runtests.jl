@@ -19,20 +19,21 @@ end
     include("test_simulation.jl")
 end
 
-@testset "doc tutorials" begin
-    @testset "basics" begin
-        include("../docs/lit/tutorials/straight_roadway.jl")
-    end
-    @testset "cameras" begin
-        include("../docs/lit/tutorials/stadium.jl")
-    end
-    @testset "overlays" begin
-        include("../docs/lit/tutorials/intersection.jl")
-    end
-    @testset "basics" begin
-        include("../docs/lit/tutorials/crosswalk.jl")
-    end
-    @testset "basics" begin
-        include("../docs/lit/tutorials/sidewalk.jl")
-    end
-end
+# Restore after AutoViz v0.9 is tagged
+# @testset "doc tutorials" begin
+#     @testset "basics" begin
+#         include("../docs/lit/tutorials/straight_roadway.jl")
+#     end
+#     @testset "cameras" begin
+#         include("../docs/lit/tutorials/stadium.jl")
+#     end
+#     @testset "overlays" begin
+#         include("../docs/lit/tutorials/intersection.jl")
+#     end
+#     @testset "basics" begin
+#         include("../docs/lit/tutorials/crosswalk.jl")
+#     end
+#     @testset "basics" begin
+#         include("../docs/lit/tutorials/sidewalk.jl")
+#     end
+# end

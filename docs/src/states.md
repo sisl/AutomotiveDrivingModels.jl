@@ -6,12 +6,24 @@ The data structures provided in ADM.jl are concrete instances of parametric type
 
 ## Entity state
 
-Entities are represented by the `Entity` data type provided by `Records.jl` (https://github.com/sisl/Records.jl/blob/master/src/entities.jl).
+Entities are represented by the `Entity` data type.
 The `Entity` data type has three fields: a state, a definition and an id. 
+
+```@docs 
+    Entity
+```
 
 The state of an entity usually describes physical quantity such as position and velocity. 
 
 Two state data structures are provided.
+
+## Frames 
+
+Scene are represented using the `Frame` object. It is a datastructure to represent a collection of entities. 
+
+```@docs 
+    Frame 
+```
 
 ## Defining your own state type
 
@@ -44,14 +56,7 @@ velf(s::MyVehicleState) = velf(s.veh)
 vel(s::MyVehicleState) = vel(s.veh)
 ```
 
-### 1D states and vehicles
-
-```@docs 
-    State1D
-    Vehicle1D
-```
-
-### 2D states and vehicles
+## Provided State Type and Convenient Functions
 
 Here we list useful functions to interact with vehicle states and retrieve interesting information like the position of the front of the vehicle or the lane to which the vehicle belongs.
 
@@ -59,7 +64,6 @@ Here we list useful functions to interact with vehicle states and retrieve inter
     VehicleState
     Vec.lerp(a::VehicleState, b::VehicleState, t::Float64, roadway::Roadway)
     move_along(vehstate::VehicleState, roadway::Roadway, Δs::Float64; ϕ₂::Float64=vehstate.posF.ϕ, ::Float64=vehstate.posF.t, v₂::Float64=vehstate.v)
-    Vehicle
     get_front
     get_rear
     get_center
@@ -67,16 +71,5 @@ Here we list useful functions to interact with vehicle states and retrieve inter
     get_lane
     leftlane(::Roadway, ::Entity)
     rightlane(::Roadway, ::Entity)
-    Base.convert(::Type{Vehicle}, veh::Entity{VehicleState, D, Int64}) where D<:AbstractAgentDefinition
-```
-
-
-## Scenes
-
-A Scene represents a collection of vehicles at a given time. 
-
-```@docs 
-    Scene
-    SceneRecord
-    Trajdata
+    Base.convert(::Type{Entity{S, VehicleDef, I}}, veh::Entity{S, D, I}) where {S,D<:AbstractAgentDefinition,I}
 ```

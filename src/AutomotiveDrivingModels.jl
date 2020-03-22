@@ -298,7 +298,8 @@ export
     CollisionCallback,
     observe_from_history!,
     simulate_from_history!,
-    simulate_from_history
+    simulate_from_history,
+    maximum_entities
 
 include("simulation/simulation.jl")
 include("simulation/callbacks.jl")

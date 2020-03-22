@@ -177,7 +177,20 @@ function Base.read(io::IO, ::Type{Vector{EntityFrame{S,D,I}}}) where {S,D,I}
         for j in 1 : m
             state = read(io, S)
             def = read(io, D)
-            id = parse(I, readline(io))
+            strid = readline(io)
+            id = try 
+                parse(I, strid)
+            catch e
+                if e isa MethodError
+                    id = try
+                        convert(I, strid)
+                    catch e 
+                        error("Cannot parse $strid as $I")
+                    end
+                else 
+                    error("Cannot parse $strid as $I")
+                end
+            end
             push!(frame, Entity(state,def,id))
         end
         frames[i] = frame

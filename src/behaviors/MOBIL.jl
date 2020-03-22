@@ -13,21 +13,11 @@ See Treiber & Kesting, 'Modeling Lane-Changing Decisions with MOBIL'
 - `advantage_threshold::Float64=0.1`
 """
 @with_kw mutable struct MOBIL <: LaneChangeModel{LaneChangeChoice}
-    dir::Int64
-    mlon::LaneFollowingDriver
-    safe_decel::Float64 # safe deceleration (positive value)
-    politeness::Float64 # politeness factor (suggested p ∈ [0.2,0.5])
-    advantage_threshold::Float64 # Δaₜₕ
-end
-
-function MOBIL(
-    timestep::Float64;
-    mlon::LaneFollowingDriver=IntelligentDriverModel(),
-    safe_decel::Float64=2.0, # [m/s²]
-    politeness::Float64=0.35,
-    advantage_threshold::Float64=0.1,
-    )
-    return MOBIL(DIR_MIDDLE, mlon, safe_decel, politeness, advantage_threshold)
+    dir::Int64 = DIR_MIDDLE
+    mlon::LaneFollowingDriver = IntelligentDriverModel()
+    safe_decel::Float64 = 2.0 # safe deceleration (positive value)
+    politeness::Float64 = 0.35 # politeness factor (suggested p ∈ [0.2,0.5])
+    advantage_threshold::Float64 = 0.1 # Δaₜₕ
 end
 
 """

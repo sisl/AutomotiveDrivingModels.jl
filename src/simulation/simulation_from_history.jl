@@ -20,10 +20,22 @@ function observe_from_history!(
     return model
 end
 
+"""
+    maximum_entities(trajdata::Vector{<:EntityFrame})
+return the maximum number of entities present in a given frame of the trajectory.
+"""
 function maximum_entities(trajdata::Vector{<:EntityFrame})
     return maximum(capacity, trajdata)
 end
 
+"""
+    simulate_from_history(model::DriverModel, roadway::Roadway, trajdata::Vector{Frame{E}}, egoid, timestep::Float64, 
+                          start::Int = 1, stop::Int = length(trajdata);
+                          rng::AbstractRNG = Random.GLOBAL_RNG) where {E<:Entity}
+
+Replay the given trajectory except for the entity `egoid` which follows the given driver model. 
+See `simulate_from_history!` if you want to provide a container for the results or log actions.
+"""
 function simulate_from_history(
         model::DriverModel,
         roadway::Roadway, 
@@ -41,6 +53,15 @@ function simulate_from_history(
     return scenes[1:(n+1)]
 end
 
+"""
+    simulate_from_history!(model::DriverModel, roadway::Roadway, trajdata::Vector{Frame{E}}, egoid, timestep::Float64, 
+                          start::Int, stop::Int, scenes::Vector{Frame{E}};
+                          actions::Union{Nothing, Vector{Frame{A}}} = nothing, rng::AbstractRNG = Random.GLOBAL_RNG) where {E<:Entity}
+
+Replay the given trajectory except for the entity `egoid` which follows the given driver model. 
+The resulting trajectory is stored in `scenes`, the actions of the ego vehicle are stored in `actions`.
+
+"""
 function simulate_from_history!(
     model::DriverModel, 
     roadway::Roadway,

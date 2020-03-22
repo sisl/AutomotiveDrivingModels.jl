@@ -26,7 +26,8 @@ makedocs(
 			"tutorials/stadium.md",
 			"tutorials/intersection.md",
 			"tutorials/crosswalk.md",
-			"tutorials/sidewalk.md"
+			"tutorials/sidewalk.md",
+			"tutorials/feature_extraction.md"
 		],
 		"Manual" => [
 			"Roadways.md",

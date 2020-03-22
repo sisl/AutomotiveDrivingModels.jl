@@ -109,7 +109,7 @@ snapshot = render([roadway])
 # The following animation iterates over the individual lanes of the intersection
 # layout and highlights them:
 
-struct LaneOverlay <: SceneOverlay
+struct LaneOverlay
     roadway::Roadway
     lane::Lane
     color::Colorant
@@ -139,7 +139,7 @@ end;
 # Let's populate the intersection
 
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0) # initial state of the vehicle
-scene = Scene([Entity(vs0, VehicleDef(), 1)])
+scene = Frame([Entity(vs0, VehicleDef(), 1)])
 
 snapshot = render([roadway, scene])
 #md write("intersection_populated.svg", snapshot) # hide
@@ -154,7 +154,7 @@ end
 
 # Next, add a method to the propagate function to update the state using our new action type.
 
-function AutomotiveDrivingModels.propagate(veh::Vehicle, action::LaneSpecificAccelLatLon, roadway::Roadway, Δt::Float64)
+function AutomotiveDrivingModels.propagate(veh::Entity, action::LaneSpecificAccelLatLon, roadway::Roadway, Δt::Float64)
     lane_tag_orig = veh.state.posF.roadind.tag
     state = propagate(veh, LatLonAccel(action.a_lat, action.a_lon), roadway, Δt)
     roadproj = proj(state.posG, roadway[lane_tag_orig], roadway, move_along_curves=false)
@@ -172,7 +172,7 @@ struct InterDriver <: DriverModel{LaneSpecificAccelLatLon}
     a::LaneSpecificAccelLatLon
 end
 
-AutomotiveDrivingModels.observe!(model::InterDriver, scene::Scene, roadway::Roadway, egoid::Int64) = model
+AutomotiveDrivingModels.observe!(model::InterDriver, scene::Frame, roadway::Roadway, egoid::Int64) = model
 Base.rand(::AbstractRNG, model::InterDriver) = model.a
 
 # **Simulate:**
@@ -187,7 +187,7 @@ timestep = 0.1
 nticks = 100
 
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0)
-scene = Scene([Entity(vs0, VehicleDef(), 1)])
+scene = Frame([Entity(vs0, VehicleDef(), 1)])
 models = Dict(1 => InterDriver(LaneSpecificAccelLatLon(0.0,0.0)))
 scenes = simulate(scene, roadway, models, nticks, timestep)
 

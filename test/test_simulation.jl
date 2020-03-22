@@ -38,6 +38,12 @@ AutomotiveDrivingModels.run_callback(callback::WithActionCallback, scenes::Vecto
     open("test.txt", "w+") do io
         write(io, scenes)
     end
+    @test_throws ErrorException open("test.txt", "r") do io
+        read(io, Vector{EntityFrame{VehicleState, VehicleDef,Symbol}})
+    end
+    open("test.txt", "r") do io
+        read(io, Vector{EntityFrame{VehicleState, VehicleDef,String}})
+    end
     r = open("test.txt", "r") do io
         read(io, typeof(scenes))
     end

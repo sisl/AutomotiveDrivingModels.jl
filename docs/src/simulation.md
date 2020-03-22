@@ -1,23 +1,18 @@
 # Simulation
 
-Simulations can be run using the `simulate!` function. 
+Simulations can be run using the `simulate` function. 
 A simulation updates the initial scene forward in time. Each simulation step consists of the following operations:
 - call the `observe!` function for each vehicle to update their driver model given the current scene 
 - sample an action from the driver model by calling `rand` on the driver model.
 - update the state of each vehicle using the sampled action and the `propagate` method.
 - repeat for the desired number of steps
 
-There are two main ways to call the `simulate!` function:
-- `simulate!(scene::Frame{E}, roadway::R, models::Dict{I,M}, nticks::Int64, timestep::Float64; rng::AbstractRNG = Random.GLOBAL_RNG, scenes::Vector{Frame{E}} = [Frame(E, length(scene)) for i=1:nticks+1], callbacks = nothing)` which simply returns a vector of scenes. This vector can be pre-allocated and passed as a keyword argument. The randomness of the simulation can be controlled by passing a random number generator. 
--  `simulate!(rec::EntityQueueRecord{S,D,I}, scene::EntityFrame{S,D,I}, roadway::R, models::Dict{I,M}, nticks::Int, callbacks::C)` which fills in a given `QueueRecord` object. The `QueueRecord` data structure is defined in Records.jl. This methods is slower and suffers from type stability issues. It will be deprecated in future releases.
-
-See the tutorials for examples.
-
 ```@docs 
+    simulate
     simulate!
-    get_actions!
-    tick!
 ```
+
+See the tutorials for more examples.
 
 ## Callbacks 
 
@@ -61,12 +56,20 @@ end
 A callback for collision is already implemented: `CollisionCallback`.
 
 ```@docs
-    run_callback
     CollisionCallback
 ```
 
-## Others 
+```@docs 
+    run_callback
+```
+
+## Woking with datasets
+
+When working with datasets or pre-recorded datasets, one can replay the simulation using `simulate_from_history`. It allows to update the state of an ego vehicle while other vehicles follow the trajectory given in the dataset.
 
 ```@docs 
-    reset_hidden_states!
+    simulate_from_history
+    simulate_from_history!
+    observe_from_history!
+    maximum_entities
 ```

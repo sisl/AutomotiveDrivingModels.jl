@@ -165,13 +165,12 @@ end;
 
 # We can use a slider to scroll through each frame in the simulation. This usually takes less time than rendering a video.
 
-#src TODO: integrate this
-#src using Interact
-#src using Reel
-#src using Blink
-#src
-#src w = Window()
-#src viz = @manipulate for i in 1 : length(scenes)
-#src     render([env, scenes[i]])
-#src end
-#src body!(w, viz)
+#md using Interact
+#md using Reel
+#md using Blink
+#md
+#md w = Window()
+#md viz = @manipulate for i in 1 : length(scenes)
+#md     render([env, scenes[i]])
+#md end
+#md body!(w, viz)
