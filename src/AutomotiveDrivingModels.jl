@@ -1,5 +1,7 @@
 module AutomotiveDrivingModels 
 
+@warn("This package is deprecated: use AutomotiveSimulator.jl instead.")
+
 using Printf
 using LinearAlgebra
 using Parameters
