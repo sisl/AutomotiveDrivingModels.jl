@@ -65,7 +65,7 @@ Search through lanes and road segments to find a neighbor of `ego` in the `scene
 - `ego::Entity` the entity that we want to compute the neighbor of.
 
 # Keyword arguments
-
+- `lane::Union{Nothing, Lane}` the lane on which to search the neighbor, if different from the ego vehicle current lane, it uses the projection of the ego vehicle on the given lane as a reference point. If nothing, returns nothing.
 - `rear::Bool = false` set to true to search for rear neighbor, search forward neighbor by default 
 - `max_distance::Float64 = 250.0` stop searching after this distance is reached, if the neighbor is further than max_distance, returns nothing
 - `targetpoint_ego::VehicleTargetPoint` the point on the ego vehicle used for distance calculation, see `VehicleTargetPoint` for more info
