@@ -6,7 +6,7 @@ using Random
 roadway = gen_straight_roadway(1, 500.0)
 
 num_veh = 2
-scene = Frame(num_veh)
+scene = Scene(num_veh)
 
 models = Dict{Int, DriverModel}()
 

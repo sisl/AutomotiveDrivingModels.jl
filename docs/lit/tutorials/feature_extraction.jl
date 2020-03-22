@@ -26,7 +26,7 @@ set_desired_speed!(models["bob"], 10.0)
 models["alice"] = Tim2DDriver(mlane=MOBIL())
 set_desired_speed!(models["alice"], 2.0)
 
-scene = Frame([veh1, veh2])
+scene = Scene([veh1, veh2])
 scenes = simulate(scene, roadway, models, n_steps, dt)
 camera = SceneFollowCamera()
 update_camera!(camera, scene)
@@ -40,11 +40,11 @@ snapshot = render([roadway, scene], camera=camera)
 
 #md load data from stadium tutorial 
 #md scenes = open("2Dstadium_listrec.txt", "r") do io 
-#md     read(io, Vector{EntityFrame{VehicleState, VehicleDef, String}})
+#md     read(io, Vector{EntityScene{VehicleState, VehicleDef, String}})
 #md end
 
 # **Extract features from a recorded trajectory** 
-# Recorded trajectories are expected to be vectors of `Frame`s where each element correspond to one time step. 
+# Recorded trajectories are expected to be vectors of `Scene`s where each element correspond to one time step. 
 # To extract features, one can use the `extract_features` function which takes as input 
 # a list of feature we want to extract and the list of vehicle ids for which we want those features.
 # For this example, let's first query two features, the longitudinal and lateral position of Bob, and whether or not Bob is colliding:
@@ -70,4 +70,4 @@ distance_to("alice")
 # we can use this newly generated funciton in the feature extraction pipeline 
 
 dfs = extract_features((distance_to_alice, posfs), roadway, scenes, ["bob"])
-dfs["bob"].distance_to_alice[1] # distance between Bob and Alice in the first frame.
+dfs["bob"].distance_to_alice[1] # distance between Bob and Alice in the first scene.

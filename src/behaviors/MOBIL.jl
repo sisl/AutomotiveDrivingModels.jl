@@ -27,7 +27,7 @@ function set_desired_speed!(model::MOBIL, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model
 end
-function observe!(model::MOBIL, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+function observe!(model::MOBIL, scene::Scene{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     vehicle_index = findfirst(egoid, scene)
     veh_ego = scene[vehicle_index]

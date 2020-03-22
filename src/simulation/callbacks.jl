@@ -1,7 +1,7 @@
 """
 Internals, run all callbacks
 """
-function _run_callbacks(callbacks::C, scenes::Vector{Frame{Entity{S,D,I}}}, actions::Union{Nothing, Vector{Frame{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,A<:EntityAction,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
+function _run_callbacks(callbacks::C, scenes::Vector{Scene{Entity{S,D,I}}}, actions::Union{Nothing, Vector{Scene{A}}}, roadway::R, models::Dict{I,M}, tick::Int) where {S,D,I,A<:EntityAction,R,M<:DriverModel,C<:Tuple{Vararg{Any}}}
     isdone = false
     for callback in callbacks
         isdone |= run_callback(callback, scenes, actions, roadway, models, tick)
@@ -10,7 +10,7 @@ function _run_callbacks(callbacks::C, scenes::Vector{Frame{Entity{S,D,I}}}, acti
 end
 
 """
-    run_callback(callback, scenes::Vector{EntityFrame}, actions::Union{Nothing, Vector{A}}, roadway::Roadway, models::Dict{I, DriverModel}, tick::Int64)
+    run_callback(callback, scenes::Vector{EntityScene}, actions::Union{Nothing, Vector{A}}, roadway::Roadway, models::Dict{I, DriverModel}, tick::Int64)
 
 Given a callback type, `run_callback` will be run at every step of a simulation run using `simulate`. 
 By overloading the `run_callback` method for a custom callback type one can log information or interrupt a simulation. 
@@ -39,8 +39,8 @@ end
 
 function run_callback(
     callback::CollisionCallback,
-    scenes::Vector{Frame{E}},
-    actions::Union{Nothing, Vector{Frame{A}}},
+    scenes::Vector{Scene{E}},
+    actions::Union{Nothing, Vector{Scene{A}}},
     roadway::R,
     models::Dict{I,M},
     tick::Int

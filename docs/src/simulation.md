@@ -23,15 +23,15 @@ To run a custom callback function in the simulation loop, you must implement a c
 ```julia
 function AutomotiveDrivingModels.run_callback(
     cb::ReachGoalCallback,
-    scenes::Vector{Frame{E}},
-    actions::Vector{Frame{A}},
+    scenes::Vector{Scene{E}},
+    actions::Vector{Scene{A}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,
     ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
 end
 ```
-The `scenes` object holds a snapshot of a scene at each timestep in the range `1:tick`, and the `actions` object holds a frame of `EntityAction`s which record the action of each vehicle for the time steps `1:(tick-1)`.
+The `scenes` object holds a snapshot of a scene at each timestep in the range `1:tick`, and the `actions` object holds a `scene` of `EntityAction`s which record the action of each vehicle for the time steps `1:(tick-1)`.
 
 Here is an example of a callback that checks if a vehicle's longitudinal position has reached some goal position and stops the simulation if it is the case.
 ```julia
@@ -42,8 +42,8 @@ end
 
 function AutomotiveDrivingModels.run_callback(
     cb::ReachGoalCallback,
-    scenes::Vector{Frame{E}},
-    actions::Vector{Frame{A}},
+    scenes::Vector{Scene{E}},
+    actions::Vector{Scene{A}},
     roadway::R,
     models::Dict{I,M},
     tick::Int,

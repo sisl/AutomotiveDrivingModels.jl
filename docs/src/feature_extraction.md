@@ -4,7 +4,7 @@ AutomotiveDrivingModels.jl provides useful functions to extract information from
 
 ## Feature Extraction Pipeline
 
-The function `extract_features` can be used to extract information from a list of scenes. It takes as input a vector of frame (which could be the output of `simulate`), as well as a list of feature functions to use. The output is a dictionary of DataFrame from [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl).
+The function `extract_features` can be used to extract information from a list of scenes. It takes as input a vector of scenes (which could be the output of `simulate`), as well as a list of feature functions to use. The output is a dictionary of DataFrame from [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl).
 
 ```@docs
     extract_features
@@ -50,15 +50,15 @@ It stores the result in a `FrenetRelativePosition` object.
 
 In AutomotiveDrivingModels, features are functions. The current interface supports three methods: 
 - `myfeature(::Roadway, ::Entity)` 
-- `myfeature(::Roadway, ::Frame, ::Entity)`
-- `myfeature(::Roadway, ::Vector{<:Frame}, ::Entity)` 
+- `myfeature(::Roadway, ::Scene, ::Entity)`
+- `myfeature(::Roadway, ::Vector{<:Scene}, ::Entity)` 
 For each of those methods, the last argument correspond to the entity with one of the ID given to the top level `extract_features` function. 
 Creating a new feature consists of implementing **one** of those methods for your feature function.
 
-As an example, let's define a feature function that returns the distance to the rear neighbor. Such feature will use the second method since it needs information about the whole frame to find the neighbor. If there are not rear neighbor then the function will return `missing`. `DataFrame` are designed to handled missing values so it should not be an issue.
+As an example, let's define a feature function that returns the distance to the rear neighbor. Such feature will use the second method since it needs information about the whole scene to find the neighbor. If there are not rear neighbor then the function will return `missing`. `DataFrame` are designed to handled missing values so it should not be an issue.
 
 ```julia
-function distance_to_rear_neighbor(roadway::Roadway, scene::Frame, ego::Entity)
+function distance_to_rear_neighbor(roadway::Roadway, scene::Scene, ego::Entity)
     neighbor = find_neighbor(scene, roadway, veh, rear=true)
     if neighbor.ind === nothing 
         return missing 

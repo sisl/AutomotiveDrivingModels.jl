@@ -32,10 +32,10 @@ end
 
 
 """
-    collision_checker(scene::Frame{Entity{S,D,I}}, egoid::I) where {S, D<:AbstractAgentDefinition, I}
+    collision_checker(scene::Scene{Entity{S,D,I}}, egoid::I) where {S, D<:AbstractAgentDefinition, I}
 return true if any entity in the scene collides with the entity of id `egoid`.
 """
-function collision_checker(scene::Frame{Entity{S,D,I}}, egoid::I) where {S, D<:AbstractAgentDefinition, I}
+function collision_checker(scene::Scene{Entity{S,D,I}}, egoid::I) where {S, D<:AbstractAgentDefinition, I}
     ego = get_by_id(scene, egoid)
     for veh in scene
         if veh.id != egoid

@@ -30,7 +30,7 @@ function set_desired_speed!(model::TimLaneChanger, v_des::Float64)
     model
 end
 
-function observe!(model::TimLaneChanger, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+function observe!(model::TimLaneChanger, scene::Scene{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
 
     vehicle_index = findfirst(egoid, scene)
 

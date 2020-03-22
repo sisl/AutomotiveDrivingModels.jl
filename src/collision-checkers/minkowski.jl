@@ -435,10 +435,10 @@ struct CollisionCheckResult
 end
 
 """
-    get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+    get_first_collision(scene::EntityScene{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
 Loops through the scene and finds the first collision between a vehicle and scene[target_index]
 """
-function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+function get_first_collision(scene::EntityScene{S,D,I}, target_index::Int, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
     A = target_index
     vehA = scene[A]
     to_oriented_bounding_box!(mem.vehA, vehA)
@@ -455,10 +455,10 @@ function get_first_collision(scene::EntityFrame{S,D,I}, target_index::Int, mem::
 end
 
 """
-    get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+    get_first_collision(scene::EntityScene{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
 Loops through the scene and finds the first collision between any two vehicles in `vehicle_indeces`.
 """
-function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+function get_first_collision(scene::EntityScene{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
 
     N = length(vehicle_indeces)
     for (a,A) in enumerate(vehicle_indeces)
@@ -479,17 +479,17 @@ function get_first_collision(scene::EntityFrame{S,D,I}, vehicle_indeces::Abstrac
     CollisionCheckResult(false, 0, 0)
 end
 """
-    get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+    get_first_collision(scene::EntityScene{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
 Loops through the scene and finds the first collision between any two vehicles
 """
-get_first_collision(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I} = get_first_collision(scene, 1:length(scene), mem)
+get_first_collision(scene::EntityScene{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I} = get_first_collision(scene, 1:length(scene), mem)
 
 """
-    is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
-    is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+    is_collision_free(scene::EntityScene{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
+    is_collision_free(scene::EntityScene{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I}
 Check that there is no collisions between any two vehicles in `scene`
 
 If `vehicle_indeces` is used, it only checks for vehicles within `scene[vehicle_indeces]`
 """
-is_collision_free(scene::EntityFrame{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I} = !(get_first_collision(scene, mem).is_colliding)
-is_collision_free(scene::EntityFrame{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I} = get_first_collision(scene, vehicle_indeces, mem).is_colliding
+is_collision_free(scene::EntityScene{S,D,I}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I} = !(get_first_collision(scene, mem).is_colliding)
+is_collision_free(scene::EntityScene{S,D,I}, vehicle_indeces::AbstractVector{Int}, mem::CPAMemory=CPAMemory()) where {S,D<:AbstractAgentDefinition,I} = get_first_collision(scene, vehicle_indeces, mem).is_colliding

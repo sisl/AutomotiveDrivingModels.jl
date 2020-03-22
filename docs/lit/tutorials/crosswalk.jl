@@ -96,7 +96,7 @@ car = Entity(car_initial_state, VehicleDef(), :car)
 ped_initial_state = VehicleState(VecSE2(+24.5,-7.0,π/2), env.crosswalk, roadway, 0.5)
 ped = Entity(ped_initial_state, PEDESTRIAN_DEF, :pedestrian)
 
-scene = Frame([car, ped])
+scene = Scene([car, ped])
 
 # visualize the initial state
 snapshot = render([env, scene])
@@ -114,7 +114,7 @@ mutable struct LinearDriver <: DriverModel{LaneFollowingAccel}
     k::Float64 # gain
 end
 
-function AutomotiveDrivingModels.observe!(model::LinearDriver, scene::Frame, roadway::Roadway, egoid)
+function AutomotiveDrivingModels.observe!(model::LinearDriver, scene::Scene, roadway::Roadway, egoid)
     model.a = LaneFollowingAccel(model.k*model.p)
     ## change the confidence based on some policy
     ## you can get the position of the pedestrian from the scene
@@ -140,7 +140,7 @@ scenes = simulate(scene, roadway, models, nticks, timestep)
 
 using Reel
 
-function animate_record(scenes::Vector{Frame{E}},dt::Float64, env::CrosswalkEnv) where {E<:Entity}
+function animate_record(scenes::Vector{Scene{E}},dt::Float64, env::CrosswalkEnv) where {E<:Entity}
     duration = length(scenes)*dt::Float64
     fps = Int(1/dt)
     function render_rec(t, dt)

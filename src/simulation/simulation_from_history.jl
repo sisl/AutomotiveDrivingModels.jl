@@ -1,5 +1,5 @@
 """
-    observe_from_history!(model::DriverModel, roadway::Roadway, trajdata::Vector{<:EntityFrame}, egoid, start::Int, stop::Int)
+    observe_from_history!(model::DriverModel, roadway::Roadway, trajdata::Vector{<:EntityScene}, egoid, start::Int, stop::Int)
 
 Given a prerecorded trajectory `trajdata`, run the observe function of a driver model for the scenes between `start` and `stop` for the vehicle of id `egoid`.
 The ego vehicle does not take any actions, it just observe the scenes,
@@ -7,7 +7,7 @@ The ego vehicle does not take any actions, it just observe the scenes,
 function observe_from_history!(
         model::DriverModel,
         roadway::Roadway,
-        trajdata::Vector{<:EntityFrame},
+        trajdata::Vector{<:EntityScene},
         egoid,
         start::Int = 1, 
         stop::Int = length(trajdata))
@@ -21,15 +21,15 @@ function observe_from_history!(
 end
 
 """
-    maximum_entities(trajdata::Vector{<:EntityFrame})
-return the maximum number of entities present in a given frame of the trajectory.
+    maximum_entities(trajdata::Vector{<:EntityScene})
+return the maximum number of entities present in a given scene of the trajectory.
 """
-function maximum_entities(trajdata::Vector{<:EntityFrame})
+function maximum_entities(trajdata::Vector{<:EntityScene})
     return maximum(capacity, trajdata)
 end
 
 """
-    simulate_from_history(model::DriverModel, roadway::Roadway, trajdata::Vector{Frame{E}}, egoid, timestep::Float64, 
+    simulate_from_history(model::DriverModel, roadway::Roadway, trajdata::Vector{Scene{E}}, egoid, timestep::Float64, 
                           start::Int = 1, stop::Int = length(trajdata);
                           rng::AbstractRNG = Random.GLOBAL_RNG) where {E<:Entity}
 
@@ -39,14 +39,14 @@ See `simulate_from_history!` if you want to provide a container for the results 
 function simulate_from_history(
         model::DriverModel,
         roadway::Roadway, 
-        trajdata::Vector{Frame{E}},
+        trajdata::Vector{Scene{E}},
         egoid,
         timestep::Float64,
         start::Int = 1,
         stop::Int = length(trajdata);
         rng::AbstractRNG = Random.GLOBAL_RNG
         ) where {E<:Entity}
-    scenes = [Frame(E, maximum_entities(trajdata)) for i=1:(stop - start + 1)]
+    scenes = [Scene(E, maximum_entities(trajdata)) for i=1:(stop - start + 1)]
     n = simulate_from_history!(model, roadway, trajdata, egoid, timestep,
                                start, stop, scenes, 
                                rng=rng)
@@ -54,9 +54,9 @@ function simulate_from_history(
 end
 
 """
-    simulate_from_history!(model::DriverModel, roadway::Roadway, trajdata::Vector{Frame{E}}, egoid, timestep::Float64, 
-                          start::Int, stop::Int, scenes::Vector{Frame{E}};
-                          actions::Union{Nothing, Vector{Frame{A}}} = nothing, rng::AbstractRNG = Random.GLOBAL_RNG) where {E<:Entity}
+    simulate_from_history!(model::DriverModel, roadway::Roadway, trajdata::Vector{Scene{E}}, egoid, timestep::Float64, 
+                          start::Int, stop::Int, scenes::Vector{Scene{E}};
+                          actions::Union{Nothing, Vector{Scene{A}}} = nothing, rng::AbstractRNG = Random.GLOBAL_RNG) where {E<:Entity}
 
 Replay the given trajectory except for the entity `egoid` which follows the given driver model. 
 The resulting trajectory is stored in `scenes`, the actions of the ego vehicle are stored in `actions`.
@@ -65,13 +65,13 @@ The resulting trajectory is stored in `scenes`, the actions of the ego vehicle a
 function simulate_from_history!(
     model::DriverModel, 
     roadway::Roadway,
-    trajdata::Vector{Frame{E}},
+    trajdata::Vector{Scene{E}},
     egoid,
     timestep::Float64,
     start::Int,
     stop::Int,
-    scenes::Vector{Frame{E}};
-    actions::Union{Nothing, Vector{Frame{A}}} = nothing,
+    scenes::Vector{Scene{E}};
+    actions::Union{Nothing, Vector{Scene{A}}} = nothing,
     rng::AbstractRNG = Random.GLOBAL_RNG
     ) where {E<:Entity, A<:EntityAction}
 

@@ -32,7 +32,7 @@ An action consists of a command applied to move the entity (e.g. longitudinal ac
 
 A scene represents a snapshot in time of a driving situation, it essentially consists of a list of entities at a given time.
 
-It is implemented using the `Frame` object. `Frame` support most of the operation that one can do on a collection (`iterate`, `in`, `push!`, ...). 
+It is implemented using the `Scene` object. `Scene` supports most of the operation that one can do on a collection (`iterate`, `in`, `push!`, ...). 
 In addition it supports `get_by_id` to retrieve an entity by its ID.
 
 ### Driver Model 

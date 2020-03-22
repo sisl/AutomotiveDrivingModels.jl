@@ -17,12 +17,12 @@ The state of an entity usually describes physical quantity such as position and 
 
 Two state data structures are provided.
 
-## Frames 
+## Scenes
 
-Scene are represented using the `Frame` object. It is a datastructure to represent a collection of entities. 
+Scenes are represented using the `Scene` object. It is a datastructure to represent a collection of entities. 
 
 ```@docs 
-    Frame 
+    Scene 
 ```
 
 ## Defining your own state type

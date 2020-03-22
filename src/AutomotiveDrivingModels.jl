@@ -101,8 +101,8 @@ include("agent-definitions/agent_definitions.jl")
 
 export
     Entity,
-    Frame,
-    EntityFrame,
+    Scene,
+    EntityScene,
     capacity,
     id2index,
     get_by_id,
@@ -120,7 +120,7 @@ export
     get_lane
 
 include("states/entities.jl")
-include("states/frames.jl")
+include("states/scenes.jl")
 include("states/interface.jl")
 include("states/vehicle_state.jl")
 
@@ -149,7 +149,7 @@ include("collision-checkers/parallel_axis.jl")
 
 export AbstractFeature,
        EntityFeature,
-       FrameFeature,
+       SceneFeature,
        TemporalFeature,
        extract_features,
        extract_feature,

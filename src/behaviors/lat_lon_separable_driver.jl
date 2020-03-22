@@ -9,7 +9,7 @@ function set_desired_speed!(model::LatLonSeparableDriver, v_des::Float64)
     set_desired_speed!(model.mlon, v_des)
     model
 end
-function observe!(model::LatLonSeparableDriver, scene::Frame{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
+function observe!(model::LatLonSeparableDriver, scene::Scene{Entity{S, D, I}}, roadway::Roadway, egoid::I) where {S, D, I}
     observe!(model.mlat, scene, roadway, egoid)
     observe!(model.mlon, scene, roadway, egoid)
     model

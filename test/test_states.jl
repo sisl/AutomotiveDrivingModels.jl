@@ -1,10 +1,10 @@
 function get_test_trajdata(roadway::Roadway)
-    scene1 = Frame([
+    scene1 = Scene([
         Entity(VehicleState(VecSE2(0.0,0.0,0.0), roadway, 10.0), VehicleDef(), 1),
         Entity(VehicleState(VecSE2(3.0,0.0,0.0), roadway, 20.0), VehicleDef(), 2)
     ]
     )
-    scene2 = Frame([
+    scene2 = Scene([
         Entity(VehicleState(VecSE2(1.0,0.0,0.0), roadway, 10.0), VehicleDef(), 1),
         Entity(VehicleState(VecSE2(5.0,0.0,0.0), roadway, 20.0), VehicleDef(), 2)
     ]
@@ -66,8 +66,8 @@ end
     vehstate1 = VehicleState(VecSE2(0.0, 0.0, 0.0), roadway[LaneTag(1,1)], roadway, 0.0)
     @test vehstate1 == vehstate
     veh = Entity(vehstate, VehicleDef(), 1)
-    scene1 = Frame([veh])
-    scene2 = Frame([veh])
+    scene1 = Scene([veh])
+    scene2 = Scene([veh])
     @test first(scene1.entities) == first(scene2.entities)
     @test scene1.n == scene2.n
 
@@ -79,12 +79,12 @@ end
     veh3 = convert(Entity{VehicleState, VehicleDef, Int64}, veh2)
     @test veh3 == veh
 
-    scene = Frame([veh, veh2, veh3])
+    scene = Scene([veh, veh2, veh3])
 
     io = IOBuffer()
     show(io, scene)
     close(io)
-    scene = Frame(typeof(veh))
+    scene = Scene(typeof(veh))
     copyto!(scene, trajdata[1])
     @test length(scene) == 2
     for (i,veh) in enumerate(scene)
@@ -92,7 +92,7 @@ end
         @test scene[i].def == trajdata[1][i].def
     end
 
-    scene2 = Frame(deepcopy(scene.entities), 2)
+    scene2 = Scene(deepcopy(scene.entities), 2)
     @test length(scene2) == 2
     for (i,veh) in enumerate(scene2)
         @test scene2[i].state == trajdata[1][i].state

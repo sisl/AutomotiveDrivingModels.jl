@@ -27,7 +27,7 @@ snapshot = render([roadway])
 # As a next step, let's populate a scene with vehicles
 
 w = DEFAULT_LANE_WIDTH
-scene = Frame([
+scene = Scene([
     Entity(VehicleState(VecSE2(10.0,  -w, 0.0), roadway, 29.0), VehicleDef(), :alice),
     Entity(VehicleState(VecSE2(40.0, 0.0, 0.0), roadway, 22.0), VehicleDef(), :bob),
     Entity(VehicleState(VecSE2(30.0, -2w, 0.0), roadway, 27.0), VehicleDef(), :charlie),
@@ -110,7 +110,7 @@ end
 # The trajectory data file can be loaded in a similar way. You need to specify the output type. 
 
 loaded_scenes = open("2Dstadium_listrec.txt", "r") do io 
-    read(io, Vector{EntityFrame{VehicleState, VehicleDef, String}})
+    read(io, Vector{EntityScene{VehicleState, VehicleDef, String}})
 end
 render([roadway, loaded_scenes[1]])
 #md write("stadium_with_cars_loaded.svg", snapshot) # hide

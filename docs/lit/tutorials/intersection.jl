@@ -139,7 +139,7 @@ end;
 # Let's populate the intersection
 
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0) # initial state of the vehicle
-scene = Frame([Entity(vs0, VehicleDef(), 1)])
+scene = Scene([Entity(vs0, VehicleDef(), 1)])
 
 snapshot = render([roadway, scene])
 #md write("intersection_populated.svg", snapshot) # hide
@@ -172,7 +172,7 @@ struct InterDriver <: DriverModel{LaneSpecificAccelLatLon}
     a::LaneSpecificAccelLatLon
 end
 
-AutomotiveDrivingModels.observe!(model::InterDriver, scene::Frame, roadway::Roadway, egoid::Int64) = model
+AutomotiveDrivingModels.observe!(model::InterDriver, scene::Scene, roadway::Roadway, egoid::Int64) = model
 Base.rand(::AbstractRNG, model::InterDriver) = model.a
 
 # **Simulate:**
@@ -187,7 +187,7 @@ timestep = 0.1
 nticks = 100
 
 vs0 = VehicleState(B + polar(50.0,-π), roadway, 8.0)
-scene = Frame([Entity(vs0, VehicleDef(), 1)])
+scene = Scene([Entity(vs0, VehicleDef(), 1)])
 models = Dict(1 => InterDriver(LaneSpecificAccelLatLon(0.0,0.0)))
 scenes = simulate(scene, roadway, models, nticks, timestep)
 

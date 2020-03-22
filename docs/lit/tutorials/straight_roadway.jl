@@ -10,8 +10,8 @@
 # - `def` - `VehicleDef`, containing length, width, and class
 # - `id` - `Int`, a unique label for each vehicle`
 # 
-# A driving situation with different vehicles at a given time is referred to as a scene or a frame. It is represented by the `Frame` object. 
-# A `Frame` can be thought of as a vector of vehicles. However, in addition to simple vectors it allows to query vehicles by ID using the `get_by_id` function.
+# A driving situation with different vehicles at a given time is referred to as a scene. It is represented by the `Scene` object. 
+# A `Scene` can be thought of as a vector of vehicles. However, in addition to simple vectors it allows to query vehicles by ID using the `get_by_id` function.
 # We use a straight roadway with 1 lane as the environment.
 
 using AutomotiveDrivingModels
@@ -19,7 +19,7 @@ using AutoViz # for rendering
 AutoViz.colortheme["background"] = colorant"white"; # hide
 
 roadway = gen_straight_roadway(1, 2000.0)  # 200m long straight roadway with 1 lane
-scene = Frame([
+scene = Scene([
     Entity(VehicleState(VecSE2(10.0,0.0,0.0), roadway, 8.0), VehicleDef(), 1),
     Entity(VehicleState(VecSE2(50.0,0.0,0.0), roadway, 12.5), VehicleDef(), 2),
     Entity(VehicleState(VecSE2(150.0,0.0,0.0), roadway, 6.0), VehicleDef(), 3),

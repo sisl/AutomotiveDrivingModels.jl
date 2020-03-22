@@ -132,7 +132,7 @@ ped = Entity(ped_init_state, PEDESTRIAN_DEF, :pedestrian)
 car_initial_state = VehicleState(VecSE2(0.0, 0., 0.), roadway.segments[1].lanes[1],roadway, 8.0)
 car = Entity(car_initial_state, VehicleDef(), :car)
 
-scene = Frame([ped, car])
+scene = Scene([ped, car])
 
 # Define a model for each entity present in the scene
 models = Dict{Symbol, DriverModel}(
@@ -163,7 +163,7 @@ end;
 #md write("sidewalk_animation.gif", animation); # hide
 #md # ![sidewalk animation](sidewalk_animation.gif)
 
-# We can use a slider to scroll through each frame in the simulation. This usually takes less time than rendering a video.
+# We can use a slider to scroll through each scene in the simulation. This usually takes less time than rendering a video.
 
 #md using Interact
 #md using Reel

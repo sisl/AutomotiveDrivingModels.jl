@@ -1,6 +1,6 @@
 """
     simulate(
-        scene::Frame{E}, roadway::R, models::Dict{I,M}, nticks::Int64, timestep::Float64;
+        scene::Scene{E}, roadway::R, models::Dict{I,M}, nticks::Int64, timestep::Float64;
         rng::AbstractRNG = Random.GLOBAL_RNG, callbacks = nothing
     ) where {E<:Entity,A,R,I,M<:DriverModel}
 
@@ -8,7 +8,7 @@ Simulate a `scene`. For detailed information, consult the documentation of `simu
 By default, returns a vector containing one scene per time step.
 """
 function simulate(
-    scene::Frame{E},
+    scene::Scene{E},
     roadway::R,
     models::Dict{I,M},
     nticks::Int64,
@@ -16,7 +16,7 @@ function simulate(
     rng::AbstractRNG = Random.GLOBAL_RNG,    
     callbacks = nothing,
 ) where {E<:Entity,A,R,I,M<:DriverModel}
-    scenes = [Frame(E, length(scene)) for i=1:nticks+1]
+    scenes = [Scene(E, length(scene)) for i=1:nticks+1]
     n = simulate!(
         scene, roadway, models, nticks, timestep, scenes, nothing,
         rng=rng, callbacks=callbacks
@@ -27,9 +27,9 @@ end
 """
 
     simulate!(
-        scene::Frame{E}, roadway::R, models::Dict{I,M},
+        scene::Scene{E}, roadway::R, models::Dict{I,M},
         nticks::Int64, timestep::Float64,
-        scenes::Vector{Frame{E}}, actions::Union{Nothing, Vector{Frame{A}}} = nothing;
+        scenes::Vector{Scene{E}}, actions::Union{Nothing, Vector{Scene{A}}} = nothing;
         rng::AbstractRNG = Random.GLOBAL_RNG, callbacks = nothing
     ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}
 
@@ -38,7 +38,7 @@ Simulate the entities in `scene` along a `roadway` for a maximum of
 Returns the number of successfully performed timesteps.
 
 At each time step, `models` is used to determine the action for each agent.
-`scenes` and `actions` are pre-allocated vectors of `Frame`s containing either
+`scenes` and `actions` are pre-allocated vectors of `Scene`s containing either
 `Entity`s (for scenes) or `EntityAction`s (for actions).
 If `actions` is equal to `nothing` (default), the action history is not tracked.
 `scenes` must always be provided.
@@ -51,13 +51,13 @@ The random number generator for the simulation can be provided using the `rng`
 keyword argument, it defaults to `Random.GLOBAL_RNG`.
 """
 function simulate!(
-    scene::Frame{E},
+    scene::Scene{E},
     roadway::R,
     models::Dict{I,M},
     nticks::Int64,
     timestep::Float64,
-    scenes::Vector{Frame{E}},
-    actions::Union{Nothing, Vector{Frame{A}}} = nothing;
+    scenes::Vector{Scene{E}},
+    actions::Union{Nothing, Vector{Scene{A}}} = nothing;
     rng::AbstractRNG = Random.GLOBAL_RNG,    
     callbacks = nothing
     ) where {E<:Entity,A<:EntityAction,R,I,M<:DriverModel}

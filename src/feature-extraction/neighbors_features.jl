@@ -54,13 +54,13 @@ targetpoint_delta(::VehicleTargetPointRear, veh::Entity{S, D, I}) where {S,D<:Ab
 const VEHICLE_TARGET_POINT_CENTER = VehicleTargetPointCenter()
 
 """
-    find_neighbor(scene::Frame, roadway::Roawday, ego::Entity; kwargs...)
+    find_neighbor(scene::Scene, roadway::Roawday, ego::Entity; kwargs...)
 
 Search through lanes and road segments to find a neighbor of `ego` in the `scene`. 
 
 # Arguments
 
-- `scene::Frame` the scene containing all the entities
+- `scene::Scene` the scene containing all the entities
 - `roadway::Roadway` the road topology on which entities are driving 
 - `ego::Entity` the entity that we want to compute the neighbor of.
 
@@ -72,7 +72,7 @@ Search through lanes and road segments to find a neighbor of `ego` in the `scene
 - `targetpoint_neighbor::VehicleTargetPoint` the point on the neighbor vehicle used for distance calculation, see `VehicleTargetPoint` for more info
 - `ids_to_ignore::Union{Nothing, Set{I}} = nothing` a list of entity ids to ignore for the search, ego is always ignored.
 """
-function find_neighbor(scene::Frame, roadway::Roadway, ego::Entity{S,D,I};
+function find_neighbor(scene::Scene, roadway::Roadway, ego::Entity{S,D,I};
                        lane::Union{Nothing, Lane} = get_lane(roadway, ego),
                        rear::Bool=false, 
                        max_distance::Float64=250.0, 
@@ -309,11 +309,11 @@ end
 get_frenet_relative_position(veh_fore::Entity{S, D, I}, veh_rear::Entity{S, D, I}, roadway::Roadway) where {S,D, I} = get_frenet_relative_position(posg(veh_fore.state), posf(veh_rear.state).roadind, roadway)
 
 """
-    dist_to_front_neighbor(roadway::Roadway, scene::Frame, veh::Entity)
+    dist_to_front_neighbor(roadway::Roadway, scene::Scene, veh::Entity)
 Feature function to extract the longitudinal distance to the front neighbor (in the Frenet frame).
 Returns `missing` if there are no front neighbor.
 """
-function dist_to_front_neighbor(roadway::Roadway, scene::Frame, veh::Entity)
+function dist_to_front_neighbor(roadway::Roadway, scene::Scene, veh::Entity)
     neighbor = find_neighbor(scene, roadway, veh)
     if neighbor.ind === nothing 
         return missing 
@@ -323,11 +323,11 @@ function dist_to_front_neighbor(roadway::Roadway, scene::Frame, veh::Entity)
 end
 
 """
-    front_neighbor_speed(roadway::Roadway, scene::Frame, veh::Entity)
+    front_neighbor_speed(roadway::Roadway, scene::Scene, veh::Entity)
 Feature function to extract the velocity of the front neighbor.
 Returns `missing` if there are no front neighbor.
 """
-function front_neighbor_speed(roadway::Roadway, scene::Frame, veh::Entity)
+function front_neighbor_speed(roadway::Roadway, scene::Scene, veh::Entity)
     neighbor = find_neighbor(scene, roadway, veh)
     if neighbor.ind === nothing 
         return missing 
@@ -337,11 +337,11 @@ function front_neighbor_speed(roadway::Roadway, scene::Frame, veh::Entity)
 end
 
 """
-    time_to_collision(roadway::Roadway, scene::Frame, veh::Entity)
+    time_to_collision(roadway::Roadway, scene::Scene, veh::Entity)
 Feature function to extract the time to collision with the front neighbor.
 Returns `missing` if there are no front neighbor.
 """
-function time_to_collision(roadway::Roadway, scene::Frame, veh::Entity)
+function time_to_collision(roadway::Roadway, scene::Scene, veh::Entity)
     neighbor = find_neighbor(scene, roadway, veh)
     if neighbor.ind === nothing 
         return missing
